@@ -26,16 +26,6 @@ Below `<project>` is the current project's top level module name.
 - `bin/` - entry point scripts, bin-scripts
 - `bin/activate.sh` - activate the Python virtual environment
 
-## Python environment and scripts
-
-### Activation
-
-```shell
-source bin/activate.sh
-```
-
-After activation, run scripts, bin-scripts, and `pytest` directly - no `uv run` prefix needed.
-
 ## Before committing and pushing
 
 1. `ruff check && ruff format --check`
