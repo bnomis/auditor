@@ -44,8 +44,8 @@ See the `specdev` skill for `slugification` rules
 
 ### 3. Run automated checks
 
-1. Run `uv run ruff check` on source files in scope -- record any violations
-2. Run `uv run ruff format --check` on source files in scope -- record any formatting issues
+1. Run `ruff check` on source files in scope -- record any violations
+2. Run `ruff format --check` on source files in scope -- record any formatting issues
 
 If ruff reports violations, add a single finding summarising the count and list up to 5 examples. Do not list every violation individually.
 
