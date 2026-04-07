@@ -1,12 +1,13 @@
 ---
 name: auditme
-description: Perform a structured code and spec audit with findings and recommendations
+description: Perform a structured code, spec and documentation audit with findings and recommendations
 when_to_use: |
     Use this skill whenever the user mentions:
         - audit the code
         - code audit
         - full code review
         - review the codebase
+        - audit the docs
 
 allowed_tools: [Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Skill]
 ---
@@ -23,14 +24,16 @@ Scope examples:
 - `/auditme` -- full audit (all specs, all source, all docs)
 - `/auditme src/<project>/<file>.py` -- audit a single module
 - `/auditme <spec>` -- audit a spec and its implementation
+- `/auditme docs` -- audit user docs match the implementation
 
 ## Workflow
 
 ### 1. Establish scope
 
-- **Full audit** (no argument): audit `agents/specs/`, `src/`, `AGENTS.md`, and `README.md`
+- **Full audit** (no argument): audit `agents/specs/`, `src/`, `docs/`, `AGENTS.md`, and `README.md`
 - **Module audit** (file path given): audit that module, its tests, and any spec that references it
 - **Spec audit** (spec name given): resolve to `agents/specs/<SLUG>/spec.md`, audit the spec and its implementation
+- **Docs audit**: audit the user documentation in `docs/`, ensure it matches the implementation
 
 See the `specdev` skill for `slugification` rules
 
@@ -40,7 +43,8 @@ See the `specdev` skill for `slugification` rules
 2. Read `agents/specs/index.md` (if it exists) to discover all specs
 3. Read the source modules in scope
 4. Read existing tests for modules in scope
-5. Read any prior review files in `agents/audit-reviews/` to avoid repeating findings
+5. Read use docs in `docs/`
+6. Read any prior review files in `agents/audit-reviews/` to avoid repeating findings
 
 ### 3. Run automated checks
 
@@ -123,6 +127,7 @@ Evaluate each category. Skip categories that are out of scope for a focused audi
 - [ ] `AGENTS.md` development tools and libraries list is current
 - [ ] `README.md` (if it exists) is consistent with `AGENTS.md`
 - [ ] Specs in `agents/specs/` match their implementations (drift detection)
+- [ ] User docs in `docs/` match the implementation (drift detection)
 
 ### Coding standards
 
