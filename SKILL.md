@@ -42,9 +42,10 @@ See the `specdev` skill for `slugification` rules
 1. Read `AGENTS.md` and `README.md`
 2. Read `agents/specs/index.md` (if it exists) to discover all specs
 3. Read the source modules in scope
-4. Read existing tests for modules in scope
-5. Read use docs in `docs/`
-6. Read any prior review files in `agents/audit-reviews/` to avoid repeating findings
+4. Read rules for coding standards
+5. Read existing tests for modules in scope
+6. Read use docs in `docs/`
+7. Read any prior review files in `agents/audit-reviews/` to avoid repeating findings
 
 ### 3. Run automated checks
 
@@ -138,6 +139,7 @@ Ruff violations are captured in step 3. Verify the following in addition to ruff
 - [ ] f-strings used instead of `%` or `.format()`
 - [ ] Imports follow isort ordering (stdlib, third-party, local)
 - [ ] No wildcard imports
+- [ ] Follows coding rules and standards
 
 ### Security
 
