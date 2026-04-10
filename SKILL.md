@@ -47,8 +47,8 @@ Spawn multiple agents to do the following:
 4. Read rules for coding standards
 5. Read existing tests for modules in scope
 6. Read use docs in `docs/`
-7. Read any prior review files in `agents/audit-reviews/` to avoid repeating findings
-8. Read any prior task files in `agents/tasks/audit-reviews/` to check all prior finding have been addressed.
+7. Read the audit summary file `agents/audit-reviews/summary.md` (if it exists) to understand prior findings and avoid repeating them. **Do not read individual review files** — the summary is the single source of truth for prior audit history.
+8. Grep for incomplete tasks (`- [ ]`) across files in `agents/tasks/audit-reviews/`. Read **only** the files that contain incomplete items. Do not read task files where all items are complete.
 
 ### 3. Run automated checks
 
@@ -88,6 +88,20 @@ Update `agents/audit-reviews/index.md` with the new review file entry (create th
 
 If you detected incomplete tasks in the context gathering phase, do not assume they are not done, check the source code of the implementation to confirm if they have been done or not. If the implementation is complete modify the previous task files to mark the tasks as done so we don't find them again. If the tasks are not done add a section to the review file to complete the work.
 
+### 6a. Update the audit summary
+
+After writing the review file, update `agents/audit-reviews/summary.md`. This file is a **rolling summary** that replaces the need to read all prior reviews. It must follow the [Audit summary template](#audit-summary-template) below.
+
+Update process:
+
+1. Read the current `summary.md` (if it exists)
+2. **Remove** any previously-unresolved findings that this review confirmed are now fixed
+3. **Add** new findings from review-N that have not yet been addressed
+4. Update the metadata (last review number, date, total reviews conducted)
+5. Write the updated `summary.md`
+
+If `summary.md` does not exist, create it from scratch using only the current review's findings. Do not backfill from old review files — the summary starts fresh and accumulates going forward.
+
 ### 7. Act on findings
 
 - **If there are recommendations for improvements:** use the `taskdev` skill to create a task list.
@@ -102,10 +116,11 @@ If you detected incomplete tasks in the context gathering phase, do not assume t
 
 1. Check for uncommitted changes with `git status`
 2. If uncommitted changes exist, ask the user if they want to commit them first
-3. After writing the review, stage it: `git add agents/audit-reviews/review-N.md`
-4. Ask the user if they'd like to commit
-5. Commit with message: `"auditme: add review-N"`
-6. Do not push unless the user asks
+3. After writing the review, stage it: `git add agents/audit-reviews/review-N.md agents/audit-reviews/summary.md agents/audit-reviews/index.md`
+4. Also stage any task files that were modified (marked as done) during the review
+5. Ask the user if they'd like to commit
+6. Commit with message: `"auditme: add review-N"`
+7. Do not push unless the user asks
 
 ## Review index
 
@@ -221,6 +236,49 @@ Prioritised summary of recommended actions, ordered by severity
 ## Clean categories
 
 List categories that were checked and passed cleanly. Only include this section if there are categories with zero findings.
+```
+
+## Audit summary template
+
+The summary file (`agents/audit-reviews/summary.md`) is a rolling document. It replaces the need to read all prior individual review files during context gathering, keeping context window usage bounded regardless of how many audits have been conducted.
+
+```markdown
+# Audit Summary
+
+**Last updated:** YYYY-MM-DD
+**Last review:** review-N
+**Total reviews conducted:** N
+
+## Unresolved findings
+
+Findings from prior reviews that have not yet been fixed. Each entry records where it was first raised so it can be traced back if needed.
+
+### <title>
+
+- **Category:** standards / security / performance / testing / documentation / architecture
+- **Severity:** high / medium / low
+- **Location:** `path/to/file.py:line` (or "project-wide")
+- **First raised:** review-N (YYYY-MM-DD)
+- **Description:** <what the issue is>
+- **Recommendation:** <concrete action to fix it>
+
+### <title>
+
+...
+
+## Recently resolved
+
+Findings confirmed fixed in the most recent 3 reviews. Older resolved findings are removed to keep this file concise.
+
+| Finding | Severity | Raised in | Resolved in |
+|---------|----------|-----------|-------------|
+| <title> | medium | review-5 | review-8 |
+
+## Recurring patterns
+
+Patterns that have appeared across multiple reviews, even if individual instances were fixed. These indicate systemic issues worth addressing at the project level rather than file-by-file.
+
+- <pattern description> (seen in reviews N, M, P)
 ```
 
 ## Severity guide
