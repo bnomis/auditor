@@ -39,6 +39,8 @@ See the `specdev` skill for `slugification` rules
 
 ### 2. Gather context
 
+Spawn multiple agents to do the following:
+
 1. Read `AGENTS.md` and `README.md`
 2. Read `agents/specs/index.md` (if it exists) to discover all specs
 3. Read the source modules in scope
@@ -46,6 +48,7 @@ See the `specdev` skill for `slugification` rules
 5. Read existing tests for modules in scope
 6. Read use docs in `docs/`
 7. Read any prior review files in `agents/audit-reviews/` to avoid repeating findings
+8. Read any prior task files in `agents/tasks/audit-reviews/` to check all prior finding have been addressed.
 
 ### 3. Run automated checks
 
@@ -59,23 +62,21 @@ If ruff reports violations, add a single finding summarising the count and list 
 Audit **file-by-file**, not category-by-category. This ensures every file is explicitly reviewed and nothing is skipped due to LLM attention drift.
 
 1. Use `Glob` to build a complete list of source files in scope (e.g. `src/**/*.py`)
-2. Iterate through each file in the list:
+2. Divide the files between multiple agents to iterate through each file in the list:
    a. Read the file
    b. Evaluate it against **every applicable category** in the [Audit checklist](#audit-checklist) below
-   c. Record any findings with category, severity, location, and a concrete recommendation
+   c. Record all findings with category, severity, location, and a concrete recommendation
 3. Track which files you have reviewed — this list is written to the review file (see [Review template](#review-template))
 
 Do not move on from a file until you have checked all applicable checklist categories against it. This prevents the common failure mode of scanning by category and missing files.
 
 ### 5. Spec review
 
-For each spec in scope, check it against the validation criteria and spec template in agents/skills/specdev/SKILL.md. Do not invoke the specdev skill — perform the checks directly and record gaps as findings.
+For each spec in scope, check it against the validation criteria and spec template in `agents/skills/specdev/SKILL.md`. Do not invoke the `specdev` skill — perform the checks directly and record gaps as findings.
 
 If there are no specs in scope, skip this step.
 
 ### 6. Write the review file
-
-Cap the review at 20 findings. If more issues exist, note the total count in the Summary and recommend a focused follow-up audit.
 
 Write findings to `agents/audit-reviews/review-N.md` using the [Review template](#review-template) below.
 
@@ -84,6 +85,8 @@ To determine N: check existing files in `agents/audit-reviews/` and use the next
 **Do not overwrite existing review files.** Always increment N.
 
 Update `agents/audit-reviews/index.md` with the new review file entry (create the index if it doesn't exist)
+
+If you detected incomplete tasks in the context gathering phase, do not assume they are not done, check the source code of the implementation to confirm if they have been done or not. If the implementation is complete modify the previous task files to mark the tasks as done so we don't find them again. If the tasks are not done add a section to the review file to complete the work.
 
 ### 7. Act on findings
 
@@ -129,6 +132,7 @@ Evaluate each category. Skip categories that are out of scope for a focused audi
 - [ ] `README.md` (if it exists) is consistent with `AGENTS.md`
 - [ ] Specs in `agents/specs/` match their implementations (drift detection)
 - [ ] User docs in `docs/` match the implementation (drift detection)
+- [ ] Previous tasks in `agents/tasks/audit-reviews/` are done
 
 ### Coding standards
 
