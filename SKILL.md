@@ -15,9 +15,21 @@ allowed_tools: [Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Skill]
 # Code audit
 
 Invoke as:
-    /auditme [scope]
+    /auditme [scope] [--category <category>]
 
 Where `[scope]` is an optional argument specifying what to audit. If no argument is provided, perform a full audit of the entire project.
+
+The `--category` flag restricts the audit to a single checklist category. Valid categories:
+
+- `documentation` -- documentation coherence
+- `standards` -- coding standards
+- `security` -- security
+- `testing` -- testing
+- `performance` -- performance
+- `dependencies` -- dependencies
+- `architecture` -- architecture
+
+When `--category` is provided, only that category is evaluated during the manual audit (step 4). All other workflow steps (context gathering, automated checks, spec review, etc.) still run as normal, but findings are limited to the selected category. The review file title should include the category name (e.g. "Audit Review N (security)").
 
 Scope examples:
 
@@ -25,6 +37,8 @@ Scope examples:
 - `/auditme src/<project>/<file>.py` -- audit a single module
 - `/auditme <spec>` -- audit a spec and its implementation
 - `/auditme docs` -- audit user docs match the implementation
+- `/auditme --category security` -- full scope, security category only
+- `/auditme src/<project>/<file>.py --category testing` -- single module, testing only
 
 ## Workflow
 
@@ -34,6 +48,8 @@ Scope examples:
 - **Module audit** (file path given): audit that module, its tests, and any spec that references it
 - **Spec audit** (spec name given): resolve to `agents/specs/<SLUG>/spec.md`, audit the spec and its implementation
 - **Docs audit**: audit the user documentation in `docs/`, ensure it matches the implementation
+
+If `--category <category>` is present, record the selected category. This does not change the file scope — it restricts which checklist categories are evaluated in step 4.
 
 See the `specdev` skill for `slugification` rules
 
@@ -64,8 +80,9 @@ Audit **file-by-file**, not category-by-category. This ensures every file is exp
 1. Use `Glob` to build a complete list of source files in scope (e.g. `src/**/*.py`)
 2. Divide the files between multiple agents to iterate through each file in the list:
    a. Read the file
-   b. Evaluate it against **every applicable category** in the [Audit checklist](#audit-checklist) below
-   c. Record all findings with category, severity, location, and a concrete recommendation
+   b. If `--category` was specified: evaluate only that category from the [Audit checklist](#audit-checklist) below
+   c. If no `--category` was specified: evaluate against **every applicable category** in the checklist
+   d. Record all findings with category, severity, location, and a concrete recommendation
 3. Track which files you have reviewed — this list is written to the review file (see [Review template](#review-template))
 
 Do not move on from a file until you have checked all applicable checklist categories against it. This prevents the common failure mode of scanning by category and missing files.
