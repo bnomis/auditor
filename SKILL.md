@@ -21,13 +21,13 @@ Where `[scope]` is an optional argument specifying what to audit. If no argument
 
 The `--category` flag restricts the audit to a single checklist category. Valid categories:
 
-- `documentation` -- documentation coherence
 - `standards` -- coding standards
+- `architecture` -- architecture
+- `performance` -- performance
 - `security` -- security
 - `testing` -- testing
-- `performance` -- performance
 - `dependencies` -- dependencies
-- `architecture` -- architecture
+- `documentation` -- documentation coherence
 
 When `--category` is provided, only that category is evaluated during the manual audit (step 4). All other workflow steps (context gathering, automated checks, spec review, etc.) still run as normal, but findings are limited to the selected category. The review file title should include the category name (e.g. "Audit Review N (security)").
 
@@ -157,15 +157,6 @@ Format:
 
 Evaluate each category. Skip categories that are out of scope for a focused audit.
 
-### Documentation coherence
-
-- [ ] `AGENTS.md` project structure matches actual directory layout
-- [ ] `AGENTS.md` development tools and libraries list is current
-- [ ] `README.md` (if it exists) is consistent with `AGENTS.md`
-- [ ] Specs in `agents/specs/` match their implementations (drift detection)
-- [ ] User docs in `docs/` match the implementation (drift detection)
-- [ ] Previous tasks in `agents/tasks/audit-reviews/` are done
-
 ### Coding standards
 
 Ruff violations are captured in step 3. Verify the following in addition to ruff output:
@@ -176,6 +167,19 @@ Ruff violations are captured in step 3. Verify the following in addition to ruff
 - [ ] Imports follow isort ordering (stdlib, third-party, local)
 - [ ] No wildcard imports
 - [ ] Follows coding rules and standards
+
+### Architecture
+
+- [ ] Modules have clear, single responsibilities
+- [ ] No circular imports
+- [ ] Public APIs are minimal and well-defined
+- [ ] Error handling follows project convention (let unexpected exceptions propagate)
+
+### Performance
+
+- [ ] No obvious O(n^2) or worse patterns on potentially large inputs
+- [ ] No unnecessary blocking I/O in hot paths
+- [ ] No redundant file reads or repeated expensive computations
 
 ### Security
 
@@ -193,24 +197,20 @@ Assess by reading test files — do not run the test suite.
 - [ ] Functions with branching logic, error handling, or state transitions have corresponding test cases
 - [ ] Property-based tests (hypothesis) used where input domains are well-defined
 
-### Performance
-
-- [ ] No obvious O(n^2) or worse patterns on potentially large inputs
-- [ ] No unnecessary blocking I/O in hot paths
-- [ ] No redundant file reads or repeated expensive computations
-
 ### Dependencies
 
 - [ ] All dependencies declared in `pyproject.toml`
 - [ ] No unused dependencies
 - [ ] `uv.lock` is committed and up to date
 
-### Architecture
+### Documentation coherence
 
-- [ ] Modules have clear, single responsibilities
-- [ ] No circular imports
-- [ ] Public APIs are minimal and well-defined
-- [ ] Error handling follows project convention (let unexpected exceptions propagate)
+- [ ] `AGENTS.md` project structure matches actual directory layout
+- [ ] `AGENTS.md` development tools and libraries list is current
+- [ ] `README.md` (if it exists) is consistent with `AGENTS.md`
+- [ ] Specs in `agents/specs/` match their implementations (drift detection)
+- [ ] User docs in `docs/` match the implementation (drift detection)
+- [ ] Previous tasks in `agents/tasks/audit-reviews/` are done
 
 ## Review template
 
