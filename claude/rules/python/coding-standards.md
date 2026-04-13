@@ -9,6 +9,10 @@ Follow the ruff rules defined in `pyproject.toml`, see `[tool.ruff]` in `pyproje
 
 Below `<project>` is the current project's top level module name.
 
+## Python version
+
+- Minimum supported version: Python 3.14 <https://docs.python.org/3.14/>
+
 ## Critical rules
 
 - **Do not modify** these files without explicit instruction: `.envrc`, `uv.lock`, `.pre-commit-config.yaml`
@@ -138,6 +142,26 @@ Do **not** alphabetise lists where order is semantically meaningful (e.g., proce
 
 - Prefer `dataclasses` for structured data
 - Use `cappa` dataclass conventions for CLI argument definitions
+
+## Exception syntax
+
+We're using at least Python version 3.14.
+
+The following:
+
+```python
+except ValueError, RuntimeError:
+```
+
+Without parentheses, is valid Python 3.14 syntax per PEP 758, see <https://docs.python.org/3/reference/compound_stmts.html#try>
+
+Do not flag or "fix" it.
+
+The only caveat: parentheses are still required when using as — e.g.
+
+```python
+except (ValueError, RuntimeError) as e:
+```
 
 ## Error handling
 
