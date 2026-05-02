@@ -119,6 +119,18 @@ Update process:
 
 If `summary.md` does not exist, create it from scratch using only the current review's findings. Do not backfill from old review files — the summary starts fresh and accumulates going forward.
 
+### 6b. Refresh summary after task completion
+
+After the review's task list has been shipped (every task marked done),
+update `summary.md` again. Do not wait for the next audit.
+
+1. Move all findings addressed by the shipped tasks from "Unresolved findings" to "Recently resolved"
+2. Add their entries to the "Recently resolved" table with `Resolved in: review-N`
+3. Update the "Last updated" date in the metadata
+4. Write the updated `summary.md`
+
+This keeps the summary accurate between audits and prevents the next reviewer from spending time re-checking findings that were already fixed.
+
 ### 7. Act on findings
 
 - **If there are recommendations for improvements:** use the `taskdev` skill to create a task list.
