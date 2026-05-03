@@ -57,6 +57,8 @@ __all__ = ['Bar', 'Foo']
 
 Do not include unnecessary imports. If an import exists but is not used, remove it.
 
+**Exception: `__init__.py` re-export lists** - relative imports (`from .module import Symbol`) are permitted inside `__init__.py` files for re-exporting symbols from sub-modules into the package's public API. This is the only permitted use of `from X import Y` in internal code.
+
 **Always use full import paths** - do not use `from X import Y` pattern:
 
 ```python
@@ -97,7 +99,7 @@ import matplotlib.pyplot as plt
 - Prefer built-in generics (`list[str]`, `dict[str, int]`) over `typing` equivalents
 - Use `|` union syntax instead of `Union` or `Optional`
 - Use deferred evaluation of annotations (native in 3.14)
-- Do not use `from __future__ import annotations`  - it is unnecessary on Python 3.14
+- Do not use `from __future__ import annotations` - it is unnecessary on Python 3.14
 - If you see `from __future__ import annotations` in a file, remove it
 
 If an import is needed **only** for type annotation, import inside of a TYPE_CHECKING block. For example, like this:
@@ -114,7 +116,12 @@ if TYPE_CHECKING:
 - `snake_case` for functions, methods, variables, modules
 - `PascalCase` for classes
 - `UPPER_SNAKE_CASE` for constants
-- Do not use leading underscores to denote private attributes in our code  - we treat all internal code as trusted and use explicit `__all__` exports to define the public API instead
+- Prefer `__all__` to define the public API of packages imported by external consumers.
+
+## Underscores
+
+- Leading underscores (`_name`, `_NAME`) are NOT an accepted secondary privacy convention for marking implementation details within a module. DO NOT use leading underscores.
+- Single throwaway underscores `_` (e.g. for unused variables in loops) are acceptable
 
 ## String formatting
 
@@ -183,6 +190,10 @@ Function docstrings are not required for all functions but you may add them to d
   - `warning` for recoverable issues
   - `error` for failures
   - `exception` to log exceptions in `except` blocks
+- CLI entry points (`cli.py`, `ensemble/cli.py`) may use `print()` for
+  machine-consumable stdout (config dumps via `--dump-config`, result
+  summaries written to stdout). This output is typically piped into files
+  or other tools, so `loguru` would add unwanted structured log overhead.
 
 ## Logging exceptions
 
