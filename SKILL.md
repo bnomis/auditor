@@ -20,14 +20,17 @@ Invoke as:
 
 `[scope]` is optional. With no argument, audit the full project (specs, source, docs). With a path or spec name, restrict the scope.
 
-`--category` restricts the interpretive review (step 4) to one of: `standards`, `architecture`, `performance`, `security`, `testing`, `dependencies`, `documentation`. The mechanical sweep (step 3) always runs in full.
+`--category` is a debugging knob - it restricts Phase B to one of `standards`, `architecture`, `performance`, `security`, `testing`, `dependencies`, `documentation`. **Do not use `--category` in the normal converge-in-one-pass workflow.** Running category-scoped audits serially is the dominant cause of historical "the audit keeps finding new things": each category is a different lens, and switching lenses surfaces issues that were always present. The default invocation (no flag) runs every category in one pass and is the only invocation that can converge.
 
 ## Convergence is the success criterion
 
-Two consecutive audit runs on unchanged code MUST produce the same findings. If run N+1 surfaces findings that run N did not, one of two failures has happened:
+Two consecutive audit runs on unchanged code MUST produce the same findings. The audit is designed to converge in **one** pass. If run N+1 surfaces findings that run N did not, one of these failures has happened:
 
-1. **Script grew between runs.** A new check was added to `checks/audit.py`, so a class of historical debt that was previously invisible suddenly appears. This looks like "the audit found new issues" but it is the script catching up. Cure: the script does NOT change during an active audit-fix loop. Add new checks only after the current task list has shipped and the next audit is clean.
-2. **Phase B was non-deterministic.** A reviewer agent applied different judgment than last round on the same files. Cure: Phase B is a fixed checklist, not free-form reading. Two reviewers running the checklist on the same file must produce the same finding set.
+1. **Script grew between runs.** A new `check_*` was added to `checks/audit.py`, so historical debt that was previously invisible suddenly appears. Cure: the script-coverage backlog (see `summary.md`) must be drained into real check functions BEFORE any audit cycle starts. The script does not change during an audit. New patterns surfaced mid-audit are deferred to the next skill update, not the next audit cycle.
+2. **Phase B was non-deterministic.** A reviewer agent applied different judgment than last round on the same files. Cure: Phase B fan-out is per-question, not per-file. One agent owns one question across all files in scope, so a single judgment threshold applies per predicate.
+3. **Category-scoped runs.** A previous run used `--category X` and missed everything outside X. Cure: the canonical audit always runs every category. Use `--category` only for re-checking a single rule family during fix verification.
+4. **Predicate drift.** A Phase B question's "should-have-caught" set quietly grew between cycles (e.g., A2 originally meant "missing `OSError`", later expanded to also mean "missing `ParserError`"). Cure: every predicate has a fixed enumeration encoded in this file. Expanding a predicate is a skill change, never a per-cycle adjustment.
+5. **Rule conflict.** Fixing a finding under rule X created a finding under rule Y on the same line (e.g., moving `mkdir` from a callback into `__init__` swaps `A18` for `constructor-disk-io`). Cure: see [Rule conflict resolution](#rule-conflict-resolution).
 
 Convergence is non-negotiable. "We found more this time" is the failure signal, not progress.
 
@@ -52,7 +55,14 @@ Run these in parallel:
 
 ### 3. Mechanical sweep (scripted)
 
-Run the shipped audit script:
+**Precondition: backlog drained.** Before running, read `summary.md`'s `## Script coverage backlog` section. If any entry is marked `Status: queued`, the audit is not allowed to start. Either:
+
+1. Promote the queued predicate to a real `check_*` function in `checks/audit.py` (and update the backlog entry to `shipped-in-script-vN`), or
+2. Reject it explicitly: edit `summary.md` to mark it `rejected: <reason>` and remove it from the backlog.
+
+This precondition is the cure for failure mode 1. Without it, every audit cycle ships another "next time we'll add this check" and convergence is impossible.
+
+Then run the shipped audit script:
 
 ```bash
 python3 ~/.claude/skills/auditme/checks/audit.py <project-root> [--package <pkg>]
@@ -88,19 +98,22 @@ Schema:
 
 The full set of rules the script catches is documented in `checks/audit.py` itself - read the docstring of each `check_*` function for the predicate it encodes.
 
-### 4. Interpretive review (per-file checklist)
+### 4. Interpretive review (per-question fan-out)
 
-Phase B is **not** free-form reading. It is a fixed checklist applied to every file in scope. Two reviewers running this checklist on the same file must converge on the same finding set.
+Phase B is **not** free-form reading. It is a fixed checklist applied across every file in scope. Two audit runs of the same checklist over the same code must produce the same finding set.
 
-For each file in scope, divide files across multiple agents (parallel) and have each agent answer **every** question on the [Phase B checklist](#phase-b-checklist) for **every** assigned file. The output is structured: per file, per question, an explicit yes/no and (if yes) a list of locations.
+**Fan out by question, not by file.** Spawn one subagent per Phase B question (or per small bundle of related questions within one category). Each subagent owns ONE predicate across ALL files in scope. The subagent's task: "apply predicate Q across these files, return the list of `path:line` instances."
+
+This is the cure for failure mode 2. When 24 architecture questions are split across reviewers by file, each reviewer applies a slightly different judgment threshold to its slice of the corpus, and a different threshold to a different question, multiplying variance. With per-question fan-out, one reviewer applies one threshold to one predicate, eliminating cross-question and cross-file judgment drift.
 
 Rules for reviewers:
 
-- Answer EVERY question for EVERY file. Skipping a question is a Phase B failure.
-- "No issue" is a valid answer; record it explicitly. The audit needs to see the question was asked.
-- Findings are grouped by question, not invented from scratch. If you observe something the checklist does not ask about, add it to "Out-of-checklist observations" at the end of the file's report - this is the seed for a future checklist item, not a finding.
-- Do not self-edit. Low-severity / stylistic findings still go in the review.
-- Do not read with the goal of "finding concerns". Read with the goal of "answering the checklist".
+- Apply ONE predicate to ALL files. Do not range across questions; do not skip files.
+- The predicate's enumeration in this file is exhaustive. If the predicate says "covers `OSError, PermissionError, FileNotFoundError`", do not also flag missing `ValueError` - that is a different predicate and a different reviewer's job.
+- Output one row per hit: `path:line - one-line description`. No prose.
+- "No hits" is a valid result; record it explicitly so the orchestrator can confirm the predicate was actually run.
+- **Do not invent findings.** If you observe something no predicate asks about, drop it. The skill - not the audit - is where new predicates are added. The previous "Out-of-checklist observations" mechanism is removed because it created perpetual discovery loops; new predicates land via skill update between cycles, never mid-cycle.
+- Do not self-edit. Low-severity findings still go in the review.
 
 ### 5. Spec review
 
@@ -116,12 +129,15 @@ For each incomplete task in `agents/tasks/audit-reviews/*.md`, verify against so
 
 Before writing the review file, confirm:
 
+- [ ] `summary.md` script-coverage backlog was empty at audit start (every queued item shipped or rejected)
 - [ ] `checks/audit.py` was executed and its full JSONL output saved
 - [ ] Every `accepted: false` hit appears in the review (no sampling, no silent dismissals)
-- [ ] Phase B answered EVERY checklist question for EVERY file in scope (the per-file structured table is in the review)
-- [ ] Every unresolved summary.md finding was re-verified
+- [ ] Phase B ran with per-question fan-out covering EVERY question in EVERY category (`--category` was NOT used unless the user explicitly asked for a partial verification)
+- [ ] Every Phase B subagent returned an explicit hit list (or "no hits") - no question silently skipped
+- [ ] Every unresolved `summary.md` finding was re-verified
 - [ ] Every incomplete task file was re-verified against source
-- [ ] No new check was added to `checks/audit.py` during this audit (script-coverage delta is zero unless explicitly authorised)
+- [ ] No new check was added to `checks/audit.py` during this audit (script-coverage delta is zero)
+- [ ] No Phase B predicate had its enumeration expanded during this audit
 
 If any is no, finish it before writing the review.
 
@@ -176,7 +192,7 @@ Questions are organised by category. The `--category` flag restricts which secti
 Each question is a deterministic predicate. The reviewer reads the file end-to-end and answers each question.
 
 - **A1. External call envelope.** For every call to a third-party library that can do I/O (HTTP, MLflow, S3, database, subprocess, file system, HuggingFace `from_pretrained` / `save_pretrained` / `download_artifacts`, pandas `read_*` / `to_*`, torch `load` / `save`): is the call inside a `try/except` that translates the exception to the package's domain `*Error` class? Flag any external-IO call that lets a third-party exception escape.
-- **A2. Except tuple coverage.** For every `try/except` whose body touches disk: does the except tuple include `OSError` (or the `Exception` base)? Flag narrow except tuples (e.g. `except UnicodeDecodeError`) that miss disk-level failures.
+- **A2. Except tuple coverage.** For every `try/except` whose body touches disk or pandas/json parsers: does the except tuple include EVERY exception in the locked set below? Locked set: `OSError` (covers `PermissionError`, `FileNotFoundError`, `IsADirectoryError`); `UnicodeDecodeError` if the body decodes text; `pandas.errors.ParserError` if the body calls `pd.read_*`; `json.JSONDecodeError` if the body calls `json.load*`; `gzip.BadGzipFile` if the body opens `.gz`. Bare `Exception` also satisfies. Flag any tuple missing one of the above when the body matches that branch. Do not extend this set during an audit; expansion is a skill change.
 - **A3. Domain-error layering.** For every `raise` statement: is the raised type the package's domain `*Error` (or a `*Error` from a strictly lower layer)? Flag stdlib `ValueError`/`RuntimeError`/`KeyError`/`TypeError` raised in a package that defines its own `*Error` class.
 - **A4. Docstring `Raises` accuracy.** For every function whose docstring has a `Raises:` section: does the body actually raise each declared exception type, and only those? Flag mismatches.
 - **A5. Two sources of truth.** For every state value that has both a config field and a method parameter (or two attributes that should always agree): is the precedence rule documented and enforced? Flag silent precedence (whichever path wins by coincidence of execution order).
@@ -194,7 +210,7 @@ Each question is a deterministic predicate. The reviewer reads the file end-to-e
 - **A17. Public-surface drift.** For every `__init__.py` with `__all__`: is every symbol in `__all__` used outside the package? For every empty `__init__.py`: do consumers reach into private submodules? Flag bypasses of the canonical owning module.
 - **A18. Hot-path setup.** For every callback method (`on_step`, `on_log`, `on_evaluate`, `on_batch_*`): does it perform setup (mkdir, file open) that should live in `__init__`? Flag per-event side effects.
 - **A19. Wrong logger level for broad-except.** For every `except Exception` / `except BaseException`: does the body use `logger.exception` (not `warning`/`error`/`info`/`debug`)? And conversely, is `logger.exception` reserved for unexpected failures, not expected graceful-degradation paths?
-- **A20. Mutable module-level singleton.** For every module-level mutable container (`dict`, `list`, `set`) that is consumed by name from outside: is it wrapped in `types.MappingProxyType` / `frozenset` / `tuple`? Flag mutable globals that callers can rebind.
+- **A20. Mutable module-level singleton.** For every module-level mutable container that is imported by name from another module: is it immutable per the locked set below? Locked set: `dict` -> must be `types.MappingProxyType(...)`; `set` -> must be `frozenset(...)`; `list` -> must be `tuple(...)`. The predicate is "imported elsewhere" - verify with grep for `from <module> import <name>` before flagging. Do not extend this predicate to private (non-imported) module-level containers; that is a different rule.
 - **A21. Lazy init race.** For every `if X is None: X = ...` pattern at module scope (or in a module-level helper): is the assignment thread-safe under concurrent invocation? Flag idempotent-but-racy patterns in code paths that may be called concurrently (Optuna trials, multiprocessing).
 - **A22. Fall-through after partial handling.** For every `if/else` chain whose branches partly raise and partly return: is there a fall-through path where a raised-and-translated error in the first branch silently retries in the second? Flag with-block-or-elif-fall-through patterns (e.g. `if gz: ... except: raise` then code that re-runs as if `gz=False`).
 - **A23. Discarded multi-return.** For every call to a function that returns a tuple/dataclass: are all returned components used or explicitly named (`a, _ = f()`)? Flag silent discard of secondary returns that signal hidden state dependencies.
@@ -271,23 +287,23 @@ Group by rule. Enumerate every `accepted: false` hit. Do NOT sample.
   - ... (every one)
 - **Recommendation:** <fix or add `# auditme: accept <reason>`>
 
-## Phase B per-file answers
+## Phase B per-question results
 
-For each file reviewed, the structured checklist response:
+For each Phase B question (subagent fan-out), one block. Include EVERY question across EVERY category that was run, including questions with zero hits.
 
-### `src/example/module.py`
+### A2: Except tuple coverage
 
-- A1 External call envelope: none
-- A2 Except tuple coverage: `src/example/module.py:42` - `except UnicodeDecodeError` body calls `read_text`; `OSError` leaks
-- A3 Domain-error layering: none
-- A4 Docstring Raises accuracy: none
-- ... (every question that runs in this audit's --category)
+- **Subagent ran on:** all 103 src files
+- **Hits:**
+  - `path:line` - `except UnicodeDecodeError` body calls `read_text`; `OSError` missing
+  - `path:line` - ...
+- **No-hit confirmation:** N files inspected, M had no matching `try/except`
 
-(Repeat for every file in scope.)
+(Repeat for every question - A1..A24, S1..S4, etc.)
 
 ## Phase B findings (consolidated)
 
-For every "yes" answer above, surface as a finding with the standard structure:
+For every hit above, surface as a finding:
 
 ### Finding: <title>
 
@@ -297,12 +313,6 @@ For every "yes" answer above, surface as a finding with the standard structure:
 - **Location:** `path:line`
 - **Description:** <what the issue is>
 - **Recommendation:** <concrete action>
-
-## Out-of-checklist observations
-
-Things reviewers noticed that the checklist does not ask about. These are NOT findings; they are seeds for future checklist items.
-
-- <observation> at `path:line` - candidate question: <draft>
 
 ## Files reviewed (Phase B)
 
@@ -323,9 +333,7 @@ Prioritised by severity.
 
 ## Script coverage notes
 
-Mechanically-detectable patterns surfaced via Phase B that the script does not currently catch. Do NOT add these to the script during this audit cycle. Add them only after the current task list ships AND the next audit on unchanged code shows zero mechanical delta.
-
-- <pattern> first seen via question <Q-id> at `path:line`. Candidate predicate: <sketch>.
+Phase B has no script-coverage notes section in this template by design. The previous mechanism (note candidate predicates per audit) created a perpetual queue. New predicates are now added by editing this skill between cycles, not by leaving notes for future audits. If during this audit you genuinely identified a missing predicate, raise it with the user as a skill-update request after the audit completes - do not add it to the review.
 ```
 
 ## Summary template
@@ -368,24 +376,53 @@ Patterns that have appeared across multiple reviews even when individual instanc
 
 ## Script coverage backlog
 
-Greppable patterns Phase B has surfaced that are NOT yet in the script. Each becomes a check function in `checks/audit.py` only after the current task list ships and the next audit on unchanged code is mechanical-delta-zero.
+This section MUST be empty when an audit starts (see [Mechanical sweep precondition](#3-mechanical-sweep-scripted)). Entries here exist only between a skill-update request and the corresponding `audit.py` change. Either ship or reject within the same skill-update session - never carry state across audit cycles.
 
-- <pattern> - first seen review-N. Candidate predicate: <sketch>. Status: queued / scheduled-for-version-X / shipped-in-script-vY.
+- (empty in steady state)
 ```
 
-## Extending the script (between audit cycles)
+## Extending the script (skill-update, not audit)
 
-When a Phase B run surfaces a class of greppable drift the script does not catch, write the candidate predicate into the review's "Script coverage notes" - DO NOT add it to `checks/audit.py` mid-cycle.
+Adding a check is a skill change. It happens between audit cycles, with no in-flight audit, and no queued backlog deferred to "next time".
 
-The script extension cycle is:
+Process:
 
-1. Audit run N completes; review-N captures script-coverage notes.
-2. Task list tasks-N ships; codebase fixes are merged.
-3. Audit run N+1 executes the SAME script as run N. The mechanical delta MUST be zero. Findings should equal: prior-cycle Phase B items not yet fixed, plus any genuinely new Phase B observations on the new code.
-4. Once run N+1 is clean, add the queued check functions to `checks/audit.py` and bump the script version.
-5. Audit run N+2 will surface historical debt for the new checks. That run is the "catch-up" run for those checks. After fixes, run N+3 should again be clean.
+1. User raises a candidate predicate (or this skill is updated to add a new Phase B question).
+2. Implement the predicate as a `check_*` function in `checks/audit.py` immediately.
+3. Run the script on the project. The result is the catch-up surface. Land fixes (or accept markers) for everything it returns.
+4. After fixes, run the audit normally. Convergence is restored.
 
-This rhythm separates "the audit is finding new things" (intended, on a fresh check) from "the audit is non-deterministic" (not intended, never).
+The previous "queue, defer, audit, defer again" rhythm was the dominant cause of perpetual cycles: every cycle promoted a new queued item AND surfaced new Phase B items, so backlog never reached zero. The new rule is **drain immediately or reject explicitly**. There is no permitted state where the backlog is non-empty and an audit is starting.
+
+### Refining a predicate (narrowing, not expanding)
+
+Refinements are different from extensions. An extension grows a predicate's "should-have-caught" set and is forbidden mid-audit (predicate drift, failure mode 4). A refinement narrows the set by carving out a sanctioned sub-pattern that should not fire - the predicate's enumeration in this file is updated to name the carve-out, and the script implements the skip.
+
+A refinement is a skill change too: same process as above (drain immediately, then run the audit). Each refinement is documented in the predicate's docstring inside `checks/audit.py` so future readers see why a sub-pattern is skipped.
+
+Documented refinements:
+
+- **`except-interpolation` (review-36):** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `checks/audit.py`.
+- **`empty-init-while-siblings-export` (review-36):** the predicate is file-level. The accept-marker scan walks every line in the file rather than just the docstring opener, so a docstring-only `__init__.py` can be accepted by adding a comment-only `# auditme: accept <reason>` line anywhere in the file.
+
+## Rule conflict resolution
+
+A rule conflict exists when fixing a finding under rule X creates a finding under rule Y on the same code (e.g., review-34: `A18 callbacks-open-file-per-event` says move `mkdir` from `on_log` into `__init__`; `constructor-disk-io` then fires on the new location).
+
+When a conflict is detected:
+
+1. Document it in this section (below) with the two rule names.
+2. Pick the winning rule and the losing rule. The winner is the one whose fix the user actually wants.
+3. The losing rule's hit at the conflict site is auto-`# auditme: accept`-ed with reason `conflict-with-<winning-rule>`.
+4. Future audits dismiss the loser's hit at that site without re-litigation.
+
+Without this mechanism, audits ping-pong between the two rules forever - moving the line back and forth produces "new" findings each cycle.
+
+### Documented conflicts
+
+| Winner | Loser | Site pattern | Reason |
+|--------|-------|--------------|--------|
+| `A18` callbacks hot-path setup | `constructor-disk-io` | callback class `__init__` performing `mkdir` of a path that the callback writes to | one-time mkdir per Trainer instance is preferable to per-event mkdir; loser auto-accepted |
 
 ## Severity guide
 
@@ -397,6 +434,12 @@ This rhythm separates "the audit is finding new things" (intended, on a fresh ch
 
 Earlier iterations relied on Claude to run greps and AST walks by hand, which agents reliably skipped, sampled, or silently filtered. The script fixed Phase A: agents cannot fake what a subprocess outputs. Acceptance is explicit (inline comment or AGENTS.md), not a decision-note argument.
 
-The Phase B fix in this revision addresses a different failure mode: open-ended "report every concern" produced different findings on different runs of the same code, because reviewer agents applied different judgment thresholds. The fixed checklist makes Phase B deterministic. Two reviewers running the checklist on the same file converge on the same finding set.
+A first Phase B fix replaced "report every concern" with a fixed checklist; that closed one source of variance but left four others that drove the feathf project to 34 cycles before convergence:
 
-The remaining variance - new code, new patterns, new checklist items added between cycles - is intentional and bounded. The audit-fix loop converges in finite steps because the script does not grow during a cycle and Phase B is a fixed set of questions.
+1. **Per-file fan-out** spread judgment thresholds across reviewers (one agent's "yes" was another agent's "no" on the same predicate). Cured by per-question fan-out.
+2. **Category-restricted runs** meant each lens found new things in code that prior lenses had ignored. Cured by always running every category in one pass.
+3. **Script-coverage backlog** as a perpetual queue meant every cycle shipped one new check (catch-up debt) AND one new queued item (next cycle's debt). Cured by draining or rejecting the backlog before any audit cycle starts.
+4. **Predicate drift** silently expanded "should-have-caught" sets between cycles. Cured by locking each predicate's enumeration in this file.
+5. **Rule conflicts** (fix under rule X triggers rule Y) ping-ponged forever. Cured by named-winner conflict resolution with auto-accept on the loser.
+
+With these five fixes, a single audit on unchanged code produces the same finding set as the next audit on unchanged code. The audit converges in one pass, not 34.
