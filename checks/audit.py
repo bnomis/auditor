@@ -60,13 +60,29 @@ def _source_lines(path: pathlib.Path) -> list[str]:
         return []
 
 
-def _accept_reason(lines: list[str], lineno: int) -> str | None:
-    for candidate_lineno in (lineno, lineno - 1):
+def _accept_reason(lines: list[str], lineno: int, end_lineno: int | None = None) -> str | None:
+    candidates = list(range(lineno - 1, lineno + 1))
+    if end_lineno is not None and end_lineno > lineno:
+        candidates.extend(range(lineno + 1, end_lineno + 1))
+    for candidate_lineno in candidates:
         if 1 <= candidate_lineno <= len(lines):
             m = ACCEPT_COMMENT_RE.search(lines[candidate_lineno - 1])
             if m:
                 return m.group(1).strip() or 'no reason given'
     return None
+
+
+def _type_checking_linenos(tree: ast.AST) -> set[int]:
+    """Return line numbers inside any `if TYPE_CHECKING:` block."""
+    result: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If):
+            test_src = ast.unparse(node.test) if hasattr(ast, 'unparse') else ''
+            if 'TYPE_CHECKING' in test_src:
+                for child in ast.walk(node):
+                    if hasattr(child, 'lineno'):
+                        result.add(child.lineno)
+    return result
 
 
 def _all_py_files(src_root: pathlib.Path) -> list[pathlib.Path]:
@@ -152,7 +168,9 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         ('leading-underscore-const-upper', 'module-level _NAME = ...', re.compile(r'^_[A-Z][A-Z0-9_]*\s*[:=]')),
         ('leading-underscore-const-lower', 'module-level _name = ...', re.compile(r'^_[a-z][a-zA-Z0-9_]*\s*[:=]')),
         ('leading-underscore-self', 'self._attr', re.compile(r'\bself\._[a-zA-Z]')),
-        ('leading-underscore-destructure', 'destructured `_x, y = ...`', re.compile(r'^\s+_[a-z][a-zA-Z0-9_]*\s*,\s*[a-zA-Z]')),
+        ('leading-underscore-destructure-first', 'destructured `_x, y = ...`', re.compile(r'^\s+_[a-z][a-zA-Z0-9_]*\s*,\s*[a-zA-Z]')),
+        ('leading-underscore-destructure-second', 'destructured `x, _y = ...`', re.compile(r'^\s+[a-zA-Z][a-zA-Z0-9_]*\s*,\s*_[a-zA-Z][a-zA-Z0-9_]*\s*=')),
+        ('leading-underscore-forloop-single', 'for _x in', re.compile(r'\bfor\s+_[a-z][a-zA-Z0-9_]+\s+in\b')),
         ('leading-underscore-forloop-first', 'for _x, y in', re.compile(r'\bfor\s+_[a-z][a-zA-Z0-9_]*\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*\s+in\b')),
         ('leading-underscore-forloop-second', 'for x, _y in', re.compile(r'\bfor\s+[a-zA-Z][a-zA-Z0-9_]*\s*,\s*_[a-zA-Z][a-zA-Z0-9_]*\s+in\b')),
         ('leading-underscore-attribute-access', 'obj._attr in code or docstring', re.compile(r'[a-zA-Z_][\w]*\._[a-zA-Z]')),
@@ -326,14 +344,7 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
-        type_checking_linenos: set[int] = set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.If):
-                test_src = ast.unparse(node.test) if hasattr(ast, 'unparse') else ''
-                if 'TYPE_CHECKING' in test_src:
-                    for child in ast.walk(node):
-                        if hasattr(child, 'lineno'):
-                            type_checking_linenos.add(child.lineno)
+        type_checking_linenos = _type_checking_linenos(tree)
         importerror_linenos: set[int] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Try):
@@ -353,7 +364,7 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         for sub in ast.walk(child):
                             if hasattr(sub, 'lineno'):
                                 importerror_linenos.add(sub.lineno)
-        importer_module = rel.replace('/', '.').removesuffix('.py')
+        importer_module = rel.replace('/', '.').removesuffix('.py').removeprefix('src.')
         for func in _walk_function_scopes(tree):
             for inner in ast.walk(func):
                 if not isinstance(inner, (ast.Import, ast.ImportFrom)):
@@ -422,6 +433,17 @@ def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> No
             )
 
 
+def _stmt_end_by_lineno(tree: ast.AST) -> dict[int, int]:
+    """Map each source line to the max end_lineno of any statement enclosing it."""
+    mapping: dict[int, int] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.stmt) and hasattr(node, 'lineno') and hasattr(node, 'end_lineno'):
+            for ln in range(node.lineno, node.end_lineno + 1):
+                if mapping.get(ln, 0) < node.end_lineno:
+                    mapping[ln] = node.end_lineno
+    return mapping
+
+
 def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -430,6 +452,7 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
+        stmt_end = _stmt_end_by_lineno(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.ExceptHandler) or not node.name:
                 continue
@@ -445,7 +468,8 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                                 if key in seen_linenos:
                                     break
                                 seen_linenos.add(key)
-                                accept = _accept_reason(lines, inner.lineno)
+                                end_ln = stmt_end.get(inner.lineno)
+                                accept = _accept_reason(lines, inner.lineno, end_ln)
                                 _emit(
                                     rule='except-interpolation',
                                     variant='f-string interpolates caught exception',
@@ -466,7 +490,8 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                                 if key in seen_linenos:
                                     continue
                                 seen_linenos.add(key)
-                                accept = _accept_reason(lines, inner.lineno)
+                                end_ln = stmt_end.get(inner.lineno)
+                                accept = _accept_reason(lines, inner.lineno, end_ln)
                                 _emit(
                                     rule='except-interpolation',
                                     variant='logger positional arg is caught exception',
@@ -759,14 +784,19 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
+        tc_linenos = _type_checking_linenos(tree)
         for node in ast.walk(tree):
             module_name = None
             if isinstance(node, ast.Import):
+                if node.lineno in tc_linenos:
+                    continue
                 for alias in node.names:
                     module_name = alias.name
                     _maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name,
                                          rank, accepted, package_root_name)
             elif isinstance(node, ast.ImportFrom) and node.module:
+                if node.lineno in tc_linenos:
+                    continue
                 module_name = node.module
                 _maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name,
                                      rank, accepted, package_root_name)
@@ -1152,6 +1182,2171 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
                             )
 
 
+def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag methods (other than __init__ / __post_init__ / setters / setX-named
+    methods / clear / reset / load) that reassign `self.<attr>` where `<attr>`
+    was set from a constructor argument of the same name in __init__.
+
+    The pattern is: a method whose name signals a non-mutating operation
+    (a stage, a compute, a build, a load, a predict, a tokenize, a train,
+    an evaluate) silently mutates state the caller passed in. Downstream
+    stages consume the mutation through `self.<attr>` but a Python-API
+    caller holding a reference to the original sees their view drift.
+    """
+    MUTATING_METHOD_NAMES = {
+        'set', 'reset', 'clear', 'update', 'mutate', 'merge', 'replace',
+        'apply', 'patch', 'override',
+    }
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for cls in ast.walk(tree):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            # Find attrs assigned in __init__ from a same-named argument
+            owned_attrs: set[str] = set()
+            init = next(
+                (m for m in cls.body
+                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and m.name == '__init__'),
+                None,
+            )
+            if init is not None:
+                arg_names = {a.arg for a in init.args.args}
+                for inner in ast.walk(init):
+                    if not isinstance(inner, ast.Assign):
+                        continue
+                    for tgt in inner.targets:
+                        if (isinstance(tgt, ast.Attribute)
+                                and isinstance(tgt.value, ast.Name)
+                                and tgt.value.id == 'self'
+                                and isinstance(inner.value, ast.Name)
+                                and inner.value.id == tgt.attr
+                                and inner.value.id in arg_names):
+                            owned_attrs.add(tgt.attr)
+            if not owned_attrs:
+                continue
+            for member in cls.body:
+                if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if member.name in {'__init__', '__post_init__', '__setattr__'}:
+                    continue
+                lname = member.name.lower()
+                # Method names that signal mutation are allowed (caller knows)
+                if any(lname.startswith(p + '_') or lname == p for p in MUTATING_METHOD_NAMES):
+                    continue
+                if lname.startswith('set_'):
+                    continue
+                for inner in ast.walk(member):
+                    if not isinstance(inner, ast.Assign):
+                        continue
+                    for tgt in inner.targets:
+                        if not (isinstance(tgt, ast.Attribute)
+                                and isinstance(tgt.value, ast.Name)
+                                and tgt.value.id == 'self'):
+                            continue
+                        if tgt.attr not in owned_attrs:
+                            continue
+                        accept = _accept_reason(lines, inner.lineno)
+                        _emit(
+                            rule='silent-self-mutation',
+                            variant=f'{cls.name}.{member.name} reassigns self.{tgt.attr}',
+                            path=rel,
+                            line=inner.lineno,
+                            evidence=(lines[inner.lineno - 1].strip()[:200]
+                                      if inner.lineno <= len(lines) else ''),
+                            accepted=bool(accept),
+                            accepted_reason=accept,
+                        )
+
+
+def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Detect functions F such that:
+      - F is a module-level (or public-looking) function that itself does
+        NOT have a try/except around its body translating third-party
+        exceptions to a project error class.
+      - Every known call site of F is inside a `try: ... except <ProjectError>: ...`
+        block that catches a third-party exception class and translates.
+      - There are 2+ call sites with this shape.
+
+    The asymmetric contract is a smell: a new caller that doesn't wrap F
+    will leak the third-party exception. Mechanical signal the finding.
+    """
+    # First pass: enumerate every module-level function and whether its body
+    # contains a top-level try/except handler.
+    function_index: dict[str, tuple[str, int, bool]] = {}
+    # function_index key is full dotted path (e.g. 'feathf.registry.runs.setup_mlflow_experiment')
+    package_root_name = src_root.name
+
+    for path in _all_py_files(src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        rel = _relpath(path, scope)
+        rel_parts = path.relative_to(src_root).parts
+        if rel_parts[-1] == '__init__.py':
+            mod = package_root_name + '.' + '.'.join(rel_parts[:-1]) if len(rel_parts) > 1 else package_root_name
+        else:
+            mod = package_root_name + '.' + '.'.join(rel_parts)[:-3]
+        for node in tree.body:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            # Check if function's OWN body has a try/except that catches anything
+            has_own_try = any(isinstance(child, ast.Try) for child in node.body)
+            function_index[f'{mod}.{node.name}'] = (rel, node.lineno, has_own_try)
+
+    # Second pass: for every call to a known function, check the surrounding
+    # context. If every call site in the project is inside a `try: ...
+    # except <something>:` block AND the function itself has no try, flag.
+    call_sites: dict[str, list[tuple[str, int, bool]]] = defaultdict(list)
+    # key: callee full dotted path; value: list of (caller_path, lineno, is_wrapped)
+
+    for path in _all_py_files(src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        rel = _relpath(path, scope)
+        # Track which nodes are inside a try block
+        try_descendants: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Try):
+                # Does this try have a handler that looks like it translates to
+                # a ProjectError (a class name ending in 'Error' defined in this
+                # package)? We only care about try blocks whose handlers raise
+                # something that ends in 'Error'.
+                translates = False
+                for handler in node.handlers:
+                    # Inspect handler body for `raise <Something>Error(...)`
+                    for sub in ast.walk(handler):
+                        if isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call):
+                            try:
+                                raised = ast.unparse(sub.exc.func)
+                            except Exception:
+                                continue
+                            # name ends in 'Error' or similar
+                            tail = raised.rsplit('.', 1)[-1]
+                            if tail.endswith('Error'):
+                                translates = True
+                                break
+                    if translates:
+                        break
+                if translates:
+                    for child in node.body:
+                        for sub in ast.walk(child):
+                            if hasattr(sub, 'lineno'):
+                                try_descendants.add(id(sub))
+        # Now walk every Call node and check its callee
+        # We need to resolve callee to a full dotted path. Use ast.unparse.
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            try:
+                callee_src = ast.unparse(node.func)
+            except Exception:
+                continue
+            # Look up in function_index: match any entry whose suffix == callee_src
+            # or whose full dotted path == callee_src
+            callee_candidates = []
+            if callee_src in function_index:
+                callee_candidates.append(callee_src)
+            else:
+                # match `short_name` against entries where dotted path ends in `.short_name`
+                for full in function_index:
+                    if full.endswith('.' + callee_src):
+                        callee_candidates.append(full)
+            for callee in callee_candidates:
+                is_wrapped = id(node) in try_descendants
+                call_sites[callee].append((rel, node.lineno, is_wrapped))
+
+    # Third pass: emit findings
+    for callee, sites in call_sites.items():
+        if len(sites) < 2:
+            continue
+        callee_path, callee_line, callee_has_try = function_index[callee]
+        if callee_has_try:
+            continue
+        if not all(is_wrapped for (_, _, is_wrapped) in sites):
+            continue
+        # Every call site is wrapped; the function itself has no try.
+        accept = _accept_reason(_source_lines(scope / callee_path), callee_line)
+        sites_summary = '; '.join(f'{p}:{n}' for (p, n, _) in sites[:5])
+        _emit(
+            rule='asymmetric-exception-translation',
+            variant=f'{callee} has no own try/except; all {len(sites)} callers wrap it',
+            path=callee_path,
+            line=callee_line,
+            evidence=f'called (wrapped) from: {sites_summary}',
+            accepted=bool(accept),
+            accepted_reason=accept,
+        )
+
+
+def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Detect project error classes that sit side-by-side in a `*/errors.py`
+    module but have different base classes (one subclasses ProjectError,
+    another subclasses stdlib Exception). The mismatch is a smell:
+    existing `except ProjectError` catch sites will miss the sibling.
+
+    Signal:
+      - A file named `errors.py` defines >= 2 classes whose names end in
+        `Error`.
+      - At least one of the classes subclasses a project-local error base
+        (any name ending in 'Error' that is not stdlib Exception).
+      - At least one of the classes subclasses stdlib `Exception`
+        (or has no explicit base).
+      - The two groups are not related by inheritance within the file.
+
+    A common mistake is defining `SignatureError(Exception)` next to
+    `RegistryError(Exception)` without making them share a hierarchy.
+    Call sites that catch `RegistryError` never catch `SignatureError`.
+    """
+    package_root_name = src_root.name
+    for path in _all_py_files(src_root):
+        if path.name != 'errors.py':
+            continue
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        error_classes: list[tuple[str, int, list[str]]] = []
+        for node in tree.body:
+            if not isinstance(node, ast.ClassDef):
+                continue
+            if not node.name.endswith('Error'):
+                continue
+            base_names: list[str] = []
+            for base in node.bases:
+                try:
+                    base_names.append(ast.unparse(base))
+                except Exception:
+                    pass
+            error_classes.append((node.name, node.lineno, base_names))
+        if len(error_classes) < 2:
+            continue
+        # Partition into "rooted at stdlib Exception" vs "rooted at a
+        # project Error parent"
+        rooted_at_stdlib: list[tuple[str, int, list[str]]] = []
+        rooted_at_project: list[tuple[str, int, list[str]]] = []
+        for name, lineno, bases in error_classes:
+            if not bases or any(b.split('.')[-1] == 'Exception' for b in bases):
+                rooted_at_stdlib.append((name, lineno, bases))
+            elif any(b.split('.')[-1].endswith('Error') for b in bases):
+                # If the base is one of the other classes defined in this file,
+                # that's a real hierarchy; otherwise it's a new root
+                sibling_names = {n for n, _, _ in error_classes}
+                if any(b.split('.')[-1] in sibling_names for b in bases):
+                    rooted_at_project.append((name, lineno, bases))
+                else:
+                    rooted_at_stdlib.append((name, lineno, bases))
+            else:
+                rooted_at_stdlib.append((name, lineno, bases))
+        if len(rooted_at_stdlib) < 2:
+            continue
+        # At least two sibling roots. Emit one finding per class whose
+        # sibling is not caught together by any call site.
+        # Build set of classes actually used in except clauses anywhere in the tree.
+        caught_elsewhere: dict[str, set[str]] = defaultdict(set)
+        for src in _all_py_files(src_root):
+            try:
+                other_tree = ast.parse(src.read_text(encoding='utf-8'))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            for sub in ast.walk(other_tree):
+                if not isinstance(sub, ast.ExceptHandler):
+                    continue
+                if sub.type is None:
+                    continue
+                try:
+                    type_src = ast.unparse(sub.type)
+                except Exception:
+                    continue
+                for caught in re.findall(r'[a-zA-Z_.][a-zA-Z0-9_.]*', type_src):
+                    tail = caught.split('.')[-1]
+                    caught_elsewhere[tail].add(_relpath(src, scope))
+        # Find the two classes most likely to belong together: if a class C
+        # is caught at site S and a sibling D in the same file is never
+        # caught together at S, D leaks.
+        sibling_names = {name for name, _, _ in rooted_at_stdlib}
+        if len(sibling_names) < 2:
+            continue
+        # Emit one finding per file naming all co-defined siblings.
+        first_name, first_line, _ = rooted_at_stdlib[0]
+        accept = _accept_reason(lines, first_line)
+        _emit(
+            rule='sibling-errors-no-common-base',
+            variant=f'{len(sibling_names)} Error classes co-defined with no shared parent: {sorted(sibling_names)}',
+            path=rel,
+            line=first_line,
+            evidence=f'classes: {", ".join(sorted(sibling_names))}',
+            accepted=bool(accept),
+            accepted_reason=accept,
+        )
+
+
+def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag when two or more methods on the same class call the same
+    sink function with an argument pointing to the same attribute target.
+
+    Signal:
+      - Class C defines methods M1, M2 (M1 != M2, both non-private,
+        both non-dunder, neither named like a pure setter).
+      - M1 and M2 each call F(<args>) where F is a module-level function
+        in the project.
+      - At least one argument to F is `self.<attr>` and is identical
+        across the call sites.
+
+    Example: `Pipeline.tokenize` and `Pipeline.train` both call
+    `feathf.config.persistence.flush_resolved_config(..., self.run_dir)`.
+    Calling from multiple stages silently re-flushes the same target and
+    can overwrite a patched snapshot if stages write different config
+    versions.
+    """
+    MUTATING_METHOD_NAMES = {
+        'set', 'reset', 'clear', 'update', 'mutate', 'merge', 'replace',
+        'apply', 'patch', 'override', 'flush', 'write', 'persist', 'save',
+        'emit', 'dump',
+    }
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for cls in ast.walk(tree):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            # For each method, collect calls of the shape f(..., self.<attr>, ...)
+            # keyed by (callee_dotted, frozenset(self.<attr> args))
+            calls_per_key: dict[tuple[str, tuple[str, ...]], list[tuple[str, int]]] = defaultdict(list)
+            for member in cls.body:
+                if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                mname = member.name
+                if mname.startswith('_'):
+                    continue
+                lname = mname.lower()
+                if any(lname.startswith(p + '_') or lname == p for p in MUTATING_METHOD_NAMES):
+                    continue
+                for inner in ast.walk(member):
+                    if not isinstance(inner, ast.Call):
+                        continue
+                    try:
+                        callee = ast.unparse(inner.func)
+                    except Exception:
+                        continue
+                    # collect self.<attr> args
+                    self_args: list[str] = []
+                    for a in inner.args:
+                        try:
+                            src = ast.unparse(a)
+                        except Exception:
+                            continue
+                        if src.startswith('self.'):
+                            self_args.append(src)
+                    for kw in inner.keywords:
+                        if kw.arg is None:
+                            continue
+                        try:
+                            src = ast.unparse(kw.value)
+                        except Exception:
+                            continue
+                        if src.startswith('self.'):
+                            self_args.append(src)
+                    if not self_args:
+                        continue
+                    key = (callee, tuple(sorted(self_args)))
+                    calls_per_key[key].append((mname, inner.lineno))
+            for (callee, self_args), sites in calls_per_key.items():
+                method_names = {m for (m, _) in sites}
+                if len(method_names) < 2:
+                    continue
+                # Deduplicate the sink function itself; only emit when callee
+                # looks like a sink (write/flush/persist/save/emit/log/dump)
+                # or when the arg set suggests a shared target
+                callee_tail = callee.rsplit('.', 1)[-1].lower()
+                looks_like_sink = any(
+                    tok in callee_tail
+                    for tok in ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
+                )
+                target_is_path_or_dir = any('dir' in a.lower() or 'path' in a.lower() or 'file' in a.lower() for a in self_args)
+                if not (looks_like_sink or target_is_path_or_dir):
+                    continue
+                first_method, first_line = sites[0]
+                accept = _accept_reason(lines, first_line)
+                _emit(
+                    rule='duplicate-side-effect-per-target',
+                    variant=f'{cls.name}.{{{", ".join(sorted(method_names))}}} all call {callee}({", ".join(self_args)})',
+                    path=rel,
+                    line=first_line,
+                    evidence=f'{cls.name}: methods {sorted(method_names)} share sink {callee}',
+                    accepted=bool(accept),
+                    accepted_reason=accept,
+                )
+
+
+def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag CLI entry-point functions (top-level functions in `cli/*.py`
+    whose name starts with `run_`) that have no top-level try/except.
+
+    The rule: if at least one sibling CLI entry in the project does have
+    a top-level try/except catching a project error class, flag every
+    CLI entry that does not. CLI entries are the error envelope for
+    user-facing errors; an unenveloped entry will surface untranslated
+    third-party exceptions.
+    """
+    cli_dir = src_root / 'cli'
+    if not cli_dir.is_dir():
+        return
+    # First pass: enumerate all CLI run_* entries and whether they wrap
+    # something in a top-level try/except.
+    entries: list[tuple[str, int, str, bool]] = []  # (path, lineno, fname, has_outer_try)
+    for path in sorted(cli_dir.rglob('*.py')):
+        if path.name == '__init__.py':
+            continue
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not node.name.startswith('run_'):
+                continue
+            # Only consider true CLI dispatch entries. Heuristics to
+            # exclude helper functions in cli/*.py:
+            #   - return annotation is `int` (CLI commands return an
+            #     exit code)
+            #   - OR has a parameter annotated with a name ending in
+            #     `.Feathf` / `.Cmd` / any cappa dispatcher root (the
+            #     dispatcher-aware second argument)
+            returns_int = False
+            if node.returns is not None:
+                try:
+                    ret_src = ast.unparse(node.returns)
+                    if ret_src.strip() == 'int':
+                        returns_int = True
+                except Exception:
+                    pass
+            # params whose annotation string contains a capitalised cappa
+            # command class (the `parent: 'feathf.cli.app.Feathf'` style)
+            has_cappa_param = False
+            for arg in node.args.args:
+                if arg.annotation is None:
+                    continue
+                try:
+                    ann_src = ast.unparse(arg.annotation)
+                except Exception:
+                    continue
+                if re.search(r"\.[A-Z]\w+['\"]?$", ann_src.strip("'\"")):
+                    has_cappa_param = True
+                    break
+            if not (returns_int or has_cappa_param):
+                continue
+            # Is there any Try in the function body? (Any depth.) The
+            # rule is: CLI entry must have at least one try/except
+            # somewhere to be considered "enveloped".
+            has_try = any(isinstance(sub, ast.Try) for sub in ast.walk(node))
+            entries.append((rel, node.lineno, node.name, has_try))
+    if not entries:
+        return
+    # If at least one entry has a try/except, any entry without one is flagged.
+    any_has_try = any(has_try for (_, _, _, has_try) in entries)
+    if not any_has_try:
+        return
+    for rel, lineno, fname, has_try in entries:
+        if has_try:
+            continue
+        full = scope / rel
+        lines = _source_lines(full)
+        accept = _accept_reason(lines, lineno)
+        _emit(
+            rule='cli-entry-missing-error-envelope',
+            variant=f'{fname} has no top-level try/except',
+            path=rel,
+            line=lineno,
+            evidence=f'def {fname}(...): (no try/except; siblings do wrap)',
+            accepted=bool(accept),
+            accepted_reason=accept,
+        )
+
+
+def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag functions that call a sink S directly, and then call a helper
+    G which itself also calls S with IDENTICAL argument signatures.
+
+    Example: `run_evaluate` calls `flush_resolved_config(config, run_dir)`
+    at line L1, then calls `pipeline.tokenize(splits)` which itself
+    calls `flush_resolved_config(config, run_dir)`. The argument
+    signatures match, so the outer call is redundant.
+
+    Tight signal to avoid the O(n^2) false positives on large pipelines
+    (where one orchestrator calls five helpers that each log metrics -
+    those are NOT redundant, they log different arguments):
+      - Function F calls sink S(args1) at line L1.
+      - Function F calls helper G at line L2 where L2 > L1.
+      - G is a module-level function in this project whose body also
+        calls S(args2).
+      - args1 and args2 have the same **normalised argument tails**:
+        for each positional arg, the trailing name (`config`, `run_dir`)
+        matches; for each keyword arg, the keyword matches.
+      - S's short name contains a sink token (`flush`, `write`, `save`,
+        `persist`, `emit`, `dump`, `log`, `publish`, `upload`,
+        `register`).
+    """
+    package_root_name = src_root.name
+    SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump',
+                   'log', 'publish', 'upload', 'register')
+
+    def _arg_signature(call: ast.Call) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Normalise a call's arguments into (positional_tails, kwargs).
+
+        Normalisation keeps role tokens that survive renames: `patched_config`
+        and `self.config` both normalise to `config`. The last underscore-
+        separated token is the "role"; common prefixes (`patched_`, `new_`,
+        `effective_`, `resolved_`) drop out, so `patched_config` == `config`.
+        """
+        positional: list[str] = []
+        for a in call.args:
+            try:
+                src = ast.unparse(a)
+            except Exception:
+                continue
+            tail = src
+            if tail.startswith('self.'):
+                tail = tail[5:]
+            # If attribute access, take the last segment
+            tail = tail.rsplit('.', 1)[-1]
+            # If still contains underscores (e.g. `patched_config`,
+            # `new_run_dir`, `resolved_config`), keep a suffix that
+            # preserves the last two underscore-segments for `run_dir`
+            # style names, otherwise just the last segment.
+            parts = tail.split('_')
+            if len(parts) >= 2:
+                # keep the last two segments if they look like `run_dir`,
+                # otherwise just the last one
+                last_two = '_'.join(parts[-2:])
+                if last_two in {'run_dir', 'run_id', 'trial_id', 'split_id', 'split_name'}:
+                    tail = last_two
+                else:
+                    tail = parts[-1]
+            positional.append(tail)
+        kwargs: list[str] = []
+        for kw in call.keywords:
+            if kw.arg is not None:
+                kwargs.append(kw.arg)
+        return tuple(positional), tuple(sorted(kwargs))
+
+    # First pass: index every project function's sink calls with their signatures.
+    function_sinks: dict[str, dict[str, list[tuple[tuple[str, ...], tuple[str, ...]]]]] = defaultdict(lambda: defaultdict(list))
+    # function_sinks[func_key][sink_callee] = list of (positional_tails, kwarg_keys)
+    for path in _all_py_files(src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        rel_parts = path.relative_to(src_root).parts
+        if rel_parts[-1] == '__init__.py':
+            continue
+        mod = package_root_name + '.' + '.'.join(rel_parts)[:-3]
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            key = f'{mod}.{node.name}'
+            for inner in ast.walk(node):
+                if not isinstance(inner, ast.Call):
+                    continue
+                try:
+                    callee = ast.unparse(inner.func)
+                except Exception:
+                    continue
+                callee_tail = callee.rsplit('.', 1)[-1].lower()
+                tail_parts = set(re.split(r'[_\W]+', callee_tail))
+                if not any(tok in tail_parts for tok in SINK_TOKENS):
+                    continue
+                function_sinks[key][callee].append(_arg_signature(inner))
+    if not function_sinks:
+        return
+
+    # Build lookup: short_name -> set of full keys
+    short_to_full: dict[str, set[str]] = defaultdict(set)
+    for key in function_sinks:
+        short = key.rsplit('.', 1)[-1]
+        short_to_full[short].add(key)
+
+    # Second pass: walk each function. For each direct sink call, look for
+    # a later helper call whose target (any full key matching its short name)
+    # makes the SAME sink call with the SAME signature.
+    for path in _all_py_files(src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            direct_sinks: list[tuple[int, str, tuple[tuple[str, ...], tuple[str, ...]]]] = []
+            helper_calls: list[tuple[int, str]] = []
+            for inner in ast.walk(node):
+                if not isinstance(inner, ast.Call):
+                    continue
+                try:
+                    callee = ast.unparse(inner.func)
+                except Exception:
+                    continue
+                tail = callee.rsplit('.', 1)[-1].lower()
+                tail_parts = set(re.split(r'[_\W]+', tail))
+                if any(tok in tail_parts for tok in SINK_TOKENS):
+                    direct_sinks.append((inner.lineno, callee, _arg_signature(inner)))
+                else:
+                    short = callee.rsplit('.', 1)[-1]
+                    if short in short_to_full:
+                        helper_calls.append((inner.lineno, callee))
+            if not direct_sinks or not helper_calls:
+                continue
+            reported: set[tuple[int, str]] = set()
+            for sink_line, sink_callee, sink_sig in direct_sinks:
+                sink_tail = sink_callee.rsplit('.', 1)[-1]
+                dedup_key = (sink_line, sink_callee)
+                if dedup_key in reported:
+                    continue
+                found_redundant = False
+                for helper_line, helper_callee in helper_calls:
+                    if helper_line <= sink_line:
+                        continue  # only forward-direction redundancy
+                    short = helper_callee.rsplit('.', 1)[-1]
+                    for full in short_to_full.get(short, set()):
+                        for inner_callee, sigs in function_sinks.get(full, {}).items():
+                            if inner_callee.rsplit('.', 1)[-1] != sink_tail:
+                                continue
+                            if sink_sig not in sigs:
+                                continue
+                            accept = _accept_reason(lines, sink_line)
+                            _emit(
+                                rule='redundant-sink-caller-plus-callee',
+                                variant=f'{node.name} calls {sink_callee}(...) then {helper_callee} which re-calls {inner_callee} with the same args',
+                                path=rel,
+                                line=sink_line,
+                                evidence=(f'direct {sink_callee}{sink_sig[0]} at line {sink_line}; '
+                                          f'helper {helper_callee} at line {helper_line} -> {full}'),
+                                accepted=bool(accept),
+                                accepted_reason=accept,
+                            )
+                            reported.add(dedup_key)
+                            found_redundant = True
+                            break
+                        if found_redundant:
+                            break
+                    if found_redundant:
+                        break
+
+
+def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag class methods that return a value named identically to an
+    instance attribute (either alone or as part of a tuple). The
+    contract "caller must reassign self.X" is implicit and unenforced.
+
+    Signal:
+      - Class C stores `self.X` in `__init__` from a same-named arg.
+      - A method M on C (other than __init__/__post_init__) returns
+        either `X` directly or a tuple that contains a local `patched_X`
+        / `new_X` / `X` (i.e. a Name whose id is `X` or contains `X`).
+      - The method's docstring or body mutates the local value away
+        from `self.X`.
+
+    This is the `Pipeline.tokenize` pattern: returns `(tokenized,
+    patched_config)` where `patched_config` is a divergent copy of
+    `self.config`; callers must `self.config = patched_config` or the
+    instance silently drifts.
+    """
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for cls in ast.walk(tree):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            owned_attrs: set[str] = set()
+            init = next(
+                (m for m in cls.body
+                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and m.name == '__init__'),
+                None,
+            )
+            if init is None:
+                continue
+            arg_names = {a.arg for a in init.args.args}
+            for inner in ast.walk(init):
+                if not isinstance(inner, ast.Assign):
+                    continue
+                for tgt in inner.targets:
+                    if (isinstance(tgt, ast.Attribute)
+                            and isinstance(tgt.value, ast.Name)
+                            and tgt.value.id == 'self'
+                            and isinstance(inner.value, ast.Name)
+                            and inner.value.id == tgt.attr
+                            and inner.value.id in arg_names):
+                        owned_attrs.add(tgt.attr)
+            if not owned_attrs:
+                continue
+            for member in cls.body:
+                if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if member.name in {'__init__', '__post_init__'}:
+                    continue
+                # Look for Return nodes inside the method body
+                for ret in ast.walk(member):
+                    if not isinstance(ret, ast.Return):
+                        continue
+                    returned_names: list[str] = []
+                    if isinstance(ret.value, ast.Name):
+                        returned_names.append(ret.value.id)
+                    elif isinstance(ret.value, ast.Tuple):
+                        for elt in ret.value.elts:
+                            if isinstance(elt, ast.Name):
+                                returned_names.append(elt.id)
+                    for rname in returned_names:
+                        for attr in owned_attrs:
+                            # exact match OR contains attr name (e.g. `patched_config`)
+                            if rname == attr or (f'_{attr}' in rname) or (f'{attr}_' in rname):
+                                # also require that the method body assigns a local
+                                # derived from self.<attr> to that name (to avoid FPs
+                                # where the method just happens to have a local named X)
+                                has_derivation = False
+                                for inner in ast.walk(member):
+                                    if (isinstance(inner, ast.Assign)
+                                            and any(isinstance(t, ast.Name) and t.id == rname
+                                                    for t in inner.targets)):
+                                        src = ast.unparse(inner.value) if hasattr(ast, 'unparse') else ''
+                                        if f'self.{attr}' in src:
+                                            has_derivation = True
+                                            break
+                                if not has_derivation:
+                                    continue
+                                accept = _accept_reason(lines, ret.lineno)
+                                _emit(
+                                    rule='return-shadows-instance-attr',
+                                    variant=f'{cls.name}.{member.name} returns `{rname}` which shadows self.{attr}; callers must reassign',
+                                    path=rel,
+                                    line=ret.lineno,
+                                    evidence=(lines[ret.lineno - 1].strip()[:200]
+                                              if ret.lineno <= len(lines) else ''),
+                                    accepted=bool(accept),
+                                    accepted_reason=accept,
+                                )
+                                break
+
+
+def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `try: with X(): body...` patterns where the except handler
+    re-invokes work that was inside the `with` body, assuming the
+    exception came from `__enter__`.
+
+    Signal:
+      - An `ast.Try` node whose body starts with an `ast.With` block.
+      - The `with` body contains one or more call statements.
+      - The `except` handler body itself contains at least one call
+        whose callee name matches a callee inside the `with` body.
+      - The handler's intent (per comments/log messages) is startup
+        failure - but the catch will also fire for any exception raised
+        inside the `with` body.
+
+    The `run_batch` double-run: `try: with open_batch_run(): run_pipeline_and_finalise(...)`
+    catches `RegistryError`, and the handler calls `run_pipeline_and_finalise(...)`
+    again. If `RegistryError` escapes from the `with` body (not startup),
+    the pipeline runs twice.
+    """
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Try):
+                continue
+            if not node.body:
+                continue
+            # First statement is a `with`
+            first = node.body[0]
+            if not isinstance(first, ast.With):
+                continue
+            # Collect call names in the with-body
+            with_body_callees: set[str] = set()
+            for stmt in first.body:
+                for sub in ast.walk(stmt):
+                    if isinstance(sub, ast.Call):
+                        try:
+                            callee = ast.unparse(sub.func)
+                        except Exception:
+                            continue
+                        short = callee.rsplit('.', 1)[-1]
+                        with_body_callees.add(short)
+            if not with_body_callees:
+                continue
+            # Collect call names in each handler's body
+            for handler in node.handlers:
+                handler_callees: set[str] = set()
+                for stmt in handler.body:
+                    for sub in ast.walk(stmt):
+                        if isinstance(sub, ast.Call):
+                            try:
+                                callee = ast.unparse(sub.func)
+                            except Exception:
+                                continue
+                            short = callee.rsplit('.', 1)[-1]
+                            handler_callees.add(short)
+                # Overlap of non-trivial callees
+                overlap = {
+                    c for c in with_body_callees & handler_callees
+                    # Skip logger/print/etc. noise
+                    if c not in {'warning', 'info', 'error', 'exception',
+                                 'debug', 'print', 'format', 'str', 'repr',
+                                 'len'}
+                    # Skip class / exception constructors (CamelCase) -
+                    # they are error construction, not "work".
+                    and not (c[:1].isupper() if c else True)
+                }
+                if not overlap:
+                    continue
+                accept = _accept_reason(lines, handler.lineno)
+                _emit(
+                    rule='try-wrapping-with-block-too-broad',
+                    variant=f'except handler re-invokes {sorted(overlap)!r} from the wrapped `with` body',
+                    path=rel,
+                    line=handler.lineno,
+                    evidence=(lines[handler.lineno - 1].strip()[:200]
+                              if handler.lineno <= len(lines) else ''),
+                    accepted=bool(accept),
+                    accepted_reason=accept,
+                )
+
+
+def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag two functions (across different classes or modules) that
+    share a long subsequence of call-name tokens in the same order.
+
+    Signal:
+      - For every FunctionDef / AsyncFunctionDef, extract the ordered
+        sequence of callee short-names from calls with >=1 argument and
+        whose callee is dotted (skips stdlib / builtin 1-word calls).
+      - Skip very short sequences (< 5 calls) to avoid false positives.
+      - Normalise: drop sequential duplicates (so `logger.info` stutter
+        does not dominate the signature).
+      - Group functions by the longest-common-subsequence key, which
+        is the ordered tuple of distinct callee short-names appearing
+        in each function.
+      - If two functions share a LCS-key of length >= 5, emit.
+    """
+    # Build per-function signature
+    signatures: list[tuple[str, int, str, tuple[str, ...]]] = []
+    for path in _all_py_files(src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        rel = _relpath(path, scope)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            seq: list[str] = []
+            for inner in ast.walk(node):
+                if not isinstance(inner, ast.Call):
+                    continue
+                try:
+                    callee = ast.unparse(inner.func)
+                except Exception:
+                    continue
+                # Require a dotted callee (skip bare len(), str(), dict() etc.)
+                if '.' not in callee:
+                    continue
+                short = callee.rsplit('.', 1)[-1]
+                if short in {'warning', 'info', 'error', 'exception',
+                             'debug', 'format', 'get', 'set', 'append',
+                             'extend', 'update', 'pop', 'items', 'keys',
+                             'values', 'join', 'split', 'strip', 'lower',
+                             'upper', 'replace', 'startswith', 'endswith',
+                             'replace', 'items', 'dumps', 'loads', 'copy',
+                             'deepcopy', 'write_text', 'read_text',
+                             'mkdir', 'exists', 'is_file', 'is_dir',
+                             'as_posix', 'resolve'}:
+                    continue
+                if seq and seq[-1] == short:
+                    continue
+                seq.append(short)
+            # Keep the sequence as an ordered tuple; require >= 5 distinct calls
+            if len(seq) < 5:
+                continue
+            fname = node.name
+            signatures.append((rel, node.lineno, fname, tuple(seq)))
+
+    if len(signatures) < 2:
+        return
+
+    # Compute longest common subsequences pairwise; report pairs that share
+    # a subsequence of length >= 5. Quadratic in function count - bounded
+    # to architecturally-significant functions (we already filtered to >=5).
+    def _lcs(a: tuple[str, ...], b: tuple[str, ...]) -> list[str]:
+        n, m = len(a), len(b)
+        if n == 0 or m == 0:
+            return []
+        # use rolling arrays
+        prev = [0] * (m + 1)
+        curr = [0] * (m + 1)
+        back: list[list[int]] = [[0] * (m + 1) for _ in range(n + 1)]
+        for i in range(1, n + 1):
+            for j in range(1, m + 1):
+                if a[i - 1] == b[j - 1]:
+                    curr[j] = prev[j - 1] + 1
+                    back[i][j] = 1
+                elif prev[j] >= curr[j - 1]:
+                    curr[j] = prev[j]
+                    back[i][j] = 2
+                else:
+                    curr[j] = curr[j - 1]
+                    back[i][j] = 3
+            prev, curr = curr, prev
+        # Reconstruct
+        i, j = n, m
+        out: list[str] = []
+        while i > 0 and j > 0:
+            d = back[i][j]
+            if d == 1:
+                out.append(a[i - 1])
+                i -= 1
+                j -= 1
+            elif d == 2:
+                i -= 1
+            else:
+                j -= 1
+        out.reverse()
+        return out
+
+    # Count how many distinct functions each call-name appears in
+    call_fanout: dict[str, int] = defaultdict(int)
+    for (_, _, _, seq) in signatures:
+        for c in set(seq):
+            call_fanout[c] += 1
+    # Calls that appear in >30% of all functions are too generic to count
+    n_funcs = max(len(signatures), 1)
+    generic_threshold = max(5, n_funcs // 3)
+    generic_calls = {c for c, n in call_fanout.items() if n > generic_threshold}
+
+    reported: set[tuple[str, str]] = set()
+    for i, (rel_a, line_a, fname_a, seq_a) in enumerate(signatures):
+        for (rel_b, line_b, fname_b, seq_b) in signatures[i + 1:]:
+            if (rel_a, fname_a) == (rel_b, fname_b):
+                continue
+            # Skip intra-file pairs: within-file duplication is usually a
+            # legitimate family of similar shaped functions (e.g. chart
+            # generators). Cross-file duplication is the architectural smell.
+            if rel_a == rel_b:
+                continue
+            # Skip if top-level packages match AND both are leaf functions
+            # in the same kind of module (e.g. both in `*/metrics.py`).
+            pkg_a = rel_a.split('/', 2)[:2]
+            pkg_b = rel_b.split('/', 2)[:2]
+            # Only interesting if LCS is long enough
+            lcs = _lcs(seq_a, seq_b)
+            if len(lcs) < 6:
+                continue
+            # Drop generic calls that appear in many functions; the LCS
+            # must still be long enough after the drop.
+            meaningful_lcs = [c for c in lcs if c not in generic_calls]
+            if len(meaningful_lcs) < 5:
+                continue
+            # Require the LCS to cover MOST of BOTH sequences. A shared
+            # sub-skeleton of 6+ calls that each function also decorates
+            # with 4-5 unique calls is not duplication, it's a family.
+            # True duplication means each function is ~70%+ the same.
+            if len(lcs) / max(len(seq_a), 1) < 0.7:
+                continue
+            if len(lcs) / max(len(seq_b), 1) < 0.7:
+                continue
+            key_a = (rel_a, fname_a)
+            key_b = (rel_b, fname_b)
+            pair_key = tuple(sorted([f'{k[0]}:{k[1]}' for k in (key_a, key_b)]))
+            if pair_key in reported:
+                continue
+            reported.add(pair_key)
+            full_a = scope / rel_a
+            accept = _accept_reason(_source_lines(full_a), line_a)
+            _emit(
+                rule='duplicate-call-sequence',
+                variant=f'{fname_a} shares {len(lcs)} calls in order with {rel_b}:{fname_b}',
+                path=rel_a,
+                line=line_a,
+                evidence=f'shared sequence: {" -> ".join(meaningful_lcs or lcs)} (peer at {rel_b}:{line_b}:{fname_b})',
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag modules that raise stdlib exceptions (ValueError, RuntimeError,
+    TypeError, KeyError) for domain errors when a sibling `errors.py` in
+    the same package defines a domain-error class.
+
+    Signal:
+      - Package P contains an `errors.py` defining at least one `*Error`
+        class.
+      - Another module M in the same package P raises a stdlib exception
+        (ValueError, RuntimeError, TypeError, KeyError) at module-level
+        or function scope.
+      - The stdlib raise is NOT inside an `except` block (which is the
+        re-raise-with-narrower-type pattern and is fine).
+    """
+    STDLIB_EXCS = {'ValueError', 'RuntimeError', 'KeyError'}
+    # First pass: find every package with a domain error class
+    package_has_domain_error: set[tuple[str, ...]] = set()
+    for path in _all_py_files(src_root):
+        if path.name != 'errors.py':
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
+                pkg = path.relative_to(src_root).parts[:-1]
+                package_has_domain_error.add(pkg)
+                break
+
+    if not package_has_domain_error:
+        return
+
+    # Second pass: walk every module raising stdlib errors
+    for path in _all_py_files(src_root):
+        if path.name in {'errors.py', '__init__.py'}:
+            continue
+        pkg = path.relative_to(src_root).parts[:-1]
+        if pkg not in package_has_domain_error:
+            continue
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        # Track which Raise nodes are inside an except block
+        except_bodies: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler):
+                for child in ast.walk(node):
+                    if hasattr(child, 'lineno'):
+                        except_bodies.add(child.lineno)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Raise):
+                continue
+            if node.lineno in except_bodies:
+                continue
+            exc_call = node.exc
+            exc_name = None
+            if isinstance(exc_call, ast.Call):
+                if isinstance(exc_call.func, ast.Name):
+                    exc_name = exc_call.func.id
+            elif isinstance(exc_call, ast.Name):
+                exc_name = exc_call.id
+            if exc_name not in STDLIB_EXCS:
+                continue
+            accept = _accept_reason(lines, node.lineno)
+            _emit(
+                rule='layer-has-domain-error-raises-stdlib',
+                variant=f'{pkg[-1] if pkg else "(root)"} package defines *Error classes but this module raises {exc_name}',
+                path=rel,
+                line=node.lineno,
+                evidence=(lines[node.lineno - 1].strip()[:200]
+                          if node.lineno <= len(lines) else ''),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag helper functions F that raise a domain error E, where two or
+    more distinct callers of F translate E to different project-error
+    classes. Divergent translation is a semantic bug: the same
+    underlying failure surfaces as different error types to different
+    consumers.
+
+    Signal:
+      - Function F at path P has at least one `raise <E>(...)` where E
+        ends in `Error` (a project domain error).
+      - Two or more functions elsewhere call F, each wrapping the call
+        in a `try: ... except <E>: raise <T_i>(...)` where the raised
+        translation target classes T_i differ across callers.
+    """
+    package_root_name = src_root.name
+
+    # Pass 1: for each module-level function, enumerate the *Error classes
+    # it raises directly (i.e. not via re-raise of a caught exception).
+    function_raises: dict[str, set[str]] = defaultdict(set)
+    function_path_line: dict[str, tuple[str, int]] = {}
+    for path in _all_py_files(src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        rel = _relpath(path, scope)
+        rel_parts = path.relative_to(src_root).parts
+        if rel_parts[-1] == '__init__.py':
+            continue
+        mod = package_root_name + '.' + '.'.join(rel_parts)[:-3]
+        for node in tree.body:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            key = f'{mod}.{node.name}'
+            function_path_line[key] = (rel, node.lineno)
+            for inner in ast.walk(node):
+                if not isinstance(inner, ast.Raise) or inner.exc is None:
+                    continue
+                target = inner.exc.func if isinstance(inner.exc, ast.Call) else inner.exc
+                if isinstance(target, (ast.Name, ast.Attribute)):
+                    try:
+                        src = ast.unparse(target)
+                    except Exception:
+                        continue
+                    tail = src.rsplit('.', 1)[-1]
+                    if tail.endswith('Error'):
+                        function_raises[key].add(tail)
+
+    if not function_raises:
+        return
+
+    # Short-name lookup
+    short_to_full: dict[str, set[str]] = defaultdict(set)
+    for key in function_raises:
+        short = key.rsplit('.', 1)[-1]
+        short_to_full[short].add(key)
+
+    # Pass 2: for every call site of a function in function_raises, find
+    # the enclosing try/except and the translation target if any.
+    translations: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    # translations[callee_full][caught_error] = set of translated target classes
+    for path in _all_py_files(src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Try):
+                continue
+            # find calls inside the try body to known functions
+            for body_stmt in node.body:
+                for sub in ast.walk(body_stmt):
+                    if not isinstance(sub, ast.Call):
+                        continue
+                    try:
+                        callee = ast.unparse(sub.func)
+                    except Exception:
+                        continue
+                    short = callee.rsplit('.', 1)[-1]
+                    for full in short_to_full.get(short, set()):
+                        caught_classes: set[str] = set()
+                        for h in node.handlers:
+                            if h.type is None:
+                                continue
+                            try:
+                                type_src = ast.unparse(h.type)
+                            except Exception:
+                                continue
+                            for caught in re.findall(r'[A-Za-z_][A-Za-z_0-9]*', type_src):
+                                if caught.endswith('Error'):
+                                    caught_classes.add(caught)
+                        # For each caught class that the callee actually raises,
+                        # record the translation target(s)
+                        for caught in caught_classes:
+                            if caught not in function_raises.get(full, set()):
+                                continue
+                            for h in node.handlers:
+                                if h.type is None:
+                                    continue
+                                try:
+                                    h_src = ast.unparse(h.type)
+                                except Exception:
+                                    continue
+                                if caught not in h_src:
+                                    continue
+                                for handler_stmt in h.body:
+                                    for raisesub in ast.walk(handler_stmt):
+                                        if not isinstance(raisesub, ast.Raise):
+                                            continue
+                                        if raisesub.exc is None:
+                                            continue
+                                        tgt = raisesub.exc.func if isinstance(raisesub.exc, ast.Call) else raisesub.exc
+                                        if not isinstance(tgt, (ast.Name, ast.Attribute)):
+                                            continue
+                                        try:
+                                            tgt_src = ast.unparse(tgt)
+                                        except Exception:
+                                            continue
+                                        tgt_tail = tgt_src.rsplit('.', 1)[-1]
+                                        if tgt_tail.endswith('Error'):
+                                            translations[full][caught].add(tgt_tail)
+
+    # Pass 3: emit findings for callees whose domain error is translated
+    # to 2+ distinct targets across the codebase.
+    for callee_full, err_map in translations.items():
+        for caught, targets in err_map.items():
+            if len(targets) < 2:
+                continue
+            if callee_full not in function_path_line:
+                continue
+            rel, lineno = function_path_line[callee_full]
+            full_path = scope / rel
+            lines = _source_lines(full_path)
+            accept = _accept_reason(lines, lineno)
+            _emit(
+                rule='inconsistent-error-translation',
+                variant=f'{callee_full} raises {caught}; callers translate to {sorted(targets)}',
+                path=rel,
+                line=lineno,
+                evidence=f'{caught} -> {sorted(targets)}',
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag functions that mutate a parameter's dict/list items while
+    the function name or docstring suggests pure validation / checking.
+
+    Signal:
+      - Function F has parameter P (typed as dict/list or named like
+        `merged`, `config`, `data`, `params`).
+      - F's name starts with `check_`, `validate_`, `is_`, `has_`,
+        `get_`, `compute_`, `resolve_`, `parse_`.
+      - F's body contains `P[key] = value` or `P.update(...)` or
+        `P.pop(...)` or `P.append(...)` or similar mutation on P.
+    """
+    # `compute_` is intentionally omitted - HF Trainer's `compute_loss` and
+    # similar methods routinely mutate their `inputs` dict. The pure-naming
+    # contract does not hold for overridden framework methods.
+    PURE_PREFIXES = ('check_', 'validate_', 'is_', 'has_', 'get_',
+                     'resolve_', 'parse_', 'find_', 'count_')
+    MUTATION_METHODS = {'update', 'pop', 'append', 'extend', 'insert',
+                        'remove', 'clear', 'setdefault', 'popitem'}
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not any(node.name.startswith(p) for p in PURE_PREFIXES):
+                continue
+            param_names = {a.arg for a in node.args.args}
+            if not param_names:
+                continue
+            # Walk body for mutation of a parameter
+            for inner in ast.walk(node):
+                # item assignment: param[k] = v
+                if isinstance(inner, ast.Assign):
+                    for tgt in inner.targets:
+                        if isinstance(tgt, ast.Subscript) and isinstance(tgt.value, ast.Name):
+                            if tgt.value.id in param_names:
+                                accept = _accept_reason(lines, inner.lineno)
+                                _emit(
+                                    rule='parameter-mutation-in-pure-function',
+                                    variant=f'{node.name} mutates parameter `{tgt.value.id}` via item assignment',
+                                    path=rel,
+                                    line=inner.lineno,
+                                    evidence=(lines[inner.lineno - 1].strip()[:200]
+                                              if inner.lineno <= len(lines) else ''),
+                                    accepted=bool(accept),
+                                    accepted_reason=accept,
+                                )
+                # augmented assignment: param[k] += v
+                if isinstance(inner, ast.AugAssign):
+                    if (isinstance(inner.target, ast.Subscript)
+                            and isinstance(inner.target.value, ast.Name)
+                            and inner.target.value.id in param_names):
+                        accept = _accept_reason(lines, inner.lineno)
+                        _emit(
+                            rule='parameter-mutation-in-pure-function',
+                            variant=f'{node.name} mutates parameter `{inner.target.value.id}` via augmented assignment',
+                            path=rel,
+                            line=inner.lineno,
+                            evidence=(lines[inner.lineno - 1].strip()[:200]
+                                      if inner.lineno <= len(lines) else ''),
+                            accepted=bool(accept),
+                            accepted_reason=accept,
+                        )
+                # method call: param.update(...), param.append(...)
+                if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Attribute):
+                    if (isinstance(inner.func.value, ast.Name)
+                            and inner.func.value.id in param_names
+                            and inner.func.attr in MUTATION_METHODS):
+                        accept = _accept_reason(lines, inner.lineno)
+                        _emit(
+                            rule='parameter-mutation-in-pure-function',
+                            variant=f'{node.name} mutates parameter `{inner.func.value.id}` via `.{inner.func.attr}()`',
+                            path=rel,
+                            line=inner.lineno,
+                            evidence=(lines[inner.lineno - 1].strip()[:200]
+                                      if inner.lineno <= len(lines) else ''),
+                            accepted=bool(accept),
+                            accepted_reason=accept,
+                        )
+
+
+_SIDE_EFFECT_CALL_NAMES = {
+    'mkdir', 'rmdir', 'unlink', 'rmtree', 'makedirs', 'remove',
+    'write_text', 'write_bytes', 'touch', 'copytree',
+    'symlink_to', 'mkstemp', 'mkdtemp',
+}
+
+
+def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag functions whose name suggests a pure query/resolution but
+    whose body calls a disk-write/IO side-effect function.
+
+    Signal:
+      - Function name starts with `resolve_`, `find_`, `get_`, `compute_`,
+        `check_`, `parse_`, `is_`, `has_`, `validate_`, `count_`, `build_`.
+      - Function body contains a call whose callee short-name is in
+        {mkdir, rmdir, unlink, rmtree, makedirs, remove, write_text,
+         write_bytes, touch, copy, copytree, move, rename, replace,
+         symlink_to, mkstemp, mkdtemp, dump, dumps, save}.
+      - The side-effect call is not inside a nested `def` (otherwise
+        we'd flag factory functions that return a closure).
+    """
+    # `compute_` / `build_` are intentionally omitted - `compute_loss` mutates
+    # HF Trainer inputs; `build_X_data` in reporting legitimately writes
+    # chart PNGs alongside returning data.
+    PURE_PREFIXES = ('resolve_', 'find_', 'get_', 'check_',
+                     'parse_', 'is_', 'has_', 'validate_', 'count_')
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not any(node.name.startswith(p) for p in PURE_PREFIXES):
+                continue
+            # Walk only the direct body (and its nested statements) but not
+            # nested function definitions
+            def walk_non_nested(n):
+                for sub in ast.iter_child_nodes(n):
+                    if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+                        continue
+                    yield sub
+                    yield from walk_non_nested(sub)
+            for sub in walk_non_nested(node):
+                if not isinstance(sub, ast.Call):
+                    continue
+                callee_short = None
+                if isinstance(sub.func, ast.Name):
+                    callee_short = sub.func.id
+                elif isinstance(sub.func, ast.Attribute):
+                    callee_short = sub.func.attr
+                if callee_short not in _SIDE_EFFECT_CALL_NAMES:
+                    continue
+                accept = _accept_reason(lines, sub.lineno)
+                _emit(
+                    rule='pure-name-has-side-effect',
+                    variant=f'{node.name} calls side-effect `{callee_short}` despite name implying a pure query',
+                    path=rel,
+                    line=sub.lineno,
+                    evidence=(lines[sub.lineno - 1].strip()[:200]
+                              if sub.lineno <= len(lines) else ''),
+                    accepted=bool(accept),
+                    accepted_reason=accept,
+                )
+                break  # one finding per function is enough
+
+
+def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `__init__` methods that store a parameter typed as dict/list
+    onto `self.<name>` without taking a defensive copy. Callers share
+    the reference with the instance; if anyone mutates later, all
+    observers see the change.
+
+    Signal:
+      - `__init__` has a parameter P whose annotation mentions `dict`
+        or `list` (at the top level; allows `dict | None`, `list[str]`,
+        `dict[str, Any]` forms).
+      - The body assigns `self.<P> = <P>` with no `.copy()` /
+        `.deepcopy()` / `dict(...)` / `list(...)` / `frozenset(...)`
+        wrapping.
+      - The parameter is not annotated as `frozenset`, `tuple`, or a
+        project dataclass (which is immutable by convention).
+    """
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for cls in ast.walk(tree):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            init = next(
+                (m for m in cls.body
+                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and m.name == '__init__'),
+                None,
+            )
+            if init is None:
+                continue
+            # Collect args typed as dict/list at top level of annotation
+            mutable_args: set[str] = set()
+            for arg in init.args.args:
+                if arg.annotation is None:
+                    continue
+                try:
+                    ann_src = ast.unparse(arg.annotation)
+                except Exception:
+                    continue
+                # top-level `dict` or `list` (allow `| None`, subscripts)
+                # but not inside tuple/frozenset/etc.
+                normalised = ann_src.split('|')[0].strip()
+                root = re.match(r'^([a-zA-Z_][a-zA-Z_0-9]*)', normalised)
+                if not root:
+                    continue
+                root_name = root.group(1)
+                if root_name in {'dict', 'list'}:
+                    mutable_args.add(arg.arg)
+            if not mutable_args:
+                continue
+            # Walk init body for self.X = X where X in mutable_args and
+            # the RHS is a bare Name (no .copy() wrapping)
+            for stmt in init.body:
+                if not isinstance(stmt, ast.Assign):
+                    continue
+                for tgt in stmt.targets:
+                    if not (isinstance(tgt, ast.Attribute)
+                            and isinstance(tgt.value, ast.Name)
+                            and tgt.value.id == 'self'):
+                        continue
+                    if not isinstance(stmt.value, ast.Name):
+                        continue
+                    if stmt.value.id not in mutable_args:
+                        continue
+                    if tgt.attr != stmt.value.id:
+                        continue
+                    accept = _accept_reason(lines, stmt.lineno)
+                    _emit(
+                        rule='mutable-store-without-copy',
+                        variant=f'{cls.name}.__init__ stores dict/list parameter `{stmt.value.id}` by reference',
+                        path=rel,
+                        line=stmt.lineno,
+                        evidence=(lines[stmt.lineno - 1].strip()[:200]
+                                  if stmt.lineno <= len(lines) else ''),
+                        accepted=bool(accept),
+                        accepted_reason=accept,
+                    )
+
+
+# Callees that indicate the wrapped try-block touches local filesystem
+# cache / does writing I/O. Catching only library-specific exceptions
+# (MlflowException, BotoException, etc.) without also catching OSError
+# leaks disk failures to callers.
+_FILESYSTEM_TOUCHING_CALLS = {
+    # Third-party helpers that cache to disk / upload / download
+    'download_artifacts', 'download_file', 'download', 'save_model',
+    'log_artifact', 'log_artifacts', 'log_model', 'from_pretrained',
+    'save_pretrained', 'push_to_hub', 'snapshot_download',
+    'upload_file', 'upload_artifacts',
+    # Pathlib / open / stdlib filesystem primitives used directly.
+    # `replace`, `rename`, `copy`, `remove` are intentionally omitted -
+    # `str.replace`, `dataclasses.replace`, `list.copy`, `dict.copy`,
+    # `list.remove` are overwhelmingly common; the false-positive rate
+    # on their bare names dominates.
+    'write_text', 'write_bytes', 'read_text', 'read_bytes',
+    'mkdir', 'unlink', 'rmdir', 'touch', 'rmtree', 'makedirs',
+    'symlink_to', 'copytree',
+    # Common library read entry points that open the file under the hood
+    'read_csv', 'read_json', 'read_parquet', 'read_table',
+    'read_excel', 'read_pickle', 'read_feather', 'read_hdf',
+    'read_sql', 'read_sql_query', 'read_sql_table',
+    'from_csv', 'from_json',
+}
+
+
+def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `try` blocks that call a filesystem-touching third-party
+    helper (`download_artifacts`, `from_pretrained`, `snapshot_download`,
+    etc.) where the `except` tuple does not include `OSError` (or a
+    parent like `Exception`/`BaseException`).
+
+    These helpers write to a local cache directory; disk-full,
+    read-only, or permission-denied failures surface as `OSError` /
+    `PermissionError`, not as the library's own exception. The narrow
+    except clause lets those propagate past the wrapper's promise to
+    translate to a project error class.
+    """
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Try):
+                continue
+            # Does the body call any filesystem-touching helper?
+            touched_fs = False
+            for stmt in node.body:
+                for sub in ast.walk(stmt):
+                    if not isinstance(sub, ast.Call):
+                        continue
+                    short = None
+                    if isinstance(sub.func, ast.Name):
+                        short = sub.func.id
+                    elif isinstance(sub.func, ast.Attribute):
+                        short = sub.func.attr
+                    if short in _FILESYSTEM_TOUCHING_CALLS:
+                        touched_fs = True
+                        break
+                if touched_fs:
+                    break
+            if not touched_fs:
+                continue
+            # Does ANY except handler catch OSError/Exception/BaseException?
+            covers_os = False
+            for handler in node.handlers:
+                if handler.type is None:
+                    covers_os = True
+                    break
+                try:
+                    type_src = ast.unparse(handler.type)
+                except Exception:
+                    continue
+                names = set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', type_src))
+                if {'OSError', 'Exception', 'BaseException', 'IOError',
+                    'PermissionError', 'FileNotFoundError'} & names:
+                    covers_os = True
+                    break
+            if covers_os:
+                continue
+            # Emit a finding at the first handler's line so the reviewer
+            # sees the narrow catch.
+            first_handler = node.handlers[0] if node.handlers else None
+            lineno = first_handler.lineno if first_handler is not None else node.lineno
+            # List the caught classes for context
+            caught = []
+            for h in node.handlers:
+                if h.type is None:
+                    caught.append('<bare>')
+                else:
+                    try:
+                        caught.append(ast.unparse(h.type))
+                    except Exception:
+                        pass
+            accept = _accept_reason(lines, lineno)
+            _emit(
+                rule='filesystem-envelope-gap',
+                variant=f'try block touches filesystem (download/from_pretrained/etc.) but except tuple {caught!r} omits OSError',
+                path=rel,
+                line=lineno,
+                evidence=(lines[lineno - 1].strip()[:200]
+                          if lineno <= len(lines) else ''),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag public entry-point functions that perform filesystem writes
+    (`write_text` / `write_bytes` / `mkdir` / `unlink` / `rmtree` / etc.)
+    WITHOUT a surrounding try/except anywhere in the function body.
+
+    Signal:
+      - Function F lives in a package P whose `errors.py` defines at
+        least one `*Error` class (so the layer has a domain error to
+        translate to).
+      - F is a PUBLIC entry point of the package: either exported from
+        the package's `__init__.py` (via `__all__` or a `from .X import F`
+        re-export), OR its docstring mentions `Raises` (signalling it is
+        part of the package's error contract).
+      - F calls a filesystem-write primitive
+        (`write_text`, `write_bytes`, `mkdir`, `unlink`, `rmdir`,
+        `touch`, `rmtree`, `makedirs`, `symlink_to`, `copytree`).
+      - The call is not inside any `ast.Try` block within F.
+
+    Internal utilities (functions called only by other functions in the
+    same package) are NOT flagged - they legitimately let `OSError`
+    propagate to a caller that holds the envelope.
+
+    `filesystem-envelope-gap` catches the case where a try exists but
+    the except tuple is too narrow. This check catches the case where
+    no try exists at all AND the function is part of the package's
+    public error contract.
+    """
+    # Drop `replace`, `rename`, `copy`, `remove` - too noisy due to
+    # str.replace, dataclasses.replace, list.copy, list.remove etc.
+    STDLIB_WRITE_CALLS = {
+        'write_text', 'write_bytes', 'mkdir', 'unlink', 'rmdir',
+        'touch', 'rmtree', 'makedirs',
+        'symlink_to', 'copytree',
+    }
+    # First pass: find every package with a domain error class
+    package_has_domain_error: set[tuple[str, ...]] = set()
+    for path in _all_py_files(src_root):
+        if path.name != 'errors.py':
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
+                pkg = path.relative_to(src_root).parts[:-1]
+                package_has_domain_error.add(pkg)
+                break
+    if not package_has_domain_error:
+        return
+
+    # For each package with a domain error, collect the names exported
+    # from its `__init__.py` (via __all__ or re-exports).
+    package_exports: dict[tuple[str, ...], set[str]] = defaultdict(set)
+    for path in _all_py_files(src_root):
+        if path.name != '__init__.py':
+            continue
+        pkg = path.relative_to(src_root).parts[:-1]
+        if pkg not in package_has_domain_error:
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for tgt in node.targets:
+                    if isinstance(tgt, ast.Name) and tgt.id == '__all__':
+                        if isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
+                            for elt in node.value.elts:
+                                if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                                    package_exports[pkg].add(elt.value)
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    package_exports[pkg].add(alias.asname or alias.name)
+
+    for path in _all_py_files(src_root):
+        if path.name in {'errors.py', '__init__.py'}:
+            continue
+        pkg = path.relative_to(src_root).parts[:-1]
+        if pkg not in package_has_domain_error:
+            continue
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        exports = package_exports.get(pkg, set())
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            # Public entry-point test: either exported from package
+            # __init__ OR docstring mentions "Raises"
+            is_exported = func.name in exports
+            docstring = ast.get_docstring(func) or ''
+            mentions_raises = bool(re.search(r'\bRaises?\b', docstring))
+            if not (is_exported or mentions_raises):
+                continue
+            # Collect linenos inside any try block within this function
+            try_linenos: set[int] = set()
+            for sub in ast.walk(func):
+                if isinstance(sub, ast.Try):
+                    for stmt in sub.body:
+                        for innersub in ast.walk(stmt):
+                            if hasattr(innersub, 'lineno'):
+                                try_linenos.add(innersub.lineno)
+            # Walk for filesystem write calls
+            for inner in ast.walk(func):
+                if not isinstance(inner, ast.Call):
+                    continue
+                short = None
+                if isinstance(inner.func, ast.Name):
+                    short = inner.func.id
+                elif isinstance(inner.func, ast.Attribute):
+                    short = inner.func.attr
+                if short not in STDLIB_WRITE_CALLS:
+                    continue
+                if inner.lineno in try_linenos:
+                    continue
+                accept = _accept_reason(lines, inner.lineno)
+                _emit(
+                    rule='filesystem-op-without-envelope',
+                    variant=f'{func.name} calls `{short}` with no surrounding try/except in the function body',
+                    path=rel,
+                    line=inner.lineno,
+                    evidence=(lines[inner.lineno - 1].strip()[:200]
+                              if inner.lineno <= len(lines) else ''),
+                    accepted=bool(accept),
+                    accepted_reason=accept,
+                )
+                break  # one finding per function
+
+
+def check_non_alphabetical_dict_keys(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag module-level dict assignments whose keys are all string
+    literals and NOT in alphabetical order. Companion to
+    `check_nonalphabetical_literals` which covers list/tuple/set/frozenset.
+
+    The project-wide ordering rule treats enum-like collections as a
+    shared convention: a dict mapping a closed domain (metric-name to
+    scorer, error-code to message, etc.) should be alphabetised unless
+    the order carries semantic meaning.
+    """
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if not isinstance(value, ast.Dict):
+                continue
+            keys = value.keys
+            if not keys or len(keys) < 2:
+                continue
+            if not all(isinstance(k, ast.Constant) and isinstance(k.value, str) for k in keys):
+                continue
+            actual = [k.value for k in keys]
+            if actual == sorted(actual):
+                continue
+            accept = _accept_reason(lines, node.lineno)
+            _emit(
+                rule='non-alphabetical-dict-keys',
+                variant='dict with string keys not alphabetically sorted',
+                path=rel,
+                line=node.lineno,
+                evidence=f'keys: {actual!r}',
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag annotations that use `dict`, `list`, `tuple`, `set`, or
+    `frozenset` without a parametric type (`dict[str, int]`, `list[X]`,
+    etc.). Bare `dict` / `list` loses type information that pyright /
+    mypy / readers need.
+
+    Applies to:
+      - function parameter annotations
+      - function return annotations
+      - class / module-level AnnAssign targets
+      - local AnnAssign targets inside function bodies
+    """
+    BARE_GENERICS = {'dict', 'list', 'tuple', 'set', 'frozenset'}
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        reported: set[int] = set()
+
+        def _flag_annotation(ann: ast.AST, ctx: str) -> None:
+            # Walk the annotation expression to find any `Name` matching
+            # a bare generic. `Subscript(Name(id='dict'), ...)` is fine.
+            # `Name(id='dict')` alone is a bare annotation. Handle
+            # `dict | None`, `dict | Other`, etc. by descending into BinOp.
+            def _visit(node: ast.AST) -> None:
+                if isinstance(node, ast.Subscript):
+                    # parametric; if slice is `dict` itself that's fine too, stop
+                    return
+                if isinstance(node, ast.Name) and node.id in BARE_GENERICS:
+                    lineno = getattr(node, 'lineno', None)
+                    if lineno is None or lineno in reported:
+                        return
+                    reported.add(lineno)
+                    accept = _accept_reason(lines, lineno)
+                    _emit(
+                        rule='bare-parametric-annotation',
+                        variant=f'{ctx} uses bare `{node.id}` without element type',
+                        path=rel,
+                        line=lineno,
+                        evidence=(lines[lineno - 1].strip()[:200]
+                                  if 1 <= lineno <= len(lines) else ''),
+                        accepted=bool(accept),
+                        accepted_reason=accept,
+                    )
+                elif isinstance(node, ast.BinOp):
+                    _visit(node.left)
+                    _visit(node.right)
+                elif isinstance(node, ast.Tuple):
+                    for elt in node.elts:
+                        _visit(elt)
+            _visit(ann)
+
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for arg in (*node.args.args, *node.args.kwonlyargs, *node.args.posonlyargs):
+                    if arg.annotation is not None:
+                        _flag_annotation(arg.annotation, f'{node.name}({arg.arg}:)')
+                if node.returns is not None:
+                    _flag_annotation(node.returns, f'{node.name} -> ')
+            elif isinstance(node, ast.AnnAssign) and node.annotation is not None:
+                tgt = node.target
+                ctx = 'annotation'
+                if isinstance(tgt, ast.Name):
+                    ctx = f'{tgt.id}:'
+                _flag_annotation(node.annotation, ctx)
+
+
+def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag functions whose docstring declares `Raises: <X>` (or a
+    sphinx-style `:raises X:` or a plain 'Raises X' sentence) where the
+    body actually raises a different exception class.
+
+    Signal:
+      - Function has a docstring.
+      - Docstring mentions at least one exception class name (via
+        `Raises:` section, `:raises X:` role, or 'Raises FooError' prose).
+      - Function body contains `raise <Y>(...)` statements, all of which
+        raise a class NOT listed in the docstring, and no `raise` re-raises
+        a caught variable.
+    """
+    # Match exception class names from docstrings in a few common shapes
+    docstring_class_re = re.compile(
+        r'(?:Raises[\s:]+|:raises\s+|^\s*Raises?\s+)'
+        r'([A-Za-z_][\w.]*Error)', re.MULTILINE
+    )
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            doc = ast.get_docstring(node)
+            if not doc:
+                continue
+            declared = {m.rsplit('.', 1)[-1] for m in docstring_class_re.findall(doc)}
+            if not declared:
+                continue
+            # Collect actual raised classes (excluding re-raises of bound vars)
+            actual: set[str] = set()
+            for inner in ast.walk(node):
+                if not isinstance(inner, ast.Raise) or inner.exc is None:
+                    continue
+                target = inner.exc.func if isinstance(inner.exc, ast.Call) else inner.exc
+                if isinstance(target, (ast.Name, ast.Attribute)):
+                    try:
+                        src = ast.unparse(target)
+                    except Exception:
+                        continue
+                    tail = src.rsplit('.', 1)[-1]
+                    if tail.endswith('Error'):
+                        actual.add(tail)
+            if not actual:
+                continue
+            if actual & declared:
+                continue  # intersection non-empty => at least one documented match
+            # Every actual raise is not in declared list => mismatch
+            accept = _accept_reason(lines, node.lineno)
+            _emit(
+                rule='docstring-raises-mismatch',
+                variant=f'{node.name} docstring declares `Raises: {sorted(declared)}` but body raises {sorted(actual)}',
+                path=rel,
+                line=node.lineno,
+                evidence=f'docstring: {sorted(declared)} | body: {sorted(actual)}',
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag module-level assignments `X = <dotted.path>.X` in files OTHER
+    than `__init__.py`. Re-exports belong in the package's `__init__.py`;
+    mid-tree re-export shims fragment the public surface and create
+    migration-shim-style consumer drift.
+    """
+    for path in _all_py_files(src_root):
+        if path.name == '__init__.py':
+            continue
+        rel = _relpath(path, scope)
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        lines = _source_lines(path)
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            # pattern: LHS is a single Name; RHS is Attribute whose
+            # trailing .attr matches the LHS name
+            if len(node.targets) != 1:
+                continue
+            tgt = node.targets[0]
+            if not isinstance(tgt, ast.Name):
+                continue
+            if not isinstance(node.value, ast.Attribute):
+                continue
+            if node.value.attr != tgt.id:
+                continue
+            # The RHS must be a module path (Attribute of Attribute or Name)
+            try:
+                rhs_src = ast.unparse(node.value)
+            except Exception:
+                continue
+            accept = _accept_reason(lines, node.lineno)
+            _emit(
+                rule='reexport-in-non-init',
+                variant=f'`{tgt.id} = {rhs_src}` at module scope in non-__init__.py file',
+                path=rel,
+                line=node.lineno,
+                evidence=(lines[node.lineno - 1].strip()[:200]
+                          if node.lineno <= len(lines) else ''),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag dataclass fields annotated as `X | None` (defaulting to
+    `None`) where `__post_init__` unconditionally reassigns them to
+    a non-None value. The `| None` is inaccurate - the field is never
+    None after construction.
+
+    Signal:
+      - Class decorated with `@dataclass` or inheriting from a dataclass
+        convention.
+      - AnnAssign field `X: Y | None = <default>` (or `= field(default=None)`).
+      - `__post_init__` method assigns `self.X = <expr>` unconditionally
+        (not inside an `if`/`try`/`for`).
+    """
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for cls in ast.walk(tree):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            # Is it a dataclass? Check decorators
+            is_dataclass = False
+            for dec in cls.decorator_list:
+                try:
+                    dec_src = ast.unparse(dec)
+                except Exception:
+                    continue
+                if 'dataclass' in dec_src:
+                    is_dataclass = True
+                    break
+            if not is_dataclass:
+                continue
+            # Collect X | None fields defaulting to None
+            nullable_fields: dict[str, int] = {}
+            for item in cls.body:
+                if not isinstance(item, ast.AnnAssign):
+                    continue
+                if not isinstance(item.target, ast.Name):
+                    continue
+                try:
+                    ann_src = ast.unparse(item.annotation)
+                except Exception:
+                    continue
+                if 'None' not in ann_src:
+                    continue
+                # Check default is None (direct or `field(default=None)`)
+                default_is_none = False
+                if item.value is None:
+                    continue
+                if isinstance(item.value, ast.Constant) and item.value.value is None:
+                    default_is_none = True
+                elif isinstance(item.value, ast.Call):
+                    for kw in item.value.keywords:
+                        if kw.arg == 'default' and isinstance(kw.value, ast.Constant) and kw.value.value is None:
+                            default_is_none = True
+                if default_is_none:
+                    nullable_fields[item.target.id] = item.lineno
+            if not nullable_fields:
+                continue
+            # Find __post_init__
+            post_init = next(
+                (m for m in cls.body
+                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and m.name == '__post_init__'),
+                None,
+            )
+            if post_init is None:
+                continue
+            # Check top-level body of __post_init__ for unconditional
+            # `self.<X> = <non-None>` on each nullable field
+            for stmt in post_init.body:
+                if not isinstance(stmt, ast.Assign):
+                    continue
+                for tgt in stmt.targets:
+                    if not (isinstance(tgt, ast.Attribute)
+                            and isinstance(tgt.value, ast.Name)
+                            and tgt.value.id == 'self'):
+                        continue
+                    if tgt.attr not in nullable_fields:
+                        continue
+                    # Check RHS is not None
+                    if isinstance(stmt.value, ast.Constant) and stmt.value.value is None:
+                        continue
+                    field_lineno = nullable_fields[tgt.attr]
+                    accept = _accept_reason(lines, field_lineno)
+                    _emit(
+                        rule='dataclass-optional-always-set',
+                        variant=f'{cls.name}.{tgt.attr} typed `X | None` but __post_init__ always assigns non-None',
+                        path=rel,
+                        line=field_lineno,
+                        evidence=(lines[field_lineno - 1].strip()[:200]
+                                  if field_lineno <= len(lines) else ''),
+                        accepted=bool(accept),
+                        accepted_reason=accept,
+                    )
+
+
+def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag function bodies where a local variable is assigned an
+    initial value at the top of the body, then unconditionally reassigned
+    before any use in all code paths.
+
+    Simple signal (low-FP only):
+      - First statement in function body is `x = <literal or empty constructor>`.
+      - All subsequent statements in the function body before the first
+        read of `x` are reassignments to `x` inside a closed branch
+        structure (an `if/elif/else` chain where every branch ends with
+        `return <expr involving x>` or with `x = ...`).
+
+    Restricting to "initial empty-constructor assignment + exhaustive
+    if/elif/else that returns" keeps the check low-FP.
+    """
+    EMPTY_CONSTRUCTORS = {'dict', 'list', 'set', 'tuple', 'frozenset'}
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            body = [s for s in func.body if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant))]
+            if len(body) < 2:
+                continue
+            first = body[0]
+            if not isinstance(first, (ast.Assign, ast.AnnAssign)):
+                continue
+            targets = first.targets if isinstance(first, ast.Assign) else [first.target]
+            if len(targets) != 1 or not isinstance(targets[0], ast.Name):
+                continue
+            var_name = targets[0].id
+            value = first.value
+            if value is None:
+                continue
+            is_empty_init = False
+            if isinstance(value, ast.Dict) and not value.keys:
+                is_empty_init = True
+            elif isinstance(value, ast.List) and not value.elts:
+                is_empty_init = True
+            elif isinstance(value, ast.Set) and not value.elts:
+                is_empty_init = True
+            elif isinstance(value, ast.Tuple) and not value.elts:
+                is_empty_init = True
+            elif (isinstance(value, ast.Call)
+                  and isinstance(value.func, ast.Name)
+                  and value.func.id in EMPTY_CONSTRUCTORS
+                  and not value.args
+                  and not value.keywords):
+                is_empty_init = True
+            if not is_empty_init:
+                continue
+            # Check remaining body: is it an if/elif/else whose every
+            # branch either returns or reassigns var_name before reading it?
+            rest = body[1:]
+            if len(rest) != 1:
+                continue
+            if_stmt = rest[0]
+            if not isinstance(if_stmt, ast.If):
+                continue
+            # Walk every branch arm; ensure it starts with an assignment
+            # to var_name or a return, not a read.
+            def _branch_overrides(branch: list) -> bool:
+                for s in branch:
+                    # Assigns var_name before reading
+                    if isinstance(s, (ast.Assign, ast.AnnAssign)):
+                        tgts = s.targets if isinstance(s, ast.Assign) else [s.target]
+                        for t in tgts:
+                            if isinstance(t, ast.Name) and t.id == var_name:
+                                return True
+                    # Returns something that uses var_name - don't flag;
+                    # this isn't dead init
+                    if isinstance(s, ast.Return):
+                        if s.value is not None:
+                            try:
+                                rs = ast.unparse(s.value)
+                            except Exception:
+                                return False
+                            # if body reads var_name in return, branch did not override
+                            if re.search(rf'\b{re.escape(var_name)}\b', rs):
+                                return False
+                            return True  # returned something else, initial was dead
+                        return True
+                return False
+            def _walk_chain(stmt: ast.If) -> bool:
+                if not _branch_overrides(stmt.body):
+                    return False
+                orelse = stmt.orelse
+                while orelse:
+                    if len(orelse) == 1 and isinstance(orelse[0], ast.If):
+                        nxt = orelse[0]
+                        if not _branch_overrides(nxt.body):
+                            return False
+                        orelse = nxt.orelse
+                    else:
+                        return _branch_overrides(orelse)
+                return False  # no else branch => init might be read on that path
+            if not _walk_chain(if_stmt):
+                continue
+            accept = _accept_reason(lines, first.lineno)
+            _emit(
+                rule='dead-local-init',
+                variant=f'`{var_name} = <empty>` at top of {func.name} is unconditionally overridden in all if/elif/else branches',
+                path=rel,
+                line=first.lineno,
+                evidence=(lines[first.lineno - 1].strip()[:200]
+                          if first.lineno <= len(lines) else ''),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
 def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     dup_re = re.compile(r'\b([a-z]{2,})\s+\1\b', re.IGNORECASE)
     for path in _all_py_files(src_root):
@@ -1222,6 +3417,28 @@ def main() -> int:
         check_empty_init_with_exporting_siblings,
         check_mixed_raise_types,
         check_migration_shim_consumers,
+        check_silent_self_mutation,
+        check_asymmetric_exception_translation,
+        check_sibling_error_no_common_base,
+        check_duplicate_side_effect_per_target,
+        check_cli_entry_missing_error_envelope,
+        check_redundant_sink_caller_plus_callee,
+        check_return_value_shadows_instance_attr,
+        check_try_wrapping_with_too_broad,
+        check_duplicate_call_sequence,
+        check_layer_has_domain_error_but_raises_stdlib,
+        check_inconsistent_error_translation,
+        check_parameter_mutation,
+        check_pure_name_has_side_effect,
+        check_mutable_store_without_copy,
+        check_filesystem_envelope_gap,
+        check_filesystem_op_without_envelope,
+        check_non_alphabetical_dict_keys,
+        check_bare_parametric_annotation,
+        check_docstring_raises_mismatch,
+        check_reexport_in_non_init,
+        check_dataclass_optional_always_set,
+        check_dead_local_init,
         check_lockfile,
         check_duplicated_word,
     ):

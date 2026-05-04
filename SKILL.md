@@ -7,6 +7,7 @@ when_to_use: |
         - code audit
         - full code review
         - review the codebase
+        - audit the codebase
         - audit the docs
 
 allowed_tools: [Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Skill]
@@ -21,11 +22,14 @@ Invoke as:
 
 `--category` restricts the interpretive review (step 4) to one of: `standards`, `architecture`, `performance`, `security`, `testing`, `dependencies`, `documentation`. The mechanical sweep (step 3) always runs in full.
 
-## Core principle
+## Convergence is the success criterion
 
-The audit must find every mechanical issue in one run. If a finding surfaces on run 2 on unchanged code, the audit failed. To make this reliable, the mechanical checks are a Python script (`checks/audit.py`, shipped with this skill) that you run and transcribe. You do not run the mechanical checks yourself - agents reliably skip, sample, or silently filter greps and AST walks.
+Two consecutive audit runs on unchanged code MUST produce the same findings. If run N+1 surfaces findings that run N did not, one of two failures has happened:
 
-Only interpretive findings (logic bugs, spec drift, architectural concerns) require reading.
+1. **Script grew between runs.** A new check was added to `checks/audit.py`, so a class of historical debt that was previously invisible suddenly appears. This looks like "the audit found new issues" but it is the script catching up. Cure: the script does NOT change during an active audit-fix loop. Add new checks only after the current task list has shipped and the next audit is clean.
+2. **Phase B was non-deterministic.** A reviewer agent applied different judgment than last round on the same files. Cure: Phase B is a fixed checklist, not free-form reading. Two reviewers running the checklist on the same file must produce the same finding set.
+
+Convergence is non-negotiable. "We found more this time" is the failure signal, not progress.
 
 ## Workflow
 
@@ -42,12 +46,9 @@ Run these in parallel:
 
 1. Read `AGENTS.md` and `README.md`
 2. Read `agents/specs/index.md` if present
-3. Read source modules in scope
-4. Read coding-standards rule files referenced by AGENTS.md
-5. Read tests for modules in scope
-6. Read user docs in `docs/`
-7. Read `agents/audit-reviews/summary.md` if present. Note unresolved findings - step 6 re-verifies them.
-8. Grep for `- [ ]` in `agents/tasks/audit-reviews/*.md`; read only files with incomplete items.
+3. Read coding-standards rule files referenced by AGENTS.md
+4. Read `agents/audit-reviews/summary.md` if present. Note unresolved findings - step 6 re-verifies them.
+5. Grep for `- [ ]` in `agents/tasks/audit-reviews/*.md`; read only files with incomplete items.
 
 ### 3. Mechanical sweep (scripted)
 
@@ -57,7 +58,7 @@ Run the shipped audit script:
 python3 ~/.claude/skills/auditme/checks/audit.py <project-root> [--package <pkg>]
 ```
 
-Where `<project-root>` is the directory containing `src/` and `agents/`. `--package` defaults to the single directory under `src/`.
+`<project-root>` is the directory containing `src/` and `agents/`. `--package` defaults to the single directory under `src/`.
 
 The script outputs one JSON object per line (JSONL). Each line is a hit.
 
@@ -80,49 +81,26 @@ Schema:
 1. Save the full JSONL output to `/tmp/audit-<project>.jsonl`.
 2. Every hit with `accepted: false` MUST appear in the review file as a finding (grouped by rule, enumerated individually with `path:line`).
 3. Hits with `accepted: true` are dismissed with their `accepted_reason`. Do not re-litigate them.
-4. You may NOT filter, sample, or dismiss `accepted: false` hits for any other reason. "Pre-existing", "project norm", "seems intentional" are NOT acceptable dismissals. If you believe a hit is legitimate, either:
-   - fix the code in the same worktree (if the fix is tiny and obvious), OR
-   - add an inline `# auditme: accept <reason>` comment at the hit site and re-run the script (the hit will flip to `accepted: true` on re-run), OR
-   - add an entry to `AGENTS.md` (see "Acceptance mechanism" below) and re-run the script.
+4. You may NOT filter, sample, or dismiss `accepted: false` hits. "Pre-existing", "project norm", "seems intentional" are NOT acceptable dismissals. To accept a pattern:
+   - one site: inline `# auditme: accept <reason>` comment on the hit line or the line above
+   - many sites of the same class: AGENTS.md table entry, then re-run the script
+5. **Do not extend the script during the audit.** If Phase B surfaces a new mechanically-detectable pattern, write it down in the review's "Script coverage notes" but do not add it to `checks/audit.py` until the current task list ships and the next audit on unchanged code shows zero mechanical delta. This is the cure for the perpetual "the audit keeps finding new things" loop: the script stays still, the next run is clean, then the script grows.
 
-**What the script catches:**
+The full set of rules the script catches is documented in `checks/audit.py` itself - read the docstring of each `check_*` function for the predicate it encodes.
 
-Standards / syntactic drift:
-- ruff (check + format)
-- wildcard imports, `from __future__`, aliased imports, legacy typing generics, `.format()` / `%`-style formatting, stdlib `logging`
-- relative imports outside `__init__.py`, `def`/`class` inside `__init__.py`, `from typing import` outside `__init__.py`
-- 8 leading-underscore variants (module def/class, UPPER constants, lower constants, `self._x`, destructured LHS, both for-loop positions, attribute access)
-- in-function imports (classified stdlib / first-party / third-party; AGENTS.md table auto-accepts)
-- silent broad-except (no logger, no raise)
-- caught-exception interpolated into f-strings or logger positional args
-- literal duplication (same tuple/list/set/frozenset of strings in 2+ locations, anywhere)
-- non-alphabetical enum-like literals at module scope
-- unused `import X.Y.Z` submodule imports (ruff F401 misses these)
-- paired sibling helpers with structurally identical bodies (cross-file `is_X` / `_is_X` duplication)
-- duplicated words in comments / docstrings (typos like "the the")
-- lockfile drift
+### 4. Interpretive review (per-file checklist)
 
-Architecture / structural drift:
-- **layering violations** (parsed from AGENTS.md "Package layering" section + accepted-exceptions table)
-- **broad-except wrong level** (broad-except body uses `logger.warning`/`logger.error`/`logger.info`/`logger.debug` instead of `logger.exception`)
-- **mixed raise types** (one method raises both stdlib (`RuntimeError`/`ValueError`) and project error types - callers cannot establish a clean catch envelope)
-- **migration-shim consumers** (a module re-exports `X = canonical.X`; the script flags every other module that imports `X` via the shim instead of the canonical home)
-- **constructor disk I/O** (`__init__` calls `open()`, `read_text`, `mkdir`, `iterdir`, etc.)
-- **pass-through shim functions** (function whose body is exactly `return f(<args>)` with the same parameter names)
-- **empty `__init__.py` while siblings export** (a subpackage exports nothing while at least one sibling exports >=5 symbols - inconsistent public-surface contract)
+Phase B is **not** free-form reading. It is a fixed checklist applied to every file in scope. Two reviewers running this checklist on the same file must converge on the same finding set.
 
-Architecture findings the script CANNOT catch are listed in the [Architecture](#architecture) interpretive checklist below.
+For each file in scope, divide files across multiple agents (parallel) and have each agent answer **every** question on the [Phase B checklist](#phase-b-checklist) for **every** assigned file. The output is structured: per file, per question, an explicit yes/no and (if yes) a list of locations.
 
-### 4. Interpretive review (per-file reading)
+Rules for reviewers:
 
-Things the script cannot catch: logic bugs, spec contradictions, architectural concerns, missing tests for complex code, behavioural mismatches, docs that are wrong vs the implementation.
-
-1. Use `Glob` to build the file list in scope
-2. Divide files across multiple agents (parallel)
-3. Each agent reads each file end-to-end and evaluates against the [Interpretive checklist](#interpretive-checklist) below, restricted by `--category` if present
-4. Track every file read - the list goes in the review file
-
-Do not substitute reading with grep-or-AST: that is Phase A's job. Phase B requires reading.
+- Answer EVERY question for EVERY file. Skipping a question is a Phase B failure.
+- "No issue" is a valid answer; record it explicitly. The audit needs to see the question was asked.
+- Findings are grouped by question, not invented from scratch. If you observe something the checklist does not ask about, add it to "Out-of-checklist observations" at the end of the file's report - this is the seed for a future checklist item, not a finding.
+- Do not self-edit. Low-severity / stylistic findings still go in the review.
+- Do not read with the goal of "finding concerns". Read with the goal of "answering the checklist".
 
 ### 5. Spec review
 
@@ -130,7 +108,7 @@ For each spec in scope, check it against the validation criteria and spec templa
 
 ### 6. Re-verify prior findings
 
-For each unresolved finding in `summary.md`, grep or read to confirm: still present, or now resolved. If resolved, mark the finding closed in `summary.md` and (if applicable) mark the corresponding task file done.
+For each unresolved finding in `summary.md`, grep or read to confirm: still present, or now resolved. If resolved, mark closed in `summary.md` and (if applicable) mark the corresponding task file done.
 
 For each incomplete task in `agents/tasks/audit-reviews/*.md`, verify against source: actually incomplete (re-flag in the review) or shipped (mark done in the task file).
 
@@ -140,9 +118,10 @@ Before writing the review file, confirm:
 
 - [ ] `checks/audit.py` was executed and its full JSONL output saved
 - [ ] Every `accepted: false` hit appears in the review (no sampling, no silent dismissals)
-- [ ] Phase B read every file in scope end-to-end; the file list is written
+- [ ] Phase B answered EVERY checklist question for EVERY file in scope (the per-file structured table is in the review)
 - [ ] Every unresolved summary.md finding was re-verified
 - [ ] Every incomplete task file was re-verified against source
+- [ ] No new check was added to `checks/audit.py` during this audit (script-coverage delta is zero unless explicitly authorised)
 
 If any is no, finish it before writing the review.
 
@@ -182,92 +161,87 @@ If there are findings: `/taskdev agents/audit-reviews/review-N.md`. If none: tel
 The script treats a hit as `accepted: true` only when one of these exists:
 
 1. **Inline comment** on the hit line or the preceding line: `# auditme: accept <reason>`
-2. **AGENTS.md table row** pairing the importer and imported module in backticks (for in-function imports). Any table with two `|`-separated columns where the first column's backticked module matches the importer and the second column's backticked module matches the imported module counts.
+2. **AGENTS.md table row** pairing the importer and imported module in backticks (for in-function imports). The importer module path is computed without a leading `src.` prefix (e.g. `featmo.config.structures`, not `src.featmo.config.structures`); AGENTS.md rows should use the same form.
 
-Nothing else acts as acceptance - not a decision note under `agents/audit-reviews/`, not a prior review that "agreed" the pattern is fine, not an assumption about HF / sklearn / PEP conventions. If the user wants to accept a pattern:
+Nothing else acts as acceptance - not a decision note under `agents/audit-reviews/`, not a prior review that "agreed" the pattern is fine, not an assumption about HF / sklearn / PEP conventions.
 
-- One site: inline `# auditme: accept <reason>` comment
-- Many sites of the same class: AGENTS.md entry OR loop through each site adding the comment
+## Phase B checklist
 
-A prior decision note (e.g. `leading-underscore-decision.md`) is not enough. If the user wants to accept leading-underscore privacy project-wide, the fix is an AGENTS.md entry plus a pre-commit or `# auditme: accept` convention - not a decision note the script cannot read.
+The questions below are the entire Phase B surface. Each question is asked of every file in scope. The answer is `none` (no instances) or a list of `path:line` locations with a one-line description.
 
-## Interpretive checklist
+Questions are organised by category. The `--category` flag restricts which sections run; if absent, all sections run.
 
-Phase B (step 4) reading-level checks. Mechanical items moved to the script; these remain because they require judgement.
+### Architecture (A)
 
-### Coding standards
+Each question is a deterministic predicate. The reviewer reads the file end-to-end and answers each question.
 
-- All function signatures have parameter and return type annotations (visible on read)
-- Naming follows project conventions where ambiguous (PascalCase for types; UPPER_SNAKE_CASE for constants)
-- TYPE_CHECKING block placement matches idiom in the rest of the tree
-- Project coding rules not covered by the script (check `AGENTS.md` and referenced rule files)
+- **A1. External call envelope.** For every call to a third-party library that can do I/O (HTTP, MLflow, S3, database, subprocess, file system, HuggingFace `from_pretrained` / `save_pretrained` / `download_artifacts`, pandas `read_*` / `to_*`, torch `load` / `save`): is the call inside a `try/except` that translates the exception to the package's domain `*Error` class? Flag any external-IO call that lets a third-party exception escape.
+- **A2. Except tuple coverage.** For every `try/except` whose body touches disk: does the except tuple include `OSError` (or the `Exception` base)? Flag narrow except tuples (e.g. `except UnicodeDecodeError`) that miss disk-level failures.
+- **A3. Domain-error layering.** For every `raise` statement: is the raised type the package's domain `*Error` (or a `*Error` from a strictly lower layer)? Flag stdlib `ValueError`/`RuntimeError`/`KeyError`/`TypeError` raised in a package that defines its own `*Error` class.
+- **A4. Docstring `Raises` accuracy.** For every function whose docstring has a `Raises:` section: does the body actually raise each declared exception type, and only those? Flag mismatches.
+- **A5. Two sources of truth.** For every state value that has both a config field and a method parameter (or two attributes that should always agree): is the precedence rule documented and enforced? Flag silent precedence (whichever path wins by coincidence of execution order).
+- **A6. Stage method dual-path.** For every method on a pipeline-stage class: does it both return a value AND mutate `self.<attr>` for the same field? Flag tuple-returning methods that also self-mutate.
+- **A7. Constructor purity.** For every `__init__`: does it perform I/O (open, mkdir, read_text, subprocess, network, expensive compute)? Does it mutate any of its arguments? Flag both.
+- **A8. Late dataclass mutation.** For every `@dataclass` instance constructed inside a function: is it mutated after construction (`x = Foo(...); x.field = ...`)? Flag late mutations - they bypass `__post_init__` and any `frozen=True` would have caught them.
+- **A9. Pure-named function side effects.** For every function whose name starts with a pure prefix (`get_`, `resolve_`, `find_`, `compute_`, `build_`, `load_`, `parse_`, `is_`, `has_`, `validate_`, `count_`, `check_`, `allocate_`): does the body call I/O / subprocess / `datetime.now()` / network? Flag naming-vs-implementation gaps.
+- **A10. Predicate semantics.** For every predicate function (`is_X`, `has_X`, `should_X`): does the body answer exactly the question the name asks, with no hidden conjuncts? Flag conflated predicates (e.g. `side_channel_active` returning `enabled and imputation != 'median'`).
+- **A11. Exhaustion via assert_never.** For every `if/elif/else` chain over a `typing.Literal` or enum: is the unreachable branch handled with `typing.assert_never`? Flag chains that end in `raise <SomeError>(...)` instead - the type-checker cannot verify exhaustion.
+- **A12. assert misuse.** For every `assert` outside test files: is it a developer-only invariant that `python -O` may safely remove? Flag asserts used as runtime validation; those should be `if not X: raise DomainError(...)`.
+- **A13. Same value to multiple structural slots.** For every constructor call that takes positional / keyword arguments for distinguishable slots (`train`, `val`, `test`): is the same value passed to 2+ slots? Flag (e.g. `DatasetSplits(train=ds, val=ds, test=ds)`) and require either an explicit factory or a docstring.
+- **A14. Repeated computation per request.** For every helper function whose value is a property of the project state (HEAD SHA, primary metric, resolved config): is it called more than twice in a single request flow? Flag candidates for memoisation / single-resolution.
+- **A15. Duplicate constructor / serialisation logic.** For every class whose constructor is called from 2+ sites with substantially the same field set: is the construction factored into one helper? Flag duplicated assembly that would silently drift on field addition.
+- **A16. CLI entry envelope.** For every top-level `run_*` function in `cli/*.py` that returns `int` or takes a cappa-typed parameter: does the body's `try/except` cover every `raise` in the function (including validation `raise`s before the try)? Flag `raise` statements outside the envelope.
+- **A17. Public-surface drift.** For every `__init__.py` with `__all__`: is every symbol in `__all__` used outside the package? For every empty `__init__.py`: do consumers reach into private submodules? Flag bypasses of the canonical owning module.
+- **A18. Hot-path setup.** For every callback method (`on_step`, `on_log`, `on_evaluate`, `on_batch_*`): does it perform setup (mkdir, file open) that should live in `__init__`? Flag per-event side effects.
+- **A19. Wrong logger level for broad-except.** For every `except Exception` / `except BaseException`: does the body use `logger.exception` (not `warning`/`error`/`info`/`debug`)? And conversely, is `logger.exception` reserved for unexpected failures, not expected graceful-degradation paths?
+- **A20. Mutable module-level singleton.** For every module-level mutable container (`dict`, `list`, `set`) that is consumed by name from outside: is it wrapped in `types.MappingProxyType` / `frozenset` / `tuple`? Flag mutable globals that callers can rebind.
+- **A21. Lazy init race.** For every `if X is None: X = ...` pattern at module scope (or in a module-level helper): is the assignment thread-safe under concurrent invocation? Flag idempotent-but-racy patterns in code paths that may be called concurrently (Optuna trials, multiprocessing).
+- **A22. Fall-through after partial handling.** For every `if/else` chain whose branches partly raise and partly return: is there a fall-through path where a raised-and-translated error in the first branch silently retries in the second? Flag with-block-or-elif-fall-through patterns (e.g. `if gz: ... except: raise` then code that re-runs as if `gz=False`).
+- **A23. Discarded multi-return.** For every call to a function that returns a tuple/dataclass: are all returned components used or explicitly named (`a, _ = f()`)? Flag silent discard of secondary returns that signal hidden state dependencies.
+- **A24. Identity of subprocess / shell-out calls.** For every `subprocess.run` / `git`-shelling-out helper: is its result memoised when the source is invariant within a request? Flag repeated subprocess invocations per request.
 
-### Architecture
+### Standards (S)
 
-The script catches the mechanical patterns: layering violations (parsed from AGENTS.md), broad-except using the wrong logger level, mixed raise types within one method, migration-shim consumers, constructor disk I/O, pass-through shim functions, empty `__init__.py` while siblings export. Phase B's job is what reading reveals that grep cannot:
+- **S1. Type annotations on every signature.** Parameter and return annotations everywhere. Flag bare untyped signatures.
+- **S2. PascalCase / UPPER_SNAKE / lower_snake.** Names match project convention. Flag inconsistencies.
+- **S3. TYPE_CHECKING block placement.** Same idiom as the rest of the tree (top-of-file, after imports, etc.).
+- **S4. Project-specific rule files.** Any rule referenced by AGENTS.md not enforced by the script. Read the rule file; check the file under review.
 
-**Error envelope review.** For every `with` block, every `try/except`, every external-service call (HTTP, MLflow, S3, database, subprocess, file system in CLI entry points), trace the error path:
-- What exception types can the call raise?
-- Are they caught at the right layer?
-- Does the catch translate to a project error type, or does the third-party exception leak?
-- If the call is in a context manager, does its `__enter__` failure abort more work than intended? (e.g. `open_batch_run` failing inside `with` aborts the whole training run)
-- Does the error message preserve enough context to debug, without leaking sensitive data?
+### Performance (P)
 
-**Orchestration review.** For every multi-stage operation (e.g. `load_data -> tokenize -> train -> evaluate`), check:
-- Stage ordering: does each stage's prerequisite get checked, or is there a silent fallback that masks a programming error?
-- Two paths to the same data: is `config.input_path` ever both patched onto a config AND passed explicitly? When the two diverge, which wins?
-- Is there a single source of truth for each piece of state, or is it written in two places that can drift?
-- Do CLI commands share a `pipeline -> finalise -> report` skeleton? If so, is it factored into a helper or duplicated?
+- **P1. O(n^2) on real-size inputs.** Nested loops over project-data-shaped collections.
+- **P2. Blocking I/O in hot paths.** Reads / writes inside training loops, request handlers, callbacks.
+- **P3. Repeated expensive computation per request.** Same value derived more than once. (Overlaps A14 / A24.)
 
-**API surface review.** For every `__init__.py` that has an `__all__`:
-- Is every symbol in `__all__` actually used outside the package? `grep -rn "from <pkg> import" outside the package`
-- Are internal helpers (`flatten`, `merge_layers`, `coerce_types`) exposed by accident?
-- Conversely, when `__init__.py` is empty, do consumers reach into private submodules? The empty surface is itself a contract that "anything inside is public".
-- For Settings / dataclasses: do consumers construct them, or only read them? If only read, narrowing the public surface to read-only views is cheap.
+### Security (Sec)
 
-**Naming vs implementation.** For every predicate function (`is_X`, `has_X`, `should_X`):
-- Does the body actually answer the question the name asks?
-- A function called `side_channel_active(config)` returning `enabled and imputation != 'median'` is a latent bug. Split into two predicates.
+- **Sec1. Secrets in source.** API keys, passwords, tokens.
+- **Sec2. Input validation at system boundaries.** CLI args, HTTP bodies, file paths from user.
+- **Sec3. Command injection.** Unsanitised input passed to `subprocess` or shell-execution helpers.
+- **Sec4. Path traversal.** User-supplied paths joined to project paths without containment.
+- **Sec5. PII in logs.** Raw text inputs at INFO level or above.
 
-**Single-responsibility for `__init__`.** Constructors should accept already-loaded data, not perform I/O. The script catches `open()`, `read_text`, `mkdir`, `iterdir`. Phase B catches: subprocess calls, network calls, expensive computation, side effects on global state.
-
-**Implicit state mutations.** For every method that takes a `config` argument: does it mutate the config? Does it persist a mutated copy? Is the mutation point obvious?
-
-### Performance
-
-- No obvious O(n^2) patterns on large inputs
-- No blocking I/O in hot paths
-- No redundant file reads or repeated expensive computations
-
-### Security
-
-- No secrets / API keys in source
-- Input validation at system boundaries
-- No command injection (unsanitised input in shell calls)
-- No path traversal
-- Environment variables used for sensitive config
-
-### Testing
+### Testing (T)
 
 Assess by reading test files - do not run the suite.
 
-- Test files exist for modules with complex logic
-- Functions with branching / error handling / state transitions have test cases
-- Property-based tests where input domains are well-defined
+- **T1. Test coverage of branchy logic.** Every function with `if`/`try`/`except`/state transitions has at least one test case.
+- **T2. Property-based tests.** Domains that are well-defined (data shapes, config combinations) have hypothesis tests.
+- **T3. Integration vs unit balance.** Pipeline orchestrators have at least one end-to-end test.
 
-### Dependencies
+### Dependencies (D)
 
-- Every dependency declared in `pyproject.toml`
-- No unused dependencies (import graph vs declared)
-- `uv.lock` present and coherent (the script already checks drift)
+- **D1. Declared in pyproject.** Every imported third-party module is declared.
+- **D2. Unused declarations.** Every declared dependency is imported somewhere.
+- **D3. Lockfile coherence.** Already script-checked; flag if the script's lockfile-drift hit appears.
 
-### Documentation coherence
+### Documentation (Doc)
 
-- `AGENTS.md` project structure matches actual directory layout
-- `AGENTS.md` tools and libraries list is current
-- `README.md` consistent with `AGENTS.md`
-- Specs in `agents/specs/` match implementations (drift detection)
-- User docs in `docs/` match the implementation (drift detection)
+- **Doc1. AGENTS.md project structure** matches actual directory layout.
+- **Doc2. AGENTS.md tools and libraries list** is current.
+- **Doc3. README.md and AGENTS.md** consistent.
+- **Doc4. Specs match implementation.** Drift between `agents/specs/` and `src/`.
+- **Doc5. User docs match implementation.** Drift between `docs/` and `src/`.
 
 ## Review template
 
@@ -276,11 +250,12 @@ Assess by reading test files - do not run the suite.
 
 **Date:** YYYY-MM-DD
 **Scope:** <"full" or specific modules/specs>
-**Script output:** /tmp/audit-<project>.jsonl (N hits, M accepted, K new findings)
+**Script output:** /tmp/audit-<project>.jsonl (N hits, M accepted, K unaccepted)
+**Convergence note:** <"clean - script unchanged since review-(N-1)" OR "script extended since review-(N-1) by these checks: [list]; expect mechanical delta">
 
 ## Summary
 
-<2-3 sentences. Mention script hit counts by rule and the interpretive findings.>
+<2-3 sentences. Mention script hit counts by rule and the interpretive findings count.>
 
 ## Mechanical findings (from checks/audit.py)
 
@@ -296,25 +271,44 @@ Group by rule. Enumerate every `accepted: false` hit. Do NOT sample.
   - ... (every one)
 - **Recommendation:** <fix or add `# auditme: accept <reason>`>
 
-### Rule: <next rule>
+## Phase B per-file answers
 
-...
+For each file reviewed, the structured checklist response:
 
-## Interpretive findings (from per-file reading)
+### `src/example/module.py`
+
+- A1 External call envelope: none
+- A2 Except tuple coverage: `src/example/module.py:42` - `except UnicodeDecodeError` body calls `read_text`; `OSError` leaks
+- A3 Domain-error layering: none
+- A4 Docstring Raises accuracy: none
+- ... (every question that runs in this audit's --category)
+
+(Repeat for every file in scope.)
+
+## Phase B findings (consolidated)
+
+For every "yes" answer above, surface as a finding with the standard structure:
 
 ### Finding: <title>
 
-- **Category:** standards / security / performance / testing / documentation / architecture
+- **Category:** A / S / P / Sec / T / D / Doc
+- **Question:** A2 / A9 / etc.
 - **Severity:** high / medium / low
-- **Location:** `path:line` (or "project-wide")
-- **Description:** <what the issue is, why reading reveals it, why the script could not>
+- **Location:** `path:line`
+- **Description:** <what the issue is>
 - **Recommendation:** <concrete action>
+
+## Out-of-checklist observations
+
+Things reviewers noticed that the checklist does not ask about. These are NOT findings; they are seeds for future checklist items.
+
+- <observation> at `path:line` - candidate question: <draft>
 
 ## Files reviewed (Phase B)
 
-Every file read end-to-end in step 4.
+Every file the checklist was applied to.
 
-- `src/example/module.py` - checked: standards, security, testing
+- `src/example/module.py` - questions A1-A24, S1-S4
 - ...
 
 ## Prior findings re-verified
@@ -322,15 +316,16 @@ Every file read end-to-end in step 4.
 From summary.md's unresolved list:
 
 - <title> - resolved at `path:line` / still present at `path:line`
-- ...
 
 ## Recommendations
 
 Prioritised by severity.
 
-## Clean categories
+## Script coverage notes
 
-Categories where Phase B found nothing. The mechanical sweep's zero-hit rules are implicit (see script output).
+Mechanically-detectable patterns surfaced via Phase B that the script does not currently catch. Do NOT add these to the script during this audit cycle. Add them only after the current task list ships AND the next audit on unchanged code shows zero mechanical delta.
+
+- <pattern> first seen via question <Q-id> at `path:line`. Candidate predicate: <sketch>.
 ```
 
 ## Summary template
@@ -342,6 +337,7 @@ Categories where Phase B found nothing. The mechanical sweep's zero-hit rules ar
 **Last review:** review-N
 **Total reviews conducted:** N
 **Last script run hit count:** K (J accepted)
+**Script version:** <git SHA of checks/audit.py at the time of the last review>
 
 ## Unresolved findings
 
@@ -349,7 +345,7 @@ Findings from prior reviews not yet addressed.
 
 ### <title>
 
-- **Rule or category:** <script rule family / interpretive category>
+- **Rule or category:** <script rule family / Phase B question id>
 - **Severity:** high / medium / low
 - **Location:** `path:line` or project-wide
 - **First raised:** review-N (YYYY-MM-DD)
@@ -366,42 +362,30 @@ Findings confirmed fixed in the most recent 3 reviews.
 
 ## Recurring patterns
 
-Patterns that have appeared across multiple reviews even when individual instances were fixed. Candidates for AGENTS.md entries, pre-commit rules, or script extensions.
+Patterns that have appeared across multiple reviews even when individual instances were fixed. Candidates for AGENTS.md entries, pre-commit rules, or script extensions (queued for AFTER the current audit-fix loop).
 
 - <pattern> (reviews N, M, P)
 
-## Script coverage notes
+## Script coverage backlog
 
-If the script missed a class of drift that interpretive review caught, note here so it can be added to `checks/audit.py`:
+Greppable patterns Phase B has surfaced that are NOT yet in the script. Each becomes a check function in `checks/audit.py` only after the current task list ships and the next audit on unchanged code is mechanical-delta-zero.
 
-- <rule class> - first seen in review-N. Candidate predicate: <sketch>.
+- <pattern> - first seen review-N. Candidate predicate: <sketch>. Status: queued / scheduled-for-version-X / shipped-in-script-vY.
 ```
 
-## Extending the script
+## Extending the script (between audit cycles)
 
-When Phase B surfaces a new class of greppable drift that the script does not catch, add a check function to `~/.claude/skills/auditme/checks/audit.py` and call it from `main()`. The pattern:
+When a Phase B run surfaces a class of greppable drift the script does not catch, write the candidate predicate into the review's "Script coverage notes" - DO NOT add it to `checks/audit.py` mid-cycle.
 
-```python
-def check_NEW_RULE(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
-        # walk / grep / parse; for every hit:
-        accept = _accept_reason(lines, lineno)
-        _emit(
-            rule="new-rule-name",
-            variant="variant name",
-            path=rel,
-            line=lineno,
-            evidence=snippet[:200],
-            accepted=bool(accept),
-            accepted_reason=accept,
-        )
-```
+The script extension cycle is:
 
-Then add `check_NEW_RULE` to the tuple in `main()`. The next audit run catches every instance mechanically.
+1. Audit run N completes; review-N captures script-coverage notes.
+2. Task list tasks-N ships; codebase fixes are merged.
+3. Audit run N+1 executes the SAME script as run N. The mechanical delta MUST be zero. Findings should equal: prior-cycle Phase B items not yet fixed, plus any genuinely new Phase B observations on the new code.
+4. Once run N+1 is clean, add the queued check functions to `checks/audit.py` and bump the script version.
+5. Audit run N+2 will surface historical debt for the new checks. That run is the "catch-up" run for those checks. After fixes, run N+3 should again be clean.
 
-This is how the script grows: never re-derive the predicate in a review, always add it to the script so the next audit inherits it automatically.
+This rhythm separates "the audit is finding new things" (intended, on a fresh check) from "the audit is non-deterministic" (not intended, never).
 
 ## Severity guide
 
@@ -411,16 +395,8 @@ This is how the script grows: never re-derive the predicate in a review, always 
 
 ## Why this skill is structured this way
 
-Previous iterations of this skill relied on Claude to run greps and AST walks by hand. Agents reliably:
+Earlier iterations relied on Claude to run greps and AST walks by hand, which agents reliably skipped, sampled, or silently filtered. The script fixed Phase A: agents cannot fake what a subprocess outputs. Acceptance is explicit (inline comment or AGENTS.md), not a decision-note argument.
 
-- skipped checks they found tedious
-- silently sampled rather than enumerated
-- accepted hits as "pre-existing" without written justification
-- claimed to have run AST walks they never ran
-- dismissed whole finding classes with filters ("members >= 3") to reduce output
+The Phase B fix in this revision addresses a different failure mode: open-ended "report every concern" produced different findings on different runs of the same code, because reviewer agents applied different judgment thresholds. The fixed checklist makes Phase B deterministic. Two reviewers running the checklist on the same file converge on the same finding set.
 
-Five consecutive reviews of featmo (60-64) and four of feathf (18-21) each surfaced new findings on substantially-unchanged code. Every finding existed in prior audits; each round sampled a different slice.
-
-The fix: ship the mechanical work as a script. Agents can't fake what a subprocess outputs. Acceptance is explicit (inline comment or AGENTS.md), not a decision-note argument. The skill is now short because it no longer needs to coach agents through dozens of rule families - the script encodes them.
-
-If a new drift class appears, extend the script (`checks/audit.py`) rather than adding prose to this file.
+The remaining variance - new code, new patterns, new checklist items added between cycles - is intentional and bounded. The audit-fix loop converges in finite steps because the script does not grow during a cycle and Phase B is a fixed set of questions.
