@@ -21,7 +21,7 @@ Below `<project>` is the current project's top level module name.
 - **Use `loguru.logger`** - do not use stdlib `logging` (see [Logging](#logging))
 - **No `pip install`** - use `uv add <package>` to add dependencies (see [Dependency management](dependencies.md))
 - **Run checks before committing**: `ruff check && ruff format --check`, then `pre-commit run --all-files`
-- **No PII in logs** - text inputs may contain PII, so never log raw text at INFO level or above
+- **Code securely** - see [security](../security.md)
 
 ## Project structure
 
@@ -105,9 +105,9 @@ import matplotlib.pyplot as plt
 If an import is needed **only** for type annotation, import inside of a TYPE_CHECKING block. For example, like this:
 
 ```python
-from typing import TYPE_CHECKING
+import typing
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     import <project>.cli
 ```
 
@@ -118,9 +118,10 @@ if TYPE_CHECKING:
 - `UPPER_SNAKE_CASE` for constants
 - Prefer `__all__` to define the public API of packages imported by external consumers.
 
-## Underscores
+## No leading underscores
 
-- Leading underscores (`_name`, `_NAME`) are NOT an accepted secondary privacy convention for marking implementation details within a module. DO NOT use leading underscores.
+- DO NOT use leading underscores.
+- Leading underscores (`_name`, `_NAME`) are NOT an accepted secondary privacy convention for marking implementation details within a module.
 - Single throwaway underscores `_` (e.g. for unused variables in loops) are acceptable
 
 ## String formatting
@@ -207,5 +208,5 @@ Always use `loguru.logger.exception` to log exceptions. For example:
       return df.corr(method='pearson')
   except Exception as e:
       loguru.logger.exception(f'Failed to compute correlation matrix: {e}')
-      return None
+      raise
 ```
