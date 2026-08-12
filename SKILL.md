@@ -55,12 +55,20 @@ Run these in parallel:
 
 ### 3. Mechanical sweep (scripted)
 
-**Precondition: backlog drained.** Before running, read `summary.md`'s `## Script coverage backlog` section. If any entry is marked `Status: queued`, the audit is not allowed to start. Either:
+**Precondition: no open change requests.** Before running, read
+[`requests.md`](requests.md), beside this file. If its `## Open` section has any
+entry, the audit is not allowed to start. Either:
 
-1. Promote the queued predicate to a real `check_*` function in `checks/audit.py` (and update the backlog entry to `shipped-in-script-vN`), or
-2. Reject it explicitly: edit `summary.md` to mark it `rejected: <reason>` and remove it from the backlog.
+1. Ship it - implement the check, run the sweep, land fixes or accept markers for the catch-up surface it exposes, delete the entry, and note the change in the affected projects' `summary.md`; or
+2. Reject it explicitly - delete the entry and record the reason under `## Rejected`, so a later audit does not raise it a third time.
 
-This precondition is the cure for failure mode 1. Without it, every audit cycle ships another "next time we'll add this check" and convergence is impossible.
+This precondition is the cure for failure mode 1. Without it, every audit cycle
+ships another "next time we'll add this check" and convergence is impossible.
+
+Requests live in the skill rather than in a project's `summary.md` because the
+work is in the skill: a new check benefits every project, and burying it in the
+notes of the one that noticed hides it from the repository where it would be
+done.
 
 Then run the shipped audit script:
 
@@ -140,7 +148,7 @@ For each incomplete task in `agents/tasks/audit-reviews/*.md`, verify against so
 
 Before writing the review file, confirm:
 
-- [ ] `summary.md` script-coverage backlog was empty at audit start (every queued item shipped or rejected)
+- [ ] `requests.md`'s `## Open` section was empty at audit start (every entry shipped or rejected)
 - [ ] `checks/audit.py` was executed and its full JSONL output saved
 - [ ] Every `accepted: false` hit appears in the review (no sampling, no silent dismissals)
 - [ ] Phase B ran with per-question fan-out covering EVERY question in EVERY category (`--category` was NOT used unless the user explicitly asked for a partial verification)
@@ -367,7 +375,12 @@ Prioritised by severity.
 
 ## Script coverage notes
 
-Phase B has no script-coverage notes section in this template by design. The previous mechanism (note candidate predicates per audit) created a perpetual queue. New predicates are now added by editing this skill between cycles, not by leaving notes for future audits. If during this audit you genuinely identified a missing predicate, raise it with the user as a skill-update request after the audit completes - do not add it to the review.
+Phase B has no script-coverage notes section in this template by design. The previous mechanism (note candidate predicates per audit) created a perpetual queue. New predicates are added by editing this skill between cycles, not by leaving notes for future audits.
+
+If during this audit you genuinely identified a missing predicate, add it to
+[`requests.md`](requests.md)'s `## Open` section after the review is written,
+and tell the user. Do not add it to the review, and do not change the checker
+now - that is failure mode 1.
 ```
 
 ## Summary template
@@ -417,11 +430,15 @@ Patterns that have appeared across multiple reviews even when individual instanc
 
 - <pattern> (reviews N, M, P)
 
-## Script coverage backlog
+## Checker changes since the last review
 
-This section MUST be empty when an audit starts (see [Mechanical sweep precondition](#3-mechanical-sweep-scripted)). Entries here exist only between a skill-update request and the corresponding `audit.py` change. Either ship or reject within the same skill-update session - never carry state across audit cycles.
+Only what a reader needs to interpret the next convergence note: which checks
+were added, removed or refined, and the resulting expected delta. Open requests
+do not belong here - they live in the skill's own
+[`requests.md`](requests.md), because the work is there rather than in this
+project.
 
-- (empty in steady state)
+- (none since review-N)
 ```
 
 ## Extending the script (skill-update, not audit)
