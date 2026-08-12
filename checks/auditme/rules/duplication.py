@@ -201,7 +201,7 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 target_is_path_or_dir = any('dir' in a.lower() or 'path' in a.lower() or 'file' in a.lower() for a in self_args)
                 if not (looks_like_sink or target_is_path_or_dir):
                     continue
-                first_method, first_line = sites[0]
+                _, first_line = sites[0]
                 accept = _accept_reason(lines, first_line, rule='duplicate-side-effect-per-target')
                 _emit(
                     rule='duplicate-side-effect-per-target',
@@ -509,10 +509,13 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
             # generators). Cross-file duplication is the architectural smell.
             if rel_a == rel_b:
                 continue
-            # Skip if top-level packages match AND both are leaf functions
-            # in the same kind of module (e.g. both in `*/metrics.py`).
-            pkg_a = rel_a.split('/', 2)[:2]
-            pkg_b = rel_b.split('/', 2)[:2]
+            # A same-package filter was started here and deliberately not
+            # finished: it would have skipped pairs whose top-level packages
+            # match, which is where most real duplication lives and directly
+            # contradicts the rule above that cross-file duplication is the
+            # smell worth reporting. The two unused locals it left behind are
+            # removed rather than wired up.
+
             # Only interesting if LCS is long enough
             lcs = _lcs(seq_a, seq_b)
             if len(lcs) < 6:
@@ -603,7 +606,7 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
         distinct_paths = {p for p, _, _ in locations}
         if len(distinct_paths) < 2:
             continue
-        for path, lineno, literal in locations:
+        for path, lineno, _ in locations:
             rel = _relpath(path, scope)
             lines = _source_lines(path)
             accept = _accept_reason(lines, lineno, rule='recompile-duplication')

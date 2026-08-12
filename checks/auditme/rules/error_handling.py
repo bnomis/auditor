@@ -386,7 +386,6 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
     `RegistryError(Exception)` without making them share a hierarchy.
     Call sites that catch `RegistryError` never catch `SignatureError`.
     """
-    package_root_name = src_root.name
     for path in _all_py_files(src_root):
         if path.name != 'errors.py':
             continue

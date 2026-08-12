@@ -424,7 +424,7 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
             variant=f'{path.parent.name}/__init__.py exports 0 symbols; siblings export up to {sibling_max}',
             path=rel,
             line=1,
-            evidence=f'no __all__ and no re-exports',
+            evidence='no __all__ and no re-exports',
             accepted=bool(accept),
             accepted_reason=accept,
         )
