@@ -176,10 +176,33 @@ If there are findings: `/taskdev agents/audit-reviews/review-N.md`. If none: tel
 
 The script treats a hit as `accepted: true` only when one of these exists:
 
-1. **Inline comment** on the hit line or the preceding line: `# auditme: accept <reason>`
+1. **Inline comment** on the hit line or the preceding line, optionally scoped to a single rule:
+   - `# auditme: accept[<rule-name>] <reason>` - answers for that rule only
+   - `# auditme: accept <reason>` - answers for every rule that fires on the line
 2. **AGENTS.md table row** pairing the importer and imported module in backticks (for in-function imports). The importer module path is computed without a leading `src.` prefix (e.g. `featmo.config.structures`, not `src.featmo.config.structures`); AGENTS.md rows should use the same form.
 
 Nothing else acts as acceptance - not a decision note under `agents/audit-reviews/`, not a prior review that "agreed" the pattern is fine, not an assumption about HF / sklearn / PEP conventions.
+
+### Scope your markers to a rule
+
+**Write new markers in the scoped form.** An unscoped marker accepts every rule
+that fires on its line, including rules that did not exist when it was written -
+so a decision weighed about one predicate silently excuses a different one later.
+This is not hypothetical: on the litrev project, a marker reasoning entirely
+about traceback diagnosability (written for
+`logger-exception-graceful-degradation`) was found pre-accepting the newly added
+`failure-as-absence` check on the same line, hiding a defect three prior reviews
+had flagged by hand. Scoping the marker turned it back into a real finding.
+
+It is the same distinction as `# noqa` versus `# noqa: E501`, and it fails the
+same way: silently, and only when the tooling gets smarter.
+
+The unscoped form is retained so no existing marker needs migrating, and a
+project with many of them does not have to convert them in one pass. Convert
+opportunistically - when a hit turns out to be accepted by a marker whose reason
+plainly addresses a different question, scope that marker rather than widening
+the reason. Adding a check is the moment this surfaces, so check the new check's
+accepted hits before concluding the catch-up surface is empty.
 
 ## Phase B checklist
 

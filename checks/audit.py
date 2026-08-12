@@ -46,7 +46,15 @@ import sys
 from collections import defaultdict
 from typing import Iterable
 
-ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b\s*(.*)$')
+# An accept marker may name the single rule it answers for:
+#     # auditme: accept[failure-as-absence] the caller reads batch.error
+# An unscoped marker accepts every rule that fires on the line, which is how
+# every marker written before 2026-08-12 behaves. That form is retained so no
+# existing marker needs migrating, but it is the reason a newly added check can
+# arrive silently pre-accepted: a marker weighed for one rule cannot have
+# considered a rule that did not exist when it was written. New markers should
+# name their rule.
+ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*(.*)$')
 
 
 def _emit(**kwargs) -> None:
@@ -60,15 +68,36 @@ def _source_lines(path: pathlib.Path) -> list[str]:
         return []
 
 
-def _accept_reason(lines: list[str], lineno: int, end_lineno: int | None = None) -> str | None:
+def _accept_reason(
+    lines: list[str],
+    lineno: int,
+    end_lineno: int | None = None,
+    rule: str | None = None,
+) -> str | None:
+    """Return the accept reason covering this line for this rule, if any.
+
+    A marker scoped to a rule (`accept[some-rule]`) answers only for that rule;
+    one that names a different rule is ignored, so a decision taken about
+    tracebacks cannot silently excuse a later check about return values. An
+    unscoped marker answers for everything, which keeps every pre-existing
+    marker working unchanged.
+
+    `rule=None` means the caller has not said which rule is asking, and every
+    marker matches. Passing the rule is what makes scoping effective, so a new
+    check should always pass it.
+    """
     candidates = list(range(lineno - 1, lineno + 1))
     if end_lineno is not None and end_lineno > lineno:
         candidates.extend(range(lineno + 1, end_lineno + 1))
     for candidate_lineno in candidates:
         if 1 <= candidate_lineno <= len(lines):
             m = ACCEPT_COMMENT_RE.search(lines[candidate_lineno - 1])
-            if m:
-                return m.group(1).strip() or 'no reason given'
+            if not m:
+                continue
+            scoped_to, reason = m.group(1), m.group(2)
+            if scoped_to and rule and scoped_to != rule:
+                continue
+            return reason.strip() or 'no reason given'
     return None
 
 
@@ -188,7 +217,7 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                     continue
                 if not pat.search(raw):
                     continue
-                accept = _accept_reason(lines, idx)
+                accept = _accept_reason(lines, idx, rule=rule)
                 _emit(
                     rule=rule,
                     variant=variant,
@@ -222,7 +251,7 @@ def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     continue
                 if any(tok in s for tok in _STRFTIME_TOKENS):
                     continue
-                accept = _accept_reason(lines, idx)
+                accept = _accept_reason(lines, idx, rule='legacy-formatting-percent')
                 _emit(
                     rule='legacy-formatting-percent',
                     variant='%-style C-printf formatting in Python string',
@@ -243,7 +272,7 @@ def check_def_class_in_init(scope: pathlib.Path, src_root: pathlib.Path) -> None
         lines = _source_lines(path)
         for idx, raw in enumerate(lines, 1):
             if re.match(r'^(def |class )', raw):
-                accept = _accept_reason(lines, idx)
+                accept = _accept_reason(lines, idx, rule='def-class-in-init')
                 _emit(
                     rule='def-class-in-init',
                     variant='top-level def or class in __init__.py',
@@ -377,7 +406,7 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                     imported_names = [n.name for n in inner.names]
                 else:
                     imported_names = [inner.module or '']
-                accept = _accept_reason(lines, inner.lineno)
+                accept = _accept_reason(lines, inner.lineno, rule='in-function-import')
                 for imported in imported_names:
                     pair_accepted = any(importer_module.startswith(a) and imported.startswith(b) for (a, b) in accepted_pairs)
                     if pair_accepted:
@@ -421,7 +450,7 @@ def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> No
             has_raise = any(isinstance(c, ast.Raise) for c in ast.walk(node))
             if has_log or has_raise:
                 continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='silent-broad-except')
             _emit(
                 rule='silent-broad-except',
                 variant='no logger and no raise in body',
@@ -505,7 +534,7 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                                 break
                             seen_linenos.add(key)
                             end_ln = stmt_end.get(inner.lineno)
-                            accept = _accept_reason(lines, inner.lineno, end_ln)
+                            accept = _accept_reason(lines, inner.lineno, end_ln, rule='except-interpolation')
                             _emit(
                                 rule='except-interpolation',
                                 variant='f-string interpolates caught exception',
@@ -528,7 +557,7 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                                     continue
                                 seen_linenos.add(key)
                                 end_ln = stmt_end.get(inner.lineno)
-                                accept = _accept_reason(lines, inner.lineno, end_ln)
+                                accept = _accept_reason(lines, inner.lineno, end_ln, rule='except-interpolation')
                                 _emit(
                                     rule='except-interpolation',
                                     variant='logger positional arg is caught exception',
@@ -593,7 +622,7 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
         for rel, lineno, evidence in sorted(hits):
             full = scope / rel
             full_lines = _source_lines(full)
-            accept = _accept_reason(full_lines, lineno)
+            accept = _accept_reason(full_lines, lineno, rule='literal-duplication')
             _emit(
                 rule='literal-duplication',
                 variant=f'identical {key[0]} literal across {len(hits)} locations',
@@ -637,7 +666,7 @@ def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) 
             actual = [m.value for m in members]
             if actual == sorted(actual):
                 continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='non-alphabetical-literal')
             _emit(
                 rule='non-alphabetical-literal',
                 variant='string members not alphabetically sorted',
@@ -673,7 +702,7 @@ def check_unused_submodule_imports(scope: pathlib.Path, src_root: pathlib.Path) 
                 root_name = alias.name.split('.')[0]
                 if re.search(rf'\b{re.escape(root_name)}\.', remainder):
                     continue
-                accept = _accept_reason(lines, node.lineno)
+                accept = _accept_reason(lines, node.lineno, rule='unused-submodule-import')
                 _emit(
                     rule='unused-submodule-import',
                     variant='import X.Y.Z never referenced',
@@ -712,7 +741,7 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
         for rel, lineno, fname in hits:
             full = scope / rel
             full_lines = _source_lines(full)
-            accept = _accept_reason(full_lines, lineno)
+            accept = _accept_reason(full_lines, lineno, rule='paired-sibling-helpers')
             peers = sorted(set(h[2] for h in hits) - {fname})
             _emit(
                 rule='paired-sibling-helpers',
@@ -855,7 +884,7 @@ def _maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name,
         return  # downward or equal; fine
     if (importer_pkg, imported_pkg) in accepted:
         return
-    accept = _accept_reason(lines, lineno)
+    accept = _accept_reason(lines, lineno, rule='layering-violation')
     _emit(
         rule='layering-violation',
         variant=f'{importer_pkg} imports {imported_pkg} (upward)',
@@ -896,7 +925,7 @@ def check_broad_except_wrong_level(scope: pathlib.Path, src_root: pathlib.Path) 
             wrong_level = re.search(r'\b(logger|loguru\.logger|logging)\.(warning|error|info|debug)\(', body_src)
             if not wrong_level:
                 continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='broad-except-wrong-level')
             _emit(
                 rule='broad-except-wrong-level',
                 variant='broad except logs at warning/error/info/debug instead of exception',
@@ -945,7 +974,7 @@ def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         fname = inner.func.attr
                     if fname not in _DISK_IO_NAMES:
                         continue
-                    accept = _accept_reason(lines, inner.lineno)
+                    accept = _accept_reason(lines, inner.lineno, rule='constructor-disk-io')
                     _emit(
                         rule='constructor-disk-io',
                         variant=f'{cls.name}.__init__ calls disk-IO `{fname}`',
@@ -993,7 +1022,7 @@ def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             # skip self.<method>(args) - that's typical delegation, not a shim
             if call_src.startswith('self.'):
                 continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='passthrough-shim')
             _emit(
                 rule='passthrough-shim',
                 variant=f'{node.name} is a pass-through wrapper for {call_src}',
@@ -1056,7 +1085,7 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
         # somewhere in the file.
         accept: str | None = None
         for ln in range(1, len(lines) + 1):
-            accept = _accept_reason(lines, ln)
+            accept = _accept_reason(lines, ln, rule='empty-init-while-siblings-export')
             if accept:
                 break
         _emit(
@@ -1112,7 +1141,7 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
                 continue
             # Emit ONE finding per function, listing every raise site
             sample_line = sorted(min(v) for v in raised_types.values())[0]
-            accept = _accept_reason(lines, sample_line)
+            accept = _accept_reason(lines, sample_line, rule='mixed-raise-types')
             evidence = f'{node.name}: raises {sorted(raised_types.keys())}'
             _emit(
                 rule='mixed-raise-types',
@@ -1200,7 +1229,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
                     for alias in node.names:
                         for sym, canonical_mod in shims[node.module]:
                             if alias.name == sym and canonical_mod != node.module:
-                                accept = _accept_reason(lines, node.lineno)
+                                accept = _accept_reason(lines, node.lineno, rule='migration-shim-consumer')
                                 _emit(
                                     rule='migration-shim-consumer',
                                     variant=f'imports `{sym}` via shim `{node.module}`; canonical home is `{canonical_mod}`',
@@ -1224,7 +1253,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
                     for sym, canonical_mod in shims[parent_mod]:
                         if attr == sym and canonical_mod != parent_mod:
                             line_no = getattr(node, 'lineno', 1)
-                            accept = _accept_reason(lines, line_no)
+                            accept = _accept_reason(lines, line_no, rule='migration-shim-consumer')
                             _emit(
                                 rule='migration-shim-consumer',
                                 variant=f'reads `{sym}` from shim `{parent_mod}`; canonical home is `{canonical_mod}`',
@@ -1305,7 +1334,7 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                             continue
                         if tgt.attr not in owned_attrs:
                             continue
-                        accept = _accept_reason(lines, inner.lineno)
+                        accept = _accept_reason(lines, inner.lineno, rule='silent-self-mutation')
                         _emit(
                             rule='silent-self-mutation',
                             variant=f'{cls.name}.{member.name} reassigns self.{tgt.attr}',
@@ -1428,7 +1457,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
         if not all(is_wrapped for (_, _, is_wrapped) in sites):
             continue
         # Every call site is wrapped; the function itself has no try.
-        accept = _accept_reason(_source_lines(scope / callee_path), callee_line)
+        accept = _accept_reason(_source_lines(scope / callee_path), callee_line, rule='asymmetric-exception-translation')
         sites_summary = '; '.join(f'{p}:{n}' for (p, n, _) in sites[:5])
         _emit(
             rule='asymmetric-exception-translation',
@@ -1533,7 +1562,7 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
             continue
         # Emit one finding per file naming all co-defined siblings.
         first_name, first_line, _ = rooted_at_stdlib[0]
-        accept = _accept_reason(lines, first_line)
+        accept = _accept_reason(lines, first_line, rule='sibling-errors-no-common-base')
         _emit(
             rule='sibling-errors-no-common-base',
             variant=f'{len(sibling_names)} Error classes co-defined with no shared parent: {sorted(sibling_names)}',
@@ -1635,7 +1664,7 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 if not (looks_like_sink or target_is_path_or_dir):
                     continue
                 first_method, first_line = sites[0]
-                accept = _accept_reason(lines, first_line)
+                accept = _accept_reason(lines, first_line, rule='duplicate-side-effect-per-target')
                 _emit(
                     rule='duplicate-side-effect-per-target',
                     variant=f'{cls.name}.{{{", ".join(sorted(method_names))}}} all call {callee}({", ".join(self_args)})',
@@ -1723,7 +1752,7 @@ def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathli
             continue
         full = scope / rel
         lines = _source_lines(full)
-        accept = _accept_reason(lines, lineno)
+        accept = _accept_reason(lines, lineno, rule='cli-entry-missing-error-envelope')
         _emit(
             rule='cli-entry-missing-error-envelope',
             variant=f'{fname} has no top-level try/except',
@@ -1887,7 +1916,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                                 continue
                             if sink_sig not in sigs:
                                 continue
-                            accept = _accept_reason(lines, sink_line)
+                            accept = _accept_reason(lines, sink_line, rule='redundant-sink-caller-plus-callee')
                             _emit(
                                 rule='redundant-sink-caller-plus-callee',
                                 variant=f'{node.name} calls {sink_callee}(...) then {helper_callee} which re-calls {inner_callee} with the same args',
@@ -1992,7 +2021,7 @@ def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: path
                                             break
                                 if not has_derivation:
                                     continue
-                                accept = _accept_reason(lines, ret.lineno)
+                                accept = _accept_reason(lines, ret.lineno, rule='return-shadows-instance-attr')
                                 _emit(
                                     rule='return-shadows-instance-attr',
                                     variant=f'{cls.name}.{member.name} returns `{rname}` which shadows self.{attr}; callers must reassign',
@@ -2079,7 +2108,7 @@ def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Pat
                 }
                 if not overlap:
                     continue
-                accept = _accept_reason(lines, handler.lineno)
+                accept = _accept_reason(lines, handler.lineno, rule='try-wrapping-with-block-too-broad')
                 _emit(
                     rule='try-wrapping-with-block-too-broad',
                     variant=f'except handler re-invokes {sorted(overlap)!r} from the wrapped `with` body',
@@ -2240,7 +2269,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
                 continue
             reported.add(pair_key)
             full_a = scope / rel_a
-            accept = _accept_reason(_source_lines(full_a), line_a)
+            accept = _accept_reason(_source_lines(full_a), line_a, rule='duplicate-call-sequence')
             _emit(
                 rule='duplicate-call-sequence',
                 variant=f'{fname_a} shares {len(lcs)} calls in order with {rel_b}:{fname_b}',
@@ -2327,7 +2356,7 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
                 exc_name = exc_call.id
             if exc_name not in STDLIB_EXCS:
                 continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='layer-has-domain-error-raises-stdlib')
             _emit(
                 rule='layer-has-domain-error-raises-stdlib',
                 variant=f'{pkg[-1] if pkg else "(root)"} package defines *Error classes but this module raises {exc_name}',
@@ -2473,7 +2502,7 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
             rel, lineno = function_path_line[callee_full]
             full_path = scope / rel
             lines = _source_lines(full_path)
-            accept = _accept_reason(lines, lineno)
+            accept = _accept_reason(lines, lineno, rule='inconsistent-error-translation')
             _emit(
                 rule='inconsistent-error-translation',
                 variant=f'{callee_full} raises {caught}; callers translate to {sorted(targets)}',
@@ -2526,7 +2555,7 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     for tgt in inner.targets:
                         if isinstance(tgt, ast.Subscript) and isinstance(tgt.value, ast.Name):
                             if tgt.value.id in param_names:
-                                accept = _accept_reason(lines, inner.lineno)
+                                accept = _accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
                                 _emit(
                                     rule='parameter-mutation-in-pure-function',
                                     variant=f'{node.name} mutates parameter `{tgt.value.id}` via item assignment',
@@ -2542,7 +2571,7 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     if (isinstance(inner.target, ast.Subscript)
                             and isinstance(inner.target.value, ast.Name)
                             and inner.target.value.id in param_names):
-                        accept = _accept_reason(lines, inner.lineno)
+                        accept = _accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
                         _emit(
                             rule='parameter-mutation-in-pure-function',
                             variant=f'{node.name} mutates parameter `{inner.target.value.id}` via augmented assignment',
@@ -2558,7 +2587,7 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     if (isinstance(inner.func.value, ast.Name)
                             and inner.func.value.id in param_names
                             and inner.func.attr in MUTATION_METHODS):
-                        accept = _accept_reason(lines, inner.lineno)
+                        accept = _accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
                         _emit(
                             rule='parameter-mutation-in-pure-function',
                             variant=f'{node.name} mutates parameter `{inner.func.value.id}` via `.{inner.func.attr}()`',
@@ -2629,7 +2658,7 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
                     callee_short = sub.func.attr
                 if callee_short not in _SIDE_EFFECT_CALL_NAMES:
                     continue
-                accept = _accept_reason(lines, sub.lineno)
+                accept = _accept_reason(lines, sub.lineno, rule='pure-name-has-side-effect')
                 _emit(
                     rule='pure-name-has-side-effect',
                     variant=f'{node.name} calls side-effect `{callee_short}` despite name implying a pure query',
@@ -2713,7 +2742,7 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
                         continue
                     if tgt.attr != stmt.value.id:
                         continue
-                    accept = _accept_reason(lines, stmt.lineno)
+                    accept = _accept_reason(lines, stmt.lineno, rule='mutable-store-without-copy')
                     _emit(
                         rule='mutable-store-without-copy',
                         variant=f'{cls.name}.__init__ stores dict/list parameter `{stmt.value.id}` by reference',
@@ -2823,7 +2852,7 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                         caught.append(ast.unparse(h.type))
                     except Exception:
                         pass
-            accept = _accept_reason(lines, lineno)
+            accept = _accept_reason(lines, lineno, rule='filesystem-envelope-gap')
             _emit(
                 rule='filesystem-envelope-gap',
                 variant=f'try block touches filesystem (download/from_pretrained/etc.) but except tuple {caught!r} omits OSError',
@@ -2961,7 +2990,7 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
                     continue
                 if inner.lineno in try_linenos:
                     continue
-                accept = _accept_reason(lines, inner.lineno)
+                accept = _accept_reason(lines, inner.lineno, rule='filesystem-op-without-envelope')
                 _emit(
                     rule='filesystem-op-without-envelope',
                     variant=f'{func.name} calls `{short}` with no surrounding try/except in the function body',
@@ -3050,7 +3079,7 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
                         break
                 if has_assert_never:
                     continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='assert-never-missing')
             _emit(
                 rule='assert-never-missing',
                 variant=(f'if/elif chain on `{chain_var}` with {chain_len} string-equality arms '
@@ -3141,7 +3170,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
                     callee_short = sub.func.attr
                 if callee_short not in BUILD_SIDE_EFFECTS:
                     continue
-                accept = _accept_reason(lines, sub.lineno)
+                accept = _accept_reason(lines, sub.lineno, rule='build-name-has-side-effect')
                 _emit(
                     rule='build-name-has-side-effect',
                     variant=f'{node.name} calls side-effect `{callee_short}` despite `build_`/`compute_` name',
@@ -3259,7 +3288,7 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
             continue
         rel = _relpath(path, scope)
         lines = _source_lines(path)
-        accept = _accept_reason(lines, assign_node.lineno)
+        accept = _accept_reason(lines, assign_node.lineno, rule='mutable-module-level-exported')
         kind = type(assign_node.value).__name__
         required_wrap = {
             'Dict': 'types.MappingProxyType(...)',
@@ -3347,7 +3376,7 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         short = sub.func.attr
                     if short not in HOT_IO:
                         continue
-                    accept = _accept_reason(lines, sub.lineno)
+                    accept = _accept_reason(lines, sub.lineno, rule='callback-hotpath-io')
                     _emit(
                         rule='callback-hotpath-io',
                         variant=f'{cls.name}.{method.name} performs per-event `{short}`; move setup to __init__',
@@ -3419,7 +3448,7 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
         for path, lineno, literal in locations:
             rel = _relpath(path, scope)
             lines = _source_lines(path)
-            accept = _accept_reason(lines, lineno)
+            accept = _accept_reason(lines, lineno, rule='recompile-duplication')
             other_paths = sorted({_relpath(p, scope) for p, _, _ in locations if p != path})
             _emit(
                 rule='recompile-duplication',
@@ -3531,7 +3560,7 @@ def check_logger_exception_graceful_degradation(
             ret_ann = _enclosing_return_annotation(tree, lineno)
             if ret_ann is not None and ret_ann.strip() == 'int':
                 continue
-            accept = _accept_reason(lines, lineno)
+            accept = _accept_reason(lines, lineno, rule='logger-exception-graceful-degradation')
             _emit(
                 rule='logger-exception-graceful-degradation',
                 variant=('except handler calls logger.exception then returns a '
@@ -3576,7 +3605,7 @@ def check_non_alphabetical_dict_keys(scope: pathlib.Path, src_root: pathlib.Path
             actual = [k.value for k in keys]
             if actual == sorted(actual):
                 continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='non-alphabetical-dict-keys')
             _emit(
                 rule='non-alphabetical-dict-keys',
                 variant='dict with string keys not alphabetically sorted',
@@ -3624,7 +3653,7 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
                     if lineno is None or lineno in reported:
                         return
                     reported.add(lineno)
-                    accept = _accept_reason(lines, lineno)
+                    accept = _accept_reason(lines, lineno, rule='bare-parametric-annotation')
                     _emit(
                         rule='bare-parametric-annotation',
                         variant=f'{ctx} uses bare `{node.id}` without element type',
@@ -3711,7 +3740,7 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
             if actual & declared:
                 continue  # intersection non-empty => at least one documented match
             # Every actual raise is not in declared list => mismatch
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='docstring-raises-mismatch')
             _emit(
                 rule='docstring-raises-mismatch',
                 variant=f'{node.name} docstring declares `Raises: {sorted(declared)}` but body raises {sorted(actual)}',
@@ -3757,7 +3786,7 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 rhs_src = ast.unparse(node.value)
             except Exception:
                 continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='reexport-in-non-init')
             _emit(
                 rule='reexport-in-non-init',
                 variant=f'`{tgt.id} = {rhs_src}` at module scope in non-__init__.py file',
@@ -3857,7 +3886,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
                     if isinstance(stmt.value, ast.Constant) and stmt.value.value is None:
                         continue
                     field_lineno = nullable_fields[tgt.attr]
-                    accept = _accept_reason(lines, field_lineno)
+                    accept = _accept_reason(lines, field_lineno, rule='dataclass-optional-always-set')
                     _emit(
                         rule='dataclass-optional-always-set',
                         variant=f'{cls.name}.{tgt.attr} typed `X | None` but __post_init__ always assigns non-None',
@@ -3973,7 +4002,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 return False  # no else branch => init might be read on that path
             if not _walk_chain(if_stmt):
                 continue
-            accept = _accept_reason(lines, first.lineno)
+            accept = _accept_reason(lines, first.lineno, rule='dead-local-init')
             _emit(
                 rule='dead-local-init',
                 variant=f'`{var_name} = <empty>` at top of {func.name} is unconditionally overridden in all if/elif/else branches',
@@ -4001,7 +4030,7 @@ def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             s = raw.strip()
             if not (s.startswith('#') or '"""' in raw or "'''" in raw or '"' in raw or "'" in raw):
                 continue
-            accept = _accept_reason(lines, idx)
+            accept = _accept_reason(lines, idx, rule='duplicated-word')
             _emit(
                 rule='duplicated-word',
                 variant=f'duplicated word {word!r}',
@@ -4093,7 +4122,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
                 break
             if not found_project_raise:
                 continue
-            accept = _accept_reason(lines, node.lineno)
+            accept = _accept_reason(lines, node.lineno, rule='missing-raises-section')
             _emit(
                 rule='missing-raises-section',
                 variant=f'{node.name} raises a project *Error but docstring lacks a Raises: section',
@@ -4162,7 +4191,7 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
                     break
             if hit_line is None:
                 continue
-            accept = _accept_reason(lines, hit_line)
+            accept = _accept_reason(lines, hit_line, rule='subprocess-without-memoisation')
             _emit(
                 rule='subprocess-without-memoisation',
                 variant=f'{node.name} shells out via subprocess without @functools.cache',
@@ -4222,7 +4251,7 @@ def check_bare_except_in_module_with_narrow_errors(scope: pathlib.Path, src_root
         if not (narrow_errors_tuple_seen and bare_handlers):
             continue
         for handler in bare_handlers:
-            accept = _accept_reason(lines, handler.lineno)
+            accept = _accept_reason(lines, handler.lineno, rule='bare-except-in-module-with-narrow-errors')
             _emit(
                 rule='bare-except-in-module-with-narrow-errors',
                 variant='bare except Exception in module that elsewhere uses *_ERRORS tuple',
@@ -4304,7 +4333,7 @@ def check_bare_nonbuiltin_generic_annotation(scope: pathlib.Path, src_root: path
             if lineno is None or lineno in reported:
                 return
             reported.add(lineno)
-            accept = _accept_reason(lines, lineno)
+            accept = _accept_reason(lines, lineno, rule='bare-nonbuiltin-generic-annotation')
             _emit(
                 rule='bare-nonbuiltin-generic-annotation',
                 variant=f'bare `{full}` annotation without type parameter',
@@ -4405,7 +4434,7 @@ def check_underscore_unpack_target_read(scope: pathlib.Path, src_root: pathlib.P
                         reads_after = [ln for ln in loads.get(name, []) if ln > lineno]
                         if not reads_after:
                             continue
-                        accept = _accept_reason(lines, lineno)
+                        accept = _accept_reason(lines, lineno, rule='underscore-unpack-target-read')
                         _emit(
                             rule='underscore-unpack-target-read',
                             variant=f'`{name}` unpacked but read at line {reads_after[0]}',
@@ -4452,7 +4481,7 @@ def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.
             for name, lineno in underscore_targets:
                 if name not in body_loads:
                     continue
-                accept = _accept_reason(lines, lineno)
+                accept = _accept_reason(lines, lineno, rule='underscore-forloop-target-read')
                 _emit(
                     rule='underscore-forloop-target-read',
                     variant=f'for-loop target `{name}` read inside body',
@@ -4460,6 +4489,165 @@ def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.
                     line=lineno,
                     evidence=(lines[lineno - 1].strip()[:200]
                               if 1 <= lineno <= len(lines) else ''),
+                    accepted=bool(accept),
+                    accepted_reason=accept,
+                )
+
+
+# Directories whose modules adapt an external service. AGENTS.md's
+# failure-versus-absence rule is written for "a source or resolver"; LLM
+# providers are the same shape - an adapter over a remote API - so they are
+# included. Scope is deliberately narrow: outside an adapter, a bare
+# `return None` from an except handler is often a legitimate cache miss or
+# optional lookup, and firing on those would make the check untrustworthy.
+EXTERNAL_ADAPTER_DIRS = frozenset({'sources', 'resolvers', 'providers'})
+
+# What counts as "recording a failure the caller can see". Logging does not:
+# a log line is not a value the caller can branch on, which is the whole point
+# of the rule.
+_FAILURE_WORD_RE = re.compile(r'error|failure|failed|cannot_answer', re.IGNORECASE)
+_LOGGING_CALL_RE = re.compile(r'^(logger|logging|log)\b|\.(debug|info|warning|error|exception|critical)$')
+_STATUS_TEST_RE = re.compile(r'\b(status|status_code|statuscode)\b')
+
+
+def _walk_within_scope(node: ast.AST) -> Iterable[ast.AST]:
+    """Yield descendants of node without entering a nested function or class.
+
+    ast.walk cannot prune, and a `return None` inside a nested helper belongs
+    to that helper, not to the handler being examined.
+    """
+    stack: list[ast.AST] = list(ast.iter_child_nodes(node))
+    while stack:
+        current = stack.pop()
+        yield current
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            continue
+        stack.extend(ast.iter_child_nodes(current))
+
+
+def _clean_absence_return(node: ast.Return) -> str | None:
+    """Label this return if it signals 'nothing here', else None.
+
+    Covers the tuple form because `resolve_chain` returns `(None, None)`.
+    """
+    value = node.value
+    if value is None:
+        return 'bare return'
+    if isinstance(value, ast.Constant) and value.value is None:
+        return 'return None'
+    if isinstance(value, ast.List) and not value.elts:
+        return 'return []'
+    if isinstance(value, ast.Dict) and not value.keys:
+        return 'return {}'
+    if isinstance(value, ast.Tuple) and value.elts and all(
+        isinstance(e, ast.Constant) and e.value is None for e in value.elts
+    ):
+        return f'return ({", ".join(["None"] * len(value.elts))})'
+    return None
+
+
+def _records_visible_failure(stmts: list[ast.stmt]) -> bool:
+    """True when these statements raise, or set something the caller reads.
+
+    A keyword argument counts (`SearchBatch(..., error=str(e))`) because that
+    is the project's documented alternative to raising. A logger call does not,
+    however error-shaped its name.
+    """
+    for stmt in stmts:
+        for child in [stmt, *_walk_within_scope(stmt)]:
+            if isinstance(child, ast.Raise):
+                return True
+            if isinstance(child, ast.keyword) and child.arg and _FAILURE_WORD_RE.search(child.arg):
+                return True
+            if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                targets = child.targets if isinstance(child, ast.Assign) else [child.target]
+                if any(_FAILURE_WORD_RE.search(ast.unparse(t)) for t in targets if t is not None):
+                    return True
+            if isinstance(child, ast.Call):
+                func_src = ast.unparse(child.func)
+                if _LOGGING_CALL_RE.search(func_src):
+                    continue
+                if _FAILURE_WORD_RE.search(func_src):
+                    return True
+    return False
+
+
+def _status_failure_branch(node: ast.If) -> list[ast.stmt] | None:
+    """Return whichever branch of an HTTP-status test runs on a non-200."""
+    test = node.test
+    if not isinstance(test, ast.Compare) or len(test.ops) != 1:
+        return None
+    if not _STATUS_TEST_RE.search(ast.unparse(test)):
+        return None
+    op = test.ops[0]
+    if isinstance(op, (ast.NotEq, ast.GtE, ast.Gt, ast.NotIn)):
+        return node.body
+    if isinstance(op, (ast.Eq, ast.In)):
+        return node.orelse or None
+    return None
+
+
+def check_failure_as_absence(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag a clean-absence return reached from a caught exception or a non-200.
+
+    AGENTS.md ("Failure versus absence") requires that a source or resolver
+    never return None/[] for a non-200 response or a caught exception without
+    also recording a failure the caller can see - by raising, or by setting an
+    error field the caller reads. Returning empty is reserved for a genuine
+    "the request completed and there was nothing to find". Conflating the two
+    makes a network outage read as "this paper has no match", which is silently
+    wrong rather than loudly wrong.
+
+    Two shapes are detected:
+      A. An `except` handler whose body reaches a clean-absence return with no
+         raise and no error-recording statement.
+      B. The non-200 branch of an HTTP status test doing the same.
+
+    Deliberately NOT detected - documented non-goals, not oversights:
+      - The loop-continue shape, where a per-item handler `continue`s and the
+        function later returns a collection that happens to be empty. Catching
+        it needs flow analysis and would fire on legitimate partial-result
+        paths, where returning what did parse is correct.
+      - Count guards such as `if failed == attempted: raise`, where the defect
+        is the arithmetic and the return is innocent.
+    Both remain Phase B's job. This check owns the direct shapes, where a
+    verdict needs no judgement.
+    """
+    for path in _all_py_files(src_root):
+        parts = set(path.parts)
+        if 'tests' in parts or not (parts & EXTERNAL_ADAPTER_DIRS):
+            continue
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler):
+                variant, body = 'caught exception returns empty', node.body
+            elif isinstance(node, ast.If):
+                body = _status_failure_branch(node)
+                if body is None:
+                    continue
+                variant = 'non-200 branch returns empty'
+            else:
+                continue
+            if _records_visible_failure(body):
+                continue
+            for child in [*body, *(c for stmt in body for c in _walk_within_scope(stmt))]:
+                if not isinstance(child, ast.Return):
+                    continue
+                label = _clean_absence_return(child)
+                if label is None:
+                    continue
+                accept = _accept_reason(lines, child.lineno, rule='failure-as-absence') or _accept_reason(lines, node.lineno, rule='failure-as-absence')
+                _emit(
+                    rule='failure-as-absence',
+                    variant=f'{variant} ({label})',
+                    path=rel,
+                    line=child.lineno,
+                    evidence=lines[child.lineno - 1].strip()[:200] if child.lineno <= len(lines) else label,
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
@@ -4518,7 +4706,7 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
             is_comment = stripped.startswith('#')
             if not (is_comment or in_docstring(idx)):
                 continue
-            accept = _accept_reason(lines, idx)
+            accept = _accept_reason(lines, idx, rule='phase-section-doc-reference')
             _emit(
                 rule='phase-section-doc-reference',
                 variant=f'numeric spec cross-reference {matches[0].group(0)!r}',
@@ -4609,6 +4797,7 @@ def main() -> int:
         check_bare_nonbuiltin_generic_annotation,
         check_underscore_unpack_target_read,
         check_underscore_forloop_target_read,
+        check_failure_as_absence,
         check_phase_section_doc_reference,
     ):
         try:
