@@ -96,7 +96,18 @@ Schema:
    - many sites of the same class: AGENTS.md table entry, then re-run the script
 5. **Do not extend the script during the audit.** If Phase B surfaces a new mechanically-detectable pattern, write it down in the review's "Script coverage notes" but do not add it to `checks/audit.py` until the current task list ships and the next audit on unchanged code shows zero mechanical delta. This is the cure for the perpetual "the audit keeps finding new things" loop: the script stays still, the next run is clean, then the script grows.
 
-The full set of rules the script catches is documented in `checks/audit.py` itself - read the docstring of each `check_*` function for the predicate it encodes.
+The full set of rules the script catches is documented in the checker itself -
+read the docstring of each `check_*` function for the predicate it encodes.
+`checks/audit.py` is only the entry point; the checks live in
+`checks/auditme/rules/`, one module per family of defect (`error_handling.py`,
+`duplication.py`, `state_and_effects.py`, `imports_and_surfaces.py`,
+`style_and_naming.py`, `project_hygiene.py`), with the shared helpers in
+`checks/auditme/core.py` and the run order in `checks/auditme/registry.py`.
+
+**`CHECKS`'s order is the emission order, and therefore part of the output.**
+Adding an entry is free; moving an existing one reorders every subsequent hit
+and will read as a diff in the next audit even though nothing was found
+differently.
 
 ### 4. Interpretive review (per-question fan-out)
 
