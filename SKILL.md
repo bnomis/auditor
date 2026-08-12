@@ -379,11 +379,16 @@ Phase B has no script-coverage notes section in this template by design. The pre
 **Last review:** review-N
 **Total reviews conducted:** N
 **Last script run hit count:** K (J accepted)
-**Script version:** <digest of the whole checker, from
-`git ls-files -s ~/.claude/skills/auditme/checks | shasum -a 256`. A single-file
-hash no longer identifies it: `checks/audit.py` is only the entry point and the
-checks live in `checks/auditme/`, so hashing that one file would report "script
-unchanged" after a check was edited>
+**Script version:** <digest of the whole checker:
+
+```bash
+find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
+```
+
+A single-file hash no longer identifies it: `checks/audit.py` is only the entry
+point and the checks live in `checks/auditme/`, so hashing that one file would
+report "script unchanged" after a check was edited. The command above follows
+the symlink, needs no git, and gives the same digest wherever it is run from.>
 
 ## Unresolved findings
 
