@@ -359,7 +359,12 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                     if helper_line <= sink_line:
                         continue  # only forward-direction redundancy
                     short = helper_callee.rsplit('.', 1)[-1]
-                    for full in short_to_full.get(short, set()):
+                    # sorted, not set order: several modules can define a
+                    # function with the same short name, the loop breaks on the
+                    # first match, and set iteration follows string hashing -
+                    # which is randomised per process. Unsorted, the same
+                    # unchanged tree reports a different qualname between runs.
+                    for full in sorted(short_to_full.get(short, set())):
                         for inner_callee, sigs in function_sinks.get(full, {}).items():
                             if inner_callee.rsplit('.', 1)[-1] != sink_tail:
                                 continue

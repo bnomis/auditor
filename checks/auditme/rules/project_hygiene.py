@@ -49,6 +49,12 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                         rule='ruff', variant='ruff-format', path=ln.split(':')[0].strip(), line=None, evidence=ln.strip(), accepted=False, accepted_reason=None
                     )
 
+# `uv lock --check` exits non-zero both when the lockfile is genuinely stale
+# and when it could not resolve at all. Only the first message is the drift.
+_LOCKFILE_DRIFT_MARKER = 'needs to be updated'
+_LOCKFILE_TIMESTAMP_RE = re.compile(r'\d{4}-\d{2}-\d{2}T[\d:.]+Z?')
+
+
 def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     pyproject = scope / 'pyproject.toml'
     uvlock = scope / 'uv.lock'
@@ -56,18 +62,41 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         return
     try:
         result = subprocess.run(['uv', 'lock', '--check'], capture_output=True, text=True, cwd=scope)
-        if result.returncode != 0:
-            _emit(
-                rule='lockfile-drift',
-                variant='uv lock --check failed',
-                path='uv.lock',
-                line=None,
-                evidence=(result.stderr or result.stdout).strip()[:200],
-                accepted=False,
-                accepted_reason=None,
-            )
     except FileNotFoundError:
-        pass
+        return
+    if result.returncode == 0:
+        return
+
+    output = (result.stderr or result.stdout).strip()
+    # uv's progress chatter carries a resolution timestamp, and a network
+    # failure carries whatever the transport said. Both change between runs, so
+    # emitting the raw output made this check report a different evidence
+    # string every time on an unchanged tree - see the convergence rules in
+    # SKILL.md. Keep only the error lines, with any timestamp masked.
+    error_lines = [line.strip() for line in output.splitlines() if line.strip().startswith('error:')]
+    evidence = _LOCKFILE_TIMESTAMP_RE.sub('<timestamp>', ' '.join(error_lines))[:200]
+
+    # A lockfile that needs regenerating and a lockfile that could not be
+    # checked are different facts: the first is drift, the second means the
+    # question went unanswered. Reporting both as drift is the
+    # failure-versus-absence defect, in the checker rather than in the code
+    # under audit.
+    if _LOCKFILE_DRIFT_MARKER in output:
+        variant = 'uv lock --check reports the lockfile is out of date'
+        evidence = evidence or 'lockfile needs updating'
+    else:
+        variant = 'uv lock --check could not verify the lockfile'
+        evidence = evidence or 'no error detail on stderr or stdout'
+
+    _emit(
+        rule='lockfile-drift',
+        variant=variant,
+        path='uv.lock',
+        line=None,
+        evidence=evidence,
+        accepted=False,
+        accepted_reason=None,
+    )
 
 _PHASE_REF_RE = re.compile(r'\bPhase\s+[1-9][a-z]?\b')
 
