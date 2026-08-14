@@ -17,8 +17,19 @@ import re
 # name their rule.
 ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*(.*)$')
 
+# Hits already printed this run, as their serialised form. The driver runs every
+# check once per package under src/, so the project-level checks - the lockfile
+# one, and every check that reads AGENTS.md - see the same project N times and
+# would report each of their hits N times. A hit is identified by its whole
+# record, so two genuinely different hits can never collide here.
+_EMITTED: set[str] = set()
+
 def _emit(**kwargs) -> None:
-    print(json.dumps(kwargs, sort_keys=True))
+    line = json.dumps(kwargs, sort_keys=True)
+    if line in _EMITTED:
+        return
+    _EMITTED.add(line)
+    print(line)
 
 def _source_lines(path: pathlib.Path) -> list[str]:
     try:

@@ -76,7 +76,24 @@ Then run the shipped audit script:
 python3 ~/.claude/skills/auditme/checks/audit.py <project-root> [--package <pkg>]
 ```
 
-`<project-root>` is the directory containing `src/` and `agents/`. `--package` defaults to the single directory under `src/`.
+`<project-root>` is the directory containing `src/` and `agents/`. `--package`
+restricts the run to one package; it defaults to **every** package under
+`src/`, each audited in its own pass.
+
+Do not pass `--package` for a normal audit. A project whose `src/` holds both
+the library and the test tree has two packages, and auditing one of them
+reports a partial scope as a complete one. Until 2026-08-14 the default was
+"the alphabetically-first directory under `src/`", which on the litrev project
+meant `src/tests/` was never read: 440 hits stayed invisible across five audit
+cycles while the sweep looked clean. The same default would have picked
+`__pycache__` on a project that had one.
+
+Each package is audited in its own pass rather than in one pass rooted at
+`src/`, because `src_root.name` is the package's dotted root - several checks
+build module names from it - so a single pass over `src/` would rename every
+module to `src.<pkg>.<mod>` and break the import-graph checks and every
+AGENTS.md acceptance row. Duplicate hits from project-level checks (the
+lockfile, and anything reading AGENTS.md) are suppressed by the driver.
 
 The script outputs one JSON object per line (JSONL). Each line is a hit.
 
