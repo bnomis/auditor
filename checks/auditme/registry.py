@@ -29,6 +29,7 @@ from auditme.rules.error_handling import (
     check_mixed_raise_types,
     check_sibling_error_no_common_base,
     check_silent_broad_except,
+    check_translator_envelope_gap,
     check_try_wrapping_with_too_broad,
 )
 from auditme.rules.state_and_effects import (
@@ -131,4 +132,5 @@ CHECKS = (
     check_phase_section_doc_reference,
     check_get_container_default_then_method_call,
     check_annotated_all_assignment,
+    check_translator_envelope_gap,
 )

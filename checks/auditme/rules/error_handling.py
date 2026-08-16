@@ -1747,3 +1747,264 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
+
+# Anything that also satisfies a narrower requirement, whatever the body does.
+_UNIVERSAL_CATCHES = frozenset({'*bare*', 'BaseException', 'Exception'})
+
+# `OSError`'s subclasses are accepted as satisfying the disk branch, matching
+# `check_filesystem_envelope_gap`. Neither check tries to prove that the
+# subclass named is the one the body can raise; that is Phase B's job.
+_OSERROR_SATISFIERS = frozenset({
+    'FileNotFoundError', 'IOError', 'IsADirectoryError', 'OSError', 'PermissionError',
+})
+
+# Calls that read a file as text, and so can raise `UnicodeDecodeError` on
+# bytes the declared encoding cannot decode. `.decode()` is deliberately not a
+# trigger: the attribute name is used by tokenisers, codecs and protocol
+# helpers far more often than by `bytes.decode`, so it would fire mostly on
+# calls that cannot raise `UnicodeDecodeError` at all.
+_TEXT_DECODING_CALLS = frozenset({'read_text'})
+
+
+def _handler_catches(handler: ast.ExceptHandler) -> set[str]:
+    """Every identifier named in this handler's except tuple.
+
+    Dotted forms contribute both halves (`json.JSONDecodeError` gives `json`
+    and `JSONDecodeError`), which is harmless: only the exception names are
+    ever looked up. A bare `except:` gives the `*bare*` sentinel.
+    """
+    if handler.type is None:
+        return {'*bare*'}
+    try:
+        return set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', ast.unparse(handler.type)))
+    except Exception:
+        return set()
+
+def _handler_translates(handler: ast.ExceptHandler) -> bool:
+    """True when this handler raises something whose name ends in `Error`.
+
+    The same signal `check_asymmetric_exception_translation` uses. It is what
+    separates an error-translating wrapper from a decorator that happens to
+    contain a `try` for an unrelated reason, such as an optional-import probe.
+    """
+    for sub in ast.walk(handler):
+        if not isinstance(sub, ast.Raise) or sub.exc is None:
+            continue
+        target = sub.exc.func if isinstance(sub.exc, ast.Call) else sub.exc
+        if not isinstance(target, (ast.Name, ast.Attribute)):
+            continue
+        try:
+            if ast.unparse(target).rsplit('.', 1)[-1].endswith('Error'):
+                return True
+        except Exception:
+            continue
+    return False
+
+def _translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
+    """Map every error-translating function's name to what its handlers catch.
+
+    Indexed by short name rather than by dotted path, because the decorator is
+    written as the name it was bound to at the use site and that binding is not
+    always an import the checker can follow - litrev's store reads the
+    contextmanager back out of `sys.modules` to dodge a circular import, and a
+    dotted-path index would resolve nothing there.
+
+    Two definitions sharing a short name contribute a union, so a wide envelope
+    elsewhere in the package can only ever silence a hit, never invent one.
+    """
+    envelopes: dict[str, set[str]] = defaultdict(set)
+    for path in _all_py_files(src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            caught: set[str] = set()
+            for sub in ast.walk(node):
+                if not isinstance(sub, ast.Try):
+                    continue
+                for handler in sub.handlers:
+                    if _handler_translates(handler):
+                        caught |= _handler_catches(handler)
+            if caught:
+                envelopes[node.name] |= caught
+    return {name: frozenset(caught) for name, caught in envelopes.items()}
+
+def _callable_short_name(expr: ast.expr) -> str | None:
+    """The bare name a decorator or `with` item invokes.
+
+    `@translate('...')`, `@errors.translate` and `@translate` all give
+    `translate`.
+    """
+    node = expr.func if isinstance(expr, ast.Call) else expr
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+def _guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterable[ast.AST]:
+    """Every node in the function's own body - not its signature or decorators.
+
+    A decorator is itself a `Call`, and walking it would let
+    `@pandas_backed_cache(...)`-shaped decoration read as a body that parses.
+    Pruned at a nested `def`/`class` too: the outer walk reaches those on their
+    own, where their own decoration is the envelope being judged.
+    """
+    for stmt in node.body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        yield stmt
+        yield from _walk_within_scope(stmt)
+
+def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
+    """The locked-set branches this call triggers, as (required, satisfied-by).
+
+    Each branch is one row of A2's locked set, keyed on a form that needs no
+    judgement to recognise: the module the parser is called on, or the exact
+    name of the filesystem primitive.
+    """
+    branches: list[tuple[str, frozenset[str]]] = []
+    short: str | None = None
+    if isinstance(node.func, ast.Name):
+        short = node.func.id
+    elif isinstance(node.func, ast.Attribute):
+        short = node.func.attr
+        try:
+            receiver = ast.unparse(node.func.value).rsplit('.', 1)[-1]
+        except Exception:
+            receiver = ''
+        if receiver == 'json' and short in {'load', 'loads'}:
+            branches.append(('json.JSONDecodeError', frozenset({'JSONDecodeError', 'ValueError'})))
+        if receiver in {'pandas', 'pd'} and short.startswith('read_'):
+            branches.append(('pandas.errors.ParserError', frozenset({'ParserError'})))
+        if receiver == 'gzip' and short in {'GzipFile', 'open'}:
+            branches.append(('gzip.BadGzipFile', frozenset({'BadGzipFile'})))
+    if short in _TEXT_DECODING_CALLS:
+        branches.append(('UnicodeDecodeError', frozenset({'UnicodeDecodeError'})))
+    if short in _FILESYSTEM_TOUCHING_CALLS:
+        branches.append(('OSError', _OSERROR_SATISFIERS))
+    return branches
+
+def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag a body whose only error envelope is a translating decorator or
+    contextmanager whose except tuple is narrower than A2's locked set.
+
+    `filesystem-envelope-gap` and every other mechanical A2 check look for a
+    lexical `try/except` in the function. A `@translate_sqlite_errors`-style
+    decorator is invisible to that scan, so a function guarded only by one
+    reads as "no envelope at all" - and is then skipped, being neither
+    lexically guarded nor caught by the no-envelope checks. On litrev three
+    such sites in `store/query.py` survived six audit cycles: all three
+    `json.loads` a sqlite column inside functions documenting
+    `Raises: StoreError` whose only envelope caught `sqlite3.Error`, so a
+    malformed column reached the CLI as a bare `json.JSONDecodeError`
+    traceback.
+
+    Signal:
+      - Function F is decorated with, or contains a `with` block entering, a
+        function defined in this package whose own `except` handler raises a
+        `*Error` (see `_handler_translates`). That handler's tuple is F's
+        envelope.
+      - F's body calls something that triggers a branch of A2's locked set:
+        `json.load*` needs `json.JSONDecodeError`; `pd.read_*` needs
+        `pandas.errors.ParserError`; `gzip.open` needs `gzip.BadGzipFile`;
+        `read_text` needs `UnicodeDecodeError`; any filesystem primitive
+        needs `OSError`.
+      - The envelope's tuple satisfies none of the branch's exceptions.
+
+    Carve-outs, each of which must not fire:
+      - A decorator catching bare `Exception` / `BaseException`, or a bare
+        `except:`, satisfies every branch - exactly as a lexical one does.
+      - A call already inside a lexical `try` in F. That envelope is the
+        lexical checks' to judge, and reporting it here would double-count it.
+      - A function with no resolvable translator at all. "No envelope" is
+        `filesystem-op-without-envelope`'s question, not this one.
+
+    One finding per function, at its earliest triggering call, so a function
+    parsing several columns is one item of work rather than several.
+    """
+    envelopes = _translator_envelopes(src_root)
+    if not envelopes:
+        return
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            caught: set[str] = set()
+            sources: list[str] = []
+            for decorator in func.decorator_list:
+                short = _callable_short_name(decorator)
+                if short in envelopes:
+                    caught |= envelopes[short]
+                    sources.append(f'@{short}')
+            # A contextmanager entered inside the body guards only the block it
+            # wraps, so its reach is recorded as a line range rather than
+            # folded into the whole function's envelope.
+            with_ranges: list[tuple[int, int, frozenset[str], str]] = []
+            lexical_try_linenos: set[int] = set()
+            for sub in _guarded_body_nodes(func):
+                if isinstance(sub, ast.Try):
+                    for stmt in sub.body:
+                        for inner in ast.walk(stmt):
+                            if hasattr(inner, 'lineno'):
+                                lexical_try_linenos.add(inner.lineno)
+                if not isinstance(sub, (ast.With, ast.AsyncWith)) or not sub.body:
+                    continue
+                block_caught: set[str] = set()
+                block_names: list[str] = []
+                for item in sub.items:
+                    short = _callable_short_name(item.context_expr)
+                    if short in envelopes:
+                        block_caught |= envelopes[short]
+                        block_names.append(short)
+                if not block_caught:
+                    continue
+                start = sub.body[0].lineno
+                end = getattr(sub.body[-1], 'end_lineno', None) or sub.body[-1].lineno
+                with_ranges.append((start, end, frozenset(block_caught), ', '.join(block_names)))
+            # Collected rather than emitted in the walk, because the walk's
+            # order is not the source's: the earliest triggering call is the
+            # one to report, so a reader lands on the first parse in the
+            # function rather than on whichever the traversal reached first.
+            gaps: list[tuple[int, str, list[str], list[str], set[str]]] = []
+            for node in _guarded_body_nodes(func):
+                if not isinstance(node, ast.Call):
+                    continue
+                branches = _a2_branches_for_call(node)
+                if not branches or node.lineno in lexical_try_linenos:
+                    continue
+                site_caught = set(caught)
+                site_sources = list(sources)
+                for start, end, range_caught, range_names in with_ranges:
+                    if start <= node.lineno <= end:
+                        site_caught |= range_caught
+                        site_sources.append(f'with {range_names}')
+                if not site_sources or site_caught & _UNIVERSAL_CATCHES:
+                    continue
+                missing = [required for required, satisfied_by in branches if not satisfied_by & site_caught]
+                if missing:
+                    gaps.append((node.lineno, ast.unparse(node.func), missing, site_sources, site_caught))
+            if not gaps:
+                continue
+            lineno, callee, missing, site_sources, site_caught = min(gaps, key=lambda gap: gap[0])
+            accept = _accept_reason(lines, lineno, rule='translator-envelope-gap')
+            _emit(
+                rule='translator-envelope-gap',
+                variant=(f'{func.name} calls `{callee}` under {", ".join(site_sources)}, '
+                         f'whose except tuple {sorted(site_caught - {"*bare*"})!r} omits {missing!r}'),
+                path=rel,
+                line=lineno,
+                evidence=(lines[lineno - 1].strip()[:200]
+                          if lineno <= len(lines) else callee),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
