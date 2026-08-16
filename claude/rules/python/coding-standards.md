@@ -48,50 +48,6 @@ from .base import Foo, Bar
 __all__ = ['Bar', 'Foo']
 ```
 
-## Imports
-
-- Follow ruff's isort-compatible import ordering (stdlib, third-party, local)
-- First-party packages: `<project>`
-- No wildcard imports (`from module import *`)
-- If you come across `from __future__ import annotations` in a file, remove it
-
-Do not include unnecessary imports. If an import exists but is not used, remove it.
-
-**Exception: `__init__.py` re-export lists** - relative imports (`from .module import Symbol`) are permitted inside `__init__.py` files for re-exporting symbols from sub-modules into the package's public API. This is the only permitted use of `from X import Y` in internal code.
-
-**Always use full import paths** - do not use `from X import Y` pattern:
-
-```python
-# CORRECT - full import path
-import pathlib
-
-import <project>.cli
-
-p = pathlib.Path()
-cpu = <project>.cli.detect_compute_resources()
-```
-
-```python
-# INCORRECT - avoid this pattern
-from pathlib import Path
-from <project>.cli import detect_compute_resources
-
-p = Path()
-cpu = detect_compute_resources()
-```
-
-### No "as" imports
-
-Do NOT use "as" imports. Do NOT do the following:
-
-```python
-# INCORRECT - avoid this pattern
-import numpy as np
-import pandas as pd
-import multiprocessing as mp
-import matplotlib.pyplot as plt
-```
-
 ## Type annotations
 
 - All function signatures must have parameter and return type annotations
