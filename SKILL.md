@@ -26,7 +26,7 @@ Invoke as:
 
 Two consecutive audit runs on unchanged code MUST produce the same findings. The audit is designed to converge in **one** pass. If run N+1 surfaces findings that run N did not, one of these failures has happened:
 
-1. **Script grew between runs.** A new `check_*` was added to `checks/audit.py`, so historical debt that was previously invisible suddenly appears. Cure: the script-coverage backlog (see `summary.md`) must be drained into real check functions BEFORE any audit cycle starts. The script does not change during an audit. New patterns surfaced mid-audit are deferred to the next skill update, not the next audit cycle.
+1. **Script grew between runs.** A new `check_*` was added to `checks/auditme/rules/`, so historical debt that was previously invisible suddenly appears. Cure: the script-coverage backlog (see `summary.md`) must be drained into real check functions BEFORE any audit cycle starts. The script does not change during an audit. New patterns surfaced mid-audit are deferred to the next skill update, not the next audit cycle.
 2. **Phase B was non-deterministic.** A reviewer agent applied different judgment than last round on the same files. Cure: Phase B fan-out is per-question, not per-file. One agent owns one question across all files in scope, so a single judgment threshold applies per predicate.
 3. **Category-scoped runs.** A previous run used `--category X` and missed everything outside X. Cure: the canonical audit always runs every category. Use `--category` only for re-checking a single rule family during fix verification.
 4. **Predicate drift.** A Phase B question's "should-have-caught" set quietly grew between cycles (e.g., A2 originally meant "missing `OSError`", later expanded to also mean "missing `ParserError`"). Cure: every predicate has a fixed enumeration encoded in this file. Expanding a predicate is a skill change, never a per-cycle adjustment.
@@ -119,7 +119,7 @@ Schema:
 4. You may NOT filter, sample, or dismiss `accepted: false` hits. "Pre-existing", "project norm", "seems intentional" are NOT acceptable dismissals. To accept a pattern:
    - one site: inline `# auditme: accept <reason>` comment on the hit line or the line above
    - many sites of the same class: AGENTS.md table entry, then re-run the script
-5. **Do not extend the script during the audit.** If Phase B surfaces a new mechanically-detectable pattern, write it down in the review's "Script coverage notes" but do not add it to `checks/audit.py` until the current task list ships and the next audit on unchanged code shows zero mechanical delta. This is the cure for the perpetual "the audit keeps finding new things" loop: the script stays still, the next run is clean, then the script grows.
+5. **Do not extend the script during the audit.** If Phase B surfaces a new mechanically-detectable pattern, write it down in the review's "Script coverage notes" but do not add it to `checks/auditme/rules/` until the current task list ships and the next audit on unchanged code shows zero mechanical delta. This is the cure for the perpetual "the audit keeps finding new things" loop: the script stays still, the next run is clean, then the script grows.
 
 The full set of rules the script catches is documented in the checker itself -
 read the docstring of each `check_*` function for the predicate it encodes.
@@ -128,6 +128,8 @@ read the docstring of each `check_*` function for the predicate it encodes.
 `duplication.py`, `state_and_effects.py`, `imports_and_surfaces.py`,
 `style_and_naming.py`, `project_hygiene.py`), with the shared helpers in
 `checks/auditme/core.py` and the run order in `checks/auditme/registry.py`.
+The checker's own tests live in [`tests/`](tests/README.md) and run with
+`uv run --no-project --with pytest pytest ~/.claude/skills/auditme/tests`.
 
 **`CHECKS`'s order is the emission order, and therefore part of the output.**
 Adding an entry is free; moving an existing one reorders every subsequent hit
@@ -172,7 +174,7 @@ Before writing the review file, confirm:
 - [ ] Every Phase B subagent returned an explicit hit list (or "no hits") - no question silently skipped
 - [ ] Every unresolved `summary.md` finding was re-verified
 - [ ] Every incomplete task file was re-verified against source
-- [ ] No new check was added to `checks/audit.py` during this audit (script-coverage delta is zero)
+- [ ] No new check was added to `checks/auditme/rules/` during this audit (script-coverage delta is zero)
 - [ ] No Phase B predicate had its enumeration expanded during this audit
 
 If any is no, finish it before writing the review.
@@ -465,9 +467,10 @@ Adding a check is a skill change. It happens between audit cycles, with no in-fl
 Process:
 
 1. User raises a candidate predicate (or this skill is updated to add a new Phase B question).
-2. Implement the predicate as a `check_*` function in `checks/audit.py` immediately.
-3. Run the script on the project. The result is the catch-up surface. Land fixes (or accept markers) for everything it returns.
-4. After fixes, run the audit normally. Convergence is restored.
+2. Implement the predicate as a `check_*` function in the matching `checks/auditme/rules/` module immediately, and append it to `CHECKS` in `checks/auditme/registry.py`. Append - never insert, see [`CHECKS`'s order](#3-mechanical-sweep-scripted).
+3. Add tests under [`tests/`](tests/README.md): the shape it fires on, every carve-out that must not fire, and the behaviour of an accept marker scoped to the rule. Run `uv run --no-project --with pytest pytest ~/.claude/skills/auditme/tests`.
+4. Run the script on the project. The result is the catch-up surface. Land fixes (or accept markers) for everything it returns.
+5. After fixes, run the audit normally. Convergence is restored.
 
 The previous "queue, defer, audit, defer again" rhythm was the dominant cause of perpetual cycles: every cycle promoted a new queued item AND surfaced new Phase B items, so backlog never reached zero. The new rule is **drain immediately or reject explicitly**. There is no permitted state where the backlog is non-empty and an audit is starting.
 
@@ -475,11 +478,11 @@ The previous "queue, defer, audit, defer again" rhythm was the dominant cause of
 
 Refinements are different from extensions. An extension grows a predicate's "should-have-caught" set and is forbidden mid-audit (predicate drift, failure mode 4). A refinement narrows the set by carving out a sanctioned sub-pattern that should not fire - the predicate's enumeration in this file is updated to name the carve-out, and the script implements the skip.
 
-A refinement is a skill change too: same process as above (drain immediately, then run the audit). Each refinement is documented in the predicate's docstring inside `checks/audit.py` so future readers see why a sub-pattern is skipped.
+A refinement is a skill change too: same process as above (drain immediately, then run the audit). Each refinement is documented in the predicate's docstring inside its `checks/auditme/rules/` module, and given a test case that asserts the carve-out does not fire, so future readers see why a sub-pattern is skipped and cannot silently un-skip it.
 
 Documented refinements:
 
-- **`except-interpolation` (review-36):** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `checks/audit.py`.
+- **`except-interpolation` (review-36):** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `checks/auditme/rules/error_handling.py`.
 - **`empty-init-while-siblings-export` (review-36):** the predicate is file-level. The accept-marker scan walks every line in the file rather than just the docstring opener, so a docstring-only `__init__.py` can be accepted by adding a comment-only `# auditme: accept <reason>` line anywhere in the file.
 
 ## Rule conflict resolution
