@@ -389,6 +389,23 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                     if found_redundant:
                         break
 
+# Calls that say nothing about a function's architecture: builtins, string
+# and container methods, filesystem operations, and the connection plumbing
+# every database test performs. A sequence made mostly of these describes the
+# framework being used, not the shape of the code, so counting them makes two
+# unrelated tests that both open a connection look like copies.
+_TRIVIAL_CALLS = frozenset({
+    'append', 'as_posix', 'commit', 'connect', 'copy', 'close', 'cursor',
+    'debug', 'deepcopy', 'dumps', 'endswith', 'error', 'exception', 'execute',
+    'executemany', 'exists', 'extend', 'fetchall', 'fetchmany', 'fetchone',
+    'flush', 'format', 'get', 'info', 'is_dir', 'is_file', 'items', 'join',
+    'keys', 'loads', 'lower', 'mkdir', 'open', 'pop', 'read', 'read_bytes',
+    'read_text', 'replace', 'resolve', 'rollback', 'seek', 'set', 'split',
+    'startswith', 'strip', 'update', 'upper', 'values', 'warning', 'write',
+    'write_bytes', 'write_text',
+})
+
+
 def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag two functions (across different classes or modules) that
     share a long subsequence of call-name tokens in the same order.
@@ -424,19 +441,19 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
                     callee = ast.unparse(inner.func)
                 except Exception:
                     continue
-                # Require a dotted callee (skip bare len(), str(), dict() etc.)
+                # Require a dotted callee (skips bare len(), str(), dict(),
+                # and a project's own local helpers). Measured both ways on a
+                # 200-file suite: without it the sequences fill with builtins
+                # and the pair count triples, so it stays. Note the side
+                # effect, which is not obvious - a project that forbids
+                # `from X import Y` dots every call, so this check is
+                # markedly more sensitive there than in one that prefers
+                # from-imports, where the same duplication hides behind bare
+                # names.
                 if '.' not in callee:
                     continue
                 short = callee.rsplit('.', 1)[-1]
-                if short in {'warning', 'info', 'error', 'exception',
-                             'debug', 'format', 'get', 'set', 'append',
-                             'extend', 'update', 'pop', 'items', 'keys',
-                             'values', 'join', 'split', 'strip', 'lower',
-                             'upper', 'replace', 'startswith', 'endswith',
-                             'replace', 'items', 'dumps', 'loads', 'copy',
-                             'deepcopy', 'write_text', 'read_text',
-                             'mkdir', 'exists', 'is_file', 'is_dir',
-                             'as_posix', 'resolve'}:
+                if short in _TRIVIAL_CALLS:
                     continue
                 if seq and seq[-1] == short:
                     continue
