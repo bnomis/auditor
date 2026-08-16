@@ -584,3 +584,70 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+_ALL_GUARD_RE = re.compile(r"""['"]__all__['"]|\.__all__\b""")
+
+def _project_has_all_guard(scope: pathlib.Path) -> bool:
+    """True when some file in the project inspects other modules' `__all__`.
+
+    The signal is `__all__` read as data - `getattr(mod, '__all__')`,
+    `mod.__all__`, or an AST walk comparing a target's id to `'__all__'` -
+    rather than declared. A project with no such guard has nothing to switch
+    off, so the annotated form costs it nothing.
+    """
+    src = scope / 'src'
+    if not src.is_dir():
+        return False
+    for path in sorted(src.rglob('*.py')):
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if _ALL_GUARD_RE.search(text):
+            return True
+    return False
+
+def check_annotated_all_assignment(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `__all__: list[str] = [...]` in a project that guards `__all__`.
+
+    An annotated assignment is an `ast.AnnAssign`, not an `ast.Assign`. A
+    public-surface guard written to match `ast.Assign` therefore does not see
+    the module at all - and reports green while checking nothing, which is the
+    worst failure a guard has. On litrev this switched the guard off for a
+    whole package: its `__all__` entries were never checked for a consumer, and
+    the private-submodule exception entries written for it were inert, while
+    the suite passed throughout.
+
+    The predicate is not "an annotated `__all__` is wrong". It is that a
+    project whose surface guard may discriminate on assignment form has a hole
+    wherever the annotated form appears. A guard that handles both forms is a
+    real answer - record it with an accept marker on the declaration, or
+    normalise the declaration to the plain form.
+
+    Fires only where the project has an `__all__`-based guard at all; see
+    `_project_has_all_guard`.
+    """
+    if not _project_has_all_guard(scope):
+        return
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.AnnAssign):
+                continue
+            if not isinstance(node.target, ast.Name) or node.target.id != '__all__':
+                continue
+            accept = _accept_reason(lines, node.lineno, rule='annotated-all-assignment')
+            _emit(
+                rule='annotated-all-assignment',
+                variant='__all__ is an AnnAssign; a guard matching ast.Assign skips this module',
+                path=rel,
+                line=node.lineno,
+                evidence=lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ast.unparse(node),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )

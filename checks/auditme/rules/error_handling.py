@@ -1597,3 +1597,153 @@ def check_failure_as_absence(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
+
+def _empty_container_default(node: ast.Call) -> str | None:
+    """Label the empty-container default of a two-argument `.get` call.
+
+    Only literals count. `parsed.get('usage', dict())` has the same defect but
+    is not matched: the literal form is what appears in practice, and keeping
+    the predicate to one node type keeps it unarguable.
+    """
+    if not isinstance(node.func, ast.Attribute) or node.func.attr != 'get':
+        return None
+    if len(node.args) != 2 or node.keywords:
+        return None
+    default = node.args[1]
+    if isinstance(default, ast.Dict) and not default.keys:
+        return '{}'
+    if isinstance(default, ast.List) and not default.elts:
+        return '[]'
+    if isinstance(default, ast.Tuple) and not default.elts:
+        return '()'
+    return None
+
+def _name_scopes(tree: ast.AST) -> Iterable[ast.AST]:
+    """The module and every function and class body, searched separately.
+
+    `_walk_within_scope` prunes at each of these, so a name assigned in one
+    scope is never matched against a use in another, and no node is visited
+    twice.
+    """
+    yield tree
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            yield node
+
+def _name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
+    """True when the scope tests `name` for truth, for None, or for its type.
+
+    `x = parsed.get('usage', {})` followed by `if x is None`, `x = x or {}`,
+    `if x and x.get(...)`, or `if not isinstance(x, dict): raise DomainError`
+    has already answered the question this check asks, whatever order the
+    statements appear in. The `isinstance` form is the cure litrev actually
+    applied at every site review-6 raised, so a predicate that did not
+    recognise it would re-report every fix as a defect. Testing the whole scope
+    rather than only the statements between assignment and use keeps the
+    predicate free of flow analysis, at the cost of missing a guard that runs
+    too late - a shape Phase B owns.
+    """
+    for node in [scope_node, *_walk_within_scope(scope_node)]:
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'isinstance':
+            if node.args and isinstance(node.args[0], ast.Name) and node.args[0].id == name:
+                return True
+        if isinstance(node, ast.Compare) and isinstance(node.left, ast.Name) and node.left.id == name:
+            if any(isinstance(op, (ast.Is, ast.IsNot)) for op in node.ops) and any(
+                isinstance(c, ast.Constant) and c.value is None for c in node.comparators
+            ):
+                return True
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            if isinstance(node.operand, ast.Name) and node.operand.id == name:
+                return True
+        if isinstance(node, (ast.If, ast.IfExp, ast.While)):
+            if isinstance(node.test, ast.Name) and node.test.id == name:
+                return True
+        if isinstance(node, ast.BoolOp):
+            if any(isinstance(v, ast.Name) and v.id == name for v in node.values):
+                return True
+    return False
+
+def _none_hostile_use(scope_node: ast.AST, name: str, assign: ast.Assign) -> str | None:
+    """Label the first use of `name` in this scope that a None would break.
+
+    A method call (`name.get(...)`, `name.items()`) raises `AttributeError`;
+    iterating raises `TypeError`. Both escape an `except <Domain>Error`
+    handler. Subscripting (`name['k']`) breaks identically but is left to
+    Phase B: it is also how a caller reads a value it knows is present, so the
+    shape does not carry the same "the author wrote a default and thought the
+    question was settled" signal.
+    """
+    within_assign = {id(n) for n in ast.walk(assign)}
+    for node in _walk_within_scope(scope_node):
+        # `ast.comprehension` carries no lineno; treat it as on the assignment's
+        # line so a comprehension over the name is not filtered out as "before".
+        if id(node) in within_assign or getattr(node, 'lineno', assign.lineno) < assign.lineno:
+            continue
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            receiver = node.func.value
+            if isinstance(receiver, ast.Name) and receiver.id == name:
+                return f'{name}.{node.func.attr}()'
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
+            if isinstance(node.iter, ast.Name) and node.iter.id == name:
+                return f'iteration over {name}'
+    return None
+
+def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `x = d.get(k, {})` whose result is later a method-call receiver.
+
+    `dict.get`'s default fires only for an *absent* key. An explicit `null` in
+    the payload returns `None`, so the next `x.get(...)` / `x.items()` raises
+    `AttributeError` - not the package's domain error, so a caller's
+    `except <Domain>Error` handler misses it and the failure surfaces as a
+    traceback from somewhere else entirely. The cure is equally mechanical:
+    `d.get(k) or {}`.
+
+    The predicate is syntactic: an `Assign` to a single name whose value is a
+    two-argument `.get` call with an empty container literal as the default,
+    where that name is later the receiver of an attribute call, or is iterated,
+    in the same scope - and where the scope never tests the name for truth, for
+    None, or for its type (see `_name_is_reguarded`).
+
+    Scope: non-test source only. In a test the payload is a fixture the author
+    wrote, so an explicit null cannot arrive unannounced.
+
+    Deliberately NOT detected - non-goals, not oversights:
+      - A scalar default (`0`, `''`). Nothing is called on the result.
+      - A non-empty container default. `d.get(k, {'a': 1})` fails the same way,
+        but is rare enough that including it would only widen the predicate.
+      - Subscripting the result (`x['k']`); see `_none_hostile_use`.
+    """
+    for path in _all_py_files(src_root):
+        if 'tests' in set(path.parts) or path.name.startswith('conftest'):
+            continue
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for scope_node in _name_scopes(tree):
+            for stmt in _walk_within_scope(scope_node):
+                if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
+                    continue
+                target = stmt.targets[0]
+                if not isinstance(target, ast.Name) or not isinstance(stmt.value, ast.Call):
+                    continue
+                default = _empty_container_default(stmt.value)
+                if default is None:
+                    continue
+                if _name_is_reguarded(scope_node, target.id):
+                    continue
+                use = _none_hostile_use(scope_node, target.id, stmt)
+                if use is None:
+                    continue
+                accept = _accept_reason(lines, stmt.lineno, rule='get-container-default-then-method-call')
+                _emit(
+                    rule='get-container-default-then-method-call',
+                    variant=f'default {default} does not fire for an explicit null, then {use}',
+                    path=rel,
+                    line=stmt.lineno,
+                    evidence=lines[stmt.lineno - 1].strip()[:200] if stmt.lineno <= len(lines) else ast.unparse(stmt),
+                    accepted=bool(accept),
+                    accepted_reason=accept,
+                )

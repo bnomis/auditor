@@ -38,40 +38,7 @@ found something new and no cycle converged.
 
 ## Open
 
-### `dict.get` with a container default, then a method call on the result
-
-- **Raised:** review-6 (litrev), 2026-08-14
-- **Shape:** `x = parsed.get('usage', {})` followed by `x.get('input_tokens', 0)`
-  (or `.items()`, `.keys()`, iteration). `dict.get`'s default fires only for an
-  *absent* key, so an explicit `null` in the payload returns `None` and the next
-  call raises `AttributeError`/`TypeError` - not the package's domain error, so
-  the caller's `except <Domain>Error` handler misses it.
-- **Why it earns a check:** this was the most common residual Sec2 shape in
-  litrev, at ~21 sites across six packages, and it is what review-5's F5 turned
-  into after the reported site was fixed - the same defect one level down, in
-  the same function. It is purely syntactic: an `Assign` whose value is a
-  `Call` to `.get` with a `Dict`/`List` literal second argument, where the
-  target is later the receiver of an attribute call in the same scope. The
-  cure, `parsed.get('usage') or {}`, is equally mechanical.
-- **Scope note:** fire only when the default is an empty container literal. A
-  scalar default (`0`, `''`) has no method call after it and is not this defect.
-
-### `__all__` declared as an annotated assignment
-
-- **Raised:** review-6 (litrev), 2026-08-14
-- **Shape:** `__all__: list[str] = ['X']` (an `ast.AnnAssign`) rather than
-  `__all__ = ['X']` (an `ast.Assign`).
-- **Why it earns a check:** on litrev this silently switched off the entire
-  public-surface guard for one package. `test_package_surfaces.py`'s
-  `declares_all()` matched `ast.Assign` only, so `litlib.commands` never entered
-  `PACKAGES`: its `__all__` entry was never checked for a consumer, and thirteen
-  private-submodule exception entries written for it were inert. The test suite
-  passed throughout. This is the worst failure mode a guard has - reporting
-  green while checking nothing - and it is one AST node type to detect.
-- **Scope note:** the check is not "annotated `__all__` is wrong"; it is that a
-  project whose surface guard discriminates on assignment form has a hole. Fire
-  on the annotated form wherever a project has an `__all__`-based guard, and let
-  the accept marker carry the case where the guard handles both.
+(none)
 
 ## Rejected
 

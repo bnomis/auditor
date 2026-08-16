@@ -1,6 +1,7 @@
 """The check registry: every check, in the order the sweep runs them."""
 
 from auditme.rules.imports_and_surfaces import (
+    check_annotated_all_assignment,
     check_def_class_in_init,
     check_empty_init_with_exporting_siblings,
     check_in_function_imports,
@@ -20,6 +21,7 @@ from auditme.rules.error_handling import (
     check_failure_as_absence,
     check_filesystem_envelope_gap,
     check_filesystem_op_without_envelope,
+    check_get_container_default_then_method_call,
     check_inconsistent_error_translation,
     check_layer_has_domain_error_but_raises_stdlib,
     check_logger_exception_graceful_degradation,
@@ -127,4 +129,6 @@ CHECKS = (
     check_underscore_forloop_target_read,
     check_failure_as_absence,
     check_phase_section_doc_reference,
+    check_get_container_default_then_method_call,
+    check_annotated_all_assignment,
 )
