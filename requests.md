@@ -38,7 +38,34 @@ found something new and no cycle converged.
 
 ## Open
 
-(none)
+### `domain-error-envelope-covers-json-parse`
+
+- **Raised:** review-7 (litrev), 2026-08-16
+- **Shape:** a function whose only error envelope is a **decorator** or
+  **contextmanager** (rather than a lexical `try/except`) whose except tuple omits
+  an exception the body's parser can raise. Concretely: a body calling
+  `json.loads`/`json.load` inside a function wrapped by a translator whose tuple is
+  narrower than the locked A2 set.
+- **Why the existing checks miss it:** `filesystem-envelope-gap` and the A2
+  mechanical checks look for a lexical `try/except` in the function. A
+  `@translate_sqlite_errors`-style decorator is invisible to that scan, so the
+  function reads as "no envelope at all" (and is skipped, being neither exported
+  with a `Raises:` nor lexically guarded) rather than as "envelope with the wrong
+  tuple".
+- **Evidence it is worth catching:** on litrev, `store/query.py:57,149,158` sat
+  undetected across six audit cycles. All three call `json.loads` on a sqlite
+  column value inside functions documenting `Raises: StoreError` whose only
+  envelope catches `sqlite3.Error`. A malformed `runs.config` therefore raises a
+  raw `json.JSONDecodeError` out through `citations/render.py` to the CLI, which
+  does not list it in `DOMAIN_ERRORS` - so the user gets a bare traceback. Found by
+  hand under Phase B A2; no mechanical rule reports it.
+- **Suggested implementation:** resolve decorator names to their definitions
+  within the package, read the `except` tuple of the contextmanager/decorator body,
+  and treat it as the enclosing envelope for A2's locked-set comparison. Carve-out:
+  a decorator whose body has a bare `except Exception` satisfies the set, as a
+  lexical one does.
+- **Catch-up surface to expect on litrev:** at least the three `store/query.py`
+  sites; re-run the whole sweep to find the rest.
 
 ## Rejected
 
