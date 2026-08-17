@@ -491,6 +491,72 @@ def test_an_immutably_wrapped_global_is_not_a_hit(project: Builder, run_check: R
     assert run_check(MUTABLE_EXPORT, root) == []
 
 
+def test_a_reader_in_a_sibling_package_still_counts(project: Builder, run_check: Runner) -> None:
+    """The driver sweeps one package per pass; readers live in all of them.
+
+    A project whose `src/` holds the library and the test tree keeps its
+    cross-module readers in the sibling package, so a reader scan rooted at the
+    package under audit sees none of them and the export reads as private.
+    """
+    root = project(
+        {
+            'src/probe/settings.py': "DEFAULTS = {'a': 1}\n",
+            'src/tests/test_settings.py': 'import probe.settings\n\nVALUE = probe.settings.DEFAULTS\n',
+        }
+    )
+    hits = run_check(MUTABLE_EXPORT, root)
+    assert [(hit['rule'], hit['path']) for hit in hits] == [('mutable-module-level-exported', 'src/probe/settings.py')]
+
+
+def test_a_mutable_global_built_by_a_comprehension_is_a_hit(project: Builder, run_check: Runner) -> None:
+    """`{k: f(k) for k in ...}` is the same mutable dict `{...}` is."""
+    root = project(
+        {
+            'src/probe/settings.py': 'MODES = {name: name.upper() for name in ("a", "b")}\n',
+            'src/probe/user.py': 'import probe.settings\n\nVALUE = probe.settings.MODES\n',
+        }
+    )
+    hits = run_check(MUTABLE_EXPORT, root)
+    assert len(hits) == 1
+    assert 'dict comprehension' in hits[0]['variant']
+    assert 'types.MappingProxyType(...)' in hits[0]['variant']
+
+
+def test_an_annotated_mutable_global_is_a_hit(project: Builder, run_check: Runner) -> None:
+    """An annotation is not a wrapper: `typing.Mapping` over a dict still mutates."""
+    root = project(
+        {
+            'src/probe/settings.py': 'import typing\n\nDEFAULTS: typing.Mapping[str, int] = {"a": 1}\n',
+            'src/probe/user.py': 'import probe.settings\n\nVALUE = probe.settings.DEFAULTS\n',
+        }
+    )
+    hits = run_check(MUTABLE_EXPORT, root)
+    assert [(hit['rule'], hit['line']) for hit in hits] == [('mutable-module-level-exported', 3)]
+
+
+def test_a_global_built_by_a_call_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    """A `Call` value's type is not knowable from the assignment; see the
+    rejected request in the skill's `requests.md`."""
+    root = project(
+        {
+            'src/probe/settings.py': 'import probe.factory\n\nDEFAULTS = probe.factory.build()\n',
+            'src/probe/user.py': 'import probe.settings\n\nVALUE = probe.settings.DEFAULTS\n',
+        }
+    )
+    assert run_check(MUTABLE_EXPORT, root) == []
+
+
+def test_a_scoped_accept_marker_dismisses_the_mutable_export(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/settings.py': "DEFAULTS = {'a': 1}  # auditme: accept[mutable-module-level-exported] callers copy\n",
+            'src/probe/user.py': 'import probe.settings\n\nVALUE = probe.settings.DEFAULTS\n',
+        }
+    )
+    hits = run_check(MUTABLE_EXPORT, root)
+    assert [(hit['accepted'], hit['accepted_reason']) for hit in hits] == [(True, 'callers copy')]
+
+
 # --------------------------------------------------------------------------
 # check_callback_hotpath_io
 # --------------------------------------------------------------------------

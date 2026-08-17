@@ -2,6 +2,7 @@
 
 from auditme.rules.imports_and_surfaces import (
     check_annotated_all_assignment,
+    check_as_import,
     check_def_class_in_init,
     check_empty_init_with_exporting_siblings,
     check_in_function_imports,
@@ -133,4 +134,5 @@ CHECKS = (
     check_get_container_default_then_method_call,
     check_annotated_all_assignment,
     check_translator_envelope_gap,
+    check_as_import,
 )

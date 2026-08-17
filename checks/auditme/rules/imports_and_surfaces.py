@@ -201,6 +201,93 @@ def check_unused_submodule_imports(scope: pathlib.Path, src_root: pathlib.Path) 
                     accepted_reason=accept,
                 )
 
+# A prohibition word, a short gap, then the keyword quoted or backticked:
+# "no `as` imports either", 'Do NOT use "as" imports', "never use `as` imports".
+# Requiring the quoting is what keeps ordinary prose - "no imports as such" -
+# from reading as a declared rule.
+_AS_IMPORT_BAN_RE = re.compile(
+    r"""(?:\bno\b|\bnever\b|\bavoid\b|\bdo\s+not\b|\bdon'?t\b)
+        [^.\n]{0,24}?
+        [`"']as[`"']
+        \s+imports?\b""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+def _project_bans_as_imports(scope: pathlib.Path) -> bool:
+    """True when the project's own AGENTS.md declares `import X as Y` banned.
+
+    The check is gated because the rule is a project standard, not a universal
+    one: `import numpy as np` is idiomatic nearly everywhere, and a checker
+    that flagged it unasked would bury every other hit. Only AGENTS.md is read,
+    the way the layering and lazy-import tables are - a rule the project states
+    somewhere else is a rule the project has not stated here.
+    """
+    agents = scope / 'AGENTS.md'
+    if not agents.exists():
+        return False
+    try:
+        return bool(_AS_IMPORT_BAN_RE.search(agents.read_text(encoding='utf-8')))
+    except (OSError, UnicodeDecodeError):
+        return False
+
+def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `import X as Y` / `from M import X as Y` where the project bans it.
+
+    An alias is a second name for a module, so every reader has to hold the
+    mapping in their head, and the full-import-path codemods do not see it:
+    litrev's AGENTS.md states the ban and names two enforcement mechanisms -
+    ruff's `ICN003`, which only sees the modules listed in `banned-from`, and
+    `bin/full-path-imports.sh --check`, which rewrites `from X import Y` and
+    leaves a bare `import gitutils as module` alone. Both reported clean over a
+    tree that carried one.
+
+    The signal is `ast.alias.asname` on any `ast.Import` or `ast.ImportFrom`.
+
+    Carve-out: a module-level `from ... import ... as ...` in an `__init__.py`.
+    That is a package's re-export list, the one place a from-import is
+    sanctioned, and renaming on the way out is how a surface is composed. A
+    plain `import x as y` in an `__init__.py` is not a re-export and still
+    fires.
+
+    Fires only where `_project_bans_as_imports` finds the rule declared.
+    """
+    if not _project_bans_as_imports(scope):
+        return
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        reexport_linenos: set[int] = set()
+        if path.name == '__init__.py':
+            reexport_linenos = {n.lineno for n in tree.body if isinstance(n, ast.ImportFrom)}
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            if node.lineno in reexport_linenos:
+                continue
+            for alias in node.names:
+                if not alias.asname:
+                    continue
+                if isinstance(node, ast.Import):
+                    variant = 'import X as Y'
+                    statement = f'import {alias.name} as {alias.asname}'
+                else:
+                    variant = 'from M import X as Y'
+                    statement = f'from {"." * node.level}{node.module or ""} import {alias.name} as {alias.asname}'
+                accept = _accept_reason(lines, node.lineno, rule='as-import')
+                _emit(
+                    rule='as-import',
+                    variant=variant,
+                    path=rel,
+                    line=node.lineno,
+                    evidence=statement,
+                    accepted=bool(accept),
+                    accepted_reason=accept,
+                )
+
 def _parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
     """Parse AGENTS.md's Package Layering section.
 

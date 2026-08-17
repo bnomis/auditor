@@ -647,29 +647,63 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
                 )
                 break
 
+_MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
+    ast.Dict: ('dict literal', 'types.MappingProxyType(...)'),
+    ast.DictComp: ('dict comprehension', 'types.MappingProxyType(...)'),
+    ast.List: ('list literal', 'tuple(...)'),
+    ast.ListComp: ('list comprehension', 'tuple(...)'),
+    ast.Set: ('set literal', 'frozenset(...)'),
+    ast.SetComp: ('set comprehension', 'frozenset(...)'),
+}
+
+def _corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib.Path]:
+    """Every `.py` file under `src/`, not just the package being swept.
+
+    The driver audits one package per pass, so `src_root` is a single package.
+    That is the right scope for finding a package's own exports, and the wrong
+    scope for finding who reads them: a project whose `src/` holds both the
+    library and the test tree has readers in a sibling package, invisible to a
+    scan rooted at the library. On litrev that hid three mutable exported dicts
+    whose only cross-module readers were in `src/tests/`.
+    """
+    src = scope / 'src'
+    if src.is_dir():
+        return _all_py_files(src)
+    return _all_py_files(src_root)
+
 def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag module-level mutable containers that are imported by name from
-    another module in the same corpus. Externally-imported globals should
+    """Flag module-level mutable containers that are read by name from
+    another module in the same corpus. Externally-read globals should
     be immutable so callers cannot mutate shared state.
 
     Signal:
-      - Module-level `NAME = {...}` / `NAME = [...]` / `NAME = set(...)`
-        where the RHS is NOT wrapped in `types.MappingProxyType`,
-        `frozenset`, or `tuple`.
-      - `NAME` appears in some other file's `from <this-module> import NAME`.
+      - Module-level `NAME = {...}` / `NAME = [...]` / `NAME = {...}` set
+        literal, or the comprehension form of any of the three, where the
+        value is NOT wrapped in `types.MappingProxyType`, `frozenset`, or
+        `tuple`.
+      - `NAME` is read from another file, either as
+        `from <this-module> import NAME` or as `<this-module>.NAME`.
 
     Locked enumeration (per SKILL.md A20):
-      dict literal -> must be `types.MappingProxyType(...)`.
-      set literal  -> must be `frozenset(...)`.
-      list literal -> must be `tuple(...)`.
+      dict -> must be `types.MappingProxyType(...)`.
+      set  -> must be `frozenset(...)`.
+      list -> must be `tuple(...)`.
 
-    Private (non-imported) mutable globals are NOT flagged - that is a
+    A comprehension is the same container as its literal - `{k: f(k) for ...}`
+    is a `dict`, mutable and shared exactly as `{...}` is - so it is the same
+    finding. A `Call` value (`DEFAULTS = get_defaults()`) is deliberately NOT
+    covered: its type is not knowable from the assignment.
+
+    The reader scan covers every package under `src/`, not just the package
+    being swept; see `_corpus_py_files`.
+
+    Private (non-read) mutable globals are NOT flagged - that is a
     different rule.
     """
     # First pass: for every module, collect top-level Assign/AnnAssign
-    # targets whose RHS is a bare dict/list/set literal, plus the module
-    # dotted-import path.
-    candidates: list[tuple[pathlib.Path, ast.stmt, str]] = []
+    # targets whose RHS is a bare dict/list/set - literal or comprehension -
+    # plus the module dotted-import path.
+    candidates: list[tuple[pathlib.Path, ast.stmt, ast.expr, str]] = []
     module_name_of: dict[pathlib.Path, str] = {}
     for path in _all_py_files(src_root):
         # Canonical module path (from src root, dotted)
@@ -696,11 +730,11 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
                     value = node.value
             if name is None or value is None:
                 continue
-            if not isinstance(value, (ast.Dict, ast.List, ast.Set)):
+            if type(value) not in _MUTABLE_VALUE_SHAPES:
                 continue
             if name.startswith('_'):
                 continue
-            candidates.append((path, node, name))
+            candidates.append((path, node, value, name))
 
     if not candidates:
         return
@@ -709,9 +743,10 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
     # that name, either via `from <module> import NAME` or via attribute
     # access of the form `<module>.NAME`. The project coding standard
     # uses full-dotted attribute access instead of `from X import Y`, so
-    # we must catch both forms.
+    # we must catch both forms - and the scan covers every package under
+    # `src/`, because a reader in a sibling package is still a reader.
     imports_of: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = defaultdict(list)
-    for path in _all_py_files(src_root):
+    for path in _corpus_py_files(scope, src_root):
         try:
             src_text = path.read_text(encoding='utf-8')
             tree = ast.parse(src_text)
@@ -742,7 +777,7 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
                 name = parts[-1]
                 imports_of[(module, name)].append((path, node.lineno))
 
-    for path, assign_node, name in candidates:
+    for path, assign_node, value, name in candidates:
         module = module_name_of[path]
         importers = imports_of.get((module, name), [])
         # Only flag if imported from a DIFFERENT file
@@ -752,15 +787,10 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
         rel = _relpath(path, scope)
         lines = _source_lines(path)
         accept = _accept_reason(lines, assign_node.lineno, rule='mutable-module-level-exported')
-        kind = type(assign_node.value).__name__
-        required_wrap = {
-            'Dict': 'types.MappingProxyType(...)',
-            'Set': 'frozenset(...)',
-            'List': 'tuple(...)',
-        }.get(kind, '(immutable wrapper)')
+        shape, required_wrap = _MUTABLE_VALUE_SHAPES[type(value)]
         _emit(
             rule='mutable-module-level-exported',
-            variant=(f'{name} is a mutable {kind.lower()} literal imported by '
+            variant=(f'{name} is a mutable {shape} read by '
                      f'{len(external_importers)} other file(s); wrap in {required_wrap}'),
             path=rel,
             line=assign_node.lineno,

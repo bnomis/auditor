@@ -52,3 +52,6 @@ Kept so a rejected idea is not re-raised by a later audit that rediscovers it.
   currently hidden by this - `DEFAULTS` is a `MappingProxyType` - so the check
   would gain complexity to catch a case that does not exist. Revisit only if a
   real mutable `Call`-valued export appears.
+- **Still rejected after the 2026-08-17 widening.** That change added the
+  comprehension forms (`{k: f(k) for ...}`), which are not the same case: a
+  comprehension's type is written in the assignment, a call's is not.
