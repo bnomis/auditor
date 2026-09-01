@@ -4,6 +4,9 @@ The driver's job is to hand every check the right scope. Its historical failure
 was silent under-coverage - `--package` used to default to the
 alphabetically-first directory under `src/`, so a project with both a library
 and a test tree had the test tree dropped and the sweep still looked clean.
+The same failure had a second instance outside `src/`: scripts in `bin/` were
+not swept at all, and three consecutive litrev summaries recorded them as being
+at zero unaccepted hits.
 """
 
 import collections.abc
@@ -26,7 +29,7 @@ CHECKS_ROOT = AUDIT_SCRIPT.parent
 
 def test_every_package_under_src_is_discovered(project: Builder) -> None:
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n'})
-    assert [path.name for path in audit._packages_under(root / 'src')] == ['probe', 'tests']
+    assert [path.name for path in auditme.core._packages_under(root / 'src')] == ['probe', 'tests']
 
 
 def test_caches_and_build_artefacts_are_not_packages(project: Builder) -> None:
@@ -39,7 +42,24 @@ def test_caches_and_build_artefacts_are_not_packages(project: Builder) -> None:
             'src/docs/notes.md': 'no python here\n',
         }
     )
-    assert [path.name for path in audit._packages_under(root / 'src')] == ['probe']
+    assert [path.name for path in auditme.core._packages_under(root / 'src')] == ['probe']
+
+
+def test_a_script_root_outside_src_is_audited_as_its_own_pass(project: Builder) -> None:
+    """`bin/` is not under `src/`, so package discovery alone never sees it."""
+    root = project({'src/probe/mod.py': 'x = 1\n', 'bin/report.py': 'y = 1\n'})
+    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe', 'bin']
+
+
+def test_a_script_root_holding_no_python_is_not_a_pass(project: Builder) -> None:
+    """A `bin/` of shell wrappers is not an empty audit; it is no audit."""
+    root = project({'src/probe/mod.py': 'x = 1\n', 'bin/activate.sh': 'echo hello\n'})
+    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe']
+
+
+def test_a_project_with_no_script_root_is_swept_unchanged(project: Builder) -> None:
+    root = project({'src/probe/mod.py': 'x = 1\n'})
+    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe']
 
 
 def test_a_missing_src_directory_is_an_error(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -142,6 +162,72 @@ def test_the_package_flag_restricts_the_sweep_to_one_package(
     capsys.readouterr()
 
 
+def test_the_default_sweep_covers_the_script_root_after_the_packages(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`bin/` was previously swept by nothing, so its hits could not exist."""
+    seen: list[str] = []
+
+    def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        seen.append(src_root.name)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (recording_check,))
+    root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n', 'bin/report.py': 'z = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    assert seen == ['probe', 'tests', 'bin']
+    capsys.readouterr()
+
+
+def test_the_extra_root_flag_replaces_the_default_script_root(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    seen: list[str] = []
+
+    def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        seen.append(src_root.name)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (recording_check,))
+    root = project({'src/probe/mod.py': 'x = 1\n', 'bin/report.py': 'y = 1\n', 'scripts/tidy.py': 'z = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--extra-root', 'scripts'])
+
+    assert audit.main() == 0
+    assert seen == ['probe', 'scripts']
+    capsys.readouterr()
+
+
+def test_a_named_extra_root_that_does_not_exist_is_an_error(project: Builder, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dropping it silently would reinstate the empty pass the flag ends."""
+    root = project({'src/probe/mod.py': 'x = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--extra-root', 'absent'])
+    assert audit.main() == 2
+
+
+def test_the_package_flag_drops_the_script_root_too(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--package` asks for one package; it is not a whole-project sweep."""
+    seen: list[str] = []
+
+    def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        seen.append(src_root.name)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (recording_check,))
+    root = project({'src/probe/mod.py': 'x = 1\n', 'bin/report.py': 'y = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--package', 'probe'])
+
+    assert audit.main() == 0
+    assert seen == ['probe']
+    capsys.readouterr()
+
+
 def test_the_shipped_entry_point_emits_parseable_jsonl(project: Builder) -> None:
     """End to end, as the skill documents running it: bare `python3 audit.py`."""
     root = project(
@@ -165,6 +251,15 @@ def test_the_shipped_entry_point_emits_parseable_jsonl(project: Builder) -> None
             def declares_all(tree: ast.AST) -> bool:
                 return any(isinstance(node, ast.Assign) and node.targets[0].id == '__all__' for node in ast.walk(tree))
             """,
+            'bin/probe-report.py': """
+            import json
+
+
+            def report(payload: str) -> int:
+                parsed = json.loads(payload)
+                usage = parsed.get('usage', {})
+                return usage.get('input_tokens', 0)
+            """,
         }
     )
     result = subprocess.run(
@@ -183,3 +278,5 @@ def test_the_shipped_entry_point_emits_parseable_jsonl(project: Builder) -> None
     rules = {record['rule'] for record in records}
     assert 'get-container-default-then-method-call' in rules
     assert 'annotated-all-assignment' in rules
+    # The script root reaches the output, rather than being a pass nobody runs.
+    assert [record['path'] for record in records if (record['path'] or '').startswith('bin/')], result.stdout

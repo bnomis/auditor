@@ -38,6 +38,19 @@ def clean_emitted() -> collections.abc.Iterator[None]:
     auditme.core._EMITTED.clear()
 
 
+@pytest.fixture(autouse=True)
+def restore_extra_roots() -> collections.abc.Iterator[None]:
+    """Put `EXTRA_ROOT_NAMES` back after every test.
+
+    `--extra-root` is configuration a check has to see, and a check receives
+    only a scope and a root, so the driver rebinds the module-level default.
+    In a test process that rebinding would outlive the test that caused it.
+    """
+    original = auditme.core.EXTRA_ROOT_NAMES
+    yield
+    auditme.core.EXTRA_ROOT_NAMES = original
+
+
 @pytest.fixture
 def project(tmp_path: pathlib.Path) -> collections.abc.Callable[[dict[str, str]], pathlib.Path]:
     """Return a builder that writes a throwaway project tree and returns its root.
@@ -59,7 +72,11 @@ def project(tmp_path: pathlib.Path) -> collections.abc.Callable[[dict[str, str]]
 
 @pytest.fixture
 def run_check() -> collections.abc.Callable[..., list[dict]]:
-    """Return a runner that executes one check over one package and parses its hits.
+    """Return a runner that executes one check over one root and parses its hits.
+
+    The root is `src/<package>/` unless `src_root` names another one relative
+    to the project, which is how a case covers a root outside `src/` - the
+    driver sweeps `bin/` as its own pass exactly as it sweeps a package.
 
     Checks report by printing one JSON object per line, so the runner captures
     stdout rather than inspecting a return value - there is none.
@@ -69,11 +86,12 @@ def run_check() -> collections.abc.Callable[..., list[dict]]:
         check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None],
         root: pathlib.Path,
         package: str = 'probe',
+        src_root: str | None = None,
     ) -> list[dict]:
         auditme.core._EMITTED.clear()
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
-            check(root, root / 'src' / package)
+            check(root, (root / src_root) if src_root else (root / 'src' / package))
         return [json.loads(line) for line in buffer.getvalue().splitlines()]
 
     return run

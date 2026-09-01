@@ -38,7 +38,7 @@ Convergence is non-negotiable. "We found more this time" is the failure signal, 
 
 ### 1. Scope
 
-- **Full audit** (no argument): `agents/specs/`, `src/`, `docs/`, `AGENTS.md`, `README.md`
+- **Full audit** (no argument): `agents/specs/`, `src/`, `bin/`, `docs/`, `AGENTS.md`, `README.md`
 - **Module** (file path): that file, its tests, any spec referencing it
 - **Spec** (slug): `agents/specs/<slug>/spec.md` and its implementation
 - **Docs**: user docs in `docs/`
@@ -73,12 +73,12 @@ done.
 Then run the shipped audit script:
 
 ```bash
-python3 ~/.claude/skills/auditme/checks/audit.py <project-root> [--package <pkg>]
+python3 ~/.claude/skills/auditme/checks/audit.py <project-root> [--package <pkg>] [--extra-root <dir>]
 ```
 
 `<project-root>` is the directory containing `src/` and `agents/`. `--package`
 restricts the run to one package; it defaults to **every** package under
-`src/`, each audited in its own pass.
+`src/`, each audited in its own pass, followed by every extra root.
 
 Do not pass `--package` for a normal audit. A project whose `src/` holds both
 the library and the test tree has two packages, and auditing one of them
@@ -88,7 +88,18 @@ meant `src/tests/` was never read: 440 hits stayed invisible across five audit
 cycles while the sweep looked clean. The same default would have picked
 `__pycache__` on a project that had one.
 
-Each package is audited in its own pass rather than in one pass rooted at
+An **extra root** is auditable Python that is not a package under `src/`.
+`bin/` is the default one, used whenever it exists and holds `.py` files, and
+`--extra-root <dir>` (repeatable, relative to the project root) replaces that
+default set. The same under-coverage had a second instance here: enumerating
+packages *under `src/`* gave a project whose scripts live in `bin/` no rows at
+all for them - accepted or otherwise - while three consecutive litrev
+summaries recorded "`bin/` remains at zero unaccepted hits" as though a
+measurement had been taken. A named `--extra-root` that does not exist is an
+error rather than an empty pass, because a typo would reinstate exactly that.
+`--package` asks for one package, so it drops the extra roots too.
+
+Each root is audited in its own pass rather than in one pass rooted at
 `src/`, because `src_root.name` is the package's dotted root - several checks
 build module names from it - so a single pass over `src/` would rename every
 module to `src.<pkg>.<mod>` and break the import-graph checks and every
@@ -272,11 +283,12 @@ Each question is a deterministic predicate. The reviewer reads the file end-to-e
 - **A17. Public-surface drift.** For every `__init__.py` with `__all__`: is every symbol in `__all__` used outside the package? For every empty `__init__.py`: do consumers reach into private submodules? Flag bypasses of the canonical owning module.
 - **A18. Hot-path setup.** For every callback method (`on_step`, `on_log`, `on_evaluate`, `on_batch_*`): does it perform setup (mkdir, file open) that should live in `__init__`? Flag per-event side effects.
 - **A19. Wrong logger level for broad-except.** For every `except Exception` / `except BaseException`: does the body use `logger.exception` (not `warning`/`error`/`info`/`debug`)? And conversely, is `logger.exception` reserved for unexpected failures, not expected graceful-degradation paths?
-- **A20. Mutable module-level singleton.** For every module-level mutable container that is read by name from another module: is it immutable per the locked set below? Locked set: `dict` -> must be `types.MappingProxyType(...)`; `set` -> must be `frozenset(...)`; `list` -> must be `tuple(...)`, whether the value is written as a literal or as a comprehension - `{k: f(k) for ...}` is the same mutable `dict` that `{...}` is. The predicate is "read elsewhere", and a project that mandates full import paths writes every one of those reads dotted: verify with grep for **both** `from <module> import <name>` and `<module>.<name>`, across **every** package under `src/`, not just the package under audit. A reader in the test tree is a reader. Do not extend this predicate to private (non-read) module-level containers, nor to a value whose type is not knowable from the assignment (`DEFAULTS = get_defaults()`); those are different rules.
+- **A20. Mutable module-level singleton.** For every module-level mutable container that is read by name from another module: is it immutable per the locked set below? Locked set: `dict` -> must be `types.MappingProxyType(...)`; `set` -> must be `frozenset(...)`; `list` -> must be `tuple(...)`, whether the value is written as a literal or as a comprehension - `{k: f(k) for ...}` is the same mutable `dict` that `{...}` is. The predicate is "read elsewhere", and a project that mandates full import paths writes every one of those reads dotted: verify with grep for **all three** of `from <module> import <name>`, `<module>.<name>` and `sys.modules['<module>'].<name>`, across **every** root the sweep reads - every package under `src/` and `bin/` - not just the package under audit. A reader in the test tree is a reader, and so is a script. The `sys.modules` form is not exotic: it is the documented way to reach a module without importing it, so the projects most careful about import cycles are the ones a scan that missed it under-reported. Do not extend this predicate to private (non-read) module-level containers, nor to a value whose type is not knowable from the assignment (`DEFAULTS = get_defaults()`); those are different rules. A container the wrapper only *appears* to freeze is A25's.
 - **A21. Lazy init race.** For every `if X is None: X = ...` pattern at module scope (or in a module-level helper): is the assignment thread-safe under concurrent invocation? Flag idempotent-but-racy patterns in code paths that may be called concurrently (Optuna trials, multiprocessing).
 - **A22. Fall-through after partial handling.** For every `if/else` chain whose branches partly raise and partly return: is there a fall-through path where a raised-and-translated error in the first branch silently retries in the second? Flag with-block-or-elif-fall-through patterns (e.g. `if gz: ... except: raise` then code that re-runs as if `gz=False`).
 - **A23. Discarded multi-return.** For every call to a function that returns a tuple/dataclass: are all returned components used or explicitly named (`a, _ = f()`)? Flag silent discard of secondary returns that signal hidden state dependencies.
 - **A24. Identity of subprocess / shell-out calls.** For every `subprocess.run` / `git`-shelling-out helper: is its result memoised when the source is invariant within a request? Flag repeated subprocess invocations per request.
+- **A25. Shallow immutable wrapper.** For every module-level container that A20 accepts as immutable - `types.MappingProxyType(...)`, `frozenset(...)`, `tuple(...)` - and that is read by name from another module: is every member of the wrapped literal itself immutable? Every one of those wrappers freezes the container it is given and nothing inside it, so `types.MappingProxyType({'a': []})` satisfies A20 and still hands each caller the same live `list`. Flag a `dict`/`list`/`set` member, a member one tuple deep, and a member that is an instance of a dataclass this project defines without `frozen=True`. The enumeration stops where A20's does: a member whose type the assignment does not state (`MappingProxyType({'a': build()})`) is not this question's. A20 and A25 are accepted separately - a marker that answers "this is wrapped" has not answered "and its members are frozen".
 
 ### Standards (S)
 
@@ -361,7 +373,7 @@ For each Phase B question (subagent fan-out), one block. Include EVERY question 
   - `path:line` - ...
 - **No-hit confirmation:** N files inspected, M had no matching `try/except`
 
-(Repeat for every question - A1..A24, S1..S4, etc.)
+(Repeat for every question - A1..A25, S1..S4, etc.)
 
 ## Phase B findings (consolidated)
 
@@ -380,7 +392,7 @@ For every hit above, surface as a finding:
 
 Every file the checklist was applied to.
 
-- `src/example/module.py` - questions A1-A24, S1-S4
+- `src/example/module.py` - questions A1-A25, S1-S4
 - ...
 
 ## Prior findings re-verified

@@ -40,6 +40,7 @@ from auditme.rules.state_and_effects import (
     check_constructor_disk_io,
     check_dataclass_optional_always_set,
     check_dead_local_init,
+    check_mutable_members_in_immutable_wrapper,
     check_mutable_module_level_exported,
     check_mutable_store_without_copy,
     check_parameter_mutation,
@@ -135,4 +136,5 @@ CHECKS = (
     check_annotated_all_assignment,
     check_translator_envelope_gap,
     check_as_import,
+    check_mutable_members_in_immutable_wrapper,
 )

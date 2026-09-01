@@ -55,3 +55,8 @@ Kept so a rejected idea is not re-raised by a later audit that rediscovers it.
 - **Still rejected after the 2026-08-17 widening.** That change added the
   comprehension forms (`{k: f(k) for ...}`), which are not the same case: a
   comprehension's type is written in the assignment, a call's is not.
+- **Still rejected after the 2026-09-01 shallow-wrapper check.**
+  `mutable-members-in-immutable-wrapper` reads the *members* of a wrapped
+  literal, and stops at the same line for the same reason: a member written
+  `build()` states no type either. That check narrows the gap rather than
+  reopening this one.

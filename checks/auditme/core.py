@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import ast
+import collections.abc
 import json
 import pathlib
 import re
@@ -107,3 +108,69 @@ def _accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     return pairs
 
 _LITERAL_DISPATCH_TYPE_NAMES = frozenset({'str'})  # extensible via helper below
+
+
+# Directories outside `src/` that hold auditable Python. A project's scripts
+# conventionally live in `bin/`, and until 2026-09-01 the sweep could not see
+# them at all: `_packages_under` enumerates packages *under `src/`*, so a
+# project whose scripts live in `bin/` got zero rows for them - accepted or
+# otherwise - and a summary could record "`bin/` remains at zero unaccepted
+# hits" as a measurement of nothing.
+#
+# The driver rebinds this when `--extra-root` is passed, so a check asking a
+# corpus-wide question through `_audit_roots` measures the scope that was
+# actually swept rather than the default one. It is a tuple, and rebound rather
+# than mutated, so a check cannot change what a later check sees.
+EXTRA_ROOT_NAMES: tuple[str, ...] = ('bin',)
+
+def _packages_under(src: pathlib.Path) -> list[pathlib.Path]:
+    """Every package directory directly under `src/`, sorted.
+
+    Sorted because emission order is part of the output: `CHECKS`' order fixes
+    the order within a package, and this fixes the order of the packages.
+
+    Excludes caches and build artefacts, and any directory holding no `.py`
+    file anywhere - not a package, and auditing it only slows the run.
+    """
+    if not src.is_dir():
+        return []
+    return sorted(
+        p
+        for p in src.iterdir()
+        if p.is_dir()
+        and not p.name.startswith('.')
+        and p.name != '__pycache__'
+        and not p.name.endswith(('.egg-info', '.dist-info'))
+        and any(p.rglob('*.py'))
+    )
+
+def _extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | None = None) -> list[pathlib.Path]:
+    """Every auditable root outside `src/`, in the order `names` gives them.
+
+    `names` defaults to the current `EXTRA_ROOT_NAMES`, read at call time so the
+    driver's `--extra-root` rebinding reaches the checks.
+
+    A name that does not exist under `scope`, or that holds no `.py` file, is
+    dropped: `bin/` is a default, not a requirement, and a project without one
+    must not fail the sweep. The driver checks the roots it was given by name
+    itself, so a typo on the command line is an error there rather than a
+    silently empty pass here.
+    """
+    roots: list[pathlib.Path] = []
+    for name in (EXTRA_ROOT_NAMES if names is None else names):
+        root = scope / name
+        if root.is_dir() and any(root.rglob('*.py')):
+            roots.append(root)
+    return roots
+
+def _audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
+    """Every root the sweep passes over: the packages under `src/`, then the extras.
+
+    This is the driver's pass list, and each entry becomes one check's
+    `src_root`. A check that instead asks a corpus-wide question - "does
+    anything read this name?" - wants every file rather than every root, and
+    reads it from `_corpus_py_files`, which spans all of `src/` and the same
+    extras. Asking that question of a single root answers about a fragment
+    while reading like an answer about the whole.
+    """
+    return _packages_under(scope / 'src') + _extra_roots(scope)

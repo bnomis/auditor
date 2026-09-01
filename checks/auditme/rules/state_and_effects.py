@@ -6,7 +6,7 @@ import pathlib
 import re
 from collections import defaultdict
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines
+from auditme.core import _accept_reason, _all_py_files, _emit, _extra_roots, _relpath, _source_lines
 
 
 _DISK_IO_NAMES = {
@@ -657,19 +657,110 @@ _MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
 }
 
 def _corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib.Path]:
-    """Every `.py` file under `src/`, not just the package being swept.
+    """Every `.py` file the sweep reads, not just the root being swept.
 
-    The driver audits one package per pass, so `src_root` is a single package.
-    That is the right scope for finding a package's own exports, and the wrong
-    scope for finding who reads them: a project whose `src/` holds both the
-    library and the test tree has readers in a sibling package, invisible to a
-    scan rooted at the library. On litrev that hid three mutable exported dicts
-    whose only cross-module readers were in `src/tests/`.
+    The driver audits one root per pass, so `src_root` is a single package (or
+    a single extra root such as `bin/`). That is the right scope for finding a
+    package's own exports, and the wrong scope for finding who reads them: a
+    project whose `src/` holds both the library and the test tree has readers
+    in a sibling package, invisible to a scan rooted at the library. On litrev
+    that hid three mutable exported dicts whose only cross-module readers were
+    in `src/tests/`. A script in `bin/` is a reader on the same argument.
+
+    Falls back to the root being swept when the project has neither a `src/`
+    nor an extra root, which only happens when a check is called directly
+    rather than by the driver.
     """
+    roots = _extra_roots(scope)
     src = scope / 'src'
     if src.is_dir():
-        return _all_py_files(src)
-    return _all_py_files(src_root)
+        roots.insert(0, src)
+    if not roots:
+        return _all_py_files(src_root)
+    return sorted(path for root in roots for path in _all_py_files(root))
+
+def _dotted_read(node: ast.Attribute) -> tuple[str, str] | None:
+    """Resolve an attribute chain to the `(module, name)` it reads, or None.
+
+    Two rooted forms count. The ordinary one is a chain of attributes on a
+    name - `feathf.evaluation.primary.METRICS_BY_HEAD` reads `METRICS_BY_HEAD`
+    from `feathf.evaluation.primary`. The second is the `sys.modules`
+    indirection - `sys.modules['feathf.evaluation.primary'].METRICS_BY_HEAD` -
+    which is the documented idiom for reaching a module without importing it,
+    used to break a package-initialisation ordering cycle. It reads exactly
+    what the dotted form reads, so a scan that resolved only the dotted form
+    reported a container with many such readers as private. Literal subscripts
+    only: a computed key names no module a scan can know.
+    """
+    parts: list[str] = []
+    cur: ast.AST = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
+    elif isinstance(cur, ast.Subscript):
+        key = _sys_modules_key(cur)
+        if key is None:
+            return None
+        parts.append(key)
+    else:
+        return None
+    parts.reverse()
+    if len(parts) < 2:
+        return None
+    return '.'.join(parts[:-1]), parts[-1]
+
+def _sys_modules_key(node: ast.Subscript) -> str | None:
+    """`sys.modules['pkg.mod']` -> `'pkg.mod'`; any other subscript -> None."""
+    target = node.value
+    if not (isinstance(target, ast.Attribute) and target.attr == 'modules'):
+        return None
+    if not (isinstance(target.value, ast.Name) and target.value.id == 'sys'):
+        return None
+    key = node.slice
+    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+        return key.value
+    return None
+
+def _reads_by_module_and_name(
+    scope: pathlib.Path,
+    src_root: pathlib.Path,
+) -> dict[tuple[str, str], list[tuple[pathlib.Path, int]]]:
+    """Every `(module, name)` the corpus reads, mapped to where it reads it.
+
+    Both spellings count. `from <module> import NAME` is the one a project
+    that permits it writes; a project that mandates full import paths writes
+    every read dotted, as `<module>.NAME`, and a scan that saw only the first
+    would read a heavily-used export as private.
+
+    The corpus is every root the sweep reads, not the one being swept: a
+    reader in a sibling package, or in a script under `bin/`, is a reader.
+    """
+    reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = defaultdict(list)
+    for path in _corpus_py_files(scope, src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.module is None:
+                    continue
+                for alias in node.names:
+                    reads[(node.module, alias.name)].append((path, node.lineno))
+            elif isinstance(node, ast.Attribute):
+                read = _dotted_read(node)
+                if read is not None:
+                    reads[read].append((path, node.lineno))
+    return reads
+
+def _module_dotted(path: pathlib.Path, src_root: pathlib.Path) -> str:
+    """The dotted name a module is imported by, rooted at its own root."""
+    parts = path.relative_to(src_root).with_suffix('').parts
+    if parts and parts[-1] == '__init__':
+        parts = parts[:-1]
+    return '.'.join((src_root.name,) + parts)
 
 def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag module-level mutable containers that are read by name from
@@ -681,8 +772,9 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
         literal, or the comprehension form of any of the three, where the
         value is NOT wrapped in `types.MappingProxyType`, `frozenset`, or
         `tuple`.
-      - `NAME` is read from another file, either as
-        `from <this-module> import NAME` or as `<this-module>.NAME`.
+      - `NAME` is read from another file, as `from <this-module> import NAME`,
+        as `<this-module>.NAME`, or as
+        `sys.modules['<this-module>'].NAME`; see `_dotted_read`.
 
     Locked enumeration (per SKILL.md A20):
       dict -> must be `types.MappingProxyType(...)`.
@@ -694,8 +786,14 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
     finding. A `Call` value (`DEFAULTS = get_defaults()`) is deliberately NOT
     covered: its type is not knowable from the assignment.
 
-    The reader scan covers every package under `src/`, not just the package
-    being swept; see `_corpus_py_files`.
+    The reader scan covers every root the sweep reads - every package under
+    `src/` and every extra root such as `bin/` - not just the root being
+    swept; see `_corpus_py_files`.
+
+    A wrapped value is this check's non-goal and
+    `check_mutable_members_in_immutable_wrapper`'s subject: the wrapper is
+    shallow, so `types.MappingProxyType({'a': []})` satisfies this predicate
+    while still handing every caller a live `list`.
 
     Private (non-read) mutable globals are NOT flagged - that is a
     different rule.
@@ -706,77 +804,26 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
     candidates: list[tuple[pathlib.Path, ast.stmt, ast.expr, str]] = []
     module_name_of: dict[pathlib.Path, str] = {}
     for path in _all_py_files(src_root):
-        # Canonical module path (from src root, dotted)
-        parts = path.relative_to(src_root).with_suffix('').parts
-        if parts and parts[-1] == '__init__':
-            parts = parts[:-1]
-        module_dotted = '.'.join((src_root.name,) + parts)
-        module_name_of[path] = module_dotted
+        module_name_of[path] = _module_dotted(path, src_root)
         lines = _source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
         for node in tree.body:
-            value = None
-            name = None
-            if isinstance(node, ast.Assign):
-                if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
-                    name = node.targets[0].id
-                    value = node.value
-            elif isinstance(node, ast.AnnAssign):
-                if isinstance(node.target, ast.Name) and node.value is not None:
-                    name = node.target.id
-                    value = node.value
-            if name is None or value is None:
+            name, value = _module_level_binding(node)
+            if name is None or value is None or name.startswith('_'):
                 continue
             if type(value) not in _MUTABLE_VALUE_SHAPES:
-                continue
-            if name.startswith('_'):
                 continue
             candidates.append((path, node, value, name))
 
     if not candidates:
         return
 
-    # Second pass: for each candidate, check whether ANY other file uses
-    # that name, either via `from <module> import NAME` or via attribute
-    # access of the form `<module>.NAME`. The project coding standard
-    # uses full-dotted attribute access instead of `from X import Y`, so
-    # we must catch both forms - and the scan covers every package under
-    # `src/`, because a reader in a sibling package is still a reader.
-    imports_of: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = defaultdict(list)
-    for path in _corpus_py_files(scope, src_root):
-        try:
-            src_text = path.read_text(encoding='utf-8')
-            tree = ast.parse(src_text)
-        except (SyntaxError, UnicodeDecodeError):
-            continue
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom):
-                if node.module is None:
-                    continue
-                for alias in node.names:
-                    imports_of[(node.module, alias.name)].append((path, node.lineno))
-            elif isinstance(node, ast.Attribute):
-                # Build dotted prefix for nested attribute chains:
-                # `feathf.evaluation.primary.METRICS_BY_HEAD` -> module
-                # `feathf.evaluation.primary`, name `METRICS_BY_HEAD`.
-                parts = []
-                cur: ast.AST = node
-                while isinstance(cur, ast.Attribute):
-                    parts.append(cur.attr)
-                    cur = cur.value
-                if not isinstance(cur, ast.Name):
-                    continue
-                parts.append(cur.id)
-                parts.reverse()
-                if len(parts) < 2:
-                    continue
-                module = '.'.join(parts[:-1])
-                name = parts[-1]
-                imports_of[(module, name)].append((path, node.lineno))
-
+    # Second pass: for each candidate, check whether ANY other file reads that
+    # name. See `_reads_by_module_and_name` for the forms a read is written in.
+    imports_of = _reads_by_module_and_name(scope, src_root)
     for path, assign_node, value, name in candidates:
         module = module_name_of[path]
         importers = imports_of.get((module, name), [])
@@ -799,6 +846,206 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
             accepted=bool(accept),
             accepted_reason=accept,
         )
+
+# The wrappers A20 accepts as making an exported container immutable. Every one
+# of them is shallow: it freezes the container it is given and nothing inside
+# it, which is what `check_mutable_members_in_immutable_wrapper` is for.
+_IMMUTABLE_WRAPPERS = frozenset({'MappingProxyType', 'frozenset', 'tuple'})
+
+_MEMBER_CONTAINERS = (ast.Dict, ast.DictComp, ast.GeneratorExp, ast.List, ast.ListComp, ast.Set, ast.SetComp, ast.Tuple)
+
+def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag an externally-read module-level container that is wrapped in an
+    immutable wrapper but holds mutable members.
+
+    Signal:
+      - Module-level `NAME = <wrapper>(<literal or comprehension>)`, where
+        `<wrapper>` is `types.MappingProxyType`, `frozenset` or `tuple` - the
+        three A20 accepts.
+      - `NAME` is read from another file (the same predicate, and the same
+        scan, as `mutable-module-level-exported`).
+      - A member of the wrapped literal is itself mutable: a `dict`/`list`/
+        `set` literal or comprehension, or an instance of a dataclass this
+        corpus defines without `frozen=True`.
+
+    Every one of those wrappers is shallow. `types.MappingProxyType({'a': []})`
+    passes `mutable-module-level-exported` and still hands every caller the
+    same live `list`; on litrev a proxy's values were the very objects a
+    `get_defaults()` helper returned, so `defaults[k].append(...)` mutated the
+    process-wide default seen through both names. A project that has adopted
+    A20 reads the passing check as a guarantee, which is what makes this shape
+    worth its own rule rather than a footnote to that one: it is a guard that
+    fails open.
+
+    Deliberately syntactic. A member whose mutability is decided elsewhere -
+    `MappingProxyType({'a': build()})` - is not covered, for the reason the
+    `Call` case is rejected for A20: the assignment does not state the type.
+    The dataclass carve-in is not an exception to that; a dataclass's
+    mutability is stated by its own decorator, in this corpus, and read there.
+    """
+    frozen_by_name = _dataclass_frozen_by_name(scope, src_root)
+    candidates: list[tuple[pathlib.Path, ast.stmt, str, str, list[tuple[int, str]]]] = []
+    module_name_of: dict[pathlib.Path, str] = {}
+    for path in _all_py_files(src_root):
+        module_name_of[path] = _module_dotted(path, src_root)
+        try:
+            tree = ast.parse('\n'.join(_source_lines(path)))
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            name, value = _module_level_binding(node)
+            if name is None or value is None or name.startswith('_'):
+                continue
+            wrapped = _wrapped_literal(value)
+            if wrapped is None:
+                continue
+            wrapper, literal = wrapped
+            hazards = _mutable_members(literal, frozen_by_name)
+            if hazards:
+                candidates.append((path, node, name, wrapper, hazards))
+
+    if not candidates:
+        return
+
+    imports_of = _reads_by_module_and_name(scope, src_root)
+    for path, assign_node, name, wrapper, hazards in candidates:
+        readers = imports_of.get((module_name_of[path], name), [])
+        if not [(p, ln) for p, ln in readers if p != path]:
+            continue
+        lines = _source_lines(path)
+        accept = _accept_reason(lines, assign_node.lineno, rule='mutable-members-in-immutable-wrapper')
+        _emit(
+            rule='mutable-members-in-immutable-wrapper',
+            variant=(f'{name} is wrapped in {wrapper}, which is shallow; '
+                     f'still mutable through it: {_hazard_summary(hazards)}'),
+            path=_relpath(path, scope),
+            line=assign_node.lineno,
+            evidence=(lines[assign_node.lineno - 1].strip()[:200]
+                      if assign_node.lineno <= len(lines) else ''),
+            accepted=bool(accept),
+            accepted_reason=accept,
+        )
+
+def _module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
+    """The `(name, value)` a top-level statement binds, if it binds one name."""
+    if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+        return node.targets[0].id, node.value
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
+        return node.target.id, node.value
+    return None, None
+
+def _wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
+    """`types.MappingProxyType({...})` -> `('MappingProxyType', <the dict>)`.
+
+    Only a single literal or comprehension argument counts, for the same
+    reason A20 stops at literals: `tuple(build())` states no members to read.
+    """
+    if not isinstance(value, ast.Call) or len(value.args) != 1 or value.keywords:
+        return None
+    func = value.func
+    if isinstance(func, ast.Attribute):
+        wrapper = func.attr
+    elif isinstance(func, ast.Name):
+        wrapper = func.id
+    else:
+        return None
+    if wrapper not in _IMMUTABLE_WRAPPERS:
+        return None
+    argument = value.args[0]
+    if not isinstance(argument, _MEMBER_CONTAINERS):
+        return None
+    return wrapper, argument
+
+def _mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list[tuple[int, str]]:
+    """Every mutable member of a literal, as `(line, what it is)`, deduped.
+
+    Descends through a nested tuple literal, which is immutable itself and
+    holds whatever it is given: a tuple of lists inside a proxy is the same
+    hazard one level down. A nested `set` or `list` literal is not descended
+    into - it is already the hazard, and is reported as itself.
+    """
+    hazards: dict[str, int] = {}
+    for member in _members(literal):
+        if isinstance(member, ast.Tuple):
+            for line, what in _mutable_members(member, frozen_by_name):
+                hazards.setdefault(what, line)
+            continue
+        what = _member_hazard(member, frozen_by_name)
+        if what is not None:
+            hazards.setdefault(what, getattr(member, 'lineno', 0))
+    return sorted((line, what) for what, line in hazards.items())
+
+def _members(literal: ast.expr) -> list[ast.expr]:
+    """The member expressions of a literal or comprehension.
+
+    A comprehension has exactly one member expression, evaluated per item, so
+    a mutable one is a hazard repeated rather than a different shape.
+    """
+    if isinstance(literal, ast.Dict):
+        return [value for value in literal.values if value is not None]
+    if isinstance(literal, ast.DictComp):
+        return [literal.value]
+    if isinstance(literal, (ast.List, ast.Set, ast.Tuple)):
+        return list(literal.elts)
+    if isinstance(literal, (ast.GeneratorExp, ast.ListComp, ast.SetComp)):
+        return [literal.elt]
+    return []
+
+def _member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | None:
+    """What makes this member mutable, phrased for the variant line, or None."""
+    shape = _MUTABLE_VALUE_SHAPES.get(type(member))
+    if shape is not None:
+        return f'a {shape[0]}'
+    if isinstance(member, ast.Call):
+        called = member.func
+        name = called.attr if isinstance(called, ast.Attribute) else called.id if isinstance(called, ast.Name) else None
+        if name is not None and frozen_by_name.get(name) is False:
+            return f'a non-frozen dataclass `{name}`'
+    return None
+
+def _hazard_summary(hazards: list[tuple[int, str]]) -> str:
+    return ', '.join(f'{what} at line {line}' for line, what in hazards)
+
+def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, bool]:
+    """Every dataclass the corpus defines, mapped to whether it is frozen.
+
+    A name defined more than once is frozen if any definition is: the scan
+    resolves no imports, so the alternative is to call a frozen class mutable
+    on the strength of a same-named class somewhere else in the tree.
+    """
+    frozen_by_name: dict[str, bool] = {}
+    for path in _corpus_py_files(scope, src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            frozen = [f for f in (_dataclass_decorator(d) for d in node.decorator_list) if f is not None]
+            if not frozen:
+                continue
+            frozen_by_name[node.name] = frozen_by_name.get(node.name, False) or any(frozen)
+    return frozen_by_name
+
+def _dataclass_decorator(decorator: ast.expr) -> bool | None:
+    """True/False if this decorator is `@dataclass`, saying whether it freezes."""
+    call = decorator if isinstance(decorator, ast.Call) else None
+    target = call.func if call is not None else decorator
+    if isinstance(target, ast.Attribute):
+        name = target.attr
+    elif isinstance(target, ast.Name):
+        name = target.id
+    else:
+        return None
+    if name != 'dataclass':
+        return None
+    if call is None:
+        return False
+    for keyword in call.keywords:
+        if keyword.arg == 'frozen':
+            return isinstance(keyword.value, ast.Constant) and keyword.value.value is True
+    return False
 
 _CALLBACK_METHOD_RE = re.compile(r'^on_(step|log|evaluate|train_\w+|batch_\w+|epoch_\w+|predict_\w+|save|init_\w+)$')
 

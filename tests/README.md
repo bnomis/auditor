@@ -28,7 +28,7 @@ cycle later.
 |------|--------|
 | `test_core.py` | acceptance markers (scoped and unscoped), duplicate suppression, the emitted record schema, AGENTS.md lazy-import rows |
 | `test_registry.py` | every defined check is registered, none twice, each has tests, and no recorded check has moved within `CHECKS` |
-| `test_driver.py` | package discovery under `src/`, per-package passes, `--package`, crash isolation, and one end-to-end run of the shipped entry point |
+| `test_driver.py` | package discovery under `src/`, extra roots such as `bin/`, per-root passes, `--package`, `--extra-root`, crash isolation, and one end-to-end run of the shipped entry point |
 | `test_error_handling.py` | the exception-handling and error-reporting predicates |
 | `test_get_container_default.py` | `get-container-default-then-method-call`: each of its guards and each documented non-goal |
 | `test_imports_and_surfaces.py` | the import-graph and public-surface predicates |

@@ -7,11 +7,11 @@ transcribe every line into a finding - there is no sampling, filtering,
 or "accepted because pre-existing" logic in the calling layer.
 
 Usage:
-    audit.py <scope-root> [--package <package-name>]
+    audit.py <scope-root> [--package <package-name>] [--extra-root <dir> ...]
 
 <scope-root> is the directory containing src/, agents/, docs/, etc.
 <package-name> restricts the run to one package under src/. It defaults to
-EVERY package under src/, each audited in its own pass.
+EVERY package under src/, each audited in its own pass, plus every extra root.
 
 That default matters. A project whose src/ holds both the library and the test
 tree - src/mylib/ and src/tests/ - has two packages, and a driver that audited
@@ -19,7 +19,14 @@ only the first would report a partial scope as a complete one. On the litrev
 project that silently hid 440 hits, all of them in src/tests/, across five
 audit cycles: the sweep looked clean because the test tree was never read.
 
-Each package gets its own pass rather than one pass over src/, because
+An extra root is auditable Python that is not a package under src/. bin/ is
+the default one, and the same failure had a second instance there: enumerating
+packages *under src/* gave a project whose scripts live in bin/ zero rows for
+them - accepted or otherwise - while three consecutive summaries recorded
+"bin/ remains at zero unaccepted hits" as though it were a measurement.
+--extra-root replaces that default set; each root named must exist.
+
+Each root gets its own pass rather than one pass over src/, because
 src_root.name is the package's dotted root - six checks build module names as
 '.'.join((src_root.name,) + parts) - so a single pass rooted at src/ would
 rename every module to src.<pkg>.<mod> and break the import-graph checks and
@@ -54,14 +61,35 @@ import argparse
 import pathlib
 import sys
 
+import auditme.core
 import auditme.registry
 from auditme.core import _emit
+
+DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditme.core.EXTRA_ROOT_NAMES)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument('scope', type=pathlib.Path, help='Project root (containing src/, agents/, ...)')
-    parser.add_argument('--package', help='Audit only this package under src/ (default: every package)', default=None)
+    parser.add_argument(
+        'scope',
+        type=pathlib.Path,
+        help='Project root (containing src/, agents/, ...)',
+    )
+    parser.add_argument(
+        '--package',
+        help='Audit only this package under src/ (default: every package, plus every extra root)',
+        default=None,
+    )
+    parser.add_argument(
+        '--extra-root',
+        action='append',
+        metavar='DIR',
+        help=(
+            'Audit this directory, relative to the scope root, as its own pass. Repeatable. '
+            f'Replaces the default set: {DEFAULT_EXTRA_ROOTS}, each used only when it exists and holds .py files.'
+        ),
+        default=None,
+    )
     args = parser.parse_args()
 
     scope = args.scope.resolve()
@@ -69,26 +97,39 @@ def main() -> int:
         print(f'ERROR: {scope}/src does not exist', file=sys.stderr)
         return 2
 
+    if args.extra_root is not None:
+        # A root named on the command line is not silently dropped when it is
+        # missing: an unnoticed typo would reinstate exactly the empty pass
+        # this flag exists to end.
+        auditme.core.EXTRA_ROOT_NAMES = tuple(args.extra_root)
+        for name in args.extra_root:
+            if not (scope / name).is_dir():
+                print(f'ERROR: {scope / name} is not a directory', file=sys.stderr)
+                return 2
+
     if args.package:
-        src_roots = [scope / 'src' / args.package]
+        # --package is a request for one package, so it drops the extra roots
+        # too. It is for re-checking a single package during fix verification;
+        # a normal audit passes neither flag.
+        roots = [scope / 'src' / args.package]
     else:
-        src_roots = _packages_under(scope / 'src')
-        if not src_roots:
+        roots = auditme.core._audit_roots(scope)
+        if not roots:
             print(f'ERROR: no package under {scope}/src', file=sys.stderr)
             return 2
 
-    for src_root in src_roots:
-        if not src_root.exists():
-            print(f'ERROR: {src_root} not found', file=sys.stderr)
+    for root in roots:
+        if not root.exists():
+            print(f'ERROR: {root} not found', file=sys.stderr)
             return 2
 
-    # One pass per package, rather than one pass over src/ itself. src_root.name
+    # One pass per root, rather than one pass over src/ itself. src_root.name
     # is the package's dotted root: six checks build module names as
     # '.'.join((src_root.name,) + parts). Handing them src/ would rename every
     # module to src.<pkg>.<mod>, silently breaking the import-graph and
     # public-surface checks and every AGENTS.md acceptance row, which are
-    # written without the src. prefix. Running per package keeps each name right.
-    for src_root in src_roots:
+    # written without the src. prefix. Running per root keeps each name right.
+    for src_root in roots:
         for check in auditme.registry.CHECKS:
             try:
                 check(scope, src_root)
@@ -103,28 +144,6 @@ def main() -> int:
                     accepted_reason=None,
                 )
     return 0
-
-
-def _packages_under(src: pathlib.Path) -> list[pathlib.Path]:
-    """Every package directory directly under src/, sorted.
-
-    Sorted because emission order is part of the output: CHECKS' order fixes
-    the order within a package, and this fixes the order of the packages.
-
-    Excludes caches and build artefacts, and any directory holding no .py file
-    anywhere - not a package, and auditing it only slows the run.
-    """
-    if not src.is_dir():
-        return []
-    return sorted(
-        p
-        for p in src.iterdir()
-        if p.is_dir()
-        and not p.name.startswith('.')
-        and p.name != '__pycache__'
-        and not p.name.endswith(('.egg-info', '.dist-info'))
-        and any(p.rglob('*.py'))
-    )
 
 
 if __name__ == '__main__':
