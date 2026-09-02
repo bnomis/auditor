@@ -61,6 +61,7 @@ from auditme.rules.style_and_naming import (
     check_bare_nonbuiltin_generic_annotation,
     check_bare_parametric_annotation,
     check_duplicated_word,
+    check_leading_underscore_nested_def_class,
     check_non_alphabetical_dict_keys,
     check_nonalphabetical_literals,
     check_percent_formatting,
@@ -72,6 +73,7 @@ from auditme.rules.project_hygiene import (
     check_lockfile,
     check_phase_section_doc_reference,
     check_ruff,
+    check_spec_api_signature_drift,
 )
 
 
@@ -137,4 +139,6 @@ CHECKS = (
     check_translator_envelope_gap,
     check_as_import,
     check_mutable_members_in_immutable_wrapper,
+    check_leading_underscore_nested_def_class,
+    check_spec_api_signature_drift,
 )
