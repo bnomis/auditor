@@ -1,6 +1,5 @@
 """Checks on project-level artefacts rather than source."""
 
-from __future__ import annotations
 import ast
 import json
 import pathlib
@@ -49,6 +48,7 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                     _emit(
                         rule='ruff', variant='ruff-format', path=ln.split(':')[0].strip(), line=None, evidence=ln.strip(), accepted=False, accepted_reason=None
                     )
+
 
 # `uv lock --check` exits non-zero both when the lockfile is genuinely stale
 # and when it could not resolve at all. Only the first message is the drift.
@@ -99,9 +99,11 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         accepted_reason=None,
     )
 
+
 _PHASE_REF_RE = re.compile(r'\bPhase\s+[1-9][a-z]?\b')
 
 _SECTION_REF_RE = re.compile(r'\bSection\s+[0-9]+\.[0-9]+\b')
+
 
 def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag src/ docstrings and comments that reference numbered
@@ -118,9 +120,7 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
         user-facing Phase vocabulary to be excused wholesale).
       - Hit is not explicitly accepted via inline marker.
     """
-    file_level_accept_re = re.compile(
-        r'^\s*#\s*auditme:\s*accept\s+.*phase-section'
-    )
+    file_level_accept_re = re.compile(r'^\s*#\s*auditme:\s*accept\s+.*phase-section')
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
         lines = _source_lines(path)
@@ -141,6 +141,7 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
                     const = node.body[0]
                     end = getattr(const, 'end_lineno', const.lineno)
                     docstring_ranges.append((const.lineno, end))
+
         def in_docstring(ln: int) -> bool:
             return any(a <= ln <= b for a, b in docstring_ranges)
 
@@ -259,11 +260,7 @@ def _source_definitions(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str
 
 
 def _spec_markdown_files(scope: pathlib.Path) -> list[pathlib.Path]:
-    return sorted(
-        path
-        for path in scope.rglob('*.md')
-        if not _SPEC_SKIP_PARTS & set(path.relative_to(scope).parts)
-    )
+    return sorted(path for path in scope.rglob('*.md') if not _SPEC_SKIP_PARTS & set(path.relative_to(scope).parts))
 
 
 def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) -> None:

@@ -1,6 +1,5 @@
 """Checks on mutation, side effects and hidden state."""
 
-from __future__ import annotations
 import ast
 import pathlib
 import re
@@ -8,14 +7,36 @@ from collections import defaultdict
 
 from auditme.core import _accept_reason, _all_py_files, _emit, _extra_roots, _relpath, _source_lines
 
-
 _DISK_IO_NAMES = {
-    'open', 'mkdir', 'rmdir', 'unlink', 'rmtree', 'makedirs', 'remove',
-    'read_text', 'write_text', 'read_bytes', 'write_bytes', 'touch',
-    'iterdir', 'glob', 'rglob', 'exists', 'is_file', 'is_dir', 'stat',
-    'copy', 'copytree', 'move', 'rename', 'replace', 'symlink_to',
-    'mkstemp', 'mkdtemp',
+    'open',
+    'mkdir',
+    'rmdir',
+    'unlink',
+    'rmtree',
+    'makedirs',
+    'remove',
+    'read_text',
+    'write_text',
+    'read_bytes',
+    'write_bytes',
+    'touch',
+    'iterdir',
+    'glob',
+    'rglob',
+    'exists',
+    'is_file',
+    'is_dir',
+    'stat',
+    'copy',
+    'copytree',
+    'move',
+    'rename',
+    'replace',
+    'symlink_to',
+    'mkstemp',
+    'mkdtemp',
 }
+
 
 def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag disk I/O operations inside `__init__` methods. Constructors
@@ -51,11 +72,11 @@ def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         variant=f'{cls.name}.__init__ calls disk-IO `{fname}`',
                         path=rel,
                         line=inner.lineno,
-                        evidence=lines[inner.lineno - 1].strip()[:200]
-                        if inner.lineno <= len(lines) else '',
+                        evidence=lines[inner.lineno - 1].strip()[:200] if inner.lineno <= len(lines) else '',
                         accepted=bool(accept),
                         accepted_reason=accept,
                     )
+
 
 def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag methods (other than __init__ / __post_init__ / setters / setX-named
@@ -69,8 +90,16 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
     caller holding a reference to the original sees their view drift.
     """
     MUTATING_METHOD_NAMES = {
-        'set', 'reset', 'clear', 'update', 'mutate', 'merge', 'replace',
-        'apply', 'patch', 'override',
+        'set',
+        'reset',
+        'clear',
+        'update',
+        'mutate',
+        'merge',
+        'replace',
+        'apply',
+        'patch',
+        'override',
     }
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -85,9 +114,7 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
             # Find attrs assigned in __init__ from a same-named argument
             owned_attrs: set[str] = set()
             init = next(
-                (m for m in cls.body
-                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
-                 and m.name == '__init__'),
+                (m for m in cls.body if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and m.name == '__init__'),
                 None,
             )
             if init is not None:
@@ -96,12 +123,14 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                     if not isinstance(inner, ast.Assign):
                         continue
                     for tgt in inner.targets:
-                        if (isinstance(tgt, ast.Attribute)
-                                and isinstance(tgt.value, ast.Name)
-                                and tgt.value.id == 'self'
-                                and isinstance(inner.value, ast.Name)
-                                and inner.value.id == tgt.attr
-                                and inner.value.id in arg_names):
+                        if (
+                            isinstance(tgt, ast.Attribute)
+                            and isinstance(tgt.value, ast.Name)
+                            and tgt.value.id == 'self'
+                            and isinstance(inner.value, ast.Name)
+                            and inner.value.id == tgt.attr
+                            and inner.value.id in arg_names
+                        ):
                             owned_attrs.add(tgt.attr)
             if not owned_attrs:
                 continue
@@ -120,9 +149,7 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                     if not isinstance(inner, ast.Assign):
                         continue
                     for tgt in inner.targets:
-                        if not (isinstance(tgt, ast.Attribute)
-                                and isinstance(tgt.value, ast.Name)
-                                and tgt.value.id == 'self'):
+                        if not (isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == 'self'):
                             continue
                         if tgt.attr not in owned_attrs:
                             continue
@@ -132,11 +159,11 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                             variant=f'{cls.name}.{member.name} reassigns self.{tgt.attr}',
                             path=rel,
                             line=inner.lineno,
-                            evidence=(lines[inner.lineno - 1].strip()[:200]
-                                      if inner.lineno <= len(lines) else ''),
+                            evidence=(lines[inner.lineno - 1].strip()[:200] if inner.lineno <= len(lines) else ''),
                             accepted=bool(accept),
                             accepted_reason=accept,
                         )
+
 
 def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag class methods that return a value named identically to an
@@ -168,9 +195,7 @@ def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: path
                 continue
             owned_attrs: set[str] = set()
             init = next(
-                (m for m in cls.body
-                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
-                 and m.name == '__init__'),
+                (m for m in cls.body if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and m.name == '__init__'),
                 None,
             )
             if init is None:
@@ -180,12 +205,14 @@ def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: path
                 if not isinstance(inner, ast.Assign):
                     continue
                 for tgt in inner.targets:
-                    if (isinstance(tgt, ast.Attribute)
-                            and isinstance(tgt.value, ast.Name)
-                            and tgt.value.id == 'self'
-                            and isinstance(inner.value, ast.Name)
-                            and inner.value.id == tgt.attr
-                            and inner.value.id in arg_names):
+                    if (
+                        isinstance(tgt, ast.Attribute)
+                        and isinstance(tgt.value, ast.Name)
+                        and tgt.value.id == 'self'
+                        and isinstance(inner.value, ast.Name)
+                        and inner.value.id == tgt.attr
+                        and inner.value.id in arg_names
+                    ):
                         owned_attrs.add(tgt.attr)
             if not owned_attrs:
                 continue
@@ -214,9 +241,7 @@ def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: path
                                 # where the method just happens to have a local named X)
                                 has_derivation = False
                                 for inner in ast.walk(member):
-                                    if (isinstance(inner, ast.Assign)
-                                            and any(isinstance(t, ast.Name) and t.id == rname
-                                                    for t in inner.targets)):
+                                    if isinstance(inner, ast.Assign) and any(isinstance(t, ast.Name) and t.id == rname for t in inner.targets):
                                         src = ast.unparse(inner.value) if hasattr(ast, 'unparse') else ''
                                         if f'self.{attr}' in src:
                                             has_derivation = True
@@ -229,12 +254,12 @@ def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: path
                                     variant=f'{cls.name}.{member.name} returns `{rname}` which shadows self.{attr}; callers must reassign',
                                     path=rel,
                                     line=ret.lineno,
-                                    evidence=(lines[ret.lineno - 1].strip()[:200]
-                                              if ret.lineno <= len(lines) else ''),
+                                    evidence=(lines[ret.lineno - 1].strip()[:200] if ret.lineno <= len(lines) else ''),
                                     accepted=bool(accept),
                                     accepted_reason=accept,
                                 )
                                 break
+
 
 def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions that mutate a parameter's dict/list items while
@@ -251,10 +276,8 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
     # `compute_` is intentionally omitted - HF Trainer's `compute_loss` and
     # similar methods routinely mutate their `inputs` dict. The pure-naming
     # contract does not hold for overridden framework methods.
-    PURE_PREFIXES = ('check_', 'validate_', 'is_', 'has_', 'get_',
-                     'resolve_', 'parse_', 'find_', 'count_')
-    MUTATION_METHODS = {'update', 'pop', 'append', 'extend', 'insert',
-                        'remove', 'clear', 'setdefault', 'popitem'}
+    PURE_PREFIXES = ('check_', 'validate_', 'is_', 'has_', 'get_', 'resolve_', 'parse_', 'find_', 'count_')
+    MUTATION_METHODS = {'update', 'pop', 'append', 'extend', 'insert', 'remove', 'clear', 'setdefault', 'popitem'}
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
         lines = _source_lines(path)
@@ -283,49 +306,54 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                                     variant=f'{node.name} mutates parameter `{tgt.value.id}` via item assignment',
                                     path=rel,
                                     line=inner.lineno,
-                                    evidence=(lines[inner.lineno - 1].strip()[:200]
-                                              if inner.lineno <= len(lines) else ''),
+                                    evidence=(lines[inner.lineno - 1].strip()[:200] if inner.lineno <= len(lines) else ''),
                                     accepted=bool(accept),
                                     accepted_reason=accept,
                                 )
                 # augmented assignment: param[k] += v
                 if isinstance(inner, ast.AugAssign):
-                    if (isinstance(inner.target, ast.Subscript)
-                            and isinstance(inner.target.value, ast.Name)
-                            and inner.target.value.id in param_names):
+                    if isinstance(inner.target, ast.Subscript) and isinstance(inner.target.value, ast.Name) and inner.target.value.id in param_names:
                         accept = _accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
                         _emit(
                             rule='parameter-mutation-in-pure-function',
                             variant=f'{node.name} mutates parameter `{inner.target.value.id}` via augmented assignment',
                             path=rel,
                             line=inner.lineno,
-                            evidence=(lines[inner.lineno - 1].strip()[:200]
-                                      if inner.lineno <= len(lines) else ''),
+                            evidence=(lines[inner.lineno - 1].strip()[:200] if inner.lineno <= len(lines) else ''),
                             accepted=bool(accept),
                             accepted_reason=accept,
                         )
                 # method call: param.update(...), param.append(...)
                 if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Attribute):
-                    if (isinstance(inner.func.value, ast.Name)
-                            and inner.func.value.id in param_names
-                            and inner.func.attr in MUTATION_METHODS):
+                    if isinstance(inner.func.value, ast.Name) and inner.func.value.id in param_names and inner.func.attr in MUTATION_METHODS:
                         accept = _accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
                         _emit(
                             rule='parameter-mutation-in-pure-function',
                             variant=f'{node.name} mutates parameter `{inner.func.value.id}` via `.{inner.func.attr}()`',
                             path=rel,
                             line=inner.lineno,
-                            evidence=(lines[inner.lineno - 1].strip()[:200]
-                                      if inner.lineno <= len(lines) else ''),
+                            evidence=(lines[inner.lineno - 1].strip()[:200] if inner.lineno <= len(lines) else ''),
                             accepted=bool(accept),
                             accepted_reason=accept,
                         )
 
+
 _SIDE_EFFECT_CALL_NAMES = {
-    'mkdir', 'rmdir', 'unlink', 'rmtree', 'makedirs', 'remove',
-    'write_text', 'write_bytes', 'touch', 'copytree',
-    'symlink_to', 'mkstemp', 'mkdtemp',
+    'mkdir',
+    'rmdir',
+    'unlink',
+    'rmtree',
+    'makedirs',
+    'remove',
+    'write_text',
+    'write_bytes',
+    'touch',
+    'copytree',
+    'symlink_to',
+    'mkstemp',
+    'mkdtemp',
 }
+
 
 def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions whose name suggests a pure query/resolution but
@@ -345,9 +373,7 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
     # which documents allowed exceptions per-call-site rather than banning
     # the prefix outright. `load_` is deliberately omitted: load_* functions
     # legitimately perform IO.
-    PURE_PREFIXES = ('resolve_', 'find_', 'get_', 'check_',
-                     'parse_', 'is_', 'has_', 'validate_', 'count_',
-                     'allocate_')
+    PURE_PREFIXES = ('resolve_', 'find_', 'get_', 'check_', 'parse_', 'is_', 'has_', 'validate_', 'count_', 'allocate_')
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
         lines = _source_lines(path)
@@ -360,6 +386,7 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
                 continue
             if not any(node.name.startswith(p) for p in PURE_PREFIXES):
                 continue
+
             # Walk only the direct body (and its nested statements) but not
             # nested function definitions
             def walk_non_nested(n):
@@ -368,6 +395,7 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
                         continue
                     yield sub
                     yield from walk_non_nested(sub)
+
             for sub in walk_non_nested(node):
                 if not isinstance(sub, ast.Call):
                     continue
@@ -384,12 +412,12 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
                     variant=f'{node.name} calls side-effect `{callee_short}` despite name implying a pure query',
                     path=rel,
                     line=sub.lineno,
-                    evidence=(lines[sub.lineno - 1].strip()[:200]
-                              if sub.lineno <= len(lines) else ''),
+                    evidence=(lines[sub.lineno - 1].strip()[:200] if sub.lineno <= len(lines) else ''),
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
                 break  # one finding per function is enough
+
 
 def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `__init__` methods that store a parameter typed as dict/list
@@ -418,9 +446,7 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
             if not isinstance(cls, ast.ClassDef):
                 continue
             init = next(
-                (m for m in cls.body
-                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
-                 and m.name == '__init__'),
+                (m for m in cls.body if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and m.name == '__init__'),
                 None,
             )
             if init is None:
@@ -451,9 +477,7 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
                 if not isinstance(stmt, ast.Assign):
                     continue
                 for tgt in stmt.targets:
-                    if not (isinstance(tgt, ast.Attribute)
-                            and isinstance(tgt.value, ast.Name)
-                            and tgt.value.id == 'self'):
+                    if not (isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == 'self'):
                         continue
                     if not isinstance(stmt.value, ast.Name):
                         continue
@@ -467,11 +491,11 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
                         variant=f'{cls.name}.__init__ stores dict/list parameter `{stmt.value.id}` by reference',
                         path=rel,
                         line=stmt.lineno,
-                        evidence=(lines[stmt.lineno - 1].strip()[:200]
-                                  if stmt.lineno <= len(lines) else ''),
+                        evidence=(lines[stmt.lineno - 1].strip()[:200] if stmt.lineno <= len(lines) else ''),
                         accepted=bool(accept),
                         accepted_reason=accept,
                     )
+
 
 def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `if/elif` chains that dispatch on string equality of a single
@@ -548,16 +572,18 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
             accept = _accept_reason(lines, node.lineno, rule='assert-never-missing')
             _emit(
                 rule='assert-never-missing',
-                variant=(f'if/elif chain on `{chain_var}` with {chain_len} string-equality arms '
-                         f'{"has fall-through else" if terminal_else else "has no else"}; '
-                         f'should end with `else: typing.assert_never({chain_var})`'),
+                variant=(
+                    f'if/elif chain on `{chain_var}` with {chain_len} string-equality arms '
+                    f'{"has fall-through else" if terminal_else else "has no else"}; '
+                    f'should end with `else: typing.assert_never({chain_var})`'
+                ),
                 path=rel,
                 line=node.lineno,
-                evidence=(lines[node.lineno - 1].strip()[:200]
-                          if node.lineno <= len(lines) else ''),
+                evidence=(lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
 
 def _extract_string_eq_var(test: ast.expr) -> str | None:
     """Return `name` if `test` is `name == "literal"` or `"literal" == name`,
@@ -568,15 +594,12 @@ def _extract_string_eq_var(test: ast.expr) -> str | None:
         return None
     left = test.left
     right = test.comparators[0]
-    if (isinstance(left, ast.Name)
-            and isinstance(right, ast.Constant)
-            and isinstance(right.value, str)):
+    if isinstance(left, ast.Name) and isinstance(right, ast.Constant) and isinstance(right.value, str):
         return left.id
-    if (isinstance(right, ast.Name)
-            and isinstance(left, ast.Constant)
-            and isinstance(left.value, str)):
+    if isinstance(right, ast.Name) and isinstance(left, ast.Constant) and isinstance(left.value, str):
         return right.id
     return None
+
 
 def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `build_*` / `compute_*` functions that call subprocess, clock,
@@ -599,12 +622,23 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
     if bundled.
     """
     BUILD_SIDE_EFFECTS = _SIDE_EFFECT_CALL_NAMES | {
-        'run',       # subprocess.run
-        'check_output', 'check_call', 'Popen',
-        'now', 'utcnow',  # datetime.now / datetime.utcnow
-        'time', 'monotonic', 'perf_counter',
-        'uuid1', 'uuid3', 'uuid4', 'uuid5',
-        'random', 'randint', 'choice', 'shuffle',
+        'run',  # subprocess.run
+        'check_output',
+        'check_call',
+        'Popen',
+        'now',
+        'utcnow',  # datetime.now / datetime.utcnow
+        'time',
+        'monotonic',
+        'perf_counter',
+        'uuid1',
+        'uuid3',
+        'uuid4',
+        'uuid5',
+        'random',
+        'randint',
+        'choice',
+        'shuffle',
     }
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -618,12 +652,14 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
                 continue
             if not (node.name.startswith('build_') or node.name.startswith('compute_')):
                 continue
+
             def walk_non_nested(n):
                 for sub in ast.iter_child_nodes(n):
                     if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
                         continue
                     yield sub
                     yield from walk_non_nested(sub)
+
             for sub in walk_non_nested(node):
                 if not isinstance(sub, ast.Call):
                     continue
@@ -640,12 +676,12 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
                     variant=f'{node.name} calls side-effect `{callee_short}` despite `build_`/`compute_` name',
                     path=rel,
                     line=sub.lineno,
-                    evidence=(lines[sub.lineno - 1].strip()[:200]
-                              if sub.lineno <= len(lines) else ''),
+                    evidence=(lines[sub.lineno - 1].strip()[:200] if sub.lineno <= len(lines) else ''),
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
                 break
+
 
 _MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
     ast.Dict: ('dict literal', 'types.MappingProxyType(...)'),
@@ -655,6 +691,7 @@ _MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
     ast.Set: ('set literal', 'frozenset(...)'),
     ast.SetComp: ('set comprehension', 'frozenset(...)'),
 }
+
 
 def _corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib.Path]:
     """Every `.py` file the sweep reads, not just the root being swept.
@@ -678,6 +715,7 @@ def _corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathli
     if not roots:
         return _all_py_files(src_root)
     return sorted(path for root in roots for path in _all_py_files(root))
+
 
 def _dotted_read(node: ast.Attribute) -> tuple[str, str] | None:
     """Resolve an attribute chain to the `(module, name)` it reads, or None.
@@ -711,6 +749,7 @@ def _dotted_read(node: ast.Attribute) -> tuple[str, str] | None:
         return None
     return '.'.join(parts[:-1]), parts[-1]
 
+
 def _sys_modules_key(node: ast.Subscript) -> str | None:
     """`sys.modules['pkg.mod']` -> `'pkg.mod'`; any other subscript -> None."""
     target = node.value
@@ -722,6 +761,7 @@ def _sys_modules_key(node: ast.Subscript) -> str | None:
     if isinstance(key, ast.Constant) and isinstance(key.value, str):
         return key.value
     return None
+
 
 def _reads_by_module_and_name(
     scope: pathlib.Path,
@@ -741,7 +781,7 @@ def _reads_by_module_and_name(
     for path in _corpus_py_files(scope, src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
@@ -755,12 +795,14 @@ def _reads_by_module_and_name(
                     reads[read].append((path, node.lineno))
     return reads
 
+
 def _module_dotted(path: pathlib.Path, src_root: pathlib.Path) -> str:
     """The dotted name a module is imported by, rooted at its own root."""
     parts = path.relative_to(src_root).with_suffix('').parts
     if parts and parts[-1] == '__init__':
         parts = parts[:-1]
     return '.'.join((src_root.name,) + parts)
+
 
 def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag module-level mutable containers that are read by name from
@@ -837,15 +879,14 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
         shape, required_wrap = _MUTABLE_VALUE_SHAPES[type(value)]
         _emit(
             rule='mutable-module-level-exported',
-            variant=(f'{name} is a mutable {shape} read by '
-                     f'{len(external_importers)} other file(s); wrap in {required_wrap}'),
+            variant=(f'{name} is a mutable {shape} read by {len(external_importers)} other file(s); wrap in {required_wrap}'),
             path=rel,
             line=assign_node.lineno,
-            evidence=(lines[assign_node.lineno - 1].strip()[:200]
-                      if assign_node.lineno <= len(lines) else ''),
+            evidence=(lines[assign_node.lineno - 1].strip()[:200] if assign_node.lineno <= len(lines) else ''),
             accepted=bool(accept),
             accepted_reason=accept,
         )
+
 
 # The wrappers A20 accepts as making an exported container immutable. Every one
 # of them is shallow: it freezes the container it is given and nothing inside
@@ -853,6 +894,7 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
 _IMMUTABLE_WRAPPERS = frozenset({'MappingProxyType', 'frozenset', 'tuple'})
 
 _MEMBER_CONTAINERS = (ast.Dict, ast.DictComp, ast.GeneratorExp, ast.List, ast.ListComp, ast.Set, ast.SetComp, ast.Tuple)
+
 
 def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag an externally-read module-level container that is wrapped in an
@@ -916,15 +958,14 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
         accept = _accept_reason(lines, assign_node.lineno, rule='mutable-members-in-immutable-wrapper')
         _emit(
             rule='mutable-members-in-immutable-wrapper',
-            variant=(f'{name} is wrapped in {wrapper}, which is shallow; '
-                     f'still mutable through it: {_hazard_summary(hazards)}'),
+            variant=(f'{name} is wrapped in {wrapper}, which is shallow; still mutable through it: {_hazard_summary(hazards)}'),
             path=_relpath(path, scope),
             line=assign_node.lineno,
-            evidence=(lines[assign_node.lineno - 1].strip()[:200]
-                      if assign_node.lineno <= len(lines) else ''),
+            evidence=(lines[assign_node.lineno - 1].strip()[:200] if assign_node.lineno <= len(lines) else ''),
             accepted=bool(accept),
             accepted_reason=accept,
         )
+
 
 def _module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
     """The `(name, value)` a top-level statement binds, if it binds one name."""
@@ -933,6 +974,7 @@ def _module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
     if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
         return node.target.id, node.value
     return None, None
+
 
 def _wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
     """`types.MappingProxyType({...})` -> `('MappingProxyType', <the dict>)`.
@@ -956,6 +998,7 @@ def _wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
         return None
     return wrapper, argument
 
+
 def _mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list[tuple[int, str]]:
     """Every mutable member of a literal, as `(line, what it is)`, deduped.
 
@@ -975,6 +1018,7 @@ def _mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list
             hazards.setdefault(what, getattr(member, 'lineno', 0))
     return sorted((line, what) for what, line in hazards.items())
 
+
 def _members(literal: ast.expr) -> list[ast.expr]:
     """The member expressions of a literal or comprehension.
 
@@ -991,6 +1035,7 @@ def _members(literal: ast.expr) -> list[ast.expr]:
         return [literal.elt]
     return []
 
+
 def _member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | None:
     """What makes this member mutable, phrased for the variant line, or None."""
     shape = _MUTABLE_VALUE_SHAPES.get(type(member))
@@ -1003,8 +1048,10 @@ def _member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | N
             return f'a non-frozen dataclass `{name}`'
     return None
 
+
 def _hazard_summary(hazards: list[tuple[int, str]]) -> str:
     return ', '.join(f'{what} at line {line}' for line, what in hazards)
+
 
 def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, bool]:
     """Every dataclass the corpus defines, mapped to whether it is frozen.
@@ -1017,7 +1064,7 @@ def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> di
     for path in _corpus_py_files(scope, src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
@@ -1027,6 +1074,7 @@ def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> di
                 continue
             frozen_by_name[node.name] = frozen_by_name.get(node.name, False) or any(frozen)
     return frozen_by_name
+
 
 def _dataclass_decorator(decorator: ast.expr) -> bool | None:
     """True/False if this decorator is `@dataclass`, saying whether it freezes."""
@@ -1047,7 +1095,9 @@ def _dataclass_decorator(decorator: ast.expr) -> bool | None:
             return isinstance(keyword.value, ast.Constant) and keyword.value.value is True
     return False
 
+
 _CALLBACK_METHOD_RE = re.compile(r'^on_(step|log|evaluate|train_\w+|batch_\w+|epoch_\w+|predict_\w+|save|init_\w+)$')
+
 
 def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag HF `Trainer` callback methods whose body contains per-event
@@ -1088,15 +1138,9 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
                 except Exception:
                     pass
             base_str = ' '.join(base_names)
-            looks_like_callback = (
-                'Callback' in base_str or 'TrainerCallback' in base_str
-            )
+            looks_like_callback = 'Callback' in base_str or 'TrainerCallback' in base_str
             # Also accept if any method in the class matches the callback pattern
-            has_callback_method = any(
-                isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and _CALLBACK_METHOD_RE.match(m.name)
-                for m in cls.body
-            )
+            has_callback_method = any(isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and _CALLBACK_METHOD_RE.match(m.name) for m in cls.body)
             if not (looks_like_callback or has_callback_method):
                 continue
             for method in cls.body:
@@ -1120,12 +1164,12 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         variant=f'{cls.name}.{method.name} performs per-event `{short}`; move setup to __init__',
                         path=rel,
                         line=sub.lineno,
-                        evidence=(lines[sub.lineno - 1].strip()[:200]
-                                  if sub.lineno <= len(lines) else ''),
+                        evidence=(lines[sub.lineno - 1].strip()[:200] if sub.lineno <= len(lines) else ''),
                         accepted=bool(accept),
                         accepted_reason=accept,
                     )
                     break
+
 
 def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag dataclass fields annotated as `X | None` (defaulting to
@@ -1191,9 +1235,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
                 continue
             # Find __post_init__
             post_init = next(
-                (m for m in cls.body
-                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))
-                 and m.name == '__post_init__'),
+                (m for m in cls.body if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and m.name == '__post_init__'),
                 None,
             )
             if post_init is None:
@@ -1204,9 +1246,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
                 if not isinstance(stmt, ast.Assign):
                     continue
                 for tgt in stmt.targets:
-                    if not (isinstance(tgt, ast.Attribute)
-                            and isinstance(tgt.value, ast.Name)
-                            and tgt.value.id == 'self'):
+                    if not (isinstance(tgt, ast.Attribute) and isinstance(tgt.value, ast.Name) and tgt.value.id == 'self'):
                         continue
                     if tgt.attr not in nullable_fields:
                         continue
@@ -1220,11 +1260,11 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
                         variant=f'{cls.name}.{tgt.attr} typed `X | None` but __post_init__ always assigns non-None',
                         path=rel,
                         line=field_lineno,
-                        evidence=(lines[field_lineno - 1].strip()[:200]
-                                  if field_lineno <= len(lines) else ''),
+                        evidence=(lines[field_lineno - 1].strip()[:200] if field_lineno <= len(lines) else ''),
                         accepted=bool(accept),
                         accepted_reason=accept,
                     )
+
 
 def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag function bodies where a local variable is assigned an
@@ -1266,19 +1306,23 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             if value is None:
                 continue
             is_empty_init = False
-            if isinstance(value, ast.Dict) and not value.keys:
-                is_empty_init = True
-            elif isinstance(value, ast.List) and not value.elts:
-                is_empty_init = True
-            elif isinstance(value, ast.Set) and not value.elts:
-                is_empty_init = True
-            elif isinstance(value, ast.Tuple) and not value.elts:
-                is_empty_init = True
-            elif (isinstance(value, ast.Call)
-                  and isinstance(value.func, ast.Name)
-                  and value.func.id in EMPTY_CONSTRUCTORS
-                  and not value.args
-                  and not value.keywords):
+            if (
+                isinstance(value, ast.Dict)
+                and not value.keys
+                or isinstance(value, ast.List)
+                and not value.elts
+                or isinstance(value, ast.Set)
+                and not value.elts
+                or isinstance(value, ast.Tuple)
+                and not value.elts
+                or (
+                    isinstance(value, ast.Call)
+                    and isinstance(value.func, ast.Name)
+                    and value.func.id in EMPTY_CONSTRUCTORS
+                    and not value.args
+                    and not value.keywords
+                )
+            ):
                 is_empty_init = True
             if not is_empty_init:
                 continue
@@ -1290,6 +1334,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             if_stmt = rest[0]
             if not isinstance(if_stmt, ast.If):
                 continue
+
             # Walk every branch arm; ensure it starts with an assignment
             # to var_name or a return, not a read.
             def _branch_overrides(branch: list) -> bool:
@@ -1314,6 +1359,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                             return True  # returned something else, initial was dead
                         return True
                 return False
+
             def _walk_chain(stmt: ast.If) -> bool:
                 if not _branch_overrides(stmt.body):
                     return False
@@ -1327,6 +1373,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                     else:
                         return _branch_overrides(orelse)
                 return False  # no else branch => init might be read on that path
+
             if not _walk_chain(if_stmt):
                 continue
             accept = _accept_reason(lines, first.lineno, rule='dead-local-init')
@@ -1335,13 +1382,14 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 variant=f'`{var_name} = <empty>` at top of {func.name} is unconditionally overridden in all if/elif/else branches',
                 path=rel,
                 line=first.lineno,
-                evidence=(lines[first.lineno - 1].strip()[:200]
-                          if first.lineno <= len(lines) else ''),
+                evidence=(lines[first.lineno - 1].strip()[:200] if first.lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
 
+
 _SUBPROCESS_CALL_RE = re.compile(r'\b(subprocess|sp)\.(run|check_output|check_call|Popen|call)\b')
+
 
 def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions that invoke `subprocess.run` / `subprocess.check_output`
@@ -1357,8 +1405,7 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
         `compute_`, `find_`, `check_`, `parse_`, `is_`, `has_`, `validate_`,
         `count_`). Other names are assumed per-call intentional.
     """
-    PURE_PREFIXES = ('get_', 'resolve_', 'compute_', 'find_', 'check_',
-                     'parse_', 'is_', 'has_', 'validate_', 'count_')
+    PURE_PREFIXES = ('get_', 'resolve_', 'compute_', 'find_', 'check_', 'parse_', 'is_', 'has_', 'validate_', 'count_')
     CACHE_DECORATORS = {'cache', 'lru_cache', 'cached', 'functools.cache', 'functools.lru_cache'}
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -1402,8 +1449,7 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
                 variant=f'{node.name} shells out via subprocess without @functools.cache',
                 path=rel,
                 line=hit_line,
-                evidence=(lines[hit_line - 1].strip()[:200]
-                          if hit_line <= len(lines) else ''),
+                evidence=(lines[hit_line - 1].strip()[:200] if hit_line <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )

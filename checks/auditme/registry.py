@@ -1,16 +1,12 @@
 """The check registry: every check, in the order the sweep runs them."""
 
-from auditme.rules.imports_and_surfaces import (
-    check_annotated_all_assignment,
-    check_as_import,
-    check_def_class_in_init,
-    check_empty_init_with_exporting_siblings,
-    check_in_function_imports,
-    check_layering_violations,
-    check_migration_shim_consumers,
-    check_passthrough_shim,
-    check_reexport_in_non_init,
-    check_unused_submodule_imports,
+from auditme.rules.duplication import (
+    check_duplicate_call_sequence,
+    check_duplicate_side_effect_per_target,
+    check_literal_duplication,
+    check_paired_sibling_helpers,
+    check_recompile_duplication,
+    check_redundant_sink_caller_plus_callee,
 )
 from auditme.rules.error_handling import (
     check_asymmetric_exception_translation,
@@ -33,6 +29,24 @@ from auditme.rules.error_handling import (
     check_translator_envelope_gap,
     check_try_wrapping_with_too_broad,
 )
+from auditme.rules.imports_and_surfaces import (
+    check_annotated_all_assignment,
+    check_as_import,
+    check_def_class_in_init,
+    check_empty_init_with_exporting_siblings,
+    check_in_function_imports,
+    check_layering_violations,
+    check_migration_shim_consumers,
+    check_passthrough_shim,
+    check_reexport_in_non_init,
+    check_unused_submodule_imports,
+)
+from auditme.rules.project_hygiene import (
+    check_lockfile,
+    check_phase_section_doc_reference,
+    check_ruff,
+    check_spec_api_signature_drift,
+)
 from auditme.rules.state_and_effects import (
     check_assert_never_missing,
     check_build_name_has_side_effect,
@@ -49,14 +63,6 @@ from auditme.rules.state_and_effects import (
     check_silent_self_mutation,
     check_subprocess_without_memoisation,
 )
-from auditme.rules.duplication import (
-    check_duplicate_call_sequence,
-    check_duplicate_side_effect_per_target,
-    check_literal_duplication,
-    check_paired_sibling_helpers,
-    check_recompile_duplication,
-    check_redundant_sink_caller_plus_callee,
-)
 from auditme.rules.style_and_naming import (
     check_bare_nonbuiltin_generic_annotation,
     check_bare_parametric_annotation,
@@ -69,13 +75,6 @@ from auditme.rules.style_and_naming import (
     check_underscore_forloop_target_read,
     check_underscore_unpack_target_read,
 )
-from auditme.rules.project_hygiene import (
-    check_lockfile,
-    check_phase_section_doc_reference,
-    check_ruff,
-    check_spec_api_signature_drift,
-)
-
 
 CHECKS = (
     check_ruff,

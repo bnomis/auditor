@@ -1,6 +1,5 @@
 """Checks on exception handling, error translation and failure reporting."""
 
-from __future__ import annotations
 import ast
 import pathlib
 import re
@@ -47,6 +46,7 @@ def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> No
                 accepted_reason=accept,
             )
 
+
 def _stmt_end_by_lineno(tree: ast.AST) -> dict[int, int]:
     """Map each source line to the max end_lineno of any statement enclosing it."""
     mapping: dict[int, int] = {}
@@ -56,6 +56,7 @@ def _stmt_end_by_lineno(tree: ast.AST) -> dict[int, int]:
                 if mapping.get(ln, 0) < node.end_lineno:
                     mapping[ln] = node.end_lineno
     return mapping
+
 
 def _is_categorical_class_name_expr(expr_src: str, bound: str) -> bool:
     """Return True when expr_src is a categorical class-name access on the
@@ -70,6 +71,7 @@ def _is_categorical_class_name_expr(expr_src: str, bound: str) -> bool:
     patterns = [rf'^type\(\s*{bound_re}\s*\)\.{attr}$' for attr in safe_attrs]
     patterns += [rf'^{bound_re}\.__class__\.{attr}$' for attr in safe_attrs]
     return any(re.match(p, expr_src.strip()) for p in patterns)
+
 
 def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag f-string or logger-positional interpolation of a caught
@@ -151,6 +153,7 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                                     accepted_reason=accept,
                                 )
 
+
 def check_broad_except_wrong_level(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `except (Exception|BaseException):` blocks whose body calls
     logger.warning / logger.error / logger.debug / logger.info instead of
@@ -190,6 +193,7 @@ def check_broad_except_wrong_level(scope: pathlib.Path, src_root: pathlib.Path) 
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
 
 def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag methods/functions that raise two or more different exception
@@ -245,6 +249,7 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
                 accepted_reason=accept,
             )
 
+
 def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Detect functions F such that:
       - F is a module-level (or public-looking) function that itself does
@@ -266,7 +271,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         rel = _relpath(path, scope)
         rel_parts = path.relative_to(src_root).parts
@@ -290,7 +295,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         rel = _relpath(path, scope)
         # Track which nodes are inside a try block
@@ -367,6 +372,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
             accepted_reason=accept,
         )
 
+
 def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Detect project error classes that sit side-by-side in a `*/errors.py`
     module but have different base classes (one subclasses ProjectError,
@@ -436,7 +442,7 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
         for src in _all_py_files(src_root):
             try:
                 other_tree = ast.parse(src.read_text(encoding='utf-8'))
-            except (SyntaxError, UnicodeDecodeError):
+            except SyntaxError, UnicodeDecodeError:
                 continue
             for sub in ast.walk(other_tree):
                 if not isinstance(sub, ast.ExceptHandler):
@@ -468,6 +474,7 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
             accepted=bool(accept),
             accepted_reason=accept,
         )
+
 
 def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag CLI entry-point functions (top-level functions in `cli/*.py`
@@ -524,7 +531,7 @@ def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathli
                     ann_src = ast.unparse(arg.annotation)
                 except Exception:
                     continue
-                if re.search(r"\.[A-Z]\w+['\"]?$", ann_src.strip("'\"")):
+                if re.search(r"\.[A-Z]\w+['\"]?$", ann_src.strip('\'"')):
                     has_cappa_param = True
                     break
             if not (returns_int or has_cappa_param):
@@ -555,6 +562,7 @@ def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathli
             accepted=bool(accept),
             accepted_reason=accept,
         )
+
 
 def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `try: with X(): body...` patterns where the except handler
@@ -618,11 +626,10 @@ def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Pat
                             handler_callees.add(short)
                 # Overlap of non-trivial callees
                 overlap = {
-                    c for c in with_body_callees & handler_callees
+                    c
+                    for c in with_body_callees & handler_callees
                     # Skip logger/print/etc. noise
-                    if c not in {'warning', 'info', 'error', 'exception',
-                                 'debug', 'print', 'format', 'str', 'repr',
-                                 'len'}
+                    if c not in {'warning', 'info', 'error', 'exception', 'debug', 'print', 'format', 'str', 'repr', 'len'}
                     # Skip class / exception constructors (CamelCase) -
                     # they are error construction, not "work".
                     and not (c[:1].isupper() if c else True)
@@ -635,11 +642,11 @@ def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Pat
                     variant=f'except handler re-invokes {sorted(overlap)!r} from the wrapped `with` body',
                     path=rel,
                     line=handler.lineno,
-                    evidence=(lines[handler.lineno - 1].strip()[:200]
-                              if handler.lineno <= len(lines) else ''),
+                    evidence=(lines[handler.lineno - 1].strip()[:200] if handler.lineno <= len(lines) else ''),
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
+
 
 def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag modules that raise stdlib exceptions (ValueError, RuntimeError,
@@ -671,7 +678,7 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
             continue
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in tree.body:
             if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
@@ -722,11 +729,11 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
                 variant=f'{pkg[-1] if pkg else "(root)"} package defines *Error classes but this module raises {exc_name}',
                 path=rel,
                 line=node.lineno,
-                evidence=(lines[node.lineno - 1].strip()[:200]
-                          if node.lineno <= len(lines) else ''),
+                evidence=(lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
 
 def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag helper functions F that raise a domain error E, where two or
@@ -751,7 +758,7 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         rel = _relpath(path, scope)
         rel_parts = path.relative_to(src_root).parts
@@ -792,7 +799,7 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.Try):
@@ -872,30 +879,59 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
                 accepted_reason=accept,
             )
 
+
 # Callees that indicate the wrapped try-block touches local filesystem
 # cache / does writing I/O. Catching only library-specific exceptions
 # (MlflowException, BotoException, etc.) without also catching OSError
 # leaks disk failures to callers.
 _FILESYSTEM_TOUCHING_CALLS = {
     # Third-party helpers that cache to disk / upload / download
-    'download_artifacts', 'download_file', 'download', 'save_model',
-    'log_artifact', 'log_artifacts', 'log_model', 'from_pretrained',
-    'save_pretrained', 'push_to_hub', 'snapshot_download',
-    'upload_file', 'upload_artifacts',
+    'download_artifacts',
+    'download_file',
+    'download',
+    'save_model',
+    'log_artifact',
+    'log_artifacts',
+    'log_model',
+    'from_pretrained',
+    'save_pretrained',
+    'push_to_hub',
+    'snapshot_download',
+    'upload_file',
+    'upload_artifacts',
     # Pathlib / open / stdlib filesystem primitives used directly.
     # `replace`, `rename`, `copy`, `remove` are intentionally omitted -
     # `str.replace`, `dataclasses.replace`, `list.copy`, `dict.copy`,
     # `list.remove` are overwhelmingly common; the false-positive rate
     # on their bare names dominates.
-    'write_text', 'write_bytes', 'read_text', 'read_bytes',
-    'mkdir', 'unlink', 'rmdir', 'touch', 'rmtree', 'makedirs',
-    'symlink_to', 'copytree',
+    'write_text',
+    'write_bytes',
+    'read_text',
+    'read_bytes',
+    'mkdir',
+    'unlink',
+    'rmdir',
+    'touch',
+    'rmtree',
+    'makedirs',
+    'symlink_to',
+    'copytree',
     # Common library read entry points that open the file under the hood
-    'read_csv', 'read_json', 'read_parquet', 'read_table',
-    'read_excel', 'read_pickle', 'read_feather', 'read_hdf',
-    'read_sql', 'read_sql_query', 'read_sql_table',
-    'from_csv', 'from_json',
+    'read_csv',
+    'read_json',
+    'read_parquet',
+    'read_table',
+    'read_excel',
+    'read_pickle',
+    'read_feather',
+    'read_hdf',
+    'read_sql',
+    'read_sql_query',
+    'read_sql_table',
+    'from_csv',
+    'from_json',
 }
+
 
 def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `try` blocks that call a filesystem-touching third-party
@@ -948,8 +984,7 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 except Exception:
                     continue
                 names = set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', type_src))
-                if {'OSError', 'Exception', 'BaseException', 'IOError',
-                    'PermissionError', 'FileNotFoundError'} & names:
+                if {'OSError', 'Exception', 'BaseException', 'IOError', 'PermissionError', 'FileNotFoundError'} & names:
                     covers_os = True
                     break
             if covers_os:
@@ -974,11 +1009,11 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 variant=f'try block touches filesystem (download/from_pretrained/etc.) but except tuple {caught!r} omits OSError',
                 path=rel,
                 line=lineno,
-                evidence=(lines[lineno - 1].strip()[:200]
-                          if lineno <= len(lines) else ''),
+                evidence=(lines[lineno - 1].strip()[:200] if lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
 
 def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag public entry-point functions that perform filesystem writes
@@ -1013,10 +1048,18 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
     # predicate-extension decision: packages with a domain *Error must
     # envelope read-path IO too, not only writes.
     STDLIB_WRITE_CALLS = {
-        'write_text', 'write_bytes', 'mkdir', 'unlink', 'rmdir',
-        'touch', 'rmtree', 'makedirs',
-        'symlink_to', 'copytree',
-        'read_text', 'read_bytes',
+        'write_text',
+        'write_bytes',
+        'mkdir',
+        'unlink',
+        'rmdir',
+        'touch',
+        'rmtree',
+        'makedirs',
+        'symlink_to',
+        'copytree',
+        'read_text',
+        'read_bytes',
         'from_pretrained',
     }
     # First pass: find every package with a domain error class
@@ -1026,7 +1069,7 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
             continue
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in tree.body:
             if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
@@ -1047,7 +1090,7 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
             continue
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in tree.body:
             if isinstance(node, ast.Assign):
@@ -1111,15 +1154,16 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
                     variant=f'{func.name} calls `{short}` with no surrounding try/except in the function body',
                     path=rel,
                     line=inner.lineno,
-                    evidence=(lines[inner.lineno - 1].strip()[:200]
-                              if inner.lineno <= len(lines) else ''),
+                    evidence=(lines[inner.lineno - 1].strip()[:200] if inner.lineno <= len(lines) else ''),
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
                 break  # one finding per function
 
+
 def check_logger_exception_graceful_degradation(
-    scope: pathlib.Path, src_root: pathlib.Path,
+    scope: pathlib.Path,
+    src_root: pathlib.Path,
 ) -> None:
     """Flag `except` handlers that call `logger.exception(...)` and then
     `return <constant>` without raising. `logger.exception` is reserved
@@ -1138,6 +1182,7 @@ def check_logger_exception_graceful_degradation(
         points return `int` exit codes and `logger.exception + return 2`
         is the canonical CLI error-contract, not graceful degradation.
     """
+
     # Build a map of lineno -> enclosing FunctionDef return annotation.
     def _enclosing_return_annotation(tree: ast.AST, lineno: int) -> str | None:
         best: tuple[int, str | None] | None = None
@@ -1203,8 +1248,7 @@ def check_logger_exception_graceful_degradation(
                     if not (start <= node.lineno <= end):
                         continue
                     last_stmt = fn.body[-1] if fn.body else None
-                    if (isinstance(last_stmt, ast.Return)
-                            and isinstance(last_stmt.value, ast.Constant)):
+                    if isinstance(last_stmt, ast.Return) and isinstance(last_stmt.value, ast.Constant):
                         fallthrough_return = last_stmt
                     break
             default_return = handler_last_return or fallthrough_return
@@ -1218,15 +1262,14 @@ def check_logger_exception_graceful_degradation(
             accept = _accept_reason(lines, lineno, rule='logger-exception-graceful-degradation')
             _emit(
                 rule='logger-exception-graceful-degradation',
-                variant=('except handler calls logger.exception then returns a '
-                         'constant default; use logger.warning or logger.debug instead'),
+                variant=('except handler calls logger.exception then returns a constant default; use logger.warning or logger.debug instead'),
                 path=rel,
                 line=lineno,
-                evidence=(lines[lineno - 1].strip()[:200]
-                          if lineno <= len(lines) else ''),
+                evidence=(lines[lineno - 1].strip()[:200] if lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
 
 def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions whose docstring declares `Raises: <X>` (or a
@@ -1244,7 +1287,8 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
     # Match exception class names from docstrings in a few common shapes
     docstring_class_re = re.compile(
         r'(?:Raises[\s:]+|:raises\s+|^\s*Raises?\s+)'
-        r'([A-Za-z_][\w.]*Error)', re.MULTILINE
+        r'([A-Za-z_][\w.]*Error)',
+        re.MULTILINE,
     )
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -1292,6 +1336,7 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
                 accepted_reason=accept,
             )
 
+
 def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions whose body raises a project exception but whose
     docstring lacks any `Raises:` / `:raises:` section.
@@ -1315,20 +1360,57 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
         re.MULTILINE,
     )
     STDLIB_ERRORS = {
-        'ValueError', 'TypeError', 'RuntimeError', 'KeyError', 'IndexError',
-        'AttributeError', 'NotImplementedError', 'OSError', 'FileNotFoundError',
-        'PermissionError', 'IsADirectoryError', 'UnicodeDecodeError',
-        'UnicodeEncodeError', 'ArithmeticError', 'ZeroDivisionError',
-        'StopIteration', 'StopAsyncIteration', 'AssertionError', 'LookupError',
-        'MemoryError', 'OverflowError', 'ReferenceError', 'SystemError',
-        'BufferError', 'ImportError', 'ModuleNotFoundError', 'NameError',
-        'UnboundLocalError', 'IndentationError', 'SyntaxError', 'TabError',
-        'EOFError', 'FloatingPointError', 'GeneratorExit', 'KeyboardInterrupt',
-        'RecursionError', 'SystemExit', 'TimeoutError', 'ConnectionError',
-        'ConnectionAbortedError', 'ConnectionRefusedError', 'ConnectionResetError',
-        'BrokenPipeError', 'ChildProcessError', 'BlockingIOError', 'InterruptedError',
-        'ProcessLookupError', 'NotADirectoryError', 'FileExistsError',
-        'Exception', 'BaseException',
+        'ValueError',
+        'TypeError',
+        'RuntimeError',
+        'KeyError',
+        'IndexError',
+        'AttributeError',
+        'NotImplementedError',
+        'OSError',
+        'FileNotFoundError',
+        'PermissionError',
+        'IsADirectoryError',
+        'UnicodeDecodeError',
+        'UnicodeEncodeError',
+        'ArithmeticError',
+        'ZeroDivisionError',
+        'StopIteration',
+        'StopAsyncIteration',
+        'AssertionError',
+        'LookupError',
+        'MemoryError',
+        'OverflowError',
+        'ReferenceError',
+        'SystemError',
+        'BufferError',
+        'ImportError',
+        'ModuleNotFoundError',
+        'NameError',
+        'UnboundLocalError',
+        'IndentationError',
+        'SyntaxError',
+        'TabError',
+        'EOFError',
+        'FloatingPointError',
+        'GeneratorExit',
+        'KeyboardInterrupt',
+        'RecursionError',
+        'SystemExit',
+        'TimeoutError',
+        'ConnectionError',
+        'ConnectionAbortedError',
+        'ConnectionRefusedError',
+        'ConnectionResetError',
+        'BrokenPipeError',
+        'ChildProcessError',
+        'BlockingIOError',
+        'InterruptedError',
+        'ProcessLookupError',
+        'NotADirectoryError',
+        'FileExistsError',
+        'Exception',
+        'BaseException',
     }
     for path in _all_py_files(src_root):
         if path.name == '__init__.py' or path.name == 'errors.py':
@@ -1378,11 +1460,11 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
                 variant=f'{node.name} raises a project *Error but docstring lacks a Raises: section',
                 path=rel,
                 line=node.lineno,
-                evidence=(lines[node.lineno - 1].strip()[:200]
-                          if node.lineno <= len(lines) else ''),
+                evidence=(lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
 
 def check_bare_except_in_module_with_narrow_errors(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag modules that inconsistently mix `except Exception` / `except
@@ -1437,11 +1519,11 @@ def check_bare_except_in_module_with_narrow_errors(scope: pathlib.Path, src_root
                 variant='bare except Exception in module that elsewhere uses *_ERRORS tuple',
                 path=rel,
                 line=handler.lineno,
-                evidence=(lines[handler.lineno - 1].strip()[:200]
-                          if handler.lineno <= len(lines) else ''),
+                evidence=(lines[handler.lineno - 1].strip()[:200] if handler.lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
 
 # Directories whose modules adapt an external service. AGENTS.md's
 # failure-versus-absence rule is written for "a source or resolver"; LLM
@@ -1460,6 +1542,7 @@ _LOGGING_CALL_RE = re.compile(r'^(logger|logging|log)\b|\.(debug|info|warning|er
 
 _STATUS_TEST_RE = re.compile(r'\b(status|status_code|statuscode)\b')
 
+
 def _walk_within_scope(node: ast.AST) -> Iterable[ast.AST]:
     """Yield descendants of node without entering a nested function or class.
 
@@ -1473,6 +1556,7 @@ def _walk_within_scope(node: ast.AST) -> Iterable[ast.AST]:
         if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             continue
         stack.extend(ast.iter_child_nodes(current))
+
 
 def _clean_absence_return(node: ast.Return) -> str | None:
     """Label this return if it signals 'nothing here', else None.
@@ -1488,11 +1572,10 @@ def _clean_absence_return(node: ast.Return) -> str | None:
         return 'return []'
     if isinstance(value, ast.Dict) and not value.keys:
         return 'return {}'
-    if isinstance(value, ast.Tuple) and value.elts and all(
-        isinstance(e, ast.Constant) and e.value is None for e in value.elts
-    ):
+    if isinstance(value, ast.Tuple) and value.elts and all(isinstance(e, ast.Constant) and e.value is None for e in value.elts):
         return f'return ({", ".join(["None"] * len(value.elts))})'
     return None
+
 
 def _records_visible_failure(stmts: list[ast.stmt]) -> bool:
     """True when these statements raise, or set something the caller reads.
@@ -1519,6 +1602,7 @@ def _records_visible_failure(stmts: list[ast.stmt]) -> bool:
                     return True
     return False
 
+
 def _status_failure_branch(node: ast.If) -> list[ast.stmt] | None:
     """Return whichever branch of an HTTP-status test runs on a non-200."""
     test = node.test
@@ -1532,6 +1616,7 @@ def _status_failure_branch(node: ast.If) -> list[ast.stmt] | None:
     if isinstance(op, (ast.Eq, ast.In)):
         return node.orelse or None
     return None
+
 
 def check_failure_as_absence(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag a clean-absence return reached from a caught exception or a non-200.
@@ -1598,6 +1683,7 @@ def check_failure_as_absence(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     accepted_reason=accept,
                 )
 
+
 def _empty_container_default(node: ast.Call) -> str | None:
     """Label the empty-container default of a two-argument `.get` call.
 
@@ -1618,6 +1704,7 @@ def _empty_container_default(node: ast.Call) -> str | None:
         return '()'
     return None
 
+
 def _name_scopes(tree: ast.AST) -> Iterable[ast.AST]:
     """The module and every function and class body, searched separately.
 
@@ -1629,6 +1716,7 @@ def _name_scopes(tree: ast.AST) -> Iterable[ast.AST]:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             yield node
+
 
 def _name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
     """True when the scope tests `name` for truth, for None, or for its type.
@@ -1648,9 +1736,7 @@ def _name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
             if node.args and isinstance(node.args[0], ast.Name) and node.args[0].id == name:
                 return True
         if isinstance(node, ast.Compare) and isinstance(node.left, ast.Name) and node.left.id == name:
-            if any(isinstance(op, (ast.Is, ast.IsNot)) for op in node.ops) and any(
-                isinstance(c, ast.Constant) and c.value is None for c in node.comparators
-            ):
+            if any(isinstance(op, (ast.Is, ast.IsNot)) for op in node.ops) and any(isinstance(c, ast.Constant) and c.value is None for c in node.comparators):
                 return True
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
             if isinstance(node.operand, ast.Name) and node.operand.id == name:
@@ -1662,6 +1748,7 @@ def _name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
             if any(isinstance(v, ast.Name) and v.id == name for v in node.values):
                 return True
     return False
+
 
 def _none_hostile_use(scope_node: ast.AST, name: str, assign: ast.Assign) -> str | None:
     """Label the first use of `name` in this scope that a None would break.
@@ -1687,6 +1774,7 @@ def _none_hostile_use(scope_node: ast.AST, name: str, assign: ast.Assign) -> str
             if isinstance(node.iter, ast.Name) and node.iter.id == name:
                 return f'iteration over {name}'
     return None
+
 
 def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `x = d.get(k, {})` whose result is later a method-call receiver.
@@ -1748,15 +1836,22 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
                     accepted_reason=accept,
                 )
 
+
 # Anything that also satisfies a narrower requirement, whatever the body does.
 _UNIVERSAL_CATCHES = frozenset({'*bare*', 'BaseException', 'Exception'})
 
 # `OSError`'s subclasses are accepted as satisfying the disk branch, matching
 # `check_filesystem_envelope_gap`. Neither check tries to prove that the
 # subclass named is the one the body can raise; that is Phase B's job.
-_OSERROR_SATISFIERS = frozenset({
-    'FileNotFoundError', 'IOError', 'IsADirectoryError', 'OSError', 'PermissionError',
-})
+_OSERROR_SATISFIERS = frozenset(
+    {
+        'FileNotFoundError',
+        'IOError',
+        'IsADirectoryError',
+        'OSError',
+        'PermissionError',
+    }
+)
 
 # Calls that read a file as text, and so can raise `UnicodeDecodeError` on
 # bytes the declared encoding cannot decode. `.decode()` is deliberately not a
@@ -1780,6 +1875,7 @@ def _handler_catches(handler: ast.ExceptHandler) -> set[str]:
     except Exception:
         return set()
 
+
 def _handler_translates(handler: ast.ExceptHandler) -> bool:
     """True when this handler raises something whose name ends in `Error`.
 
@@ -1800,6 +1896,7 @@ def _handler_translates(handler: ast.ExceptHandler) -> bool:
             continue
     return False
 
+
 def _translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
     """Map every error-translating function's name to what its handlers catch.
 
@@ -1816,7 +1913,7 @@ def _translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1832,6 +1929,7 @@ def _translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
                 envelopes[node.name] |= caught
     return {name: frozenset(caught) for name, caught in envelopes.items()}
 
+
 def _callable_short_name(expr: ast.expr) -> str | None:
     """The bare name a decorator or `with` item invokes.
 
@@ -1844,6 +1942,7 @@ def _callable_short_name(expr: ast.expr) -> str | None:
     if isinstance(node, ast.Attribute):
         return node.attr
     return None
+
 
 def _guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterable[ast.AST]:
     """Every node in the function's own body - not its signature or decorators.
@@ -1858,6 +1957,7 @@ def _guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterabl
             continue
         yield stmt
         yield from _walk_within_scope(stmt)
+
 
 def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
     """The locked-set branches this call triggers, as (required, satisfied-by).
@@ -1887,6 +1987,7 @@ def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
     if short in _FILESYSTEM_TOUCHING_CALLS:
         branches.append(('OSError', _OSERROR_SATISFIERS))
     return branches
+
 
 def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag a body whose only error envelope is a translating decorator or
@@ -1999,12 +2100,12 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             accept = _accept_reason(lines, lineno, rule='translator-envelope-gap')
             _emit(
                 rule='translator-envelope-gap',
-                variant=(f'{func.name} calls `{callee}` under {", ".join(site_sources)}, '
-                         f'whose except tuple {sorted(site_caught - {"*bare*"})!r} omits {missing!r}'),
+                variant=(
+                    f'{func.name} calls `{callee}` under {", ".join(site_sources)}, whose except tuple {sorted(site_caught - {"*bare*"})!r} omits {missing!r}'
+                ),
                 path=rel,
                 line=lineno,
-                evidence=(lines[lineno - 1].strip()[:200]
-                          if lineno <= len(lines) else callee),
+                evidence=(lines[lineno - 1].strip()[:200] if lineno <= len(lines) else callee),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )

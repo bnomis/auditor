@@ -1,12 +1,10 @@
 """Shared helpers every check uses."""
 
-from __future__ import annotations
 import ast
 import collections.abc
 import json
 import pathlib
 import re
-
 
 # An accept marker may name the single rule it answers for:
 #     # auditme: accept[failure-as-absence] the caller reads batch.error
@@ -25,6 +23,7 @@ ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*
 # record, so two genuinely different hits can never collide here.
 _EMITTED: set[str] = set()
 
+
 def _emit(**kwargs) -> None:
     line = json.dumps(kwargs, sort_keys=True)
     if line in _EMITTED:
@@ -32,11 +31,13 @@ def _emit(**kwargs) -> None:
     _EMITTED.add(line)
     print(line)
 
+
 def _source_lines(path: pathlib.Path) -> list[str]:
     try:
         return path.read_text(encoding='utf-8').splitlines()
     except UnicodeDecodeError:
         return []
+
 
 def _accept_reason(
     lines: list[str],
@@ -70,6 +71,7 @@ def _accept_reason(
             return reason.strip() or 'no reason given'
     return None
 
+
 def _type_checking_linenos(tree: ast.AST) -> set[int]:
     """Return line numbers inside any `if TYPE_CHECKING:` block."""
     result: set[int] = set()
@@ -82,11 +84,14 @@ def _type_checking_linenos(tree: ast.AST) -> set[int]:
                         result.add(child.lineno)
     return result
 
+
 def _all_py_files(src_root: pathlib.Path) -> list[pathlib.Path]:
     return sorted(p for p in src_root.rglob('*.py'))
 
+
 def _relpath(p: pathlib.Path, root: pathlib.Path) -> str:
     return str(p.relative_to(root))
+
 
 def _accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     agents = scope / 'AGENTS.md'
@@ -107,6 +112,7 @@ def _accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
                 pairs.add((a, b))
     return pairs
 
+
 _LITERAL_DISPATCH_TYPE_NAMES = frozenset({'str'})  # extensible via helper below
 
 
@@ -123,6 +129,7 @@ _LITERAL_DISPATCH_TYPE_NAMES = frozenset({'str'})  # extensible via helper below
 # than mutated, so a check cannot change what a later check sees.
 EXTRA_ROOT_NAMES: tuple[str, ...] = ('bin',)
 
+
 def _packages_under(src: pathlib.Path) -> list[pathlib.Path]:
     """Every package directory directly under `src/`, sorted.
 
@@ -137,12 +144,9 @@ def _packages_under(src: pathlib.Path) -> list[pathlib.Path]:
     return sorted(
         p
         for p in src.iterdir()
-        if p.is_dir()
-        and not p.name.startswith('.')
-        and p.name != '__pycache__'
-        and not p.name.endswith(('.egg-info', '.dist-info'))
-        and any(p.rglob('*.py'))
+        if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__' and not p.name.endswith(('.egg-info', '.dist-info')) and any(p.rglob('*.py'))
     )
+
 
 def _extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | None = None) -> list[pathlib.Path]:
     """Every auditable root outside `src/`, in the order `names` gives them.
@@ -157,11 +161,12 @@ def _extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | Non
     silently empty pass here.
     """
     roots: list[pathlib.Path] = []
-    for name in (EXTRA_ROOT_NAMES if names is None else names):
+    for name in EXTRA_ROOT_NAMES if names is None else names:
         root = scope / name
         if root.is_dir() and any(root.rglob('*.py')):
             roots.append(root)
     return roots
+
 
 def _audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
     """Every root the sweep passes over: the packages under `src/`, then the extras.

@@ -1,6 +1,5 @@
 """Checks that compare code across files for repeated structure."""
 
-from __future__ import annotations
 import ast
 import pathlib
 import re
@@ -15,7 +14,7 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
         rel = _relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         # Find frozenset(...) / set(...) call nodes so we can skip their inner ast.Set/Tuple child
         skip_inner_nodes: set[int] = set()
@@ -73,13 +72,14 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
                 accepted_reason=accept,
             )
 
+
 def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     bodies: dict[str, list[tuple[str, int, str]]] = defaultdict(list)
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in tree.body:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -112,6 +112,7 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
                 accepted_reason=accept,
             )
 
+
 def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag when two or more methods on the same class call the same
     sink function with an argument pointing to the same attribute target.
@@ -131,9 +132,22 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
     versions.
     """
     MUTATING_METHOD_NAMES = {
-        'set', 'reset', 'clear', 'update', 'mutate', 'merge', 'replace',
-        'apply', 'patch', 'override', 'flush', 'write', 'persist', 'save',
-        'emit', 'dump',
+        'set',
+        'reset',
+        'clear',
+        'update',
+        'mutate',
+        'merge',
+        'replace',
+        'apply',
+        'patch',
+        'override',
+        'flush',
+        'write',
+        'persist',
+        'save',
+        'emit',
+        'dump',
     }
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -195,8 +209,7 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 # or when the arg set suggests a shared target
                 callee_tail = callee.rsplit('.', 1)[-1].lower()
                 looks_like_sink = any(
-                    tok in callee_tail
-                    for tok in ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
+                    tok in callee_tail for tok in ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
                 )
                 target_is_path_or_dir = any('dir' in a.lower() or 'path' in a.lower() or 'file' in a.lower() for a in self_args)
                 if not (looks_like_sink or target_is_path_or_dir):
@@ -212,6 +225,7 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
+
 
 def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions that call a sink S directly, and then call a helper
@@ -237,8 +251,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
         `register`).
     """
     package_root_name = src_root.name
-    SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump',
-                   'log', 'publish', 'upload', 'register')
+    SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
 
     def _arg_signature(call: ast.Call) -> tuple[tuple[str, ...], tuple[str, ...]]:
         """Normalise a call's arguments into (positional_tails, kwargs).
@@ -285,7 +298,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         rel_parts = path.relative_to(src_root).parts
         if rel_parts[-1] == '__init__.py':
@@ -322,7 +335,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         rel = _relpath(path, scope)
         lines = _source_lines(path)
@@ -376,8 +389,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                                 variant=f'{node.name} calls {sink_callee}(...) then {helper_callee} which re-calls {inner_callee} with the same args',
                                 path=rel,
                                 line=sink_line,
-                                evidence=(f'direct {sink_callee}{sink_sig[0]} at line {sink_line}; '
-                                          f'helper {helper_callee} at line {helper_line} -> {full}'),
+                                evidence=(f'direct {sink_callee}{sink_sig[0]} at line {sink_line}; helper {helper_callee} at line {helper_line} -> {full}'),
                                 accepted=bool(accept),
                                 accepted_reason=accept,
                             )
@@ -389,21 +401,68 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                     if found_redundant:
                         break
 
+
 # Calls that say nothing about a function's architecture: builtins, string
 # and container methods, filesystem operations, and the connection plumbing
 # every database test performs. A sequence made mostly of these describes the
 # framework being used, not the shape of the code, so counting them makes two
 # unrelated tests that both open a connection look like copies.
-_TRIVIAL_CALLS = frozenset({
-    'append', 'as_posix', 'commit', 'connect', 'copy', 'close', 'cursor',
-    'debug', 'deepcopy', 'dumps', 'endswith', 'error', 'exception', 'execute',
-    'executemany', 'exists', 'extend', 'fetchall', 'fetchmany', 'fetchone',
-    'flush', 'format', 'get', 'info', 'is_dir', 'is_file', 'items', 'join',
-    'keys', 'loads', 'lower', 'mkdir', 'open', 'pop', 'read', 'read_bytes',
-    'read_text', 'replace', 'resolve', 'rollback', 'seek', 'set', 'split',
-    'startswith', 'strip', 'update', 'upper', 'values', 'warning', 'write',
-    'write_bytes', 'write_text',
-})
+_TRIVIAL_CALLS = frozenset(
+    {
+        'append',
+        'as_posix',
+        'commit',
+        'connect',
+        'copy',
+        'close',
+        'cursor',
+        'debug',
+        'deepcopy',
+        'dumps',
+        'endswith',
+        'error',
+        'exception',
+        'execute',
+        'executemany',
+        'exists',
+        'extend',
+        'fetchall',
+        'fetchmany',
+        'fetchone',
+        'flush',
+        'format',
+        'get',
+        'info',
+        'is_dir',
+        'is_file',
+        'items',
+        'join',
+        'keys',
+        'loads',
+        'lower',
+        'mkdir',
+        'open',
+        'pop',
+        'read',
+        'read_bytes',
+        'read_text',
+        'replace',
+        'resolve',
+        'rollback',
+        'seek',
+        'set',
+        'split',
+        'startswith',
+        'strip',
+        'update',
+        'upper',
+        'values',
+        'warning',
+        'write',
+        'write_bytes',
+        'write_text',
+    }
+)
 
 
 def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -427,7 +486,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         rel = _relpath(path, scope)
         for node in ast.walk(tree):
@@ -508,7 +567,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
 
     # Count how many distinct functions each call-name appears in
     call_fanout: dict[str, int] = defaultdict(int)
-    for (_, _, _, seq) in signatures:
+    for _, _, _, seq in signatures:
         for c in set(seq):
             call_fanout[c] += 1
     # Calls that appear in >30% of all functions are too generic to count
@@ -518,7 +577,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
 
     reported: set[tuple[str, str]] = set()
     for i, (rel_a, line_a, fname_a, seq_a) in enumerate(signatures):
-        for (rel_b, line_b, fname_b, seq_b) in signatures[i + 1:]:
+        for rel_b, line_b, fname_b, seq_b in signatures[i + 1 :]:
             if (rel_a, fname_a) == (rel_b, fname_b):
                 continue
             # Skip intra-file pairs: within-file duplication is usually a
@@ -568,6 +627,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
                 accepted_reason=accept,
             )
 
+
 def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag module-level constants assigned from `re.compile(...)` when
     the same CONSTANT NAME is also assigned from `re.compile(...)` in
@@ -589,7 +649,7 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         for node in tree.body:
             target_name: str | None = None
@@ -630,12 +690,10 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
             other_paths = sorted({_relpath(p, scope) for p, _, _ in locations if p != path})
             _emit(
                 rule='recompile-duplication',
-                variant=(f'constant `{name} = re.compile(...)` also defined in '
-                         f'{other_paths!r}; canonicalise to one home'),
+                variant=(f'constant `{name} = re.compile(...)` also defined in {other_paths!r}; canonicalise to one home'),
                 path=rel,
                 line=lineno,
-                evidence=(lines[lineno - 1].strip()[:200]
-                          if lineno <= len(lines) else ''),
+                evidence=(lines[lineno - 1].strip()[:200] if lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )

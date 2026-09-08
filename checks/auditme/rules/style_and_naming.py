@@ -1,6 +1,5 @@
 """Checks on naming, ordering and annotation style."""
 
-from __future__ import annotations
 import ast
 import pathlib
 import re
@@ -55,7 +54,9 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                     accepted_reason=accept,
                 )
 
+
 _STRFTIME_TOKENS = {'%Y', '%y', '%m', '%d', '%H', '%I', '%M', '%S', '%p', '%A', '%a', '%B', '%b', '%j', '%U', '%W', '%c', '%x', '%X', '%Z', '%z', '%f'}
+
 
 def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `%s`/`%d`/`%r`-style C-printf formatting in Python string literals,
@@ -87,6 +88,7 @@ def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     accepted_reason=accept,
                 )
                 break
+
 
 def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     for path in _all_py_files(src_root):
@@ -131,6 +133,7 @@ def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) 
                 accepted_reason=accept,
             )
 
+
 def check_non_alphabetical_dict_keys(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag module-level dict assignments whose keys are all string
     literals and NOT in alphabetical order. Companion to
@@ -172,6 +175,7 @@ def check_non_alphabetical_dict_keys(scope: pathlib.Path, src_root: pathlib.Path
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
 
 def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag annotations that use `dict`, `list`, `tuple`, `set`, or
@@ -215,8 +219,7 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
                         variant=f'{ctx} uses bare `{node.id}` without element type',
                         path=rel,
                         line=lineno,
-                        evidence=(lines[lineno - 1].strip()[:200]
-                                  if 1 <= lineno <= len(lines) else ''),
+                        evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
                         accepted=bool(accept),
                         accepted_reason=accept,
                     )
@@ -226,6 +229,7 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
                 elif isinstance(node, ast.Tuple):
                     for elt in node.elts:
                         _visit(elt)
+
             _visit(ann)
 
         for node in ast.walk(tree):
@@ -241,6 +245,7 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
                 if isinstance(tgt, ast.Name):
                     ctx = f'{tgt.id}:'
                 _flag_annotation(node.annotation, ctx)
+
 
 def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     dup_re = re.compile(r'\b([a-z]{2,})\s+\1\b', re.IGNORECASE)
@@ -268,6 +273,7 @@ def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 accepted_reason=accept,
             )
 
+
 _PARAMETRIC_NONBUILTIN_GENERICS = {
     'multiprocessing.Queue',
     'multiprocessing.queues.Queue',
@@ -282,6 +288,7 @@ _PARAMETRIC_NONBUILTIN_GENERICS = {
     'weakref.WeakKeyDictionary',
     'weakref.WeakValueDictionary',
 }
+
 
 def check_bare_nonbuiltin_generic_annotation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag annotations that reference a parameterisable non-builtin
@@ -342,8 +349,7 @@ def check_bare_nonbuiltin_generic_annotation(scope: pathlib.Path, src_root: path
                 variant=f'bare `{full}` annotation without type parameter',
                 path=rel,
                 line=lineno,
-                evidence=(lines[lineno - 1].strip()[:200]
-                          if 1 <= lineno <= len(lines) else ''),
+                evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
@@ -358,6 +364,7 @@ def check_bare_nonbuiltin_generic_annotation(scope: pathlib.Path, src_root: path
             elif isinstance(node, ast.AnnAssign) and node.annotation is not None:
                 _flag(node.annotation)
 
+
 def _collect_name_loads(scope: ast.AST) -> dict[str, list[int]]:
     """Return a map of Name.id -> [lineno, ...] for every Load within
     `scope` (not descending into nested function or class definitions)."""
@@ -370,8 +377,10 @@ def _collect_name_loads(scope: ast.AST) -> dict[str, list[int]]:
             if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
                 result[sub.id].append(sub.lineno)
             walk(sub)
+
     walk(scope)
     return result
+
 
 def _leading_underscore_names(target: ast.AST) -> list[tuple[str, int]]:
     """Return `(name, lineno)` for every `_foo` Store-name inside a
@@ -387,8 +396,10 @@ def _leading_underscore_names(target: ast.AST) -> list[tuple[str, int]]:
                 walk(elt)
         elif isinstance(n, ast.Starred):
             walk(n.value)
+
     walk(target)
     return out
+
 
 def check_underscore_unpack_target_read(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag tuple-unpack assignments with a leading-underscore target
@@ -440,11 +451,11 @@ def check_underscore_unpack_target_read(scope: pathlib.Path, src_root: pathlib.P
                             variant=f'`{name}` unpacked but read at line {reads_after[0]}',
                             path=rel,
                             line=lineno,
-                            evidence=(lines[lineno - 1].strip()[:200]
-                                      if 1 <= lineno <= len(lines) else ''),
+                            evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
                             accepted=bool(accept),
                             accepted_reason=accept,
                         )
+
 
 def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `for _x in ...:` (or tuple form `for _x, y in ...:`) where
@@ -486,8 +497,7 @@ def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.
                     variant=f'for-loop target `{name}` read inside body',
                     path=rel,
                     line=lineno,
-                    evidence=(lines[lineno - 1].strip()[:200]
-                              if 1 <= lineno <= len(lines) else ''),
+                    evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
@@ -562,11 +572,7 @@ def check_leading_underscore_nested_def_class(scope: pathlib.Path, src_root: pat
         if not isinstance(tree, ast.Module):
             continue
 
-        module_level_names = {
-            node.name
-            for node in ast.iter_child_nodes(tree)
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        }
+        module_level_names = {node.name for node in ast.iter_child_nodes(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
         for node in ast.iter_child_nodes(tree):
             if isinstance(node, (ast.Assign, ast.AnnAssign)):
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]

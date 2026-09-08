@@ -1,6 +1,5 @@
 """Checks on import graphs and package public surfaces."""
 
-from __future__ import annotations
 import ast
 import pathlib
 import re
@@ -29,10 +28,12 @@ def check_def_class_in_init(scope: pathlib.Path, src_root: pathlib.Path) -> None
                     accepted_reason=accept,
                 )
 
+
 def _walk_function_scopes(tree: ast.AST) -> Iterable[ast.AST]:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             yield node
+
 
 _STDLIB = {
     'abc',
@@ -105,6 +106,7 @@ _STDLIB = {
     'zoneinfo',
 }
 
+
 def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     accepted_pairs = _accepted_lazy_imports(scope)
     for path in _all_py_files(src_root):
@@ -166,6 +168,7 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         accepted_reason=accept,
                     )
 
+
 def check_unused_submodule_imports(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -201,6 +204,7 @@ def check_unused_submodule_imports(scope: pathlib.Path, src_root: pathlib.Path) 
                     accepted_reason=accept,
                 )
 
+
 # A prohibition word, a short gap, then the keyword quoted or backticked:
 # "no `as` imports either", 'Do NOT use "as" imports', "never use `as` imports".
 # Requiring the quoting is what keeps ordinary prose - "no imports as such" -
@@ -212,6 +216,7 @@ _AS_IMPORT_BAN_RE = re.compile(
         \s+imports?\b""",
     re.IGNORECASE | re.VERBOSE,
 )
+
 
 def _project_bans_as_imports(scope: pathlib.Path) -> bool:
     """True when the project's own AGENTS.md declares `import X as Y` banned.
@@ -227,8 +232,9 @@ def _project_bans_as_imports(scope: pathlib.Path) -> bool:
         return False
     try:
         return bool(_AS_IMPORT_BAN_RE.search(agents.read_text(encoding='utf-8')))
-    except (OSError, UnicodeDecodeError):
+    except OSError, UnicodeDecodeError:
         return False
+
 
 def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `import X as Y` / `from M import X as Y` where the project bans it.
@@ -288,6 +294,7 @@ def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                     accepted_reason=accept,
                 )
 
+
 def _parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
     """Parse AGENTS.md's Package Layering section.
 
@@ -337,6 +344,7 @@ def _parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[s
                     accepted.add((a.split('.')[0], b.split('.')[0]))
     return layer_order, accepted
 
+
 def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Walk every import; if it is a first-party import and goes upward
     in the layering chain, flag unless the (importer, imported) pair is
@@ -370,17 +378,15 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
                     continue
                 for alias in node.names:
                     module_name = alias.name
-                    _maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name,
-                                         rank, accepted, package_root_name)
+                    _maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name, rank, accepted, package_root_name)
             elif isinstance(node, ast.ImportFrom) and node.module:
                 if node.lineno in tc_linenos:
                     continue
                 module_name = node.module
-                _maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name,
-                                     rank, accepted, package_root_name)
+                _maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name, rank, accepted, package_root_name)
 
-def _maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name,
-                         rank, accepted, package_root_name):
+
+def _maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name, rank, accepted, package_root_name):
     if not module_name.startswith(package_root_name + '.'):
         return
     parts = module_name.split('.')
@@ -405,6 +411,7 @@ def _maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name,
         accepted=bool(accept),
         accepted_reason=accept,
     )
+
 
 def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag module-level functions whose body is exactly `return f(...)`
@@ -452,6 +459,7 @@ def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 accepted_reason=accept,
             )
 
+
 def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag any subpackage `__init__.py` that exports nothing while at
     least one sibling subpackage exports a non-trivial public surface.
@@ -472,7 +480,7 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
             continue
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         export_count = 0
         for node in tree.body:
@@ -516,6 +524,7 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
             accepted_reason=accept,
         )
 
+
 def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Detect re-export shims (`X = canonical.X` style aliases) and flag
     any consumer that imports via the shim instead of the canonical home.
@@ -534,7 +543,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     for path in _all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         rel = _relpath(path, scope)
         # mod path like 'feathf.models.settings'
@@ -573,7 +582,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
         rel = _relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         # the consumer is itself a module; do not flag the canonical or shim
         rel_parts = path.relative_to(src_root).parts
@@ -626,6 +635,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
                                 accepted_reason=accept,
                             )
 
+
 def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag module-level assignments `X = <dotted.path>.X` in files OTHER
     than `__init__.py`. Re-exports belong in the package's `__init__.py`;
@@ -638,7 +648,7 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
         rel = _relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError, UnicodeDecodeError:
             continue
         lines = _source_lines(path)
         for node in tree.body:
@@ -666,13 +676,14 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 variant=f'`{tgt.id} = {rhs_src}` at module scope in non-__init__.py file',
                 path=rel,
                 line=node.lineno,
-                evidence=(lines[node.lineno - 1].strip()[:200]
-                          if node.lineno <= len(lines) else ''),
+                evidence=(lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''),
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
 
+
 _ALL_GUARD_RE = re.compile(r"""['"]__all__['"]|\.__all__\b""")
+
 
 def _project_has_all_guard(scope: pathlib.Path) -> bool:
     """True when some file in the project inspects other modules' `__all__`.
@@ -688,11 +699,12 @@ def _project_has_all_guard(scope: pathlib.Path) -> bool:
     for path in sorted(src.rglob('*.py')):
         try:
             text = path.read_text(encoding='utf-8')
-        except (OSError, UnicodeDecodeError):
+        except OSError, UnicodeDecodeError:
             continue
         if _ALL_GUARD_RE.search(text):
             return True
     return False
+
 
 def check_annotated_all_assignment(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `__all__: list[str] = [...]` in a project that guards `__all__`.
