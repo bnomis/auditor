@@ -260,7 +260,20 @@ def _source_definitions(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str
 
 
 def _spec_markdown_files(scope: pathlib.Path) -> list[pathlib.Path]:
-    return sorted(path for path in scope.rglob('*.md') if not _SPEC_SKIP_PARTS & set(path.relative_to(scope).parts))
+    """Markdown under scope, minus records and hidden directories.
+
+    A hidden directory is skipped as a whole, not just `.git`/`.venv`: a
+    Claude Code worktree lives at `.claude/worktrees/<name>/`, a full second
+    checkout, and reading its specs reported every drift hit twice - once
+    against a path no commit in this tree can touch.
+    """
+    out = []
+    for path in scope.rglob('*.md'):
+        dirs = path.relative_to(scope).parts[:-1]
+        if _SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs):
+            continue
+        out.append(path)
+    return sorted(out)
 
 
 def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) -> None:

@@ -369,6 +369,23 @@ def test_audit_reviews_and_task_lists_are_not_read(project: Builder, run_check: 
     assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
 
 
+def test_a_spec_inside_a_hidden_directory_is_not_read(project: Builder, run_check: Runner) -> None:
+    """A Claude Code worktree is a second checkout under `.claude/worktrees/`.
+    Its specs belong to another branch, so reading them doubled every hit."""
+    stale = """
+    ## API
+
+    ```python
+    def extract_directory(settings) -> ExtractBatch:
+    ```
+    """
+    root = project({
+        '.claude/worktrees/wt/agents/specs/probe/spec.md': stale,
+        'src/probe/mod.py': 'def extract_directory(settings, output_path=None):\n    return None\n',
+    })
+    assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
+
+
 def test_a_scoped_accept_marker_accepts_the_drift(project: Builder, run_check: Runner) -> None:
     root = spec_project(
         project,
