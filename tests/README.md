@@ -36,6 +36,7 @@ cycle later.
 | `test_state_and_effects.py` | the mutation, side-effect and hidden-state predicates |
 | `test_duplication.py` | the predicates that compare code across files |
 | `test_style_and_naming.py` | the naming, ordering and annotation-style predicates |
+| `test_leading_underscore_binding.py` | `leading-underscore-binding`: every binding shape, the names it leaves to other rules, and the retired regexes staying retired |
 | `test_project_hygiene.py` | ruff, the lockfile, and numbered spec cross-references |
 
 Each predicate has at least one case for the shape it fires on and one for the

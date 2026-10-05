@@ -35,6 +35,8 @@ def rules_found(hits: list[dict]) -> set[str]:
         pytest.param('from os import *\n', 'wildcard-imports', id='wildcard-imports'),
         pytest.param('from __future__ import annotations\n', 'future-annotations', id='future-annotations'),
         pytest.param('import numpy as np\n', 'aliased-imports', id='aliased-imports'),
+        pytest.param('def f() -> None:\n    import numpy as np\n', 'aliased-imports', id='aliased-imports-indented'),
+        pytest.param('def f() -> None:\n    """Run:\n\n        import tests.probe as t\n    """\n', 'aliased-imports', id='aliased-imports-docstring'),
         pytest.param('import typing\n\nvalue: typing.Optional[int] = None\n', 'legacy-typing', id='legacy-typing'),
         pytest.param("value = 'a {}'.format(1)\n", 'legacy-formatting-format', id='legacy-formatting-format'),
         pytest.param('import logging\n', 'stdlib-logging', id='stdlib-logging'),
@@ -43,21 +45,6 @@ def rules_found(hits: list[dict]) -> set[str]:
         pytest.param('_CACHE = {}\n', 'leading-underscore-const-upper', id='leading-underscore-const-upper'),
         pytest.param('_cache = {}\n', 'leading-underscore-const-lower', id='leading-underscore-const-lower'),
         pytest.param('class Thing:\n    def __init__(self) -> None:\n        self._value = 1\n', 'leading-underscore-self', id='leading-underscore-self'),
-        pytest.param('def f(pair: tuple[int, int]) -> int:\n    _a, b = pair\n    return b\n', 'leading-underscore-destructure-first', id='destructure-first'),
-        pytest.param(
-            'def f(pair: tuple[int, int]) -> int:\n    a, _b = pair\n    return a\n', 'leading-underscore-destructure-second', id='destructure-second'
-        ),
-        pytest.param('def f(items: list[int]) -> None:\n    for _item in items:\n        pass\n', 'leading-underscore-forloop-single', id='forloop-single'),
-        pytest.param(
-            'def f(pairs: list[tuple[int, int]]) -> None:\n    for _key, value in pairs:\n        print(value)\n',
-            'leading-underscore-forloop-first',
-            id='forloop-first',
-        ),
-        pytest.param(
-            'def f(pairs: list[tuple[int, int]]) -> None:\n    for key, _value in pairs:\n        print(key)\n',
-            'leading-underscore-forloop-second',
-            id='forloop-second',
-        ),
         pytest.param('def f(obj: object) -> object:\n    return obj._attr\n', 'leading-underscore-attribute-access', id='attribute-access'),
     ],
 )

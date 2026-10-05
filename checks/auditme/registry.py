@@ -67,6 +67,7 @@ from auditme.rules.style_and_naming import (
     check_bare_nonbuiltin_generic_annotation,
     check_bare_parametric_annotation,
     check_duplicated_word,
+    check_leading_underscore_binding,
     check_leading_underscore_nested_def_class,
     check_non_alphabetical_dict_keys,
     check_nonalphabetical_literals,
@@ -140,4 +141,5 @@ CHECKS = (
     check_mutable_members_in_immutable_wrapper,
     check_leading_underscore_nested_def_class,
     check_spec_api_signature_drift,
+    check_leading_underscore_binding,
 )

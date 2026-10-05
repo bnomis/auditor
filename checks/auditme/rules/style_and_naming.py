@@ -12,7 +12,9 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     patterns: list[tuple[str, str, re.Pattern]] = [
         ('wildcard-imports', 'from X import *', re.compile(r'^from [\w.]+ import \*')),
         ('future-annotations', 'from __future__', re.compile(r'^from __future__ ')),
-        ('aliased-imports', 'import X as Y', re.compile(r'^import [\w.]+ as [\w]+$')),
+        # Indented as well as top-level: a function-local import, and a recipe
+        # in a docstring, which a reader copies and runs as it stands.
+        ('aliased-imports', 'import X as Y', re.compile(r'^\s*import [\w.]+ as [\w]+$')),
         ('legacy-typing', 'Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type', re.compile(r'\b(Union|Optional|List|Dict|Tuple|Set|FrozenSet|Type)\[')),
         ('legacy-formatting-format', '.format() call', re.compile(r'\.format\s*\(')),
         # %-formatting is a pain to disambiguate from strftime. Do it in a
@@ -23,11 +25,6 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         ('leading-underscore-const-upper', 'module-level _NAME = ...', re.compile(r'^_[A-Z][A-Z0-9_]*\s*[:=]')),
         ('leading-underscore-const-lower', 'module-level _name = ...', re.compile(r'^_[a-z][a-zA-Z0-9_]*\s*[:=]')),
         ('leading-underscore-self', 'self._attr', re.compile(r'\bself\._[a-zA-Z]')),
-        ('leading-underscore-destructure-first', 'destructured `_x, y = ...`', re.compile(r'^\s+_[a-z][a-zA-Z0-9_]*\s*,\s*[a-zA-Z]')),
-        ('leading-underscore-destructure-second', 'destructured `x, _y = ...`', re.compile(r'^\s+[a-zA-Z][a-zA-Z0-9_]*\s*,\s*_[a-zA-Z][a-zA-Z0-9_]*\s*=')),
-        ('leading-underscore-forloop-single', 'for _x in', re.compile(r'\bfor\s+_[a-z][a-zA-Z0-9_]+\s+in\b')),
-        ('leading-underscore-forloop-first', 'for _x, y in', re.compile(r'\bfor\s+_[a-z][a-zA-Z0-9_]*\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*\s+in\b')),
-        ('leading-underscore-forloop-second', 'for x, _y in', re.compile(r'\bfor\s+[a-zA-Z][a-zA-Z0-9_]*\s*,\s*_[a-zA-Z][a-zA-Z0-9_]*\s+in\b')),
         ('leading-underscore-attribute-access', 'obj._attr in code or docstring', re.compile(r'[a-zA-Z_][\w]*\._[a-zA-Z]')),
     ]
     for path in _all_py_files(src_root):
@@ -593,6 +590,98 @@ def check_leading_underscore_nested_def_class(scope: pathlib.Path, src_root: pat
             _emit(
                 rule='leading-underscore-def-class',
                 variant=f'{kind} {name} nested inside a function body',
+                path=rel,
+                line=lineno,
+                evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+def _is_leading_underscore(name: str | None) -> bool:
+    """True for `_foo`; false for bare `_`, a dunder or a mangled `__foo`."""
+    return bool(name) and name.startswith('_') and name != '_' and not name.startswith('__')
+
+
+def _leading_underscore_bindings(tree: ast.Module) -> list[tuple[str, int, str]]:
+    """Return `(name, lineno, kind)` for every leading-underscore name a file binds.
+
+    A binding is any name the author chose for a value: a parameter, a
+    `Name` in store context (an assignment, unpack or loop target at any
+    position, starred or not, a `with ... as`, a comprehension target, a
+    walrus), an `except ... as` name, or a `match` capture.
+
+    A plain-name target of a module-level assignment is left out, because the
+    `leading-underscore-const-*` regexes own it and reporting it twice would
+    double its count. A `def`/`class` name is left out for the same reason:
+    `leading-underscore-def-class` owns it.
+    """
+    regex_owned: set[int] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            regex_owned.update(id(target) for target in targets if isinstance(target, ast.Name))
+
+    found: list[tuple[str, int, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            prefix = 'lambda ' if isinstance(node, ast.Lambda) else ''
+            arguments = node.args
+            for arg in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs):
+                found.append((arg.arg, arg.lineno, f'{prefix}parameter'))
+            if arguments.vararg:
+                found.append((arguments.vararg.arg, arguments.vararg.lineno, f'{prefix}`*` parameter'))
+            if arguments.kwarg:
+                found.append((arguments.kwarg.arg, arguments.kwarg.lineno, f'{prefix}`**` parameter'))
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store) and id(node) not in regex_owned:
+            found.append((node.id, node.lineno, 'binding'))
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            found.append((node.name, node.lineno, '`except ... as` name'))
+        elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
+            found.append((node.name, node.lineno, '`match` capture'))
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            found.append((node.rest, node.lineno, '`match` capture'))
+    return [(name, lineno, kind) for name, lineno, kind in found if _is_leading_underscore(name)]
+
+
+def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag a leading-underscore parameter or bound name, wherever it occurs.
+
+    The text patterns see a leading underscore only where a regex can anchor
+    on it: a module-level `def`/`class`/assignment, and once saw the first or
+    second name of an unpack or loop target. That left a starred `*_rest`, a
+    third-or-later tuple position, every parameter (including `*_args`,
+    `**_kwargs` and lambda arguments) and every function-local assignment
+    invisible. This check walks the AST for all of them and replaces the
+    five `destructure`/`forloop` regexes, which it subsumes.
+
+    Signal: see `_leading_underscore_bindings`.
+
+    Refinements (each has a test asserting it does not fire):
+      - Bare `_` does not fire; it is the sanctioned throwaway.
+      - A dunder or a name-mangled `__foo` does not fire.
+      - A module-level `_NAME = ...` does not fire here: the const regexes
+        report it.
+
+    Whether a bound underscore name is also *read* is a separate defect,
+    reported by `underscore-unpack-target-read` and
+    `underscore-forloop-target-read`.
+
+    Raised as a request by litrev's review-12 (2026-10-05), whose S2 found
+    about seventy such sites in eight test modules.
+    """
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for name, lineno, kind in sorted(_leading_underscore_bindings(tree), key=lambda item: (item[1], item[0])):
+            accept = _accept_reason(lines, lineno, rule='leading-underscore-binding')
+            _emit(
+                rule='leading-underscore-binding',
+                variant=f'{kind} `{name}`',
                 path=rel,
                 line=lineno,
                 evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
