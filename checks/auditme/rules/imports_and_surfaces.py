@@ -295,6 +295,58 @@ def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 )
 
 
+def check_from_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `from X import Y` in any file other than an `__init__.py`.
+
+    The shared import rule asks for full import paths - `import pathlib` then
+    `pathlib.Path` - and names one exception: an `__init__.py`'s re-export
+    list. Until 2026-10-14 nothing mechanical read that rule, so featlib's
+    review-2 found ten sites by hand under S4, a judgement question answering
+    what a parser can.
+
+    The signal is any `ast.ImportFrom` in a non-`__init__.py` file, at any
+    depth: a function-local or `TYPE_CHECKING` from-import is still one. Each
+    statement is one hit, however many names it imports.
+
+    Not this rule's: `from __future__ import ...` (`future-annotations`) and
+    `from X import *` (`wildcard-imports`), which already report the same line
+    for a sharper reason. A relative import outside an `__init__.py` is also
+    `relative-import-nonpackage`'s, and is reported by both, the way
+    `import X as Y` is by both `aliased-imports` and `as-import`.
+
+    Ungated, unlike `as-import`: the rule is a shared standard, as
+    `stdlib-logging` and `legacy-typing` are, and no project restates it in
+    its AGENTS.md - a gate there would silence the check on every project the
+    rule governs.
+    """
+    for path in _all_py_files(src_root):
+        if path.name == '__init__.py':
+            continue
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            if node.module == '__future__' or any(alias.name == '*' for alias in node.names):
+                continue
+            module = f'{"." * node.level}{node.module or ""}'
+            names = ', '.join(alias.name for alias in node.names)
+            accept = _accept_reason(lines, node.lineno, getattr(node, 'end_lineno', None), rule='from-import')
+            _emit(
+                rule='from-import',
+                variant='from X import Y outside an __init__.py',
+                path=rel,
+                line=node.lineno,
+                evidence=f'from {module} import {names}'[:200],
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
 def _parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
     """Parse AGENTS.md's Package Layering section.
 

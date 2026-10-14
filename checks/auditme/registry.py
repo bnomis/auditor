@@ -34,6 +34,7 @@ from auditme.rules.imports_and_surfaces import (
     check_as_import,
     check_def_class_in_init,
     check_empty_init_with_exporting_siblings,
+    check_from_import,
     check_in_function_imports,
     check_layering_violations,
     check_migration_shim_consumers,
@@ -73,6 +74,7 @@ from auditme.rules.style_and_naming import (
     check_nonalphabetical_literals,
     check_percent_formatting,
     check_text_patterns,
+    check_typing_deprecated_alias,
     check_underscore_forloop_target_read,
     check_underscore_unpack_target_read,
 )
@@ -142,4 +144,6 @@ CHECKS = (
     check_leading_underscore_nested_def_class,
     check_spec_api_signature_drift,
     check_leading_underscore_binding,
+    check_from_import,
+    check_typing_deprecated_alias,
 )

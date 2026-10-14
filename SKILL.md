@@ -282,7 +282,7 @@ Each question is a deterministic predicate. The reviewer reads the file end-to-e
 - **A16. CLI entry envelope.** For every top-level `run_*` function in `cli/*.py` that returns `int` or takes a cappa-typed parameter: does the body's `try/except` cover every `raise` in the function (including validation `raise`s before the try)? Flag `raise` statements outside the envelope.
 - **A17. Public-surface drift.** For every `__init__.py` with `__all__`: is every symbol in `__all__` used outside the package? For every empty `__init__.py`: do consumers reach into private submodules? Flag bypasses of the canonical owning module.
 - **A18. Hot-path setup.** For every callback method (`on_step`, `on_log`, `on_evaluate`, `on_batch_*`): does it perform setup (mkdir, file open) that should live in `__init__`? Flag per-event side effects.
-- **A19. Wrong logger level for broad-except.** For every `except Exception` / `except BaseException`: does the body use `logger.exception` (not `warning`/`error`/`info`/`debug`)? And conversely, is `logger.exception` reserved for unexpected failures, not expected graceful-degradation paths?
+- **A19. Wrong logger level for broad-except.** For every `except Exception` / `except BaseException`: does the body use `logger.exception` (not `warning`/`error`/`info`/`debug`)? And conversely, is `logger.exception` reserved for unexpected failures, not expected graceful-degradation paths? A broad handler that degrades gracefully fails one half of this question whichever level it uses; the fix is to remove or narrow it - see [Conflicts with no winner](#conflicts-with-no-winner).
 - **A20. Mutable module-level singleton.** For every module-level mutable container that is read by name from another module: is it immutable per the locked set below? Locked set: `dict` -> must be `types.MappingProxyType(...)`; `set` -> must be `frozenset(...)`; `list` -> must be `tuple(...)`, whether the value is written as a literal or as a comprehension - `{k: f(k) for ...}` is the same mutable `dict` that `{...}` is. The predicate is "read elsewhere", and a project that mandates full import paths writes every one of those reads dotted: verify with grep for **all three** of `from <module> import <name>`, `<module>.<name>` and `sys.modules['<module>'].<name>`, across **every** root the sweep reads - every package under `src/` and `bin/` - not just the package under audit. A reader in the test tree is a reader, and so is a script. The `sys.modules` form is not exotic: it is the documented way to reach a module without importing it, so the projects most careful about import cycles are the ones a scan that missed it under-reported. Do not extend this predicate to private (non-read) module-level containers, nor to a value whose type is not knowable from the assignment (`DEFAULTS = get_defaults()`); those are different rules. A container the wrapper only *appears* to freeze is A25's.
 - **A21. Lazy init race.** For every `if X is None: X = ...` pattern at module scope (or in a module-level helper): is the assignment thread-safe under concurrent invocation? Flag idempotent-but-racy patterns in code paths that may be called concurrently (Optuna trials, multiprocessing).
 - **A22. Fall-through after partial handling.** For every `if/else` chain whose branches partly raise and partly return: is there a fall-through path where a raised-and-translated error in the first branch silently retries in the second? Flag with-block-or-elif-fall-through patterns (e.g. `if gz: ... except: raise` then code that re-runs as if `gz=False`).
@@ -497,6 +497,7 @@ Documented refinements:
 
 - **`except-interpolation` (review-36):** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `checks/auditme/rules/error_handling.py`.
 - **`empty-init-while-siblings-export` (review-36):** the predicate is file-level. The accept-marker scan walks every line in the file rather than just the docstring opener, so a docstring-only `__init__.py` can be accepted by adding a comment-only `# auditme: accept <reason>` line anywhere in the file.
+- **`legacy-typing` (2026-10-14, featlib review-2 and featim review-29):** the predicate skips `Set[` when it is preceded by `collections.abc.`. `collections.abc.Set` is the modern ABC, not the deprecated `typing.Set`. See the `legacy-typing` pattern in `check_text_patterns` in `checks/auditme/rules/style_and_naming.py`.
 
 ## Rule conflict resolution
 
@@ -516,6 +517,20 @@ Without this mechanism, audits ping-pong between the two rules forever - moving 
 | Winner | Loser | Site pattern | Reason |
 |--------|-------|--------------|--------|
 | `A18` callbacks hot-path setup | `constructor-disk-io` | callback class `__init__` performing `mkdir` of a path that the callback writes to | one-time mkdir per Trainer instance is preferable to per-event mkdir; loser auto-accepted |
+
+### Conflicts with no winner
+
+Some conflicts are settled by removing the code both rules fire on, not by
+accepting one of them. Neither rule is auto-accepted at these sites.
+
+| Rules | Site pattern | Ruling |
+|-------|--------------|--------|
+| `broad-except-wrong-level` and `logger-exception-graceful-degradation` (A19) | a handler for `Exception`, `BaseException` or a bare `except` that logs and then returns a default so the run carries on | Remove the handler and let the failure propagate, as the coding standard's "let unexpected exceptions propagate" asks. Do not change the logger level: `logger.warning` fires the first rule and `logger.exception` the second, so each change swaps one hit for the other. If the failure is expected and recoverable, catch that specific exception type and log it with `logger.warning`; neither rule fires on that. If the user decides a broad handler has to stay, keep `logger.exception`, since a failure nobody named is by definition unexpected and its traceback is wanted, and accept `logger-exception-graceful-degradation` with a scoped marker giving the user's reason. |
+
+Background: featim review-29 (2026-10-14) found four analysis-step handlers in
+`src/featim/analysis/orchestrator.py` that could satisfy neither rule. Its
+Decision 2 was answered the same day by removing the handlers rather than
+picking a winner, and this ruling generalises that answer.
 
 ## Severity guide
 

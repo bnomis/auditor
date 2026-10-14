@@ -158,7 +158,12 @@ def check_broad_except_wrong_level(scope: pathlib.Path, src_root: pathlib.Path) 
     """Flag `except (Exception|BaseException):` blocks whose body calls
     logger.warning / logger.error / logger.debug / logger.info instead of
     logger.exception. Distinct from check_silent_broad_except, which only
-    catches blocks with NO logger call at all."""
+    catches blocks with NO logger call at all.
+
+    A broad handler that logs and returns a default is caught here at
+    `warning` and by `logger-exception-graceful-degradation` at `exception`.
+    SKILL.md's "Conflicts with no winner" rules on it: remove or narrow the
+    handler rather than change its level."""
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
         lines = _source_lines(path)
@@ -1181,6 +1186,11 @@ def check_logger_exception_graceful_degradation(
       - The enclosing function's return annotation is NOT `int`. CLI entry
         points return `int` exit codes and `logger.exception + return 2`
         is the canonical CLI error-contract, not graceful degradation.
+
+    For a broad `except Exception` handler, the `logger.warning` this
+    suggests fires `broad-except-wrong-level` instead. SKILL.md's "Conflicts
+    with no winner" rules on it: remove the handler, or narrow it to the
+    expected exception and then use `logger.warning`.
     """
 
     # Build a map of lineno -> enclosing FunctionDef return annotation.

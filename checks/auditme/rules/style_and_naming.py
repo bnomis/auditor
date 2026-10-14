@@ -15,7 +15,13 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         # Indented as well as top-level: a function-local import, and a recipe
         # in a docstring, which a reader copies and runs as it stands.
         ('aliased-imports', 'import X as Y', re.compile(r'^\s*import [\w.]+ as [\w]+$')),
-        ('legacy-typing', 'Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type', re.compile(r'\b(Union|Optional|List|Dict|Tuple|Set|FrozenSet|Type)\[')),
+        # `collections.abc.Set[...]` is the modern ABC, not `typing.Set`: it
+        # is the only name here that collections.abc also defines.
+        (
+            'legacy-typing',
+            'Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type',
+            re.compile(r'\b(Union|Optional|List|Dict|Tuple|(?<!collections\.abc\.)Set|FrozenSet|Type)\['),
+        ),
         ('legacy-formatting-format', '.format() call', re.compile(r'\.format\s*\(')),
         # %-formatting is a pain to disambiguate from strftime. Do it in a
         # dedicated check below (check_percent_formatting).
@@ -682,6 +688,95 @@ def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path
             _emit(
                 rule='leading-underscore-binding',
                 variant=f'{kind} `{name}`',
+                path=rel,
+                line=lineno,
+                evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+# Every `typing` alias PEP 585 deprecated, and where its replacement lives.
+# `List`/`Dict`/`Tuple`/`Set`/`FrozenSet`/`Type` are absent: their replacement
+# is a builtin, and `legacy-typing` already reports them.
+_TYPING_DEPRECATED_ALIASES = {
+    'AbstractSet': 'collections.abc.Set',
+    'AsyncContextManager': 'contextlib.AbstractAsyncContextManager',
+    'AsyncGenerator': 'collections.abc.AsyncGenerator',
+    'AsyncIterable': 'collections.abc.AsyncIterable',
+    'AsyncIterator': 'collections.abc.AsyncIterator',
+    'Awaitable': 'collections.abc.Awaitable',
+    'Callable': 'collections.abc.Callable',
+    'ChainMap': 'collections.ChainMap',
+    'Collection': 'collections.abc.Collection',
+    'Container': 'collections.abc.Container',
+    'ContextManager': 'contextlib.AbstractContextManager',
+    'Coroutine': 'collections.abc.Coroutine',
+    'Counter': 'collections.Counter',
+    'DefaultDict': 'collections.defaultdict',
+    'Deque': 'collections.deque',
+    'Generator': 'collections.abc.Generator',
+    'Hashable': 'collections.abc.Hashable',
+    'ItemsView': 'collections.abc.ItemsView',
+    'Iterable': 'collections.abc.Iterable',
+    'Iterator': 'collections.abc.Iterator',
+    'KeysView': 'collections.abc.KeysView',
+    'Mapping': 'collections.abc.Mapping',
+    'MappingView': 'collections.abc.MappingView',
+    'Match': 're.Match',
+    'MutableMapping': 'collections.abc.MutableMapping',
+    'MutableSequence': 'collections.abc.MutableSequence',
+    'MutableSet': 'collections.abc.MutableSet',
+    'OrderedDict': 'collections.OrderedDict',
+    'Pattern': 're.Pattern',
+    'Reversible': 'collections.abc.Reversible',
+    'Sequence': 'collections.abc.Sequence',
+    'Sized': 'collections.abc.Sized',
+    'ValuesView': 'collections.abc.ValuesView',
+}
+
+
+def check_typing_deprecated_alias(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `typing.Sequence`, `typing.Iterator` and every other `typing` alias
+    PEP 585 deprecated in favour of the standard-library class itself.
+
+    The coding standard prefers the standard generics to their `typing`
+    equivalents. `legacy-typing` reads that for the aliases of builtins -
+    `List[`, `Dict[` and the rest - and saw nothing else, so featlib's review-2
+    found `typing.Sequence` and `typing.Iterator` by hand under S4.
+
+    Signal, on the AST so a string or a comment never fires:
+      - `typing.<alias>` anywhere, subscripted or not: `isinstance(x,
+        typing.Mapping)` names the same deprecated alias an annotation does.
+      - `from typing import <alias>`, once per alias at the import line. The
+        bare uses that follow are the same decision, made once.
+
+    The variant names the replacement, so the fix is in the hit.
+
+    Not this rule's: the builtin aliases (`legacy-typing`), and a `typing`
+    name with no standard-library class to move to - `typing.Any`,
+    `typing.Protocol`, `typing.TypeVar`.
+    """
+    rule = 'typing-deprecated-alias'
+    for path in _all_py_files(src_root):
+        rel = _relpath(path, scope)
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        found: set[tuple[int, str]] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == 'typing':
+                if node.attr in _TYPING_DEPRECATED_ALIASES:
+                    found.add((node.lineno, node.attr))
+            elif isinstance(node, ast.ImportFrom) and node.module == 'typing' and node.level == 0:
+                found.update((node.lineno, alias.name) for alias in node.names if alias.name in _TYPING_DEPRECATED_ALIASES)
+        for lineno, name in sorted(found):
+            accept = _accept_reason(lines, lineno, rule=rule)
+            _emit(
+                rule=rule,
+                variant=f'typing.{name} -> {_TYPING_DEPRECATED_ALIASES[name]}',
                 path=rel,
                 line=lineno,
                 evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
