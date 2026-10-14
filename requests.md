@@ -38,7 +38,9 @@ found something new and no cycle converged.
 
 ## Open
 
-- (empty)
+- **Check: `from X import Y` outside an `__init__.py` re-export** (raised by featlib review-2, 2026-10-14, Phase B S4). The shared `python/imports.md` rule forbids it; the sweep has no rule, so S4 found ten sites by hand (`src/featlib/nlp/annotate.py:15`, `nlp/segment.py:10-11`, `src/tests/conftest.py:6,15,35`, ...). A text or AST check over every root, exempting `__init__.py`, would make it mechanical.
+- **Check: `typing.Sequence` / `typing.Iterator` (and the other `typing` ABC aliases)** (raised by featlib review-2, 2026-10-14, Phase B S4). `legacy-typing` matches only `Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type`, so `typing.Sequence` at `src/featlib/input/base.py:69` and `typing.Iterator` at `src/featlib/compression.py:34` pass, though the coding standard prefers `collections.abc`.
+- **Refinement: `legacy-typing` fires on `collections.abc.Set[...]`** (raised by featlib review-2, 2026-10-14). The regex `\bSet\[` matches the modern ABC; featlib carries one accept marker for it (`src/featlib/chunking/policy.py:66`) and four more unaccepted hits (`src/featlib/affected.py:121,139,144,170`). Skip a match preceded by `collections.abc.`; a narrowing, so a carve-out test is needed.
 
 ## Rejected
 
