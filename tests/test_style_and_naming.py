@@ -113,6 +113,34 @@ def test_the_set_carve_out_is_only_for_collections_abc(source: str, project: Bui
     assert 'legacy-typing' in rules_found(run_check(TEXT_PATTERNS, root))
 
 
+@pytest.mark.parametrize(
+    'source',
+    [
+        pytest.param("value = 'a ' 'b {}'.format(1)\n", id='implicit-concatenation'),
+        pytest.param("value = (\n    'a {}'\n    .format(1)\n)\n", id='format-on-a-later-line'),
+    ],
+)
+def test_format_on_a_string_literal_is_a_hit(source: str, project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': source})
+    hits = [hit for hit in run_check(TEXT_PATTERNS, root) if hit['rule'] == 'legacy-formatting-format']
+    assert len(hits) == 1
+    assert '.format' in hits[0]['evidence']
+
+
+@pytest.mark.parametrize(
+    'source',
+    [
+        pytest.param('def f(template: str) -> str:\n    return template.format(column=1)\n', id='name-receiver'),
+        pytest.param('def f(fields: dict[str, str]) -> str:\n    return CONFIG.prefix.format(**fields)\n', id='attribute-receiver'),
+        pytest.param('def f() -> None:\n    """Render with \'{}\'.format(x) - a recipe, not code."""\n', id='docstring'),
+    ],
+)
+def test_format_on_a_runtime_template_is_not_a_hit(source: str, project: Builder, run_check: Runner) -> None:
+    """A template read from config at run time can never be an f-string."""
+    root = project({'src/probe/mod.py': source})
+    assert 'legacy-formatting-format' not in rules_found(run_check(TEXT_PATTERNS, root))
+
+
 # --------------------------------------------------------------------------
 # check_percent_formatting
 # --------------------------------------------------------------------------
@@ -172,6 +200,33 @@ def test_a_list_inside_a_function_is_not_a_hit(project: Builder, run_check: Runn
     """The rule is about module-level configuration, not local working values."""
     root = project({'src/probe/mod.py': "def f() -> list[str]:\n    names = ['bird', 'aardvark']\n    return names\n"})
     assert run_check(LITERALS, root) == []
+
+
+@pytest.mark.parametrize(
+    'source',
+    [
+        pytest.param("PAIR: tuple[str, str] = ('xxx', 'REDACTED')\n", id='fixed-pair'),
+        pytest.param("import typing\n\nPAIR: typing.Final[tuple[str, str]] = ('b', 'a')\n", id='final-fixed-pair'),
+    ],
+)
+def test_a_fixed_length_tuple_keeps_its_order(source: str, project: Builder, run_check: Runner) -> None:
+    """Each position of a fixed-length tuple means something, so it cannot be sorted."""
+    root = project({'src/probe/mod.py': source})
+    assert run_check(LITERALS, root) == []
+
+
+@pytest.mark.parametrize(
+    'source',
+    [
+        pytest.param("NAMES: tuple[str, ...] = ('b', 'a')\n", id='variable-length-tuple'),
+        pytest.param("NAMES = ('b', 'a')\n", id='unannotated-tuple'),
+        pytest.param("NAMES: list[str] = ['b', 'a']\n", id='annotated-list'),
+        pytest.param("NAMES: frozenset[str] = frozenset({'b', 'a'})\n", id='annotated-frozenset'),
+    ],
+)
+def test_only_a_fixed_length_tuple_is_exempt(source: str, project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': source})
+    assert [hit['rule'] for hit in run_check(LITERALS, root)] == ['non-alphabetical-literal']
 
 
 # --------------------------------------------------------------------------

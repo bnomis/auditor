@@ -1281,6 +1281,37 @@ def check_logger_exception_graceful_degradation(
             )
 
 
+def raises_section_names(doc: str) -> set[str]:
+    """Return the class name of every entry in a Google-style `Raises:` section.
+
+    An entry is a line at the section's first indent, optionally bulleted,
+    naming a `*Error`; deeper lines continue the entry before them, and the
+    first line back at the header's indent ends the section.
+    """
+    entry_re = re.compile(r'\s*(?:[-*]\s+)?([A-Za-z_][\w.]*Error)\b')
+    lines = doc.splitlines()
+    names: set[str] = set()
+    for start, header in enumerate(lines):
+        if header.strip() != 'Raises:':
+            continue
+        header_indent = len(header) - len(header.lstrip())
+        entry_indent = None
+        for line in lines[start + 1 :]:
+            if not line.strip():
+                continue
+            indent = len(line) - len(line.lstrip())
+            if indent <= header_indent:
+                break
+            if entry_indent is None:
+                entry_indent = indent
+            if indent != entry_indent:
+                continue
+            match = entry_re.match(line)
+            if match:
+                names.add(match.group(1).rsplit('.', 1)[-1])
+    return names
+
+
 def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions whose docstring declares `Raises: <X>` (or a
     sphinx-style `:raises X:` or a plain 'Raises X' sentence) where the
@@ -1313,7 +1344,7 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
             doc = ast.get_docstring(node)
             if not doc:
                 continue
-            declared = {m.rsplit('.', 1)[-1] for m in docstring_class_re.findall(doc)}
+            declared = {m.rsplit('.', 1)[-1] for m in docstring_class_re.findall(doc)} | raises_section_names(doc)
             if not declared:
                 continue
             # Collect actual raised classes (excluding re-raises of bound vars)

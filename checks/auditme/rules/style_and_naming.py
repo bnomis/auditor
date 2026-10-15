@@ -22,7 +22,10 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             'Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type',
             re.compile(r'\b(Union|Optional|List|Dict|Tuple|(?<!collections\.abc\.)Set|FrozenSet|Type)\['),
         ),
-        ('legacy-formatting-format', '.format() call', re.compile(r'\.format\s*\(')),
+        # Matched by the regex, then kept only on a line where the AST shows
+        # `.format` called on a string literal (see literal_format_lines): a
+        # template read at run time can never be an f-string.
+        ('legacy-formatting-format', '.format() call on a string literal', re.compile(r'\.format\s*\(')),
         # %-formatting is a pain to disambiguate from strftime. Do it in a
         # dedicated check below (check_percent_formatting).
         ('stdlib-logging', 'stdlib logging import', re.compile(r'^(import logging$|from logging )')),
@@ -37,12 +40,15 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         rel = _relpath(path, scope)
         lines = _source_lines(path)
         is_init = path.name == '__init__.py'
+        format_lines = literal_format_lines(lines)
         for idx, raw in enumerate(lines, 1):
             stripped = raw.strip()
             if not stripped or stripped.startswith('#'):
                 continue
             for rule, variant, pat in patterns:
                 if rule == 'relative-import-nonpackage' and is_init:
+                    continue
+                if rule == 'legacy-formatting-format' and idx not in format_lines:
                     continue
                 if not pat.search(raw):
                     continue
@@ -56,6 +62,26 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                     accepted=bool(accept),
                     accepted_reason=accept,
                 )
+
+
+def literal_format_lines(lines: list[str]) -> set[int]:
+    """Return the lines on which `.format` is called on a string literal.
+
+    The line is the one holding `.format`, where the regex matches and where
+    an accept marker sits. A file that does not parse yields no lines.
+    """
+    try:
+        tree = ast.parse('\n'.join(lines))
+    except SyntaxError:
+        return set()
+    found: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute) or node.func.attr != 'format':
+            continue
+        receiver = node.func.value
+        if isinstance(receiver, ast.Constant) and isinstance(receiver.value, str):
+            found.add(node.func.end_lineno or node.lineno)
+    return found
 
 
 _STRFTIME_TOKENS = {'%Y', '%y', '%m', '%d', '%H', '%I', '%M', '%S', '%p', '%A', '%a', '%B', '%b', '%j', '%U', '%W', '%c', '%x', '%X', '%Z', '%z', '%f'}
@@ -93,6 +119,20 @@ def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                 break
 
 
+def is_fixed_length_tuple(annotation: ast.expr) -> bool:
+    """Return True for `tuple[X, Y]` (also under `Final[...]`), not `tuple[X, ...]`.
+
+    A fixed-length tuple's positions carry meaning - a pattern and its
+    replacement, an expected order - so sorting its members would change it.
+    """
+    if isinstance(annotation, ast.Subscript) and ast.unparse(annotation.value) in {'Final', 'typing.Final'}:
+        annotation = annotation.slice
+    if not isinstance(annotation, ast.Subscript) or ast.unparse(annotation.value) != 'tuple':
+        return False
+    members = annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
+    return not any(isinstance(m, ast.Constant) and m.value is Ellipsis for m in members)
+
+
 def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -103,6 +143,8 @@ def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) 
             continue
         for node in tree.body:
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            if isinstance(node, ast.AnnAssign) and is_fixed_length_tuple(node.annotation):
                 continue
             value = node.value
             if value is None:
