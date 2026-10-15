@@ -93,6 +93,38 @@ def test_an_end_anchored_pattern_needs_its_marker_on_the_line_above(project: Bui
     assert hits[0]['accepted']
 
 
+@pytest.mark.parametrize(
+    'source',
+    [
+        pytest.param('import os\n\nos._exit(1)\n', id='os-exit'),
+        pytest.param('def f(point: object) -> object:\n    return point._asdict()\n', id='namedtuple-asdict'),
+        pytest.param('def f(Point: type) -> object:\n    return Point._fields\n', id='namedtuple-fields'),
+        pytest.param('def f(Point: type, row: list) -> object:\n    return Point._make(row)\n', id='namedtuple-make'),
+        pytest.param('def f(point: object) -> object:\n    return point._replace(x=1)\n', id='namedtuple-replace'),
+        pytest.param('def f(point: object) -> object:\n    """Return `point._asdict()` with `os._exit` untouched."""\n', id='docstring'),
+    ],
+)
+def test_a_documented_public_stdlib_name_is_not_attribute_access(source: str, project: Builder, run_check: Runner) -> None:
+    """`os._exit` and namedtuple's `_asdict`, `_fields`, `_make` and `_replace`
+    are public API spelt with a leading underscore; there is nothing to rename."""
+    root = project({'src/probe/mod.py': source})
+    assert 'leading-underscore-attribute-access' not in rules_found(run_check(TEXT_PATTERNS, root))
+
+
+@pytest.mark.parametrize(
+    'source',
+    [
+        pytest.param('def f(obj: object) -> object:\n    return obj._attr\n', id='private-attribute'),
+        pytest.param('import sys\n\nframe = sys._getframe(2)\n', id='sys-getframe'),
+        pytest.param('import os\n\nvalue = os._private\n', id='other-os-name'),
+        pytest.param('import os\n\nos._exit(obj._attr)\n', id='exempt-and-private-on-one-line'),
+    ],
+)
+def test_the_stdlib_exemption_names_only_documented_names(source: str, project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': source})
+    assert 'leading-underscore-attribute-access' in rules_found(run_check(TEXT_PATTERNS, root))
+
+
 def test_the_collections_abc_set_is_not_legacy_typing(project: Builder, run_check: Runner) -> None:
     """`collections.abc.Set` is the modern ABC that `typing.AbstractSet` became,
     not the deprecated `typing.Set`; featlib carried an accept marker for it."""

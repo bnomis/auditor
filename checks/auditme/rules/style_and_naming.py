@@ -7,6 +7,21 @@ from collections import defaultdict
 
 from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines
 
+# Public stdlib API spelt with a leading underscore, so not private access:
+# `os._exit` (https://docs.python.org/3/library/os.html#os._exit) and the
+# namedtuple methods and attribute, whose underscore only avoids clashing with
+# field names (https://docs.python.org/3/library/collections.html#collections.somenamedtuple._make).
+STDLIB_PUBLIC_UNDERSCORE_ATTRIBUTES = frozenset({'_asdict', '_fields', '_make', '_replace'})
+STDLIB_PUBLIC_UNDERSCORE_QUALIFIED = frozenset({'os._exit'})
+ATTRIBUTE_ACCESS = re.compile(r'([a-zA-Z_]\w*)\.(_[a-zA-Z]\w*)')
+
+
+def is_stdlib_public_access_only(line: str) -> bool:
+    """Return True when every `obj._attr` on the line is documented public stdlib API."""
+    return all(
+        attr in STDLIB_PUBLIC_UNDERSCORE_ATTRIBUTES or f'{obj}.{attr}' in STDLIB_PUBLIC_UNDERSCORE_QUALIFIED for obj, attr in ATTRIBUTE_ACCESS.findall(line)
+    )
+
 
 def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     patterns: list[tuple[str, str, re.Pattern]] = [
@@ -51,6 +66,8 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 if rule == 'legacy-formatting-format' and idx not in format_lines:
                     continue
                 if not pat.search(raw):
+                    continue
+                if rule == 'leading-underscore-attribute-access' and is_stdlib_public_access_only(raw):
                     continue
                 accept = _accept_reason(lines, idx, rule=rule)
                 _emit(
