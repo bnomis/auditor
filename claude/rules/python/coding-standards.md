@@ -45,6 +45,7 @@ Example:
 ```python
 # __init__.py
 from .base import Foo, Bar
+
 __all__ = ['Bar', 'Foo']
 ```
 
