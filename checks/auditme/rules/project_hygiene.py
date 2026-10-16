@@ -142,16 +142,13 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
                     end = getattr(const, 'end_lineno', const.lineno)
                     docstring_ranges.append((const.lineno, end))
 
-        def in_docstring(ln: int) -> bool:
-            return any(a <= ln <= b for a, b in docstring_ranges)
-
         for idx, raw in enumerate(lines, 1):
             matches = list(_PHASE_REF_RE.finditer(raw)) + list(_SECTION_REF_RE.finditer(raw))
             if not matches:
                 continue
             stripped = raw.strip()
             is_comment = stripped.startswith('#')
-            if not (is_comment or in_docstring(idx)):
+            if not (is_comment or any(a <= idx <= b for a, b in docstring_ranges)):
                 continue
             accept = _accept_reason(lines, idx, rule='phase-section-doc-reference')
             _emit(
@@ -194,7 +191,7 @@ def _signature_params(node: ast.AST) -> list[str] | None:
         out.append('*' + args.vararg.arg)
     elif args.kwonlyargs:
         out.append('*')
-    for arg, default in zip(args.kwonlyargs, args.kw_defaults):
+    for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True):
         out.append(arg.arg + ('=' if default is not None else ''))
     if args.kwarg is not None:
         out.append('**' + args.kwarg.arg)

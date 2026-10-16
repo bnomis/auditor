@@ -251,62 +251,64 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
       - class / module-level AnnAssign targets
       - local AnnAssign targets inside function bodies
     """
-    BARE_GENERICS = {'dict', 'list', 'tuple', 'set', 'frozenset'}
     for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
-            continue
-        reported: set[int] = set()
+        _check_bare_parametric_annotation_in_file(_relpath(path, scope), _source_lines(path))
 
-        def _flag_annotation(ann: ast.AST, ctx: str) -> None:
-            # Walk the annotation expression to find any `Name` matching
-            # a bare generic. `Subscript(Name(id='dict'), ...)` is fine.
-            # `Name(id='dict')` alone is a bare annotation. Handle
-            # `dict | None`, `dict | Other`, etc. by descending into BinOp.
-            def _visit(node: ast.AST) -> None:
-                if isinstance(node, ast.Subscript):
-                    # parametric; if slice is `dict` itself that's fine too, stop
+
+def _check_bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> None:
+    BARE_GENERICS = {'dict', 'list', 'tuple', 'set', 'frozenset'}
+    try:
+        tree = ast.parse('\n'.join(lines))
+    except SyntaxError:
+        return
+    reported: set[int] = set()
+
+    def _flag_annotation(ann: ast.AST, ctx: str) -> None:
+        # Walk the annotation expression to find any `Name` matching
+        # a bare generic. `Subscript(Name(id='dict'), ...)` is fine.
+        # `Name(id='dict')` alone is a bare annotation. Handle
+        # `dict | None`, `dict | Other`, etc. by descending into BinOp.
+        def _visit(node: ast.AST) -> None:
+            if isinstance(node, ast.Subscript):
+                # parametric; if slice is `dict` itself that's fine too, stop
+                return
+            if isinstance(node, ast.Name) and node.id in BARE_GENERICS:
+                lineno = getattr(node, 'lineno', None)
+                if lineno is None or lineno in reported:
                     return
-                if isinstance(node, ast.Name) and node.id in BARE_GENERICS:
-                    lineno = getattr(node, 'lineno', None)
-                    if lineno is None or lineno in reported:
-                        return
-                    reported.add(lineno)
-                    accept = _accept_reason(lines, lineno, rule='bare-parametric-annotation')
-                    _emit(
-                        rule='bare-parametric-annotation',
-                        variant=f'{ctx} uses bare `{node.id}` without element type',
-                        path=rel,
-                        line=lineno,
-                        evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
-                        accepted=bool(accept),
-                        accepted_reason=accept,
-                    )
-                elif isinstance(node, ast.BinOp):
-                    _visit(node.left)
-                    _visit(node.right)
-                elif isinstance(node, ast.Tuple):
-                    for elt in node.elts:
-                        _visit(elt)
+                reported.add(lineno)
+                accept = _accept_reason(lines, lineno, rule='bare-parametric-annotation')
+                _emit(
+                    rule='bare-parametric-annotation',
+                    variant=f'{ctx} uses bare `{node.id}` without element type',
+                    path=rel,
+                    line=lineno,
+                    evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
+                    accepted=bool(accept),
+                    accepted_reason=accept,
+                )
+            elif isinstance(node, ast.BinOp):
+                _visit(node.left)
+                _visit(node.right)
+            elif isinstance(node, ast.Tuple):
+                for elt in node.elts:
+                    _visit(elt)
 
-            _visit(ann)
+        _visit(ann)
 
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                for arg in (*node.args.args, *node.args.kwonlyargs, *node.args.posonlyargs):
-                    if arg.annotation is not None:
-                        _flag_annotation(arg.annotation, f'{node.name}({arg.arg}:)')
-                if node.returns is not None:
-                    _flag_annotation(node.returns, f'{node.name} -> ')
-            elif isinstance(node, ast.AnnAssign) and node.annotation is not None:
-                tgt = node.target
-                ctx = 'annotation'
-                if isinstance(tgt, ast.Name):
-                    ctx = f'{tgt.id}:'
-                _flag_annotation(node.annotation, ctx)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for arg in (*node.args.args, *node.args.kwonlyargs, *node.args.posonlyargs):
+                if arg.annotation is not None:
+                    _flag_annotation(arg.annotation, f'{node.name}({arg.arg}:)')
+            if node.returns is not None:
+                _flag_annotation(node.returns, f'{node.name} -> ')
+        elif isinstance(node, ast.AnnAssign) and node.annotation is not None:
+            tgt = node.target
+            ctx = 'annotation'
+            if isinstance(tgt, ast.Name):
+                ctx = f'{tgt.id}:'
+            _flag_annotation(node.annotation, ctx)
 
 
 def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -367,64 +369,66 @@ def check_bare_nonbuiltin_generic_annotation(scope: pathlib.Path, src_root: path
     handled by `check_bare_parametric_annotation` and skipped here.
     """
     for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
-            continue
-        # Build import alias map so `Queue` resolves to `multiprocessing.Queue`
-        # when imported as `from multiprocessing import Queue`.
-        alias_to_full: dict[str, str] = {}
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module:
-                for alias in node.names:
-                    alias_to_full[alias.asname or alias.name] = f'{node.module}.{alias.name}'
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    alias_to_full[alias.asname or alias.name.split('.')[0]] = alias.name
+        _check_bare_nonbuiltin_generic_annotation_in_file(_relpath(path, scope), _source_lines(path))
 
-        reported: set[int] = set()
 
-        def _flag(ann: ast.AST) -> None:
-            if isinstance(ann, ast.Subscript):
-                return  # parametric
-            full = None
-            if isinstance(ann, ast.Attribute):
-                try:
-                    full = ast.unparse(ann)
-                except Exception:
-                    return
-            elif isinstance(ann, ast.Name):
-                full = alias_to_full.get(ann.id, ann.id)
-            if full is None:
-                return
-            if full not in _PARAMETRIC_NONBUILTIN_GENERICS:
-                return
-            lineno = getattr(ann, 'lineno', None)
-            if lineno is None or lineno in reported:
-                return
-            reported.add(lineno)
-            accept = _accept_reason(lines, lineno, rule='bare-nonbuiltin-generic-annotation')
-            _emit(
-                rule='bare-nonbuiltin-generic-annotation',
-                variant=f'bare `{full}` annotation without type parameter',
-                path=rel,
-                line=lineno,
-                evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
-                accepted=bool(accept),
-                accepted_reason=accept,
-            )
+def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]) -> None:
+    try:
+        tree = ast.parse('\n'.join(lines))
+    except SyntaxError:
+        return
+    # Build import alias map so `Queue` resolves to `multiprocessing.Queue`
+    # when imported as `from multiprocessing import Queue`.
+    alias_to_full: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                alias_to_full[alias.asname or alias.name] = f'{node.module}.{alias.name}'
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                alias_to_full[alias.asname or alias.name.split('.')[0]] = alias.name
 
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                for arg in (*node.args.args, *node.args.kwonlyargs, *node.args.posonlyargs):
-                    if arg.annotation is not None:
-                        _flag(arg.annotation)
-                if node.returns is not None:
-                    _flag(node.returns)
-            elif isinstance(node, ast.AnnAssign) and node.annotation is not None:
-                _flag(node.annotation)
+    reported: set[int] = set()
+
+    def _flag(ann: ast.AST) -> None:
+        if isinstance(ann, ast.Subscript):
+            return  # parametric
+        full = None
+        if isinstance(ann, ast.Attribute):
+            try:
+                full = ast.unparse(ann)
+            except Exception:
+                return
+        elif isinstance(ann, ast.Name):
+            full = alias_to_full.get(ann.id, ann.id)
+        if full is None:
+            return
+        if full not in _PARAMETRIC_NONBUILTIN_GENERICS:
+            return
+        lineno = getattr(ann, 'lineno', None)
+        if lineno is None or lineno in reported:
+            return
+        reported.add(lineno)
+        accept = _accept_reason(lines, lineno, rule='bare-nonbuiltin-generic-annotation')
+        _emit(
+            rule='bare-nonbuiltin-generic-annotation',
+            variant=f'bare `{full}` annotation without type parameter',
+            path=rel,
+            line=lineno,
+            evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),
+            accepted=bool(accept),
+            accepted_reason=accept,
+        )
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for arg in (*node.args.args, *node.args.kwonlyargs, *node.args.posonlyargs):
+                if arg.annotation is not None:
+                    _flag(arg.annotation)
+            if node.returns is not None:
+                _flag(node.returns)
+        elif isinstance(node, ast.AnnAssign) and node.annotation is not None:
+            _flag(node.annotation)
 
 
 def _collect_name_loads(scope: ast.AST) -> dict[str, list[int]]:

@@ -91,7 +91,7 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
             if not body_src.strip() or len(body_src) < 40:
                 continue
             bodies[body_src].append((rel, node.lineno, node.name))
-    for body_src, hits in bodies.items():
+    for hits in bodies.values():
         if len(hits) < 2:
             continue
         files = {h[0] for h in hits}

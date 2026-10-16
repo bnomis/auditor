@@ -1,6 +1,7 @@
 """Checks on exception handling, error translation and failure reporting."""
 
 import ast
+import contextlib
 import pathlib
 import re
 from collections import defaultdict
@@ -223,10 +224,8 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
                     if isinstance(fn, ast.Name):
                         raised_types[fn.id].append(inner.lineno)
                     elif isinstance(fn, ast.Attribute):
-                        try:
+                        with contextlib.suppress(Exception):
                             raised_types[ast.unparse(fn).split('.')[-1]].append(inner.lineno)
-                        except Exception:
-                            pass
             if len(raised_types) < 2:
                 continue
             # exclude common cases where the mix is intentional: re-raise of
@@ -414,10 +413,8 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
                 continue
             base_names: list[str] = []
             for base in node.bases:
-                try:
+                with contextlib.suppress(Exception):
                     base_names.append(ast.unparse(base))
-                except Exception:
-                    pass
             error_classes.append((node.name, node.lineno, base_names))
         if len(error_classes) < 2:
             continue
@@ -1004,10 +1001,8 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 if h.type is None:
                     caught.append('<bare>')
                 else:
-                    try:
+                    with contextlib.suppress(Exception):
                         caught.append(ast.unparse(h.type))
-                    except Exception:
-                        pass
             accept = _accept_reason(lines, lineno, rule='filesystem-envelope-gap')
             _emit(
                 rule='filesystem-envelope-gap',
@@ -1230,10 +1225,8 @@ def check_logger_exception_graceful_degradation(
                 for sub in ast.walk(stmt):
                     if isinstance(sub, ast.Call):
                         src = ''
-                        try:
+                        with contextlib.suppress(Exception):
                             src = ast.unparse(sub.func)
-                        except Exception:
-                            pass
                         if src.endswith('logger.exception') or src.endswith('.exception'):
                             if 'logger' in src or 'loguru' in src:
                                 has_logger_exception = True

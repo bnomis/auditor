@@ -1,6 +1,7 @@
 """Checks on mutation, side effects and hidden state."""
 
 import ast
+import contextlib
 import pathlib
 import re
 from collections import defaultdict
@@ -558,10 +559,8 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
                     for sub in ast.walk(stmt):
                         if isinstance(sub, ast.Call):
                             src = ''
-                            try:
+                            with contextlib.suppress(Exception):
                                 src = ast.unparse(sub.func)
-                            except Exception:
-                                pass
                             if 'assert_never' in src:
                                 has_assert_never = True
                                 break
@@ -1133,10 +1132,8 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
             # imports TrainerCallback (we just check the class bases).
             base_names = []
             for b in cls.bases:
-                try:
+                with contextlib.suppress(Exception):
                     base_names.append(ast.unparse(b))
-                except Exception:
-                    pass
             base_str = ' '.join(base_names)
             looks_like_callback = 'Callback' in base_str or 'TrainerCallback' in base_str
             # Also accept if any method in the class matches the callback pattern
@@ -1266,6 +1263,46 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
                     )
 
 
+# Walk every branch arm; ensure it starts with an assignment
+# to var_name or a return, not a read.
+def _branch_overrides(branch: list, var_name: str) -> bool:
+    for s in branch:
+        # Assigns var_name before reading
+        if isinstance(s, (ast.Assign, ast.AnnAssign)):
+            tgts = s.targets if isinstance(s, ast.Assign) else [s.target]
+            for t in tgts:
+                if isinstance(t, ast.Name) and t.id == var_name:
+                    return True
+        # Returns something that uses var_name - don't flag;
+        # this isn't dead init
+        if isinstance(s, ast.Return):
+            if s.value is not None:
+                try:
+                    rs = ast.unparse(s.value)
+                except Exception:
+                    return False
+                # if body reads var_name in return, branch did not override;
+                # if it returned something else, the initial value was dead
+                return not re.search(rf'\b{re.escape(var_name)}\b', rs)
+            return True
+    return False
+
+
+def _walk_chain(stmt: ast.If, var_name: str) -> bool:
+    if not _branch_overrides(stmt.body, var_name):
+        return False
+    orelse = stmt.orelse
+    while orelse:
+        if len(orelse) == 1 and isinstance(orelse[0], ast.If):
+            nxt = orelse[0]
+            if not _branch_overrides(nxt.body, var_name):
+                return False
+            orelse = nxt.orelse
+        else:
+            return _branch_overrides(orelse, var_name)
+    return False  # no else branch => init might be read on that path
+
+
 def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag function bodies where a local variable is assigned an
     initial value at the top of the body, then unconditionally reassigned
@@ -1335,46 +1372,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             if not isinstance(if_stmt, ast.If):
                 continue
 
-            # Walk every branch arm; ensure it starts with an assignment
-            # to var_name or a return, not a read.
-            def _branch_overrides(branch: list) -> bool:
-                for s in branch:
-                    # Assigns var_name before reading
-                    if isinstance(s, (ast.Assign, ast.AnnAssign)):
-                        tgts = s.targets if isinstance(s, ast.Assign) else [s.target]
-                        for t in tgts:
-                            if isinstance(t, ast.Name) and t.id == var_name:
-                                return True
-                    # Returns something that uses var_name - don't flag;
-                    # this isn't dead init
-                    if isinstance(s, ast.Return):
-                        if s.value is not None:
-                            try:
-                                rs = ast.unparse(s.value)
-                            except Exception:
-                                return False
-                            # if body reads var_name in return, branch did not override
-                            if re.search(rf'\b{re.escape(var_name)}\b', rs):
-                                return False
-                            return True  # returned something else, initial was dead
-                        return True
-                return False
-
-            def _walk_chain(stmt: ast.If) -> bool:
-                if not _branch_overrides(stmt.body):
-                    return False
-                orelse = stmt.orelse
-                while orelse:
-                    if len(orelse) == 1 and isinstance(orelse[0], ast.If):
-                        nxt = orelse[0]
-                        if not _branch_overrides(nxt.body):
-                            return False
-                        orelse = nxt.orelse
-                    else:
-                        return _branch_overrides(orelse)
-                return False  # no else branch => init might be read on that path
-
-            if not _walk_chain(if_stmt):
+            if not _walk_chain(if_stmt, var_name):
                 continue
             accept = _accept_reason(lines, first.lineno, rule='dead-local-init')
             _emit(
@@ -1423,10 +1421,8 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
             decorators: set[str] = set()
             for dec in node.decorator_list:
                 target = dec.func if isinstance(dec, ast.Call) else dec
-                try:
+                with contextlib.suppress(Exception):
                     decorators.add(ast.unparse(target))
-                except Exception:
-                    pass
             if decorators & CACHE_DECORATORS:
                 continue
             # Scan body for subprocess calls
