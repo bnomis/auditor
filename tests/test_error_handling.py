@@ -1097,9 +1097,7 @@ def test_a_decorator_envelope_omitting_the_parser_error_is_a_hit(project: Builde
         }
     )
     hits = run_check(TRANSLATOR_GAP, root)
-    assert [(hit['rule'], hit['path'], hit['line']) for hit in hits] == [
-        ('translator-envelope-gap', 'src/probe/query.py', 10)
-    ]
+    assert [(hit['rule'], hit['path'], hit['line']) for hit in hits] == [('translator-envelope-gap', 'src/probe/query.py', 10)]
     assert "omits ['json.JSONDecodeError']" in hits[0]['variant']
 
 
@@ -1334,9 +1332,7 @@ def test_a_marker_scoped_to_this_rule_accepts_the_hit(project: Builder, run_chec
         }
     )
     hits = run_check(TRANSLATOR_GAP, root)
-    assert [(hit['accepted'], hit['accepted_reason']) for hit in hits] == [
-        (True, 'the column is written by this package')
-    ]
+    assert [(hit['accepted'], hit['accepted_reason']) for hit in hits] == [(True, 'the column is written by this package')]
 
 
 def test_a_marker_scoped_to_another_rule_does_not_accept_the_hit(project: Builder, run_check: Runner) -> None:

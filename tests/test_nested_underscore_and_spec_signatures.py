@@ -30,14 +30,16 @@ def rows(hits: list[dict], rule: str) -> list[dict]:
 def test_a_def_nested_in_a_function_fires(project: Builder, run_check: Runner) -> None:
     """The twelve litrev instances all have exactly this shape: a conftest
     fixture returning a leading-underscore local factory."""
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def make_item():
             def _build(value):
                 return value
             return _build
         """
-    })
+        }
+    )
     hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
     assert len(hits) == 1
     assert hits[0]['line'] == 2
@@ -46,14 +48,16 @@ def test_a_def_nested_in_a_function_fires(project: Builder, run_check: Runner) -
 
 
 def test_a_class_nested_in_a_function_fires(project: Builder, run_check: Runner) -> None:
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def build_double():
             class _Tracking:
                 pass
             return _Tracking
         """
-    })
+        }
+    )
     hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
     assert len(hits) == 1
     assert 'class _Tracking' in hits[0]['variant']
@@ -61,8 +65,9 @@ def test_a_class_nested_in_a_function_fires(project: Builder, run_check: Runner)
 
 def test_an_async_def_and_a_doubly_nested_def_both_fire(project: Builder, run_check: Runner) -> None:
     """The walk descends to any depth, so a helper inside a helper is found."""
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def outer():
             async def _collect():
                 return []
@@ -72,7 +77,8 @@ def test_an_async_def_and_a_doubly_nested_def_both_fire(project: Builder, run_ch
                 return _inner
             return _collect, _middle
         """
-    })
+        }
+    )
     hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
     assert sorted(hit['line'] for hit in hits) == [2, 4, 5]
 
@@ -92,15 +98,17 @@ def test_a_module_level_def_does_not_fire_here(project: Builder, run_check: Runn
 def test_a_method_does_not_fire(project: Builder, run_check: Runner) -> None:
     """A private method is a different naming question, answered by
     `leading-underscore-self` and by the project's own surface rules."""
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def build():
             class _Holder:
                 def _private(self):
                     return 1
             return _Holder
         """
-    })
+        }
+    )
     hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
     # The nested class fires; the method inside it does not.
     assert [hit['line'] for hit in hits] == [2]
@@ -108,8 +116,9 @@ def test_a_method_does_not_fire(project: Builder, run_check: Runner) -> None:
 
 
 def test_a_dunder_does_not_fire(project: Builder, run_check: Runner) -> None:
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def build():
             class _Holder:
                 pass
@@ -117,7 +126,8 @@ def test_a_dunder_does_not_fire(project: Builder, run_check: Runner) -> None:
                 return 1
             return _Holder, __init_hook__
         """
-    })
+        }
+    )
     hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
     # The single-underscore class fires; the dunder def does not.
     assert [hit['line'] for hit in hits] == [2]
@@ -126,8 +136,9 @@ def test_a_dunder_does_not_fire(project: Builder, run_check: Runner) -> None:
 def test_a_name_shadowing_an_outer_binding_does_not_fire(project: Builder, run_check: Runner) -> None:
     """A nested `_foo` where `_foo` also exists at module scope is a
     deliberate local override; renaming it would break the shadowing."""
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def _shared():
             return 'module'
 
@@ -136,33 +147,38 @@ def test_a_name_shadowing_an_outer_binding_does_not_fire(project: Builder, run_c
                 return 'local'
             return _shared()
         """
-    })
+        }
+    )
     hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
     assert [hit['line'] for hit in hits] == []
 
 
 def test_a_clean_nested_helper_does_not_fire(project: Builder, run_check: Runner) -> None:
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def make_item():
             def build(value):
                 return value
             return build
         """
-    })
+        }
+    )
     assert rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class') == []
 
 
 def test_a_scoped_accept_marker_accepts_the_nested_form(project: Builder, run_check: Runner) -> None:
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def make_item():
             # auditme: accept[leading-underscore-def-class] deliberate, see the note above
             def _build(value):
                 return value
             return _build
         """
-    })
+        }
+    )
     hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
     assert len(hits) == 1
     assert hits[0]['accepted'] is True
@@ -170,15 +186,17 @@ def test_a_scoped_accept_marker_accepts_the_nested_form(project: Builder, run_ch
 
 
 def test_a_marker_scoped_to_another_rule_does_not_accept_it(project: Builder, run_check: Runner) -> None:
-    root = project({
-        'src/probe/mod.py': """
+    root = project(
+        {
+            'src/probe/mod.py': """
         def make_item():
             # auditme: accept[literal-duplication] answers a different question
             def _build(value):
                 return value
             return _build
         """
-    })
+        }
+    )
     hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
     assert len(hits) == 1
     assert hits[0]['accepted'] is False
@@ -284,17 +302,19 @@ def test_a_name_with_no_module_level_definition_does_not_fire(project: Builder, 
     """A Protocol plus its implementations, and `__init__` everywhere,
     resolve to methods only. A spec block showing such a contract is not
     checked, rather than checked against an arbitrary implementation."""
-    root = project({
-        'agents/specs/probe/spec.md': """
+    root = project(
+        {
+            'agents/specs/probe/spec.md': """
         ## API
 
         ```python
         def resolve(self, item: CSLItem) -> str | None:
         ```
         """,
-        'src/probe/base.py': 'class Resolver:\n    def resolve(self, item, config, session):\n        return None\n',
-        'src/probe/doi.py': 'class DoiResolver:\n    def resolve(self, item, config, session):\n        return None\n',
-    })
+            'src/probe/base.py': 'class Resolver:\n    def resolve(self, item, config, session):\n        return None\n',
+            'src/probe/doi.py': 'class DoiResolver:\n    def resolve(self, item, config, session):\n        return None\n',
+        }
+    )
     assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
 
 
@@ -361,11 +381,13 @@ def test_audit_reviews_and_task_lists_are_not_read(project: Builder, run_check: 
     def extract_directory(settings) -> ExtractBatch:
     ```
     """
-    root = project({
-        'agents/audit-reviews/review-1.md': stale,
-        'agents/tasks/audit-reviews/tasks-1.md': stale,
-        'src/probe/mod.py': 'def extract_directory(settings, output_path=None):\n    return None\n',
-    })
+    root = project(
+        {
+            'agents/audit-reviews/review-1.md': stale,
+            'agents/tasks/audit-reviews/tasks-1.md': stale,
+            'src/probe/mod.py': 'def extract_directory(settings, output_path=None):\n    return None\n',
+        }
+    )
     assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
 
 
@@ -379,10 +401,12 @@ def test_a_spec_inside_a_hidden_directory_is_not_read(project: Builder, run_chec
     def extract_directory(settings) -> ExtractBatch:
     ```
     """
-    root = project({
-        '.claude/worktrees/wt/agents/specs/probe/spec.md': stale,
-        'src/probe/mod.py': 'def extract_directory(settings, output_path=None):\n    return None\n',
-    })
+    root = project(
+        {
+            '.claude/worktrees/wt/agents/specs/probe/spec.md': stale,
+            'src/probe/mod.py': 'def extract_directory(settings, output_path=None):\n    return None\n',
+        }
+    )
     assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
 
 
@@ -425,17 +449,19 @@ def test_a_marker_scoped_to_another_rule_does_not_accept_the_drift(project: Buil
 
 def test_two_module_level_defs_sharing_a_name_do_not_fire(project: Builder, run_check: Runner) -> None:
     """Genuine ambiguity: the check cannot know which one the spec means."""
-    root = project({
-        'agents/specs/probe/spec.md': """
+    root = project(
+        {
+            'agents/specs/probe/spec.md': """
         ## API
 
         ```python
         def resolve_path(settings) -> pathlib.Path:
         ```
         """,
-        'src/probe/one.py': 'def resolve_path(settings, root=None):\n    return None\n',
-        'src/probe/two.py': 'def resolve_path(settings, base=None):\n    return None\n',
-    })
+            'src/probe/one.py': 'def resolve_path(settings, root=None):\n    return None\n',
+            'src/probe/two.py': 'def resolve_path(settings, base=None):\n    return None\n',
+        }
+    )
     assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
 
 
@@ -448,21 +474,23 @@ def test_a_test_double_method_does_not_make_a_library_name_ambiguous(project: Bu
     different "source says" clauses, for one spec line. Resolving corpus-wide
     over module-level defs only gives one answer, the right one.
     """
-    root = project({
-        'agents/specs/probe/spec.md': """
+    root = project(
+        {
+            'agents/specs/probe/spec.md': """
         ## API
 
         ```python
         def write_worklist(path, records) -> None:
         ```
         """,
-        'src/probe/worklist.py': 'def write_worklist(path, records, *, cache=None):\n    return None\n',
-        'src/tests/probe/test_double.py': """
+            'src/probe/worklist.py': 'def write_worklist(path, records, *, cache=None):\n    return None\n',
+            'src/tests/probe/test_double.py': """
         class FakeSink:
             def write_worklist(self, path, key, *, verdict='include'):
                 return None
         """,
-    })
+        }
+    )
     hits = rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift')
     assert len(hits) == 1
     assert 'cache=' in hits[0]['variant']
