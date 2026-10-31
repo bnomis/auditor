@@ -2155,16 +2155,14 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
 _BROAD_HANDLER_NAMES = frozenset({'BaseException', 'Exception'})
 
 
-def _handler_names(handler: ast.ExceptHandler) -> frozenset[str] | None:
-    """The class-name tails an `except` clause catches, or None for a broad one.
-
-    A clause whose body re-raises (a bare `raise`, or `raise <bound name>`) lets
-    the error reach the caller, so it catches nothing.
-    """
+def _handler_passes_on(handler: ast.ExceptHandler) -> bool:
+    """Whether an `except` clause re-raises (a bare `raise`, or `raise <bound name>`)."""
     bound = handler.name
-    for node in ast.walk(handler):
-        if isinstance(node, ast.Raise) and (node.exc is None or (isinstance(node.exc, ast.Name) and node.exc.id == bound)):
-            return frozenset()
+    return any(isinstance(node, ast.Raise) and (node.exc is None or (isinstance(node.exc, ast.Name) and node.exc.id == bound)) for node in ast.walk(handler))
+
+
+def _handler_types(handler: ast.ExceptHandler) -> frozenset[str] | None:
+    """The class-name tails an `except` clause matches, or None for a broad one. Pure."""
     if handler.type is None:
         return None
     types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
@@ -2191,23 +2189,45 @@ def _raised_name(node: ast.Raise) -> str | None:
     return None
 
 
+# One `try`'s handlers in source order: what each matches (None for a broad
+# clause) and whether it passes the error on.
+HandlerLevel = tuple[tuple[frozenset[str] | None, bool], ...]
+
+
+def _handler_level(node: ast.Try | ast.TryStar) -> HandlerLevel:
+    """A `try`'s handlers in source order. Pure."""
+    return tuple((_handler_types(handler), _handler_passes_on(handler)) for handler in node.handlers)
+
+
+def _level_catches(level: HandlerLevel, lineage: set[str]) -> bool:
+    """Whether a `try` stops an error of this lineage. Pure.
+
+    Python runs only the first clause that matches, so a re-raising clause
+    lets the error through even when a later, broader clause would catch it.
+    """
+    for types, passes_on in level:
+        if types is None or types & lineage:
+            return not passes_on
+    return False
+
+
 def _reach_sites(
     body: list[ast.stmt],
-    catches: tuple[frozenset[str] | None, ...] = (),
-) -> list[tuple[ast.AST, tuple[frozenset[str] | None, ...]]]:
-    """Every `raise` and call in a function body, with the handlers around it.
+    catches: tuple[HandlerLevel, ...] = (),
+) -> list[tuple[ast.AST, tuple[HandlerLevel, ...]]]:
+    """Every `raise` and call in a function body, with the `try` levels around it.
 
     Nested functions, lambdas and classes are skipped: their raises reach their
     own callers. A `try` body sees its own handlers; its handlers, `else` and
     `finally` see only the handlers outside it.
     """
-    sites: list[tuple[ast.AST, tuple[frozenset[str] | None, ...]]] = []
+    sites: list[tuple[ast.AST, tuple[HandlerLevel, ...]]] = []
 
-    def visit(node: ast.AST, around: tuple[frozenset[str] | None, ...]) -> None:
+    def visit(node: ast.AST, around: tuple[HandlerLevel, ...]) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             return
         if isinstance(node, (ast.Try, ast.TryStar)):
-            inner = around + tuple(_handler_names(handler) for handler in node.handlers)
+            inner = (*around, _handler_level(node))
             for child in node.body:
                 visit(child, inner)
             for child in [*node.handlers, *node.orelse, *node.finalbody]:
@@ -2245,21 +2265,21 @@ def _from_import_bindings(tree: ast.Module, module: str, is_package: bool) -> di
     return bindings
 
 
-def _function_handlers(body: list[ast.stmt]) -> list[frozenset[str] | None]:
-    """What every `except` clause in a function body catches, nested defs skipped."""
-    handlers: list[frozenset[str] | None] = []
+def _function_levels(body: list[ast.stmt]) -> list[HandlerLevel]:
+    """Every `try` level in a function body, nested defs skipped."""
+    levels: list[HandlerLevel] = []
 
     def visit(node: ast.AST) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             return
-        if isinstance(node, ast.ExceptHandler):
-            handlers.append(_handler_names(node))
+        if isinstance(node, (ast.Try, ast.TryStar)):
+            levels.append(_handler_level(node))
         for child in ast.iter_child_nodes(node):
             visit(child)
 
     for statement in body:
         visit(statement)
-    return handlers
+    return levels
 
 
 def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -2350,9 +2370,9 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     def is_domain(name: str) -> bool:
         return name in package_classes and name not in STDLIB_ERRORS
 
-    def caught(name: str, around: tuple[frozenset[str] | None, ...]) -> bool:
+    def caught(name: str, around: tuple[HandlerLevel, ...]) -> bool:
         lineage = {name} | ancestors(name)
-        return any(names is None or names & lineage for names in around)
+        return any(_level_catches(level, lineage) for level in around)
 
     def resolve(call: ast.Call, module: str, cls: str | None, imported: dict[str, str]) -> str | None:
         """The package function a call reaches, or None when it cannot be told."""
@@ -2416,12 +2436,12 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
-        handlers = _function_handlers(node.body)
+        levels = _function_levels(node.body)
         for name in sorted(declared):
             if any(name == found or name in ancestors(found) for found in reached):
                 continue
             lineage = {name} | ancestors(name)
-            if not any(names is None or names & lineage for names in handlers):
+            if not any(_level_catches(level, lineage) for level in levels):
                 continue
             _emit(
                 rule='raises-section-drift',

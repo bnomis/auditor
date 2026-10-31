@@ -8,6 +8,7 @@ import collections.abc
 import pathlib
 
 import auditme.rules.error_handling
+import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
@@ -1462,6 +1463,48 @@ def load(text: str) -> int:
     except probe.errors.ParseError:
         print('bad')
         raise
+"""
+    assert drift(project, run_check, caller) == []
+
+
+@pytest.mark.parametrize('later', ['probe.errors.ProbeError', 'Exception'])
+def test_a_re_raising_handler_wins_over_a_later_broader_one(project: Builder, run_check: Runner, later: str) -> None:
+    caller = f"""import probe.errors
+import probe.parse
+
+
+def load(text: str) -> int:
+    \"\"\"Load it.
+
+    Raises:
+        ParseError: bad text.
+    \"\"\"
+    try:
+        return probe.parse.parse(text)
+    except probe.errors.ParseError:
+        raise
+    except {later}:
+        return 0
+"""
+    assert drift(project, run_check, caller) == []
+
+
+def test_an_unresolved_call_under_a_re_raising_handler_is_not_an_extra(project: Builder, run_check: Runner) -> None:
+    caller = """import probe.errors
+
+
+def load(text: str, reader: object) -> int:
+    \"\"\"Load it.
+
+    Raises:
+        ParseError: bad text.
+    \"\"\"
+    try:
+        return reader(text)
+    except probe.errors.ParseError:
+        raise
+    except Exception:
+        return 0
 """
     assert drift(project, run_check, caller) == []
 
