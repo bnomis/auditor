@@ -9,7 +9,9 @@ or "accepted because pre-existing" logic in the calling layer.
 Usage:
     audit.py <scope-root> [--package <package-name>] [--extra-root <dir> ...]
 
-<scope-root> is the directory containing src/, agents/, docs/, etc.
+<scope-root> is the project directory (agents/, docs/, and usually src/).
+src/ is optional: the sweep passes over the packages under it, if any, then
+the extra roots, and a project with neither is reported and exits 0.
 <package-name> restricts the run to one package under src/. It defaults to
 EVERY package under src/, each audited in its own pass, plus every extra root.
 
@@ -93,8 +95,8 @@ def main() -> int:
     args = parser.parse_args()
 
     scope = args.scope.resolve()
-    if not (scope / 'src').exists():
-        print(f'ERROR: {scope}/src does not exist', file=sys.stderr)
+    if not scope.is_dir():
+        print(f'ERROR: {scope} is not a directory', file=sys.stderr)
         return 2
 
     if args.extra_root is not None:
@@ -115,8 +117,8 @@ def main() -> int:
     else:
         roots = auditme.core._audit_roots(scope)
         if not roots:
-            print(f'ERROR: no package under {scope}/src', file=sys.stderr)
-            return 2
+            print('audit.py: no package under src/ and no extra root; nothing to audit', file=sys.stderr)
+            return 0
 
     for root in roots:
         if not root.exists():

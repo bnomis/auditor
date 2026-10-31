@@ -62,14 +62,33 @@ def test_a_project_with_no_script_root_is_swept_unchanged(project: Builder) -> N
     assert [path.name for path in auditme.core._audit_roots(root)] == ['probe']
 
 
-def test_a_missing_src_directory_is_an_error(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, 'argv', ['audit.py', str(tmp_path)])
-    assert audit.main() == 2
+def test_a_project_with_only_bin_is_swept_over_bin(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project({'bin/tool.py': 'def _helper() -> None:\n    pass\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+    assert audit.main() == 0
+    hits = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [(hit['rule'], hit['path']) for hit in hits if hit['rule'] == 'leading-underscore-def-class'] == [('leading-underscore-def-class', 'bin/tool.py')]
 
 
-def test_an_empty_src_directory_is_an_error(project: Builder, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_empty_project_gives_a_notice_and_exit_0(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     root = project({'src/notes.md': 'no packages here\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+    assert audit.main() == 0
+    captured = capsys.readouterr()
+    assert captured.out == ''
+    assert 'audit.py: no package under src/ and no extra root; nothing to audit' in captured.err
+
+
+def test_a_scope_that_is_not_a_directory_is_an_error(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(tmp_path / 'absent')])
     assert audit.main() == 2
 
 
