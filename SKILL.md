@@ -73,8 +73,9 @@ or `DONE.md`, ask whether to overwrite each one, or stop and suggest `adopt`.
 5. Ask whether to commit the new files. If yes, commit as
    `build: set up the project guards`.
 
-Check that no `{{` placeholder remains in any written file
-(`grep -rn '{{' <files>`).
+Check that no placeholder remains in any written file
+(`grep -rnE '\{\{[A-Z_]+\}\}' <files>` prints nothing). A bare `{{` search is
+not enough: `ci.yml` holds GitHub's own `${{ secrets.AGENTS_DEPLOY_KEY }}`.
 
 ## `adopt`
 
