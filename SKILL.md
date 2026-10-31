@@ -76,7 +76,7 @@ Then run the shipped audit script:
 python3 ~/.claude/skills/auditme/checks/audit.py <project-root> [--package <pkg>] [--extra-root <dir>]
 ```
 
-`<project-root>` is the directory containing `src/` and `agents/`. `--package`
+`<project-root>` is the project's top directory; `src/` is optional. `--package`
 restricts the run to one package; it defaults to **every** package under
 `src/`, each audited in its own pass, followed by every extra root.
 
