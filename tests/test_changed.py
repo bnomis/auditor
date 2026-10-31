@@ -7,22 +7,15 @@ they exercise the runner and not the checker; one case runs the real `audit.py`.
 import collections.abc
 import json
 import pathlib
-import subprocess
 
 import changed
+import conftest
 import pytest
-
-GIT_ENV_ARGS = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test']
-FUTURE_IMPORT = 'from __future__ import annotations\n'
-
-
-def git(repo: pathlib.Path, *args: str) -> None:
-    subprocess.run(['git', *GIT_ENV_ARGS, *args], cwd=repo, check=True, capture_output=True)
 
 
 def commit_all(repo: pathlib.Path, message: str) -> None:
-    git(repo, 'add', '-A')
-    git(repo, 'commit', '-q', '-m', message)
+    conftest.git(repo, 'add', '-A')
+    conftest.git(repo, 'commit', '-q', '-m', message)
 
 
 def write(repo: pathlib.Path, files: dict[str, str]) -> None:
@@ -37,10 +30,10 @@ def repo(tmp_path: pathlib.Path) -> pathlib.Path:
     """A repository on `main` holding a.py and b.py, with HEAD on branch `feature`."""
     root = tmp_path / 'repo'
     root.mkdir()
-    git(root, 'init', '-q', '-b', 'main')
+    conftest.git(root, 'init', '-q', '-b', 'main')
     write(root, {'src/pkg/a.py': 'a = 1\n', 'src/pkg/b.py': 'b = 1\n'})
     commit_all(root, 'base')
-    git(root, 'checkout', '-q', '-b', 'feature')
+    conftest.git(root, 'checkout', '-q', '-b', 'feature')
     return root
 
 
@@ -96,7 +89,7 @@ def test_unchanged_file_hit_passes_without_all_and_fails_with_it(repo, stub_swee
 
 def test_staged_file_counts_as_changed(repo, stub_sweep) -> None:
     write(repo, {'src/pkg/c.py': 'c = 1\n'})
-    git(repo, 'add', 'src/pkg/c.py')
+    conftest.git(repo, 'add', 'src/pkg/c.py')
     stub_sweep([hit('src/pkg/c.py')])
     assert changed.main([str(repo)]) == 1
 
@@ -133,7 +126,7 @@ def test_in_scope_is_pure() -> None:
 
 
 def test_changed_files_excludes_deletions(repo) -> None:
-    git(repo, 'rm', '-q', 'src/pkg/a.py')
+    conftest.git(repo, 'rm', '-q', 'src/pkg/a.py')
     commit_all(repo, 'remove a')
     write(repo, {'src/pkg/c.py': 'c = 1\n'})
     commit_all(repo, 'add c')
@@ -150,7 +143,7 @@ def test_base_starting_with_a_dash_is_refused(repo, stub_sweep, capsys, argv) ->
 def test_no_base_resolves_exits_zero(tmp_path, stub_sweep, capsys) -> None:
     root = tmp_path / 'trunk'
     root.mkdir()
-    git(root, 'init', '-q', '-b', 'trunk')
+    conftest.git(root, 'init', '-q', '-b', 'trunk')
     write(root, {'a.py': 'a = 1\n'})
     commit_all(root, 'base')
     stub_sweep([hit('a.py')])
@@ -218,11 +211,11 @@ def test_reportable(path: str, expected: bool) -> None:
 def test_end_to_end_against_the_real_checker(tmp_path, capsys) -> None:
     root = tmp_path / 'project'
     root.mkdir()
-    git(root, 'init', '-q', '-b', 'main')
-    write(root, {'src/pkg/__init__.py': '', 'src/pkg/old.py': FUTURE_IMPORT})
+    conftest.git(root, 'init', '-q', '-b', 'main')
+    write(root, {'src/pkg/__init__.py': '', 'src/pkg/old.py': conftest.FUTURE_IMPORT})
     commit_all(root, 'base')
-    git(root, 'checkout', '-q', '-b', 'feature')
-    write(root, {'src/pkg/new.py': FUTURE_IMPORT})
+    conftest.git(root, 'checkout', '-q', '-b', 'feature')
+    write(root, {'src/pkg/new.py': conftest.FUTURE_IMPORT})
     commit_all(root, 'add new')
     assert changed.main([str(root)]) == 1
     out = capsys.readouterr().out
@@ -230,3 +223,21 @@ def test_end_to_end_against_the_real_checker(tmp_path, capsys) -> None:
     assert 'old.py' not in out
     assert changed.main(['--all', str(root)]) == 1
     assert 'src/pkg/old.py:1  future-annotations' in capsys.readouterr().out
+
+
+def test_cross_file_hit_on_an_unchanged_file_fails_when_its_peer_changes(tmp_path, capsys) -> None:
+    root = tmp_path / 'project'
+    root.mkdir()
+    conftest.git(root, 'init', '-q', '-b', 'main')
+    write(root, {'src/pkg/__init__.py': '', 'src/pkg/a.py': "NAMES = ('x', 'y', 'z')\n", 'src/pkg/b.py': 'b = 1\n'})
+    commit_all(root, 'base')
+    conftest.git(root, 'checkout', '-q', '-b', 'feature')
+    write(root, {'src/pkg/c.py': 'c = 1\n'})
+    commit_all(root, 'unrelated change')
+    assert changed.main([str(root)]) == 0
+    write(root, {'src/pkg/b.py': "OTHER = ('x', 'y', 'z')\n"})
+    commit_all(root, 'copy the literal')
+    assert changed.main([str(root)]) == 1
+    out = capsys.readouterr().out
+    assert 'src/pkg/a.py:1  literal-duplication' in out
+    assert 'src/pkg/b.py:1  literal-duplication' in out

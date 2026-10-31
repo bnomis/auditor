@@ -12,12 +12,21 @@ import contextlib
 import io
 import json
 import pathlib
+import subprocess
 import sys
 import textwrap
 
 import pytest
 
+GIT_ENV_ARGS = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test']
+FUTURE_IMPORT = 'from __future__ import annotations\n'
 CHECKS_ROOT = pathlib.Path(__file__).resolve().parent.parent / 'checks'
+
+
+def git(repo: pathlib.Path, *args: str) -> None:
+    subprocess.run(['git', *GIT_ENV_ARGS, *args], cwd=repo, check=True, capture_output=True)
+
+
 if str(CHECKS_ROOT) not in sys.path:
     sys.path.insert(0, str(CHECKS_ROOT))
 

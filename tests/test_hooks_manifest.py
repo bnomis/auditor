@@ -10,12 +10,11 @@ import shlex
 import shutil
 import subprocess
 
+import conftest
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[4]
 MANIFEST = REPO_ROOT / '.pre-commit-hooks.yaml'
-GIT_ENV_ARGS = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test']
-FUTURE_IMPORT = 'from __future__ import annotations\n'
 
 COMMON = {
     'always_run': 'true',
@@ -75,10 +74,6 @@ def test_entry_script_is_executable_in_the_index(hook_id: str) -> None:
     assert staged.startswith('100755 ')
 
 
-def git(repo: pathlib.Path, *args: str) -> None:
-    subprocess.run(['git', *GIT_ENV_ARGS, *args], cwd=repo, check=True, capture_output=True)
-
-
 def make_hook_repo(tmp_path: pathlib.Path) -> pathlib.Path:
     """A copy of the manifest and the checker, committed, for try-repo to run."""
     root = tmp_path / 'hooks'
@@ -90,9 +85,9 @@ def make_hook_repo(tmp_path: pathlib.Path) -> pathlib.Path:
         root / 'claude' / 'skills' / 'auditme' / 'checks',
         ignore=shutil.ignore_patterns('__pycache__'),
     )
-    git(root, 'init', '-q', '-b', 'main')
-    git(root, 'add', '-A')
-    git(root, 'commit', '-q', '-m', 'hooks')
+    conftest.git(root, 'init', '-q', '-b', 'main')
+    conftest.git(root, 'add', '-A')
+    conftest.git(root, 'commit', '-q', '-m', 'hooks')
     return root
 
 
@@ -101,13 +96,13 @@ def make_project(tmp_path: pathlib.Path) -> pathlib.Path:
     root = tmp_path / 'project'
     (root / 'src' / 'pkg').mkdir(parents=True)
     (root / 'src' / 'pkg' / '__init__.py').write_text('', encoding='utf-8')
-    (root / 'src' / 'pkg' / 'old.py').write_text(FUTURE_IMPORT, encoding='utf-8')
-    git(root, 'init', '-q', '-b', 'main')
-    git(root, 'add', '-A')
-    git(root, 'commit', '-q', '-m', 'base')
+    (root / 'src' / 'pkg' / 'old.py').write_text(conftest.FUTURE_IMPORT, encoding='utf-8')
+    conftest.git(root, 'init', '-q', '-b', 'main')
+    conftest.git(root, 'add', '-A')
+    conftest.git(root, 'commit', '-q', '-m', 'base')
     (root / 'src' / 'pkg' / 'other.py').write_text('x = 1\n', encoding='utf-8')
-    git(root, 'add', '-A')
-    git(root, 'commit', '-q', '-m', 'touch another file')
+    conftest.git(root, 'add', '-A')
+    conftest.git(root, 'commit', '-q', '-m', 'touch another file')
     return root
 
 
