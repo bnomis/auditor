@@ -131,3 +131,13 @@ def test_ci_installs_pre_commit_before_running_it() -> None:
     text = read('ci.yml')
     assert 'uv tool install pre-commit' in text
     assert text.index('uv tool install pre-commit') < text.index('pre-commit run')
+
+
+def test_ci_puts_the_synced_tools_on_path() -> None:
+    """The checker runs `ruff` from PATH; in CI the project's locked `ruff` is
+    in `.venv/bin` after `uv sync`, so that directory must be on PATH before
+    the audit runs, or every run reports `ruff not installed`."""
+    text = read('ci.yml')
+    line = 'echo "$PWD/.venv/bin" >> "$GITHUB_PATH"'
+    assert line in text
+    assert text.index('uv sync') < text.index(line) < text.index(AUDIT_COMMAND)
