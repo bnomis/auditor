@@ -38,7 +38,33 @@ found something new and no cycle converged.
 
 ## Open
 
-- (empty)
+### Check docstring `Raises:` sections against what reaches the caller (A4)
+
+- **Raised:** review-14 (litrev, 2026-10-31), Phase B A4: eleven hits, every one
+  in code added since the previous review, and nine more at review-13.
+- **The pattern:** a function's `Raises:` section omits a domain error that a
+  same-package callee declares and the function does not catch, or declares one
+  that its own `except` always catches. Phase B finds these by hand each cycle;
+  the call graph within a package and the callees' own `Raises:` sections are
+  enough to find them mechanically.
+- **Proposed check:** for each function with a `Raises:` section, the set of
+  exception names it raises, plus those its same-package callees declare minus
+  those an enclosing `except` catches, equals the names in its `Raises:` section.
+  Report each missing and each extra name. Same-package only, as A4's predicate
+  says; a callee in another package is not followed.
+
+### Rule on builtin constructor calls in A20 / `mutable-module-level-exported`
+
+- **Raised:** review-14 (litrev, 2026-10-31), Phase B A20: the reviewer counted
+  `NAME = list(...)` as a mutable exported container, reasoning that a builtin
+  constructor states its type in the assignment.
+- **Why it needs a ruling:** the rejected request below declines `Call` values
+  because a call such as `get_defaults()` states no type. `list(...)`,
+  `dict(...)` and `set(...)` are calls that do state one. Whether they count is
+  a predicate's enumeration, so it is settled here and in `SKILL.md`'s A20 text,
+  not by a reviewer's judgement each cycle.
+- **Options:** count the three builtin constructors as their literals (and teach
+  the check the same), or name them as outside A20 in its text.
 
 ## Rejected
 
