@@ -877,6 +877,7 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
         accept = _accept_reason(lines, assign_node.lineno, rule='mutable-module-level-exported')
         shape, required_wrap = _MUTABLE_VALUE_SHAPES[type(value)]
         _emit(
+            related=[_relpath(p, scope) for p, _ in external_importers],
             rule='mutable-module-level-exported',
             variant=(f'{name} is a mutable {shape} read by {len(external_importers)} other file(s); wrap in {required_wrap}'),
             path=rel,

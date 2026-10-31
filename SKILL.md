@@ -118,9 +118,16 @@ Schema:
   "line": 42,
   "evidence": "source snippet",
   "accepted": false,
-  "accepted_reason": null
+  "accepted_reason": null,
+  "related": ["src/foo/baz.py"]
 }
 ```
+
+`related` appears only on a hit from a rule that compares two or more files:
+the other locations' repository-relative paths, sorted, never the hit's own
+path. A hit from any other rule has no `related` key. A scope filter such as
+`checks/changed.py` reports a hit when its `path` or any `related` path is in
+scope.
 
 **Rules:**
 

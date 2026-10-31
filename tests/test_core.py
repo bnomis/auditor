@@ -88,6 +88,22 @@ def test_an_emitted_hit_carries_the_documented_schema(capsys: pytest.CaptureFixt
     assert set(record) == {'accepted', 'accepted_reason', 'evidence', 'line', 'path', 'rule', 'variant'}
 
 
+def test_a_hit_with_no_related_serialises_without_the_key(capsys: pytest.CaptureFixture[str]) -> None:
+    auditme.core._emit(rule='r', variant='v', path='a.py', line=1, evidence='x', accepted=False, accepted_reason=None)
+    auditme.core._emit(related=[], rule='r', variant='v', path='a.py', line=2, evidence='x', accepted=False, accepted_reason=None)
+    first, second = capsys.readouterr().out.splitlines()
+    assert first == '{"accepted": false, "accepted_reason": null, "evidence": "x", "line": 1, "path": "a.py", "rule": "r", "variant": "v"}'
+    assert 'related' not in second
+
+
+def test_related_is_sorted_deduplicated_and_never_names_the_hit_s_own_path(capsys: pytest.CaptureFixture[str]) -> None:
+    auditme.core._emit(related=['c.py', 'b.py', 'b.py', 'a.py'], rule='r', variant='v', path='a.py', line=1, evidence='x', accepted=False, accepted_reason=None)
+    auditme.core._emit(related=['a.py'], rule='r', variant='v', path='a.py', line=2, evidence='x', accepted=False, accepted_reason=None)
+    first, second = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+    assert first['related'] == ['b.py', 'c.py']
+    assert 'related' not in second
+
+
 def test_lazy_import_pairs_are_read_from_the_agents_table(project: Builder) -> None:
     root = project(
         {

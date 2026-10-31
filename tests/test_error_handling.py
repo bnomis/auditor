@@ -313,6 +313,7 @@ def test_a_helper_every_caller_wraps_is_a_hit(project: Builder, run_check: Runne
     hits = run_check(ASYMMETRIC, root)
     assert [(hit['rule'], hit['path']) for hit in hits] == [('asymmetric-exception-translation', 'src/probe/helper.py')]
     assert 'all 2 callers wrap it' in hits[0]['variant']
+    assert hits[0]['related'] == ['src/probe/a.py', 'src/probe/b.py']
 
 
 def test_one_unwrapped_caller_makes_the_contract_symmetric_enough(project: Builder, run_check: Runner) -> None:

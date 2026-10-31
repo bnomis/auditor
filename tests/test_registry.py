@@ -104,3 +104,83 @@ def test_registered_order_is_preserved() -> None:
     for position, name in enumerate(baseline):
         found = any(candidate == name for candidate in remaining)
         assert found, f'{name} (registry-order.txt line {position + 1}) has moved earlier in CHECKS or been removed'
+
+
+CROSS_FILE_RULES = frozenset(
+    {
+        'asymmetric-exception-translation',
+        'duplicate-call-sequence',
+        'literal-duplication',
+        'mutable-module-level-exported',
+        'paired-sibling-helpers',
+        'recompile-duplication',
+        'spec-api-signature-drift',
+    }
+)
+
+SHARED_FUNCTION = """
+def {name}(path: str) -> str:
+    resolved = path.strip().lower()
+    return resolved + '-a-long-enough-suffix'
+"""
+
+CALL_CHAIN = """
+import probe.helper
+
+
+def {name}(value: str) -> str:
+    probe.helper.alpha(value)
+    probe.helper.bravo(value)
+    probe.helper.charlie(value)
+    probe.helper.delta(value)
+    probe.helper.echo(value)
+    probe.helper.foxtrot(value)
+    probe.helper.golf(value)
+    return value
+"""
+
+WRAPPED_CALLER = """
+import probe.errors
+import probe.setup
+
+
+def {name}(label: str) -> int:
+    try:
+        return probe.setup.setup_experiment(label)
+    except Exception as exc:
+        raise probe.errors.ProbeError('setup failed') from exc
+"""
+
+
+def test_exactly_the_cross_file_rules_emit_related(project, run_check) -> None:
+    """A rule that compares files must name the other files, so a scope filter
+    can report a hit when only its peer changed. A rule added later that
+    compares files without `related` is not in this set and fails here."""
+    root = project(
+        {
+            'src/probe/lit_a.py': "NAMES = ['alpha', 'beta']\n",
+            'src/probe/lit_b.py': "LABELS = ['alpha', 'beta']\n",
+            'src/probe/sib_a.py': SHARED_FUNCTION.format(name='load_a'),
+            'src/probe/sib_b.py': SHARED_FUNCTION.format(name='load_b'),
+            'src/probe/seq_a.py': CALL_CHAIN.format(name='run_first'),
+            'src/probe/seq_b.py': CALL_CHAIN.format(name='run_second'),
+            'src/probe/re_a.py': "import re\n\nTOKEN_RE = re.compile(r'^[a-z]+$')\n",
+            'src/probe/re_b.py': "import re\n\nTOKEN_RE = re.compile(r'^[a-z]+$')\n",
+            'src/probe/setup.py': 'def setup_experiment(name: str) -> int:\n    return len(name)\n',
+            'src/probe/wrap_a.py': WRAPPED_CALLER.format(name='run_a'),
+            'src/probe/wrap_b.py': WRAPPED_CALLER.format(name='run_b'),
+            'src/probe/settings.py': "DEFAULTS = {'a': 1}\n",
+            'src/probe/user.py': 'from probe.settings import DEFAULTS\n\nVALUE = DEFAULTS\n',
+            'src/probe/mod.py': 'def extract_directory(settings, output_path=None):\n    return None\n',
+            'agents/specs/probe/spec.md': '## API\n\n```python\ndef extract_directory(settings: Settings) -> Batch:\n```\n',
+        }
+    )
+    hits = []
+    for check in auditme.registry.CHECKS:
+        hits.extend(run_check(check, root))
+    emitting = {hit['rule'] for hit in hits if 'related' in hit}
+    assert emitting == CROSS_FILE_RULES
+    for hit in hits:
+        if 'related' in hit:
+            assert hit['related'] == sorted(set(hit['related']))
+            assert hit['path'] not in hit['related']

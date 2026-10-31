@@ -367,6 +367,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
         accept = _accept_reason(_source_lines(scope / callee_path), callee_line, rule='asymmetric-exception-translation')
         sites_summary = '; '.join(f'{p}:{n}' for (p, n, _) in sites[:5])
         _emit(
+            related=[p for (p, _, _) in sites],
             rule='asymmetric-exception-translation',
             variant=f'{callee} has no own try/except; all {len(sites)} callers wrap it',
             path=callee_path,

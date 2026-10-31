@@ -462,6 +462,7 @@ def test_a_mutable_global_imported_elsewhere_is_a_hit(project: Builder, run_chec
     hits = run_check(MUTABLE_EXPORT, root)
     assert [(hit['rule'], hit['path']) for hit in hits] == [('mutable-module-level-exported', 'src/probe/settings.py')]
     assert 'types.MappingProxyType(...)' in hits[0]['variant']
+    assert hits[0]['related'] == ['src/probe/user.py']
 
 
 def test_a_mutable_global_read_by_attribute_access_is_a_hit(project: Builder, run_check: Runner) -> None:

@@ -63,6 +63,7 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
             full_lines = _source_lines(full)
             accept = _accept_reason(full_lines, lineno, rule='literal-duplication')
             _emit(
+                related=[h[0] for h in hits],
                 rule='literal-duplication',
                 variant=f'identical {key[0]} literal across {len(hits)} locations',
                 path=rel,
@@ -103,6 +104,7 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
             accept = _accept_reason(full_lines, lineno, rule='paired-sibling-helpers')
             peers = sorted(set(h[2] for h in hits) - {fname})
             _emit(
+                related=sorted(files),
                 rule='paired-sibling-helpers',
                 variant=f'{len(hits)} functions share a body across files',
                 path=rel,
@@ -618,6 +620,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
             full_a = scope / rel_a
             accept = _accept_reason(_source_lines(full_a), line_a, rule='duplicate-call-sequence')
             _emit(
+                related=[rel_b],
                 rule='duplicate-call-sequence',
                 variant=f'{fname_a} shares {len(lcs)} calls in order with {rel_b}:{fname_b}',
                 path=rel_a,
@@ -689,6 +692,7 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
             accept = _accept_reason(lines, lineno, rule='recompile-duplication')
             other_paths = sorted({_relpath(p, scope) for p, _, _ in locations if p != path})
             _emit(
+                related=other_paths,
                 rule='recompile-duplication',
                 variant=(f'constant `{name} = re.compile(...)` also defined in {other_paths!r}; canonicalise to one home'),
                 path=rel,

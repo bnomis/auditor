@@ -358,6 +358,7 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
                 continue
             accept = _accept_reason(lines, index + 1, end_lineno=last_index + 1, rule='spec-api-signature-drift')
             _emit(
+                related=[_relpath(source_path, scope)],
                 rule='spec-api-signature-drift',
                 variant=f'{name}: spec says ({", ".join(spec_params)}), source says ({", ".join(source_params)})',
                 path=rel,

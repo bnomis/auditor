@@ -33,6 +33,7 @@ def test_the_same_string_list_in_two_files_is_a_hit(project: Builder, run_check:
         ('literal-duplication', 'src/probe/a.py'),
         ('literal-duplication', 'src/probe/b.py'),
     ]
+    assert [hit['related'] for hit in hits] == [['src/probe/b.py'], ['src/probe/a.py']]
 
 
 def test_set_membership_is_compared_without_order(project: Builder, run_check: Runner) -> None:
@@ -89,6 +90,7 @@ def test_two_functions_with_the_same_body_in_different_files_are_hits(project: B
     hits = run_check(SIBLING_HELPERS, root)
     assert {hit['path'] for hit in hits} == {'src/probe/a.py', 'src/probe/b.py'}
     assert all(hit['rule'] == 'paired-sibling-helpers' for hit in hits)
+    assert {hit['path']: hit['related'] for hit in hits} == {'src/probe/a.py': ['src/probe/b.py'], 'src/probe/b.py': ['src/probe/a.py']}
 
 
 def test_two_copies_in_one_file_are_not_a_cross_file_pair(project: Builder, run_check: Runner) -> None:
@@ -292,6 +294,7 @@ def test_two_functions_with_the_same_call_skeleton_are_a_hit(project: Builder, r
     hits = run_check(CALL_SEQUENCE, root)
     assert [(hit['rule'], hit['path']) for hit in hits] == [('duplicate-call-sequence', 'src/probe/a.py')]
     assert 'run_second' in hits[0]['variant']
+    assert hits[0]['related'] == ['src/probe/b.py']
 
 
 PLUMBING_CHAIN = """
@@ -355,6 +358,7 @@ def test_the_same_regex_constant_name_in_two_files_is_a_hit(project: Builder, ru
     hits = run_check(RECOMPILE, root)
     assert {hit['path'] for hit in hits} == {'src/probe/a.py', 'src/probe/b.py'}
     assert all(hit['rule'] == 'recompile-duplication' for hit in hits)
+    assert {hit['path']: hit['related'] for hit in hits} == {'src/probe/a.py': ['src/probe/b.py'], 'src/probe/b.py': ['src/probe/a.py']}
 
 
 def test_a_differently_named_regex_constant_is_not_a_hit(project: Builder, run_check: Runner) -> None:

@@ -243,6 +243,7 @@ def test_a_parameter_added_in_the_source_fires(project: Builder, run_check: Runn
     assert 'extract_directory' in hits[0]['variant']
     assert 'output_path=' in hits[0]['variant']
     assert 'src/probe/mod.py:1' in hits[0]['evidence']
+    assert hits[0]['related'] == ['src/probe/mod.py']
 
 
 def test_a_parameter_moving_across_the_keyword_only_marker_fires(project: Builder, run_check: Runner) -> None:

@@ -24,7 +24,14 @@ ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*
 _EMITTED: set[str] = set()
 
 
-def _emit(**kwargs) -> None:
+def _emit(related: list[str] | None = None, **kwargs) -> None:
+    """Print one hit. `related` names the other files a cross-file hit compares
+    against (repository-relative, sorted, de-duplicated); it is omitted when
+    empty so every other hit serialises as before."""
+    if related:
+        kwargs['related'] = sorted(set(related) - {kwargs.get('path')})
+        if not kwargs['related']:
+            del kwargs['related']
     line = json.dumps(kwargs, sort_keys=True)
     if line in _EMITTED:
         return
