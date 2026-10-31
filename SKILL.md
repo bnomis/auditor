@@ -83,9 +83,9 @@ restricts the run to one package; it defaults to **every** package under
 Do not pass `--package` for a normal audit. A project whose `src/` holds both
 the library and the test tree has two packages, and auditing one of them
 reports a partial scope as a complete one. Until 2026-08-14 the default was
-"the alphabetically-first directory under `src/`", which on the litrev project
-meant `src/tests/` was never read: 440 hits stayed invisible across five audit
-cycles while the sweep looked clean. The same default would have picked
+"the alphabetically-first directory under `src/`", which on one project meant
+`src/tests/` was never read: every hit in it stayed invisible across several
+audit cycles while the sweep looked clean. The same default would have picked
 `__pycache__` on a project that had one.
 
 An **extra root** is auditable Python that is not a package under `src/`.
@@ -93,8 +93,8 @@ An **extra root** is auditable Python that is not a package under `src/`.
 `--extra-root <dir>` (repeatable, relative to the project root) replaces that
 default set. The same under-coverage had a second instance here: enumerating
 packages *under `src/`* gave a project whose scripts live in `bin/` no rows at
-all for them - accepted or otherwise - while three consecutive litrev
-summaries recorded "`bin/` remains at zero unaccepted hits" as though a
+all for them - accepted or otherwise - while consecutive audit summaries
+recorded "`bin/` remains at zero unaccepted hits" as though a
 measurement had been taken. A named `--extra-root` that does not exist is an
 error rather than an empty pass, because a typo would reinstate exactly that.
 `--package` asks for one package, so it drops the extra roots too.
@@ -241,7 +241,7 @@ The script treats a hit as `accepted: true` only when one of these exists:
 1. **Inline comment** on the hit line or the preceding line, optionally scoped to a single rule:
    - `# auditme: accept[<rule-name>] <reason>` - answers for that rule only
    - `# auditme: accept <reason>` - answers for every rule that fires on the line
-2. **AGENTS.md table row** pairing the importer and imported module in backticks (for in-function imports). The importer module path is computed without a leading `src.` prefix (e.g. `featmo.config.structures`, not `src.featmo.config.structures`); AGENTS.md rows should use the same form.
+2. **AGENTS.md table row** pairing the importer and imported module in backticks (for in-function imports). The importer module path is computed without a leading `src.` prefix (e.g. `pkg.config.structures`, not `src.pkg.config.structures`); AGENTS.md rows should use the same form.
 
 Nothing else acts as acceptance - not a decision note under `agents/audit-reviews/`, not a prior review that "agreed" the pattern is fine, not an assumption about HF / sklearn / PEP conventions.
 
@@ -250,7 +250,7 @@ Nothing else acts as acceptance - not a decision note under `agents/audit-review
 **Write new markers in the scoped form.** An unscoped marker accepts every rule
 that fires on its line, including rules that did not exist when it was written -
 so a decision weighed about one predicate silently excuses a different one later.
-This is not hypothetical: on the litrev project, a marker reasoning entirely
+This is not hypothetical: on one project, a marker reasoning entirely
 about traceback diagnosability (written for
 `logger-exception-graceful-degradation`) was found pre-accepting the newly added
 `failure-as-absence` check on the same line, hiding a defect three prior reviews
@@ -305,7 +305,7 @@ Each question is a deterministic predicate. The reviewer reads the file end-to-e
 
 ### Standards (S)
 
-- **S1. Type annotations on every signature.** Parameter and return annotations everywhere. Flag bare untyped signatures. **Scope is locked and asymmetric.** Enumerate every missing annotation individually, with `path:line`, for non-test source only. For files under a `tests/` directory, do NOT enumerate: report a single count line (missing parameter annotations, missing return annotations, modules affected, modules fully annotated). Reviews 3, 4 and 5 each chose differently here - review-3 skipped tests, review-4 enumerated 1916 of them, review-5 counted - and the swing is the single largest source of apparent finding-count movement between cycles. If the project records a standing exemption for test annotations (as an AGENTS.md note that `ANN` is not enabled for tests), the count also serves as a drift check on that note's own figures; a discrepancy is a documentation finding under Doc1, not an S1 finding.
+- **S1. Type annotations on every signature.** Parameter and return annotations everywhere. Flag bare untyped signatures. **Scope is locked and asymmetric.** Enumerate every missing annotation individually, with `path:line`, for non-test source only. For files under a `tests/` directory, do NOT enumerate: report a single count line (missing parameter annotations, missing return annotations, modules affected, modules fully annotated). Consecutive reviews of one project each chose differently here - one skipped tests, the next enumerated every one of them, the third counted - and the swing is the single largest source of apparent finding-count movement between cycles. If the project records a standing exemption for test annotations (as an AGENTS.md note that `ANN` is not enabled for tests), the count also serves as a drift check on that note's own figures; a discrepancy is a documentation finding under Doc1, not an S1 finding.
 - **S2. PascalCase / UPPER_SNAKE / lower_snake.** Names match project convention. Flag inconsistencies.
 - **S3. TYPE_CHECKING block placement.** Same idiom as the rest of the tree (top-of-file, after imports, etc.).
 - **S4. Project-specific rule files.** Any rule referenced by AGENTS.md not enforced by the script. Read the rule file; check the file under review.
@@ -508,13 +508,13 @@ A refinement is a skill change too: same process as above (drain immediately, th
 
 Documented refinements:
 
-- **`except-interpolation` (review-36):** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `checks/auditme/rules/error_handling.py`.
-- **`empty-init-while-siblings-export` (review-36):** the predicate is file-level. The accept-marker scan walks every line in the file rather than just the docstring opener, so a docstring-only `__init__.py` can be accepted by adding a comment-only `# auditme: accept <reason>` line anywhere in the file.
-- **`legacy-typing` (2026-10-14, featlib review-2 and featim review-29):** the predicate skips `Set[` when it is preceded by `collections.abc.`. `collections.abc.Set` is the modern ABC, not the deprecated `typing.Set`. See the `legacy-typing` pattern in `check_text_patterns` in `checks/auditme/rules/style_and_naming.py`.
+- **`except-interpolation`:** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `checks/auditme/rules/error_handling.py`.
+- **`empty-init-while-siblings-export`:** the predicate is file-level. The accept-marker scan walks every line in the file rather than just the docstring opener, so a docstring-only `__init__.py` can be accepted by adding a comment-only `# auditme: accept <reason>` line anywhere in the file.
+- **`legacy-typing` (2026-10-14):** the predicate skips `Set[` when it is preceded by `collections.abc.`. `collections.abc.Set` is the modern ABC, not the deprecated `typing.Set`. See the `legacy-typing` pattern in `check_text_patterns` in `checks/auditme/rules/style_and_naming.py`.
 
 ## Rule conflict resolution
 
-A rule conflict exists when fixing a finding under rule X creates a finding under rule Y on the same code (e.g., review-34: `A18 callbacks-open-file-per-event` says move `mkdir` from `on_log` into `__init__`; `constructor-disk-io` then fires on the new location).
+A rule conflict exists when fixing a finding under rule X creates a finding under rule Y on the same code (e.g. `A18 callbacks-open-file-per-event` says move `mkdir` from `on_log` into `__init__`; `constructor-disk-io` then fires on the new location).
 
 When a conflict is detected:
 
@@ -540,10 +540,10 @@ accepting one of them. Neither rule is auto-accepted at these sites.
 |-------|--------------|--------|
 | `broad-except-wrong-level` and `logger-exception-graceful-degradation` (A19) | a handler for `Exception`, `BaseException` or a bare `except` that logs and then returns a default so the run carries on | Remove the handler and let the failure propagate, as the coding standard's "let unexpected exceptions propagate" asks. Do not change the logger level: `logger.warning` fires the first rule and `logger.exception` the second, so each change swaps one hit for the other. If the failure is expected and recoverable, catch that specific exception type and log it with `logger.warning`; neither rule fires on that. If the user decides a broad handler has to stay, keep `logger.exception`, since a failure nobody named is by definition unexpected and its traceback is wanted, and accept `logger-exception-graceful-degradation` with a scoped marker giving the user's reason. |
 
-Background: featim review-29 (2026-10-14) found four analysis-step handlers in
-`src/featim/analysis/orchestrator.py` that could satisfy neither rule. Its
-Decision 2 was answered the same day by removing the handlers rather than
-picking a winner, and this ruling generalises that answer.
+Background: an audit found broad handlers in a pipeline orchestrator that
+could satisfy neither rule. Its decision was answered by removing the handlers
+rather than picking a winner, and this ruling generalises that answer
+(2026-10-14).
 
 ## Severity guide
 
@@ -555,7 +555,7 @@ picking a winner, and this ruling generalises that answer.
 
 Earlier iterations relied on Claude to run greps and AST walks by hand, which agents reliably skipped, sampled, or silently filtered. The script fixed Phase A: agents cannot fake what a subprocess outputs. Acceptance is explicit (inline comment or AGENTS.md), not a decision-note argument.
 
-A first Phase B fix replaced "report every concern" with a fixed checklist; that closed one source of variance but left four others that drove the feathf project to 34 cycles before convergence:
+A first Phase B fix replaced "report every concern" with a fixed checklist; that closed one source of variance but left four others that kept one project's audits from converging for dozens of cycles:
 
 1. **Per-file fan-out** spread judgment thresholds across reviewers (one agent's "yes" was another agent's "no" on the same predicate). Cured by per-question fan-out.
 2. **Category-restricted runs** meant each lens found new things in code that prior lenses had ignored. Cured by always running every category in one pass.

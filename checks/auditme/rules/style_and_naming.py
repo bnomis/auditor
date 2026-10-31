@@ -624,9 +624,9 @@ def check_leading_underscore_nested_def_class(scope: pathlib.Path, src_root: pat
         shadowing the author wanted.
       - Bare `_` does not fire.
 
-    Raised as a request by litrev's review-11 (2026-09-01), which found
-    twelve instances that had been invisible across eleven audit cycles
-    while the rule reported an instance count of zero or one.
+    Raised as a request by an audit (shipped 2026-09-01) that found
+    instances which had been invisible across many audit cycles while the
+    rule reported almost none.
     """
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -736,8 +736,8 @@ def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path
     reported by `underscore-unpack-target-read` and
     `underscore-forloop-target-read`.
 
-    Raised as a request by litrev's review-12 (2026-10-05), whose S2 found
-    about seventy such sites in eight test modules.
+    Raised as a request by an audit (shipped 2026-10-05) whose S2 found
+    many such sites across its test modules.
     """
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -805,7 +805,7 @@ def check_typing_deprecated_alias(scope: pathlib.Path, src_root: pathlib.Path) -
 
     The coding standard prefers the standard generics to their `typing`
     equivalents. `legacy-typing` reads that for the aliases of builtins -
-    `List[`, `Dict[` and the rest - and saw nothing else, so featlib's review-2
+    `List[`, `Dict[` and the rest - and saw nothing else, so an audit
     found `typing.Sequence` and `typing.Iterator` by hand under S4.
 
     Signal, on the AST so a string or a comment never fires:

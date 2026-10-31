@@ -144,7 +144,7 @@ def test_the_shape_at_module_scope_is_a_hit(project: Builder, run_check: Runner)
 
 
 def test_isinstance_guard_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    """The cure litrev actually applied at every site review-6 raised.
+    """The cure one project actually applied at every site an audit raised.
 
     A predicate that did not recognise it would re-report each of those fixes
     as a fresh defect, which is the convergence failure the skill exists to

@@ -82,7 +82,7 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
     ``str(exc)`` (or its f-string equivalent) into a new message
     produces a truncated copy that drifts from the original.
 
-    Exception (review-36): ``type(<bound>).__name__`` / ``__qualname__``
+    Exception: ``type(<bound>).__name__`` / ``__qualname__``
     and ``<bound>.__class__.__name__`` / ``__qualname__`` access only
     the exception class name string. The class name is a categorical
     hint, not a lossy duplication of the message body, so these
@@ -269,7 +269,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     # First pass: enumerate every module-level function and whether its body
     # contains a top-level try/except handler.
     function_index: dict[str, tuple[str, int, bool]] = {}
-    # function_index key is full dotted path (e.g. 'feathf.registry.runs.setup_mlflow_experiment')
+    # function_index key is full dotted path (e.g. 'pkg.registry.runs.setup_experiment')
     package_root_name = src_root.name
 
     for path in _all_py_files(src_root):
@@ -514,7 +514,7 @@ def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathli
             #   - return annotation is `int` (CLI commands return an
             #     exit code)
             #   - OR has a parameter annotated with a name ending in
-            #     `.Feathf` / `.Cmd` / any cappa dispatcher root (the
+            #     `.App` / `.Cmd` / any cappa dispatcher root (the
             #     dispatcher-aware second argument)
             returns_int = False
             if node.returns is not None:
@@ -525,7 +525,7 @@ def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathli
                 except Exception:
                     pass
             # params whose annotation string contains a capitalised cappa
-            # command class (the `parent: 'feathf.cli.app.Feathf'` style)
+            # command class (the `parent: 'pkg.cli.app.App'` style)
             has_cappa_param = False
             for arg in node.args.args:
                 if arg.annotation is None:
@@ -665,7 +665,7 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
       - The stdlib raise is NOT inside an `except` block (which is the
         re-raise-with-narrower-type pattern and is fine).
 
-    Scope rationale (review-73): the "widen to any module that imports a
+    Scope rationale: the "widen to any module that imports a
     domain `*Error` lazily" variant was tried and discarded because it
     over-fired on `config/structures.py.__post_init__` validation raises,
     which AGENTS.md's "Error type policy by layer" permits (`config` has
@@ -1045,7 +1045,7 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
     """
     # Drop `replace`, `rename`, `copy`, `remove` - too noisy due to
     # str.replace, dataclasses.replace, list.copy, list.remove etc.
-    # `read_text` / `read_bytes` / `from_pretrained` added per review-34
+    # `read_text` / `read_bytes` / `from_pretrained` added by a
     # predicate-extension decision: packages with a domain *Error must
     # envelope read-path IO too, not only writes.
     STDLIB_WRITE_CALLS = {
@@ -1447,7 +1447,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
     #   - a `Raises:` / `Raise:` header line (napoleon / google style)
     #   - sphinx `:raises X:` role
     #   - a prose sentence `Raise <X>Error` or `Raises <X>Error` that may
-    #     use a dotted-module-qualified form (`featmo.ensemble.errors.LoadError`)
+    #     use a dotted-module-qualified form (`pkg.ensemble.errors.LoadError`)
     raises_marker_re = re.compile(
         r'(?:^\s*Raises?\s*:|:raises\s+[A-Za-z_]|\bRaises?\s+[A-Za-z_][\w.]*Error\b)',
         re.MULTILINE,
@@ -1764,8 +1764,8 @@ def _name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
     `x = parsed.get('usage', {})` followed by `if x is None`, `x = x or {}`,
     `if x and x.get(...)`, or `if not isinstance(x, dict): raise DomainError`
     has already answered the question this check asks, whatever order the
-    statements appear in. The `isinstance` form is the cure litrev actually
-    applied at every site review-6 raised, so a predicate that did not
+    statements appear in. The `isinstance` form is the cure one project actually
+    applied at every site an audit raised, so a predicate that did not
     recognise it would re-report every fix as a defect. Testing the whole scope
     rather than only the statements between assignment and use keeps the
     predicate free of flow analysis, at the cost of missing a guard that runs
@@ -1942,7 +1942,7 @@ def _translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
 
     Indexed by short name rather than by dotted path, because the decorator is
     written as the name it was bound to at the use site and that binding is not
-    always an import the checker can follow - litrev's store reads the
+    always an import the checker can follow - one project's store reads the
     contextmanager back out of `sys.modules` to dodge a circular import, and a
     dotted-path index would resolve nothing there.
 
@@ -2037,8 +2037,8 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     lexical `try/except` in the function. A `@translate_sqlite_errors`-style
     decorator is invisible to that scan, so a function guarded only by one
     reads as "no envelope at all" - and is then skipped, being neither
-    lexically guarded nor caught by the no-envelope checks. On litrev three
-    such sites in `store/query.py` survived six audit cycles: all three
+    lexically guarded nor caught by the no-envelope checks. On one project
+    such sites in a query module survived several audit cycles: each
     `json.loads` a sqlite column inside functions documenting
     `Raises: StoreError` whose only envelope caught `sqlite3.Error`, so a
     malformed column reached the CLI as a bare `json.JSONDecodeError`
@@ -2288,8 +2288,8 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     nothing, which is why an extra needs a catching handler: without one, the
     declared error may arrive through such a call.
 
-    Raised by review-14 (litrev, 2026-10-31), whose Phase B A4 found these by
-    hand: eleven hits there, nine at review-13.
+    Raised by an audit whose Phase B A4 kept finding these by hand, cycle
+    after cycle (shipped 2026-10-31).
     """
     modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
     for path in _all_py_files(src_root):

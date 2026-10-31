@@ -128,7 +128,7 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
         across the call sites.
 
     Example: `Pipeline.tokenize` and `Pipeline.train` both call
-    `feathf.config.persistence.flush_resolved_config(..., self.run_dir)`.
+    `pkg.config.persistence.flush_resolved_config(..., self.run_dir)`.
     Calling from multiple stages silently re-flushes the same target and
     can overwrite a patched snapshot if stages write different config
     versions.

@@ -19,9 +19,9 @@ EVERY package under src/, each audited in its own pass, plus every extra root.
 
 That default matters. A project whose src/ holds both the library and the test
 tree - src/mylib/ and src/tests/ - has two packages, and a driver that audited
-only the first would report a partial scope as a complete one. On the litrev
-project that silently hid 440 hits, all of them in src/tests/, across five
-audit cycles: the sweep looked clean because the test tree was never read.
+only the first would report a partial scope as a complete one. On one project
+that silently hid every hit in src/tests/ across several audit cycles: the
+sweep looked clean because the test tree was never read.
 
 An extra root is auditable Python that is not a package under src/. bin/ is
 the default one, and the same failure had a second instance there: enumerating

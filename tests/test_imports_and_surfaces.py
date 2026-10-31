@@ -475,7 +475,7 @@ def test_an_aliased_from_import_is_a_hit(project: Builder, run_check: Runner) ->
 
 
 def test_an_as_import_inside_a_function_is_a_hit(project: Builder, run_check: Runner) -> None:
-    """The litrev site was a fixture body, which the full-path-imports codemod
+    """The site that prompted this was a fixture body, which the full-path-imports codemod
     and ruff's ICN003 both walked past."""
     root = project(
         {
@@ -564,8 +564,8 @@ def test_a_from_import_in_a_module_is_a_hit(project: Builder, run_check: Runner)
 
 
 def test_a_from_import_inside_a_function_or_type_checking_block_is_a_hit(project: Builder, run_check: Runner) -> None:
-    """A from-import is one wherever it is written; the featlib sites included a
-    conftest fixture body."""
+    """A from-import is one wherever it is written; the sites that prompted the
+    check included a conftest fixture body."""
     root = project(
         {
             'src/probe/mod.py': """

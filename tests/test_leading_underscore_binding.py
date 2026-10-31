@@ -1,4 +1,4 @@
-"""Tests for `leading-underscore-binding`, shipped from review-12's request (2026-10-05).
+"""Tests for `leading-underscore-binding`, shipped from an audit's request (2026-10-05).
 
 The check replaces the five `destructure`/`forloop` text patterns, which saw
 only the first two positions of a target, and adds every shape no regex could

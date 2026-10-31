@@ -175,8 +175,8 @@ def _signature_params(node: ast.AST) -> list[str] | None:
     A keyword-only marker is rendered as a `*` entry and a default as a
     `=` suffix, so a parameter that moved across the `*` or lost its
     default reads as a difference. Types are deliberately NOT compared:
-    a spec routinely writes `LitRevSettings` where the source writes
-    `litlib.settings.LitRevSettings`, and treating that as drift would
+    a spec routinely writes `AppSettings` where the source writes
+    `applib.settings.AppSettings`, and treating that as drift would
     bury the real findings.
     """
     if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -235,8 +235,8 @@ def _source_definitions(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str
 
     - **Corpus-wide, not per-root.** The driver audits one root per pass, so
       resolving against `src_root` answers a different question on each pass:
-      litrev's `write_worklist` resolved to the library function on the
-      `src/litlib` pass and to a test double's method on the `src/tests` one,
+      one project's `write_worklist` resolved to the library function on the
+      library's pass and to a test double's method on the `src/tests` one,
       and the spec was reported as drifting from both. A name is ambiguous or
       it is not, and that is a property of the corpus.
     - **Module-level only.** A method that happens to share a module-level
@@ -300,8 +300,8 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
       - **An elided signature does not fire.** `def f(...)` and a block
         carrying `# ...` are a spec showing a contract rather than a
         signature.
-      - **Types are not compared.** A spec's `settings: LitRevSettings`
-        against a source's `settings: litlib.settings.LitRevSettings` is
+      - **Types are not compared.** A spec's `settings: AppSettings`
+        against a source's `settings: applib.settings.AppSettings` is
         the same parameter.
       - **Prose does not fire.** Only fenced blocks under an API heading are
         read, so a spec naming a function in a sentence is out of scope.
@@ -309,8 +309,8 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
         records of what was true when they ran, and regenerating or
         flagging them would falsify the record.
 
-    Raised as a request by litrev's review-11 (2026-09-01), which found
-    around twenty instances by hand in a single pass, nearly all of them a
+    Raised as a request by an audit (shipped 2026-09-01) that found many
+    instances by hand in a single pass, nearly all of them a
     parameter added by a fix whose commit did not touch the spec.
     """
     definitions = _source_definitions(scope, src_root)

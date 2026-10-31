@@ -559,7 +559,7 @@ def test_a_global_built_by_a_call_is_not_a_hit(project: Builder, run_check: Runn
 )
 def test_a_global_built_by_a_builtin_constructor_is_a_hit(project: Builder, run_check: Runner, value: str, shape: str, wrap: str) -> None:
     """`list(...)`, `dict(...)` and `set(...)` state their type in the
-    assignment, as a literal does (ruled 2026-10-31, review-14's request)."""
+    assignment, as a literal does (ruled 2026-10-31, on an audit's request)."""
     root = project(
         {
             'src/probe/settings.py': f'NAMES = {value}\n',

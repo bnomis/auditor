@@ -5,8 +5,8 @@ was silent under-coverage - `--package` used to default to the
 alphabetically-first directory under `src/`, so a project with both a library
 and a test tree had the test tree dropped and the sweep still looked clean.
 The same failure had a second instance outside `src/`: scripts in `bin/` were
-not swept at all, and three consecutive litrev summaries recorded them as being
-at zero unaccepted hits.
+not swept at all, and consecutive audit summaries recorded them as being at
+zero unaccepted hits.
 """
 
 import collections.abc

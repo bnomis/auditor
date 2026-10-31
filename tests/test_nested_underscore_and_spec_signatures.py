@@ -1,4 +1,4 @@
-"""Tests for the two checks shipped from review-11's requests (2026-09-01).
+"""Tests for the two checks shipped from an audit's requests (2026-09-01).
 
 Both close a scope gap rather than adding a new predicate: the first supplies
 the nested half of a rule whose regex form sees module-level definitions only,
@@ -28,7 +28,7 @@ def rows(hits: list[dict], rule: str) -> list[dict]:
 
 
 def test_a_def_nested_in_a_function_fires(project: Builder, run_check: Runner) -> None:
-    """The twelve litrev instances all have exactly this shape: a conftest
+    """The instances that prompted this all have exactly this shape: a conftest
     fixture returning a leading-underscore local factory."""
     root = project(
         {
@@ -213,7 +213,7 @@ SPEC_WITH_API = """
 ## API
 
 ```python
-def extract_directory(settings: LitRevSettings) -> ExtractBatch:
+def extract_directory(settings: AppSettings) -> ExtractBatch:
     ...
 ```
 """
@@ -224,7 +224,7 @@ def spec_project(build: Builder, spec_body: str, source: str) -> pathlib.Path:
 
 
 def test_a_parameter_added_in_the_source_fires(project: Builder, run_check: Runner) -> None:
-    """The dominant litrev shape: a fix adds an optional parameter and the
+    """The dominant shape in practice: a fix adds an optional parameter and the
     spec's API block is not updated in the same commit."""
     root = spec_project(
         project,
@@ -232,7 +232,7 @@ def test_a_parameter_added_in_the_source_fires(project: Builder, run_check: Runn
         ## API
 
         ```python
-        def extract_directory(settings: LitRevSettings) -> ExtractBatch:
+        def extract_directory(settings: AppSettings) -> ExtractBatch:
         ```
         """,
         'def extract_directory(settings, output_path=None):\n    return None\n',
@@ -269,7 +269,7 @@ def test_a_matching_signature_does_not_fire(project: Builder, run_check: Runner)
         ## API
 
         ```python
-        def extract_directory(settings: LitRevSettings, output_path: pathlib.Path | None = None) -> ExtractBatch:
+        def extract_directory(settings: AppSettings, output_path: pathlib.Path | None = None) -> ExtractBatch:
         ```
         """,
         'def extract_directory(settings, output_path=None):\n    return None\n',
@@ -283,7 +283,7 @@ def test_a_matching_signature_does_not_fire(project: Builder, run_check: Runner)
 
 
 def test_a_differing_type_annotation_alone_does_not_fire(project: Builder, run_check: Runner) -> None:
-    """A spec writes `LitRevSettings` where the source writes the dotted
+    """A spec writes `AppSettings` where the source writes the dotted
     path. Treating that as drift would bury every real finding."""
     root = spec_project(
         project,
@@ -291,10 +291,10 @@ def test_a_differing_type_annotation_alone_does_not_fire(project: Builder, run_c
         ## API
 
         ```python
-        def build_roster(settings: LitRevSettings, pass_name: PassName) -> Roster:
+        def build_roster(settings: AppSettings, pass_name: PassName) -> Roster:
         ```
         """,
-        'def build_roster(settings: litlib.settings.LitRevSettings, pass_name: litlib.assessor.models.PassName) -> Roster:\n    return None\n',
+        'def build_roster(settings: applib.settings.AppSettings, pass_name: applib.assessor.models.PassName) -> Roster:\n    return None\n',
     )
     assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
 
@@ -419,7 +419,7 @@ def test_a_scoped_accept_marker_accepts_the_drift(project: Builder, run_check: R
 
         ```python
         # auditme: accept[spec-api-signature-drift] the extra parameter is internal, deliberately not in the contract
-        def extract_directory(settings: LitRevSettings) -> ExtractBatch:
+        def extract_directory(settings: AppSettings) -> ExtractBatch:
         ```
         """,
         'def extract_directory(settings, output_path=None):\n    return None\n',
@@ -438,7 +438,7 @@ def test_a_marker_scoped_to_another_rule_does_not_accept_the_drift(project: Buil
 
         ```python
         # auditme: accept[literal-duplication] answers a different question
-        def extract_directory(settings: LitRevSettings) -> ExtractBatch:
+        def extract_directory(settings: AppSettings) -> ExtractBatch:
         ```
         """,
         'def extract_directory(settings, output_path=None):\n    return None\n',
@@ -469,7 +469,7 @@ def test_two_module_level_defs_sharing_a_name_do_not_fire(project: Builder, run_
 def test_a_test_double_method_does_not_make_a_library_name_ambiguous(project: Builder, run_check: Runner) -> None:
     """The bug this check's own first run against a real project exposed.
 
-    litrev's `write_worklist` is a module-level library function AND the name
+    One project's `write_worklist` is a module-level library function AND the name
     of a method on a test double. Resolving per-root reported the spec as
     drifting from whichever one that pass happened to see - two rows, two
     different "source says" clauses, for one spec line. Resolving corpus-wide

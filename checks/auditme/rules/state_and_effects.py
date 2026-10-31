@@ -694,7 +694,7 @@ _MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
 # The builtin constructors that build the same three mutable containers. A call
 # to one states its type in the assignment as a literal does, so it is the same
 # finding; any other call (`get_defaults()`) states none and stays out. Ruled on
-# 2026-10-31 for review-14's request; see `requests.md`.
+# 2026-10-31 on an audit's request; see `requests.md`.
 _MUTABLE_CONSTRUCTORS: dict[str, tuple[str, str]] = {
     'dict': ('dict constructor call', 'types.MappingProxyType(...)'),
     'list': ('list constructor call', 'tuple(...)'),
@@ -723,8 +723,8 @@ def _corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathli
     a single extra root such as `bin/`). That is the right scope for finding a
     package's own exports, and the wrong scope for finding who reads them: a
     project whose `src/` holds both the library and the test tree has readers
-    in a sibling package, invisible to a scan rooted at the library. On litrev
-    that hid three mutable exported dicts whose only cross-module readers were
+    in a sibling package, invisible to a scan rooted at the library. On one
+    project that hid mutable exported dicts whose only cross-module readers were
     in `src/tests/`. A script in `bin/` is a reader on the same argument.
 
     Falls back to the root being swept when the project has neither a `src/`
@@ -744,9 +744,9 @@ def _dotted_read(node: ast.Attribute) -> tuple[str, str] | None:
     """Resolve an attribute chain to the `(module, name)` it reads, or None.
 
     Two rooted forms count. The ordinary one is a chain of attributes on a
-    name - `feathf.evaluation.primary.METRICS_BY_HEAD` reads `METRICS_BY_HEAD`
-    from `feathf.evaluation.primary`. The second is the `sys.modules`
-    indirection - `sys.modules['feathf.evaluation.primary'].METRICS_BY_HEAD` -
+    name - `pkg.evaluation.primary.METRICS_BY_HEAD` reads `METRICS_BY_HEAD`
+    from `pkg.evaluation.primary`. The second is the `sys.modules`
+    indirection - `sys.modules['pkg.evaluation.primary'].METRICS_BY_HEAD` -
     which is the documented idiom for reaching a module without importing it,
     used to break a package-initialisation ordering cycle. It reads exactly
     what the dotted form reads, so a scan that resolved only the dotted form
@@ -931,7 +931,7 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
 
     Every one of those wrappers is shallow. `types.MappingProxyType({'a': []})`
     passes `mutable-module-level-exported` and still hands every caller the
-    same live `list`; on litrev a proxy's values were the very objects a
+    same live `list`; on one project a proxy's values were the very objects a
     `get_defaults()` helper returned, so `defaults[k].append(...)` mutated the
     process-wide default seen through both names. A project that has adopted
     A20 reads the passing check as a guarantee, which is what makes this shape

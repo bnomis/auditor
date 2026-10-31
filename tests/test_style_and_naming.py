@@ -127,7 +127,7 @@ def test_the_stdlib_exemption_names_only_documented_names(source: str, project: 
 
 def test_the_collections_abc_set_is_not_legacy_typing(project: Builder, run_check: Runner) -> None:
     """`collections.abc.Set` is the modern ABC that `typing.AbstractSet` became,
-    not the deprecated `typing.Set`; featlib carried an accept marker for it."""
+    not the deprecated `typing.Set`; a project carried an accept marker for it."""
     root = project({'src/probe/mod.py': 'import collections.abc\n\nvalue: collections.abc.Set[str] = frozenset()\n'})
     assert 'legacy-typing' not in rules_found(run_check(TEXT_PATTERNS, root))
 

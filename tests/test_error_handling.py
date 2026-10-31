@@ -139,7 +139,7 @@ def test_passing_the_exception_as_a_logger_positional_is_a_hit(project: Builder,
 
 
 def test_the_class_name_of_the_exception_is_a_categorical_hint(project: Builder, run_check: Runner) -> None:
-    """Documented refinement (review-36): `type(exc).__name__` exposes the class
+    """Documented refinement: `type(exc).__name__` exposes the class
     string, not a lossy copy of the message body."""
     root = project(
         {
@@ -1056,7 +1056,7 @@ def test_the_same_shape_outside_an_adapter_directory_is_out_of_scope(project: Bu
 def translator(catches: str) -> str:
     """A contextmanager that translates `catches` into the package error.
 
-    Written as `@contextlib.contextmanager`, which is the shape litrev's store
+    Written as `@contextlib.contextmanager`, which is the shape one project's store
     uses: it serves as a decorator over a whole function and as a `with` block
     over part of one, from a single definition.
     """

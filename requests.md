@@ -46,7 +46,7 @@ Kept so a rejected idea is not re-raised by a later audit that rediscovers it.
 
 ### `mutable-module-level-exported` should handle `Call` values
 
-- **Raised:** review-3 (litrev), carried to review-4 and review-5
+- **Raised:** by an audit, and carried through the two after it
 - **Reason:** the check would miss `DEFAULTS = get_defaults()` if that were
   mutable, because the value is a `Call` rather than a dict literal. Nothing is
   currently hidden by this - `DEFAULTS` is a `MappingProxyType` - so the check
