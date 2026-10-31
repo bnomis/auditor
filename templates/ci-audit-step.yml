@@ -1,6 +1,8 @@
 # Paste the steps into an existing job, after checkout, uv setup and the
 # project's tests, so no other step runs while the key is present.
 # Add the AGENTS_DEPLOY_KEY secret first (see docs/setup.md).
+# The job must already have Python 3.14 or later (the checker's own
+# requirement) and pre-commit on PATH (`uv tool install pre-commit`).
 - name: Install the audit deploy key
   env:
     AGENTS_DEPLOY_KEY: ${{ secrets.AGENTS_DEPLOY_KEY }}

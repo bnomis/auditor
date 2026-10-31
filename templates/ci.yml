@@ -21,8 +21,12 @@ jobs:
       # actions to a full commit SHA, and let Dependabot update them.
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - uses: astral-sh/setup-uv@v5
+
+      # The hooks need pre-commit; install it as a uv tool, as on a
+      # developer machine.
+      - run: uv tool install pre-commit
 
       # Install the project's locked dependencies.
       - run: uv sync

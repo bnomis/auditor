@@ -116,3 +116,18 @@ def test_new_projects_run_the_whole_tree_check_on_push() -> None:
     assert lines[start + 1] == '        stages: [manual, pre-push]'
     changed = lines.index('      - id: auditme-changed')
     assert lines[changed + 1] == '      - id: auditme-all'
+
+
+def test_ci_python_can_run_the_checker() -> None:
+    """The hooks run the checker with the `python3` on PATH, and the checker
+    uses syntax of this repository's `requires-python` (PEP 758 `except A, B:`),
+    so CI must install that minor version."""
+    pyproject = (SKILL_DIR.parents[2] / 'pyproject.toml').read_text(encoding='utf-8')
+    minor = re.search(r'requires-python = ">=(\d+\.\d+)', pyproject).group(1)
+    assert f'python-version: "{minor}"' in read('ci.yml')
+
+
+def test_ci_installs_pre_commit_before_running_it() -> None:
+    text = read('ci.yml')
+    assert 'uv tool install pre-commit' in text
+    assert text.index('uv tool install pre-commit') < text.index('pre-commit run')
