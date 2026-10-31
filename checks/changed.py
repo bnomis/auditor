@@ -29,11 +29,9 @@ SWEEP_TIMEOUT = 600
 BASE_CANDIDATES = ('@{upstream}', 'origin/main', 'main')
 CRASH_RULE = 'auditme-check-crash'
 SPEC_SKIP_PARTS = auditme.rules.project_hygiene._SPEC_SKIP_PARTS
-ACCEPT_HELP = (
-    'Fix each hit, or accept one with a comment on its line or the line above:\n'
-    '    # auditme: accept[<rule>] <reason>\n'
-    'To skip this check for one commit: SKIP=auditme-changed git commit'
-)
+ACCEPT_HELP = 'Fix each hit, or accept one with a comment on its line or the line above:\n    # auditme: accept[<rule>] <reason>'
+SKIP_HELP = 'To skip this check for one commit: SKIP=auditme-changed git commit'
+SKIP_ALL_HELP = 'To skip this check for one push: SKIP=auditme-all git push'
 
 
 class ChangedError(Exception):
@@ -227,6 +225,7 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
     print(format_hits(hits))
     print()
     print(ACCEPT_HELP)
+    print(SKIP_ALL_HELP if args.all else SKIP_HELP)
     return 1
 
 

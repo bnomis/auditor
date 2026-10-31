@@ -276,3 +276,13 @@ def test_a_loose_src_module_fails_until_accepted(tmp_path, capsys) -> None:
     write(root, {'src/a.py': '# auditme: accept[src-loose-module] a single-file script\nA = 1\n'})
     commit_all(root, 'accept the loose module')
     assert changed.main([str(root)]) == 0
+
+
+def test_all_names_the_push_skip_not_the_commit_skip(repo, stub_sweep, capsys) -> None:
+    """`--all` runs as `auditme-all`, on push or in CI, where skipping
+    `auditme-changed` on a commit does nothing."""
+    stub_sweep([hit('src/pkg/a.py')])
+    assert changed.main(['--all', str(repo)]) == 1
+    out = capsys.readouterr().out
+    assert 'SKIP=auditme-all git push' in out
+    assert 'SKIP=auditme-changed' not in out
