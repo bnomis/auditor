@@ -241,3 +241,38 @@ def test_cross_file_hit_on_an_unchanged_file_fails_when_its_peer_changes(tmp_pat
     out = capsys.readouterr().out
     assert 'src/pkg/a.py:1  literal-duplication' in out
     assert 'src/pkg/b.py:1  literal-duplication' in out
+
+
+def start_script_project(tmp_path: pathlib.Path, files: dict[str, str]) -> pathlib.Path:
+    """A repository with no `src/package`, a base commit, and `files` committed on `feature`."""
+    root = tmp_path / 'project'
+    root.mkdir()
+    conftest.git(root, 'init', '-q', '-b', 'main')
+    write(root, {'README.md': 'x\n'})
+    commit_all(root, 'base')
+    conftest.git(root, 'checkout', '-q', '-b', 'feature')
+    write(root, files)
+    commit_all(root, 'add files')
+    return root
+
+
+def test_a_clean_script_in_a_project_without_src_passes(tmp_path) -> None:
+    root = start_script_project(tmp_path, {'bin/tool.py': 'TOOL = 1\n'})
+    assert changed.main([str(root)]) == 0
+
+
+def test_a_hit_in_a_script_in_a_project_without_src_fails(tmp_path, capsys) -> None:
+    root = start_script_project(tmp_path, {'bin/tool.py': 'def _helper() -> int:\n    return 1\n'})
+    assert changed.main([str(root)]) == 1
+    out = capsys.readouterr().out
+    assert 'bin/tool.py' in out
+    assert 'leading-underscore-def-class' in out
+
+
+def test_a_loose_src_module_fails_until_accepted(tmp_path, capsys) -> None:
+    root = start_script_project(tmp_path, {'src/a.py': 'A = 1\n'})
+    assert changed.main([str(root)]) == 1
+    assert 'src/a.py:1  src-loose-module' in capsys.readouterr().out
+    write(root, {'src/a.py': '# auditme: accept[src-loose-module] a single-file script\nA = 1\n'})
+    commit_all(root, 'accept the loose module')
+    assert changed.main([str(root)]) == 0
