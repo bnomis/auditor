@@ -4,6 +4,7 @@ import collections.abc
 import pathlib
 
 import auditme.rules.state_and_effects
+import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
@@ -543,6 +544,42 @@ def test_a_global_built_by_a_call_is_not_a_hit(project: Builder, run_check: Runn
         {
             'src/probe/settings.py': 'import probe.factory\n\nDEFAULTS = probe.factory.build()\n',
             'src/probe/user.py': 'import probe.settings\n\nVALUE = probe.settings.DEFAULTS\n',
+        }
+    )
+    assert run_check(MUTABLE_EXPORT, root) == []
+
+
+@pytest.mark.parametrize(
+    ('value', 'shape', 'wrap'),
+    [
+        ("list(('a', 'b'))", 'list constructor call', 'tuple(...)'),
+        ('dict(a=1)', 'dict constructor call', 'types.MappingProxyType(...)'),
+        ("set(('a', 'b'))", 'set constructor call', 'frozenset(...)'),
+    ],
+)
+def test_a_global_built_by_a_builtin_constructor_is_a_hit(project: Builder, run_check: Runner, value: str, shape: str, wrap: str) -> None:
+    """`list(...)`, `dict(...)` and `set(...)` state their type in the
+    assignment, as a literal does (ruled 2026-10-31, review-14's request)."""
+    root = project(
+        {
+            'src/probe/settings.py': f'NAMES = {value}\n',
+            'src/probe/user.py': 'import probe.settings\n\nVALUE = probe.settings.NAMES\n',
+        }
+    )
+    hits = run_check(MUTABLE_EXPORT, root)
+    assert len(hits) == 1
+    assert shape in hits[0]['variant']
+    assert wrap in hits[0]['variant']
+
+
+@pytest.mark.parametrize('value', ["tuple(['a'])", "frozenset({'a'})", 'probe.factory.list()', "sorted(['a'])"])
+def test_an_immutable_or_untyped_call_is_not_a_hit(project: Builder, run_check: Runner, value: str) -> None:
+    """Only the three mutable builtin constructors join the literals: an
+    immutable builtin, a method named like one, and any other call stay out."""
+    root = project(
+        {
+            'src/probe/settings.py': f'import probe.factory\n\nNAMES = {value}\n',
+            'src/probe/user.py': 'import probe.settings\n\nVALUE = probe.settings.NAMES\n',
         }
     )
     assert run_check(MUTABLE_EXPORT, root) == []

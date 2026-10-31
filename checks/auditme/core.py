@@ -96,6 +96,14 @@ def _all_py_files(src_root: pathlib.Path) -> list[pathlib.Path]:
     return sorted(p for p in src_root.rglob('*.py'))
 
 
+def module_dotted(path: pathlib.Path, src_root: pathlib.Path) -> str:
+    """The dotted name a module is imported by, rooted at its own root."""
+    parts = path.relative_to(src_root).with_suffix('').parts
+    if parts and parts[-1] == '__init__':
+        parts = parts[:-1]
+    return '.'.join((src_root.name,) + parts)
+
+
 def _relpath(p: pathlib.Path, root: pathlib.Path) -> str:
     return str(p.relative_to(root))
 

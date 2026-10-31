@@ -24,6 +24,7 @@ from auditme.rules.error_handling import (
     check_logger_exception_graceful_degradation,
     check_missing_raises_section,
     check_mixed_raise_types,
+    check_raises_section_drift,
     check_sibling_error_no_common_base,
     check_silent_broad_except,
     check_translator_envelope_gap,
@@ -146,4 +147,5 @@ CHECKS = (
     check_leading_underscore_binding,
     check_from_import,
     check_typing_deprecated_alias,
+    check_raises_section_drift,
 )

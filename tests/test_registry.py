@@ -113,6 +113,7 @@ CROSS_FILE_RULES = frozenset(
         'literal-duplication',
         'mutable-module-level-exported',
         'paired-sibling-helpers',
+        'raises-section-drift',
         'recompile-duplication',
         'spec-api-signature-drift',
     }
@@ -173,6 +174,8 @@ def test_exactly_the_cross_file_rules_emit_related(project, run_check) -> None:
             'src/probe/user.py': 'from probe.settings import DEFAULTS\n\nVALUE = DEFAULTS\n',
             'src/probe/mod.py': 'def extract_directory(settings, output_path=None):\n    return None\n',
             'agents/specs/probe/spec.md': '## API\n\n```python\ndef extract_directory(settings: Settings) -> Batch:\n```\n',
+            'src/probe/declares.py': 'class ProbeError(Exception):\n    pass\n\n\ndef check(text):\n    """Check.\n\n    Raises:\n        ProbeError: bad.\n    """\n    return text\n',
+            'src/probe/calls.py': 'import probe.declares\n\n\ndef run(text):\n    """Run.\n\n    Raises:\n        ValueError: never.\n    """\n    return probe.declares.check(text)\n',
         }
     )
     hits = []

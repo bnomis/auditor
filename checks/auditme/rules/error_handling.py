@@ -7,7 +7,7 @@ import re
 from collections import defaultdict
 from typing import Iterable
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines
+from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, module_dotted
 
 
 def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -1372,29 +1372,9 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
             )
 
 
-def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag functions whose body raises a project exception but whose
-    docstring lacks any `Raises:` / `:raises:` section.
-
-    Signal:
-      - Function has a non-empty docstring.
-      - Function body contains at least one `ast.Raise` whose exception
-        class name ends in `Error` and that is NOT a bare `raise` inside
-        an except block (pure re-raise) and NOT a re-raise of a caught
-        variable (`raise exc_var`).
-      - Docstring contains NO `Raises:` block, `:raises X:` role, or
-        sentence beginning with `Raises `.
-    """
-    # Accept any of:
-    #   - a `Raises:` / `Raise:` header line (napoleon / google style)
-    #   - sphinx `:raises X:` role
-    #   - a prose sentence `Raise <X>Error` or `Raises <X>Error` that may
-    #     use a dotted-module-qualified form (`featmo.ensemble.errors.LoadError`)
-    raises_marker_re = re.compile(
-        r'(?:^\s*Raises?\s*:|:raises\s+[A-Za-z_]|\bRaises?\s+[A-Za-z_][\w.]*Error\b)',
-        re.MULTILINE,
-    )
-    STDLIB_ERRORS = {
+# Builtin exception classes: not a project's domain errors.
+STDLIB_ERRORS = frozenset(
+    {
         'ValueError',
         'TypeError',
         'RuntimeError',
@@ -1447,6 +1427,31 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
         'Exception',
         'BaseException',
     }
+)
+
+
+def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag functions whose body raises a project exception but whose
+    docstring lacks any `Raises:` / `:raises:` section.
+
+    Signal:
+      - Function has a non-empty docstring.
+      - Function body contains at least one `ast.Raise` whose exception
+        class name ends in `Error` and that is NOT a bare `raise` inside
+        an except block (pure re-raise) and NOT a re-raise of a caught
+        variable (`raise exc_var`).
+      - Docstring contains NO `Raises:` block, `:raises X:` role, or
+        sentence beginning with `Raises `.
+    """
+    # Accept any of:
+    #   - a `Raises:` / `Raise:` header line (napoleon / google style)
+    #   - sphinx `:raises X:` role
+    #   - a prose sentence `Raise <X>Error` or `Raises <X>Error` that may
+    #     use a dotted-module-qualified form (`featmo.ensemble.errors.LoadError`)
+    raises_marker_re = re.compile(
+        r'(?:^\s*Raises?\s*:|:raises\s+[A-Za-z_]|\bRaises?\s+[A-Za-z_][\w.]*Error\b)',
+        re.MULTILINE,
+    )
     for path in _all_py_files(src_root):
         if path.name == '__init__.py' or path.name == 'errors.py':
             continue
@@ -2141,6 +2146,289 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 path=rel,
                 line=lineno,
                 evidence=(lines[lineno - 1].strip()[:200] if lineno <= len(lines) else callee),
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
+# Handlers that catch every domain error, whatever its name.
+_BROAD_HANDLER_NAMES = frozenset({'BaseException', 'Exception'})
+
+
+def _handler_names(handler: ast.ExceptHandler) -> frozenset[str] | None:
+    """The class-name tails an `except` clause catches, or None for a broad one.
+
+    A clause whose body re-raises (a bare `raise`, or `raise <bound name>`) lets
+    the error reach the caller, so it catches nothing.
+    """
+    bound = handler.name
+    for node in ast.walk(handler):
+        if isinstance(node, ast.Raise) and (node.exc is None or (isinstance(node.exc, ast.Name) and node.exc.id == bound)):
+            return frozenset()
+    if handler.type is None:
+        return None
+    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    names = set()
+    for node in types:
+        if isinstance(node, (ast.Name, ast.Attribute)):
+            names.add(ast.unparse(node).rsplit('.', 1)[-1])
+    if names & _BROAD_HANDLER_NAMES:
+        return None
+    return frozenset(names)
+
+
+def _raised_name(node: ast.Raise) -> str | None:
+    """The class-name tail a `raise` statement raises, or None.
+
+    `raise X(...)` and `raise mod.X(...)` name a class; a bare `raise` and
+    `raise <name>` re-raise something already caught.
+    """
+    if node.exc is None or not isinstance(node.exc, ast.Call):
+        return None
+    func = node.exc.func
+    if isinstance(func, (ast.Name, ast.Attribute)):
+        return ast.unparse(func).rsplit('.', 1)[-1]
+    return None
+
+
+def _reach_sites(
+    body: list[ast.stmt],
+    catches: tuple[frozenset[str] | None, ...] = (),
+) -> list[tuple[ast.AST, tuple[frozenset[str] | None, ...]]]:
+    """Every `raise` and call in a function body, with the handlers around it.
+
+    Nested functions, lambdas and classes are skipped: their raises reach their
+    own callers. A `try` body sees its own handlers; its handlers, `else` and
+    `finally` see only the handlers outside it.
+    """
+    sites: list[tuple[ast.AST, tuple[frozenset[str] | None, ...]]] = []
+
+    def visit(node: ast.AST, around: tuple[frozenset[str] | None, ...]) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            return
+        if isinstance(node, (ast.Try, ast.TryStar)):
+            inner = around + tuple(_handler_names(handler) for handler in node.handlers)
+            for child in node.body:
+                visit(child, inner)
+            for child in [*node.handlers, *node.orelse, *node.finalbody]:
+                visit(child, around)
+            return
+        if isinstance(node, (ast.Raise, ast.Call)):
+            sites.append((node, around))
+        for child in ast.iter_child_nodes(node):
+            visit(child, around)
+
+    for statement in body:
+        visit(statement, catches)
+    return sites
+
+
+def _from_import_bindings(tree: ast.Module, module: str, is_package: bool) -> dict[str, str]:
+    """Each name a module's top-level `from ... import` binds, to its dotted target.
+
+    A relative import resolves against the module's own package. Pure.
+    """
+    package = module if is_package else module.rpartition('.')[0]
+    bindings: dict[str, str] = {}
+    for statement in tree.body:
+        if not isinstance(statement, ast.ImportFrom):
+            continue
+        if statement.level:
+            base = package.rsplit('.', statement.level - 1)[0] if statement.level > 1 else package
+            source = f'{base}.{statement.module}' if statement.module else base
+        elif statement.module:
+            source = statement.module
+        else:
+            continue
+        for alias in statement.names:
+            bindings[alias.asname or alias.name] = f'{source}.{alias.name}'
+    return bindings
+
+
+def _function_handlers(body: list[ast.stmt]) -> list[frozenset[str] | None]:
+    """What every `except` clause in a function body catches, nested defs skipped."""
+    handlers: list[frozenset[str] | None] = []
+
+    def visit(node: ast.AST) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            return
+        if isinstance(node, ast.ExceptHandler):
+            handlers.append(_handler_names(node))
+        for child in ast.iter_child_nodes(node):
+            visit(child)
+
+    for statement in body:
+        visit(statement)
+    return handlers
+
+
+def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag a `Raises:` section that disagrees with the domain errors reaching
+    the caller (A4).
+
+    Signal:
+      - A function or method whose docstring has a Google-style `Raises:`
+        section (`raises_section_names`).
+      - What reaches its caller: every domain error its body raises, plus every
+        domain error a same-package callee's own `Raises:` section declares,
+        minus each that an enclosing `except` catches without re-raising.
+      - One hit per name the section omits, and one per domain error it
+        declares that never reaches the caller although a handler in the
+        function catches it - the positive evidence that it is caught there.
+
+    A domain error is an exception class the swept package defines - positive
+    evidence, so `sqlite3.Error` (tail `Error`) and a third-party `*Error` are
+    not one - and never a builtin (`STDLIB_ERRORS`). Subclasses follow the package's own class tree: catching
+    or declaring a base covers its subclasses. Callees are followed one level,
+    through the callee's declared section, not its body, and only within the
+    package being swept: a module function called by its dotted path (or a
+    name imported from a package module), a same-module function, or a method
+    called on `self`, following re-exports such as a package `__init__.py`'s
+    `from pkg.mod import name`. A call the check cannot resolve contributes
+    nothing, which is why an extra needs a catching handler: without one, the
+    declared error may arrive through such a call.
+
+    Raised by review-14 (litrev, 2026-10-31), whose Phase B A4 found these by
+    hand: eleven hits there, nine at review-13.
+    """
+    modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
+    for path in _all_py_files(src_root):
+        lines = _source_lines(path)
+        try:
+            tree = ast.parse('\n'.join(lines))
+        except SyntaxError:
+            continue
+        modules[module_dotted(path, src_root)] = (path, tree, lines)
+
+    parents: dict[str, set[str]] = defaultdict(set)
+    package_classes: set[str] = set()
+    declared_by: dict[str, set[str]] = {}
+    path_of: dict[str, pathlib.Path] = {}
+    functions: list[tuple[str, str, str | None, ast.FunctionDef | ast.AsyncFunctionDef]] = []
+    for module, (_path, tree, _lines) in modules.items():
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                functions.append((module, f'{module}.{node.name}', None, node))
+            elif isinstance(node, ast.ClassDef):
+                package_classes.add(node.name)
+                for base in node.bases:
+                    if isinstance(base, (ast.Name, ast.Attribute)):
+                        parents[node.name].add(ast.unparse(base).rsplit('.', 1)[-1])
+                for member in node.body:
+                    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        functions.append((module, f'{module}.{node.name}.{member.name}', node.name, member))
+    for _module, qualname, _cls, node in functions:
+        declared_by[qualname] = raises_section_names(ast.get_docstring(node) or '')
+        path_of[qualname] = modules[_module][0]
+
+    # A package's `__init__.py` (or any module) re-exporting a function makes
+    # `pkg.name` another path to it. Followed until no alias is added, so a
+    # re-export of a re-export resolves too.
+    bindings_of = {module: _from_import_bindings(tree, module, path.name == '__init__.py') for module, (path, tree, _lines) in modules.items()}
+    aliases: dict[str, str] = {}
+    changed = True
+    while changed:
+        changed = False
+        for module, bindings in bindings_of.items():
+            for name, target in bindings.items():
+                target = aliases.get(target, target)
+                alias = f'{module}.{name}'
+                if target in declared_by and aliases.get(alias) != target and alias not in declared_by:
+                    aliases[alias] = target
+                    changed = True
+
+    def ancestors(name: str) -> set[str]:
+        seen: set[str] = set()
+        stack = [name]
+        while stack:
+            for parent in parents.get(stack.pop(), ()):
+                if parent not in seen:
+                    seen.add(parent)
+                    stack.append(parent)
+        return seen
+
+    def is_domain(name: str) -> bool:
+        return name in package_classes and name not in STDLIB_ERRORS
+
+    def caught(name: str, around: tuple[frozenset[str] | None, ...]) -> bool:
+        lineage = {name} | ancestors(name)
+        return any(names is None or names & lineage for names in around)
+
+    def resolve(call: ast.Call, module: str, cls: str | None, imported: dict[str, str]) -> str | None:
+        """The package function a call reaches, or None when it cannot be told."""
+        func = call.func
+        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == 'self' and cls:
+            method = f'{module}.{cls}.{func.attr}'
+            return method if method in declared_by else None
+        if not isinstance(func, (ast.Name, ast.Attribute)):
+            return None
+        dotted = ast.unparse(func)
+        head, _, rest = dotted.partition('.')
+        if head in imported:
+            dotted = imported[head] + (f'.{rest}' if rest else '')
+        elif isinstance(func, ast.Name):
+            dotted = f'{module}.{dotted}'
+        dotted = aliases.get(dotted, dotted)
+        return dotted if dotted in declared_by else None
+
+    for module, qualname, cls, node in functions:
+        doc = ast.get_docstring(node) or ''
+        if 'Raises:' not in doc:
+            continue
+        declared = {name for name in raises_section_names(doc) if is_domain(name)}
+        path, tree, lines = modules[module]
+        imported = dict(bindings_of[module])
+        for statement in tree.body:
+            if isinstance(statement, ast.Import):
+                for alias in statement.names:
+                    if alias.asname:
+                        imported[alias.asname] = alias.name
+
+        reached: dict[str, set[str]] = defaultdict(set)
+        for site, around in _reach_sites(node.body):
+            if isinstance(site, ast.Raise):
+                name = _raised_name(site)
+                if name and is_domain(name) and not caught(name, around):
+                    reached[name].add('')
+                continue
+            callee = resolve(site, module, cls, imported)
+            if callee is None or callee == qualname:
+                continue
+            for name in declared_by[callee]:
+                if is_domain(name) and not caught(name, around):
+                    reached[name].add(callee)
+
+        rel = _relpath(path, scope)
+        accept = _accept_reason(lines, node.lineno, rule='raises-section-drift')
+        evidence = lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''
+        for name in sorted(reached):
+            if name in declared or ancestors(name) & declared:
+                continue
+            callees = sorted(callee for callee in reached[name] if callee)
+            source = 'raised here' if '' in reached[name] else f'declared by {callees[0]}'
+            _emit(
+                related=[_relpath(path_of[callee], scope) for callee in callees if path_of[callee] != path],
+                rule='raises-section-drift',
+                variant=f'{node.name}: Raises: omits {name}, {source}',
+                path=rel,
+                line=node.lineno,
+                evidence=evidence,
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+        handlers = _function_handlers(node.body)
+        for name in sorted(declared):
+            if any(name == found or name in ancestors(found) for found in reached):
+                continue
+            lineage = {name} | ancestors(name)
+            if not any(names is None or names & lineage for names in handlers):
+                continue
+            _emit(
+                rule='raises-section-drift',
+                variant=f'{node.name}: Raises: declares {name}, which never reaches the caller',
+                path=rel,
+                line=node.lineno,
+                evidence=evidence,
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
