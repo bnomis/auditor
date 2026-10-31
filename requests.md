@@ -38,23 +38,7 @@ found something new and no cycle converged.
 
 ## Open
 
-### D2 should not flag dependencies that are only run as commands
-
-- **Raised:** 2026-10-31, by two consecutive audits of one project, each of
-  which reported the same Phase B D2 hits and recommended no change; the user
-  approved "no change" both times, so the finding stays open and would be
-  re-raised by every later audit.
-- **The pattern:** D2 asks whether every declared dependency is imported
-  somewhere. A development tool declared so that the environment installs it -
-  a type checker, a linter, a formatter, a hook runner - is run as a command
-  (by a pre-commit hook, a CI step or a script's `subprocess` call) and is never
-  imported. D2 flags each one although nothing is wrong.
-- **Proposed refinement (narrowing):** D2 skips a declared dependency that the
-  project runs as a command: one named as an executable in
-  `.pre-commit-config.yaml` (a hook's `entry` or its `repo`'s tool), in a CI
-  workflow `run:` step, or as the first argument of a `subprocess` call in the
-  project's own code. Name the carve-out in the D2 predicate in `SKILL.md`. A
-  dependency neither imported nor run anywhere is still a hit.
+None.
 
 ## Rejected
 

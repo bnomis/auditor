@@ -335,7 +335,7 @@ Assess by reading test files - do not run the suite.
 ### Dependencies (D)
 
 - **D1. Declared in pyproject.** Every imported third-party module is declared.
-- **D2. Unused declarations.** Every declared dependency is imported somewhere.
+- **D2. Unused declarations.** Every declared dependency is imported somewhere, or run as a command. A dependency the project runs as a command is used though nothing imports it - a type checker, linter, formatter or hook runner declared so the environment installs it. It counts as run when the executable it installs is named in `.pre-commit-config.yaml` (a hook's `entry`, or the tool a hook's `repo` provides), in a CI workflow `run:` step, or as the first argument of a `subprocess` call in the project's own code, directly or through `uv run`, `python -m` or `pre-commit run`. Flag a dependency that is neither imported nor run anywhere.
 - **D3. Lockfile coherence.** Already script-checked; flag if the script's lockfile-drift hit appears.
 
 ### Documentation (Doc)
@@ -511,6 +511,7 @@ Documented refinements:
 - **`except-interpolation`:** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `checks/auditme/rules/error_handling.py`.
 - **`empty-init-while-siblings-export`:** the predicate is file-level. The accept-marker scan walks every line in the file rather than just the docstring opener, so a docstring-only `__init__.py` can be accepted by adding a comment-only `# auditme: accept <reason>` line anywhere in the file.
 - **`legacy-typing` (2026-10-14):** the predicate skips `Set[` when it is preceded by `collections.abc.`. `collections.abc.Set` is the modern ABC, not the deprecated `typing.Set`. See the `legacy-typing` pattern in `check_text_patterns` in `checks/auditme/rules/style_and_naming.py`.
+- **D2 (2026-10-31):** the Phase B predicate skips a declared dependency the project runs as a command (a pre-commit hook, a CI `run:` step, a `subprocess` call in its own code). Such a tool is used without being imported, and flagging it made each audit re-raise a finding the user had declined. D2 has no script check, so the carve-out lives only in the predicate's text.
 
 ## Rule conflict resolution
 
