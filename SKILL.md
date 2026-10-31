@@ -99,6 +99,12 @@ measurement had been taken. A named `--extra-root` that does not exist is an
 error rather than an empty pass, because a typo would reinstate exactly that.
 `--package` asks for one package, so it drops the extra roots too.
 
+A `.py` file directly in `src/` belongs to no root, so no pass would read it.
+The driver reports it as a `src-loose-module` hit (not a registered check: a
+check runs once per root, and a project holding only `src/a.py` has none), and
+`--package` emits none. Move the file into a package, or accept it with
+`# auditme: accept[src-loose-module] <reason>` on line 1.
+
 Each root is audited in its own pass rather than in one pass rooted at
 `src/`, because `src_root.name` is the package's dotted root - several checks
 build module names from it - so a single pass over `src/` would rename every

@@ -155,6 +155,17 @@ def _packages_under(src: pathlib.Path) -> list[pathlib.Path]:
     )
 
 
+def loose_src_modules(scope: pathlib.Path) -> list[pathlib.Path]:
+    """Every `.py` file directly in `<scope>/src/`, outside any package, sorted.
+
+    Empty when `src/` is absent. Pure apart from reading the directory.
+    """
+    src = scope / 'src'
+    if not src.is_dir():
+        return []
+    return sorted(p for p in src.glob('*.py') if p.is_file())
+
+
 def _extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | None = None) -> list[pathlib.Path]:
     """Every auditable root outside `src/`, in the order `names` gives them.
 

@@ -12,6 +12,8 @@ Usage:
 <scope-root> is the project directory (agents/, docs/, and usually src/).
 src/ is optional: the sweep passes over the packages under it, if any, then
 the extra roots, and a project with neither is reported and exits 0.
+A .py file directly in src/ belongs to no root, so the driver reports it as a
+src-loose-module hit (accepted by a line-1 marker) rather than skip it unseen.
 <package-name> restricts the run to one package under src/. It defaults to
 EVERY package under src/, each audited in its own pass, plus every extra root.
 
@@ -108,6 +110,22 @@ def main() -> int:
             if not (scope / name).is_dir():
                 print(f'ERROR: {scope / name} is not a directory', file=sys.stderr)
                 return 2
+
+    if not args.package:
+        # A module directly in src/ belongs to no root, so no pass would read
+        # it. The driver reports it, not a registered check: a check runs once
+        # per root, and a project holding only src/a.py has none.
+        for path in auditme.core.loose_src_modules(scope):
+            reason = auditme.core._accept_reason(auditme.core._source_lines(path), 1, rule='src-loose-module')
+            _emit(
+                rule='src-loose-module',
+                variant='module directly under src/, outside any package',
+                path=path.relative_to(scope).as_posix(),
+                line=1,
+                evidence=path.name,
+                accepted=reason is not None,
+                accepted_reason=reason,
+            )
 
     if args.package:
         # --package is a request for one package, so it drops the extra roots

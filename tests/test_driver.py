@@ -87,6 +87,77 @@ def test_an_empty_project_gives_a_notice_and_exit_0(
     assert 'audit.py: no package under src/ and no extra root; nothing to audit' in captured.err
 
 
+def loose_hits(
+    root: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], *extra: str
+) -> tuple[int, list[dict[str, object]], str]:
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), *extra])
+    code = audit.main()
+    captured = capsys.readouterr()
+    hits = [json.loads(line) for line in captured.out.splitlines()]
+    return code, [hit for hit in hits if hit['rule'] == 'src-loose-module'], captured.err
+
+
+def test_a_loose_src_module_is_reported_and_the_notice_still_prints(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project({'src/a.py': 'x = 1\n'})
+    code, hits, err = loose_hits(root, monkeypatch, capsys)
+    assert code == 0
+    assert hits == [
+        {
+            'rule': 'src-loose-module',
+            'variant': 'module directly under src/, outside any package',
+            'path': 'src/a.py',
+            'line': 1,
+            'evidence': 'a.py',
+            'accepted': False,
+            'accepted_reason': None,
+        }
+    ]
+    assert 'nothing to audit' in err
+
+
+def test_a_loose_src_module_is_reported_beside_a_package(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project({'src/a.py': 'x = 1\n', 'src/probe/mod.py': 'x = 1\n'})
+    _, hits, _ = loose_hits(root, monkeypatch, capsys)
+    assert [hit['path'] for hit in hits] == ['src/a.py']
+
+
+def test_a_line_1_marker_accepts_a_loose_src_module(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project({'src/a.py': '# auditme: accept[src-loose-module] shim kept for old imports\nx = 1\n'})
+    _, hits, _ = loose_hits(root, monkeypatch, capsys)
+    assert [(hit['accepted'], hit['accepted_reason']) for hit in hits] == [(True, 'shim kept for old imports')]
+
+
+def test_the_package_flag_emits_no_loose_module_hit(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project({'src/a.py': 'x = 1\n', 'src/probe/mod.py': 'x = 1\n'})
+    _, hits, _ = loose_hits(root, monkeypatch, capsys, '--package', 'probe')
+    assert hits == []
+
+
+def test_loose_src_modules_come_out_sorted(project: Builder) -> None:
+    root = project({'src/b.py': 'x = 1\n', 'src/a.py': 'x = 1\n', 'src/probe/mod.py': 'x = 1\n', 'src/notes.md': 'x\n'})
+    assert [path.name for path in auditme.core.loose_src_modules(root)] == ['a.py', 'b.py']
+
+
+def test_loose_src_modules_is_empty_without_src(tmp_path: pathlib.Path) -> None:
+    assert auditme.core.loose_src_modules(tmp_path) == []
+
+
 def test_a_scope_that_is_not_a_directory_is_an_error(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(tmp_path / 'absent')])
     assert audit.main() == 2
