@@ -105,3 +105,14 @@ def test_templates_name_no_real_project_path_or_date() -> None:
     for name in NAMES:
         text = read(name)
         assert not re.search(r'/Users/|/home/|\b\d{4}-\d{2}-\d{2}\b', text), name
+
+
+def test_new_projects_run_the_whole_tree_check_on_push() -> None:
+    """`auditme-all` is published at the manual stage only, so a project adopted
+    over a backlog is not blocked on push; a new project, which starts with none,
+    switches the push stage on in its own config."""
+    lines = read('pre-commit-config.yaml').splitlines()
+    start = lines.index('      - id: auditme-all')
+    assert lines[start + 1] == '        stages: [manual, pre-push]'
+    changed = lines.index('      - id: auditme-changed')
+    assert lines[changed + 1] == '      - id: auditme-all'

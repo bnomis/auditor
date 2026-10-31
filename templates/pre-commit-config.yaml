@@ -18,3 +18,4 @@ repos:
     hooks:
       - id: auditme-changed
       - id: auditme-all
+        stages: [manual, pre-push]

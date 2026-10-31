@@ -22,7 +22,8 @@ Invoke as:
 (`git rev-parse --show-toplevel`). All work happens in that repository.
 
 The guards are the `auditme-changed` hook (commit stage, changed files), the
-`auditme-all` hook (manual stage, whole tree, run in CI) and the project files
+`auditme-all` hook (manual stage, whole tree, run in CI, and on push once a
+project has no unaccepted hits) and the project files
 that the shared rules and skills expect. The templates are in
 [templates/](templates/); the design is in
 `agents/specs/project-setup/spec.md`.
@@ -62,7 +63,7 @@ or `DONE.md`, ask whether to overwrite each one, or stop and suggest `adopt`.
 
 1. Write `.pre-commit-config.yaml` from `templates/pre-commit-config.yaml`
    (ruff check and format, shellcheck, and both auditme hooks pinned at
-   `{{AGENTS_REV}}`).
+   `{{AGENTS_REV}}`, with `auditme-all` also at the `pre-push` stage).
 2. Write `.github/workflows/ci.yml` from `templates/ci.yml`: checkout, the
    deploy-key step, Python and uv, `uv sync`, `pre-commit run --all-files`, the
    `auditme-all` step and `{{TEST_COMMAND}}`.
@@ -91,15 +92,17 @@ For an existing project.
 2. **Count.** Run
    `pre-commit run auditme-all --hook-stage manual --all-files` and count the
    unaccepted hits by rule from its output. Record the date of the run.
-3. **Zero hits:** add the CI step from `templates/ci-audit-step.yml` (the
-   deploy-key step and the `auditme-all` step) to the project's existing
-   workflow after its own setup, then run the
-   [deploy-key steps](#deploy-key-steps). **More than zero:** do not touch the
-   workflow and do not run the deploy-key steps. File one `TODO.md` item with
-   the [todo-add](../todo-add/SKILL.md) conventions: the dated count by rule,
-   and a Fix direction of "fix or accept every hit, then add the CI step". The
-   gate is never enabled over a backlog: a gate that fails every push gets
-   switched off.
+3. **Zero hits:** add `stages: [manual, pre-push]` under `- id: auditme-all`
+   in `.pre-commit-config.yaml`, so every push sweeps the whole tree. Add the
+   CI step from `templates/ci-audit-step.yml` (the deploy-key step and the
+   `auditme-all` step) to the project's existing workflow after its own setup,
+   then run the [deploy-key steps](#deploy-key-steps). **More than zero:** do
+   not add the push stage, do not touch the workflow and do not run the
+   deploy-key steps. File one `TODO.md` item with the
+   [todo-add](../todo-add/SKILL.md) conventions: the dated count by rule, and a
+   Fix direction of "fix or accept every hit, then add the push stage and the
+   CI step". Neither gate is ever enabled over a backlog: a gate that fails
+   every push gets switched off.
 4. **Commit.** Ask whether to commit the hook and `TODO.md` changes as
    `build(audit): adopt the shared audit hooks`.
 
