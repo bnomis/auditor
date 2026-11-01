@@ -1,6 +1,7 @@
 """Checks on exception handling, error translation and failure reporting."""
 
 import ast
+import collections
 import contextlib
 import pathlib
 import re
@@ -936,6 +937,27 @@ _FILESYSTEM_TOUCHING_CALLS = {
 }
 
 
+def module_tuple_constants(tree: ast.Module) -> dict[str, list[ast.expr]]:
+    """Map each name assigned exactly once at module level, to a tuple
+    literal, to that tuple's members. A name assigned more than once is left
+    out: which value a handler sees depends on order, so it is not resolved."""
+    counts: collections.Counter[str] = collections.Counter()
+    tuples: dict[str, list[ast.expr]] = {}
+    for stmt in tree.body:
+        if isinstance(stmt, ast.Assign):
+            targets, value = stmt.targets, stmt.value
+        elif isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
+            targets, value = [stmt.target], stmt.value
+        else:
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                counts[target.id] += 1
+                if isinstance(value, ast.Tuple):
+                    tuples[target.id] = list(value.elts)
+    return {name: members for name, members in tuples.items() if counts[name] == 1}
+
+
 def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `try` blocks that call a filesystem-touching third-party
     helper (`download_artifacts`, `from_pretrained`, `snapshot_download`,
@@ -947,6 +969,13 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     `PermissionError`, not as the library's own exception. The narrow
     except clause lets those propagate past the wrapper's promise to
     translate to a project error class.
+
+    Refinement (2026-11-01): a bare name in a handler's type, alone or inside
+    a tuple, that names a module-level tuple literal assigned once in the same
+    file is read as that tuple's members, one level deep, so
+    `except READ_ERRORS:` with `READ_ERRORS = (OSError, ValueError)` is
+    covered. Any other name - another module's, a call's result, a nested
+    constant - keeps the name test. See `module_tuple_constants`.
     """
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -955,6 +984,7 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
+        constants = module_tuple_constants(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Try):
                 continue
@@ -982,8 +1012,15 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 if handler.type is None:
                     covers_os = True
                     break
+                elements = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+                resolved: list[ast.expr] = []
+                for element in elements:
+                    if isinstance(element, ast.Name) and element.id in constants:
+                        resolved.extend(constants[element.id])
+                    else:
+                        resolved.append(element)
                 try:
-                    type_src = ast.unparse(handler.type)
+                    type_src = ', '.join(ast.unparse(element) for element in resolved)
                 except Exception:
                     continue
                 names = set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', type_src))

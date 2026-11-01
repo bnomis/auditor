@@ -38,21 +38,7 @@ found something new and no cycle converged.
 
 ## Open
 
-### filesystem-envelope-gap should resolve a module-level exception tuple
-
-- **Raised:** 2026-11-01, by adopting the checker in one project: a
-  hit had to be accepted although the handler did catch `OSError`.
-- **The pattern:** `check_filesystem_envelope_gap` unparses each
-  handler's type and searches the text for `OSError`, `Exception` and
-  their kin. `except READ_ERRORS:`, where the module defines
-  `READ_ERRORS = (OSError, ValueError)`, shows only the name, so the
-  rule reports a gap that is not there.
-- **Proposed refinement (narrowing):** before the name test, replace a
-  bare `Name` in a handler's type (alone or inside a tuple) with the
-  members of a module-level assignment of a tuple literal to that name
-  in the same file, one level deep. A name that resolves to nothing
-  keeps today's behaviour. A test: the tuple-constant case is not a
-  hit; a constant without `OSError` still is.
+None.
 
 ## Rejected
 
