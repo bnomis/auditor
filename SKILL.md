@@ -106,16 +106,19 @@ check runs once per root, and a project holding only `src/a.py` has none), and
 `# auditme: accept[src-loose-module] <reason>` on line 1.
 
 The `ruff-version-drift` check sits beside the existing ruff check. It is
-project-level: it compares the version `ruff --version` prints for the `ruff`
-on `PATH` with the `rev` of the `ruff-pre-commit` repo in
-`.pre-commit-config.yaml`, and reports `ruff on PATH differs from the
-ruff-pre-commit rev` at the `rev:` line when they differ, so the commit hook
-and the audit cannot disagree about formatting. A `rev` that is a commit SHA
+project-level: it compares the version `ruff --version` prints for the ruff
+the audit runs with the `rev` of the `ruff-pre-commit` repo in
+`.pre-commit-config.yaml`, and reports `the ruff the audit runs differs from
+the ruff-pre-commit rev` at the `rev:` line when they differ, so the commit
+hook and the audit cannot disagree about formatting. The audit runs the
+project's own `.venv/bin/ruff` when it is an executable file, and `ruff` from
+`PATH` only otherwise, so the answer does not depend on which ruff a shell
+finds first; the hit's evidence names which one ran. A `rev` that is a commit SHA
 uses the version in its `# frozen: <version>` comment. Two variants say the
 check cannot verify: `the ruff-pre-commit rev names no version` (a SHA with no
 `frozen` comment, or no `rev:` at all) and `ruff --version printed no
 version`. It is silent when there is no config, no `ruff-pre-commit` repo, or
-no `ruff` on `PATH` (the ruff check reports that). Clear a hit by making the
+no ruff to run (the ruff check reports that). Clear a hit by making the
 two equal; to accept one, put `# auditme: accept[ruff-version-drift] <reason>`
 on the `rev:` line or the line above it.
 

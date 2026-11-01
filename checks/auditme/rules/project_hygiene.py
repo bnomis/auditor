@@ -2,6 +2,7 @@
 
 import ast
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -10,10 +11,24 @@ from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source
 from auditme.rules.state_and_effects import _corpus_py_files
 
 
+def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:
+    """Return (command, label) for the ruff the audit runs: the project's
+    `.venv/bin/ruff` when it is an executable file, else `ruff` from PATH.
+
+    The project's own ruff is the one its lockfile pins, so preferring it makes
+    the answer the same in every shell and in CI, whatever else is on PATH.
+    """
+    venv_ruff = scope / '.venv' / 'bin' / 'ruff'
+    if venv_ruff.is_file() and os.access(venv_ruff, os.X_OK):
+        return str(venv_ruff), '.venv/bin/ruff'
+    return 'ruff', 'ruff on PATH'
+
+
 def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    ruff, _ = ruff_executable(scope)
     for cmd, variant in (
-        (['ruff', 'check', '--output-format=json', str(src_root)], 'ruff-check'),
-        (['ruff', 'format', '--check', str(src_root)], 'ruff-format'),
+        ([ruff, 'check', '--output-format=json', str(src_root)], 'ruff-check'),
+        ([ruff, 'format', '--check', str(src_root)], 'ruff-format'),
     ):
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=scope)
@@ -130,8 +145,9 @@ def _ruff_hook_pin(lines: list[str]) -> tuple[int, int | None, str | None] | Non
 
 
 def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Emit a `ruff-version-drift` hit when the ruff on PATH is not the version
-    the project's `ruff-pre-commit` hook pins, or when the pin cannot be read.
+    """Emit a `ruff-version-drift` hit when the ruff the audit runs (see
+    `ruff_executable`) is not the version the project's `ruff-pre-commit` hook
+    pins, or when the pin cannot be read.
 
     Project-level: reads `<scope>/.pre-commit-config.yaml` and runs
     `ruff --version` in `scope`; `src_root` is unused. Silent when the file is
@@ -162,7 +178,8 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         emit('the ruff-pre-commit rev names no version', 'the rev is not a version and has no `# frozen: <version>` comment')
         return
     try:
-        result = subprocess.run(['ruff', '--version'], capture_output=True, text=True, cwd=scope)
+        ruff, label = ruff_executable(scope)
+        result = subprocess.run([ruff, '--version'], capture_output=True, text=True, cwd=scope)
     except FileNotFoundError:
         return
     running = _RUFF_VERSION_OUTPUT_RE.match(result.stdout.strip())
@@ -170,7 +187,7 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         emit('ruff --version printed no version', result.stdout.strip()[:200])
         return
     if running.group(1) != pinned.removeprefix('v'):
-        emit('ruff on PATH differs from the ruff-pre-commit rev', f'ruff on PATH is {running.group(1)}; the hook pins {pinned}')
+        emit('the ruff the audit runs differs from the ruff-pre-commit rev', f'{label} is {running.group(1)}; the hook pins {pinned}')
 
 
 _PHASE_REF_RE = re.compile(r'\bPhase\s+[1-9][a-z]?\b')

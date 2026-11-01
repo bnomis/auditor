@@ -179,7 +179,7 @@ def test_different_versions_give_one_hit_at_the_rev_line(project: Builder, run_c
     assert len(hits) == 1
     assert hits[0]['path'] == '.pre-commit-config.yaml'
     assert hits[0]['line'] == 3
-    assert hits[0]['variant'] == 'ruff on PATH differs from the ruff-pre-commit rev'
+    assert hits[0]['variant'] == 'the ruff the audit runs differs from the ruff-pre-commit rev'
     assert hits[0]['evidence'] == 'ruff on PATH is 0.17.1; the hook pins v0.17.3'
     assert hits[0]['accepted'] is False
 
@@ -196,7 +196,7 @@ def test_a_sha_rev_uses_its_frozen_comment(project: Builder, run_check: Runner, 
     stub_ruff('ruff 0.17.1')
     hits = drift_hits(run_check, root)
     assert len(hits) == 1
-    assert hits[0]['variant'] == 'ruff on PATH differs from the ruff-pre-commit rev'
+    assert hits[0]['variant'] == 'the ruff the audit runs differs from the ruff-pre-commit rev'
 
 
 def test_a_sha_rev_with_no_comment_names_no_version(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
@@ -262,6 +262,46 @@ def test_a_marker_scoped_to_another_rule_does_not_accept(project: Builder, run_c
 def test_a_repo_url_with_a_suffix_is_still_found(project: Builder, run_check: Runner, stub_ruff: StubRuff, suffix: str) -> None:
     stub_ruff('ruff 0.17.1')
     assert len(drift_hits(run_check, project(hook_config(repo=f'{HOOK_REPO}{suffix}')))) == 1
+
+
+def venv_ruff(root: pathlib.Path, output: str, executable: bool = True) -> None:
+    """Write a stub `<root>/.venv/bin/ruff` that prints `output`."""
+    script = root / '.venv' / 'bin' / 'ruff'
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(f"#!/bin/sh\necho '{output}'\n", encoding='utf-8')
+    script.chmod(0o755 if executable else 0o644)
+
+
+def test_the_project_venv_ruff_is_preferred_over_path(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    """A shell whose PATH starts with another ruff must not change the answer."""
+    stub_ruff('ruff 0.17.1')
+    root = project(hook_config())
+    venv_ruff(root, 'ruff 0.17.3')
+    assert drift_hits(run_check, root) == []
+
+
+def test_a_differing_venv_ruff_is_named_in_the_evidence(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.3')
+    root = project(hook_config())
+    venv_ruff(root, 'ruff 0.17.1')
+    hits = drift_hits(run_check, root)
+    assert len(hits) == 1
+    assert hits[0]['evidence'] == '.venv/bin/ruff is 0.17.1; the hook pins v0.17.3'
+
+
+def test_a_venv_ruff_that_is_not_executable_falls_back_to_path(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.3')
+    root = project(hook_config())
+    venv_ruff(root, 'ruff 0.17.1', executable=False)
+    assert drift_hits(run_check, root) == []
+
+
+def test_check_ruff_runs_the_project_venv_ruff(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    """With no ruff on PATH, a project ruff still runs: no `ruff not installed` hit."""
+    stub_ruff(None)
+    root = project({'src/probe/mod.py': 'VALUE = 1\n'})
+    venv_ruff(root, '[]')
+    assert [hit for hit in run_check(RUFF, root) if hit['rule'] == 'ruff'] == []
 
 
 def test_two_roots_of_one_project_print_one_hit(project: Builder, stub_ruff: StubRuff) -> None:
