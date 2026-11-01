@@ -2348,6 +2348,62 @@ def _function_levels(body: list[ast.stmt]) -> list[HandlerLevel]:
     return levels
 
 
+def unset_optional_guard(
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    error: str,
+    parents: Mapping[str, set[str]],
+    call: ast.Call,
+    bound: bool,
+) -> bool:
+    """Whether `call` leaves unset every optional argument guarding `error`.
+
+    True when `func`'s own scope (nested defs, lambdas and classes excluded)
+    holds at least one `raise X(...)` or `raise mod.X(...)` whose lineage
+    contains `error`, and each such raise has an enclosing `If` (in its body
+    or `orelse`) or `Match` inside `func` whose test or subject reads a Name
+    that is a parameter with a default which `call` does not supply. A
+    parameter is supplied when a keyword names it or a positional argument
+    reaches its position; with `bound` (a call through `self.`), positional
+    arguments start at the second parameter. A call with a `*` or `**`
+    argument supplies every parameter. False otherwise, including when
+    `func` raises `error` only through its own callees.
+    """
+    if any(isinstance(arg, ast.Starred) for arg in call.args) or any(kw.arg is None for kw in call.keywords):
+        return False
+    args = func.args
+    positional = [*args.posonlyargs, *args.args]
+    first_default = len(positional) - len(args.defaults)
+    optional = {arg.arg: index for index, arg in enumerate(positional) if index >= first_default}
+    optional.update({arg.arg: -1 for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True) if default is not None})
+    reached = len(call.args) + (1 if bound else 0)
+    named = {kw.arg for kw in call.keywords}
+    unset = {name for name, index in optional.items() if name not in named and (index < 0 or index >= reached)}
+    if not unset:
+        return False
+
+    def reads_unset(expr: ast.expr) -> bool:
+        return any(isinstance(node, ast.Name) and node.id in unset for node in ast.walk(expr))
+
+    found = False
+
+    def visit(node: ast.AST, guarded: bool) -> bool:
+        """Walk `node`; False when a matching raise sits outside an unset-argument guard."""
+        nonlocal found
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            return True
+        if isinstance(node, ast.Raise):
+            name = _raised_name(node)
+            if name and error in class_lineage(name, parents):
+                found = True
+                if not guarded:
+                    return False
+        tested = node.test if isinstance(node, ast.If) else node.subject if isinstance(node, ast.Match) else None
+        inner = guarded or (tested is not None and reads_unset(tested))
+        return all(visit(child, inner) for child in ast.iter_child_nodes(node))
+
+    return all(visit(statement, False) for statement in func.body) and found
+
+
 def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag a `Raises:` section that disagrees with the domain errors reaching
     the caller (A4).
@@ -2376,6 +2432,17 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
 
     Raised by an audit whose Phase B A4 kept finding these by hand, cycle
     after cycle (shipped 2026-10-31).
+
+    Refinement (2026-11-01): a callee's declared error does not reach the
+    caller through a call that leaves unset every optional argument guarding
+    it (`unset_optional_guard`): every raise of it in the callee's own body
+    sits under an `if` or `match` testing a parameter with a default that the
+    call does not supply, as `if strict: raise ParseError(...)` called as
+    `load('x')`. Omissions only; a guard on a parameter without a default, a
+    module-level name, a raise outside the guard, or a call passing the
+    argument (or `*args`/`**kwargs`) keeps the hit. Other value-dependent
+    cases (fixed names, pre-checked values, dispatch types) are left to the
+    Phase B review (A4).
     """
     modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
     for path in _all_py_files(src_root):
@@ -2399,8 +2466,10 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 for member in node.body:
                     if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         functions.append((module, f'{module}.{node.name}.{member.name}', node.name, member))
+    node_of: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
     for _module, qualname, _cls, node in functions:
         declared_by[qualname] = raises_section_names(ast.get_docstring(node) or '')
+        node_of[qualname] = node
         path_of[qualname] = modules[_module][0]
 
     # A package's `__init__.py` (or any module) re-exporting a function makes
@@ -2469,9 +2538,14 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
             callee = resolve(site, module, cls, imported)
             if callee is None or callee == qualname:
                 continue
+            callee_node = node_of.get(callee)
+            bound = isinstance(site.func, ast.Attribute) and isinstance(site.func.value, ast.Name) and site.func.value.id == 'self'
             for name in declared_by[callee]:
-                if is_domain(name) and not caught(name, around):
-                    reached[name].add(callee)
+                if not is_domain(name) or caught(name, around):
+                    continue
+                if callee_node is not None and unset_optional_guard(callee_node, name, parents, site, bound):
+                    continue
+                reached[name].add(callee)
 
         rel = _relpath(path, scope)
         accept = _accept_reason(lines, node.lineno, rule='raises-section-drift')
