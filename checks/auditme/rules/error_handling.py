@@ -1508,6 +1508,15 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
         variable (`raise exc_var`).
       - Docstring contains NO `Raises:` block, `:raises X:` role, or
         sentence beginning with `Raises `.
+
+    Refinement (2026-11-01): a raise that a handler around it catches, by its
+    own class or a base class in the package's class tree (a bare `except:`,
+    `Exception` and `BaseException` catch all), without re-raising, does not
+    reach the caller and does not count (`_level_catches`). A def nested in
+    the subject counts only where it is called by bare name, under that
+    call's handlers (`nested_call_sites`); a nested def never called counts
+    nothing, and stays a subject of its own. A handler that re-raises, one
+    for an unrelated class, or no handler keeps the hit.
     """
     # Accept any of:
     #   - a `Raises:` / `Raise:` header line (napoleon / google style)
@@ -1518,15 +1527,18 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
         r'(?:^\s*Raises?\s*:|:raises\s+[A-Za-z_]|\bRaises?\s+[A-Za-z_][\w.]*Error\b)',
         re.MULTILINE,
     )
+    parsed: list[tuple[pathlib.Path, list[str], ast.Module]] = []
     for path in _all_py_files(src_root):
+        lines = _source_lines(path)
+        try:
+            parsed.append((path, lines, ast.parse('\n'.join(lines))))
+        except SyntaxError:
+            continue
+    parents = package_class_parents(tree for _path, _lines, tree in parsed)
+    for path, lines, tree in parsed:
         if path.name == '__init__.py' or path.name == 'errors.py':
             continue
         rel = _relpath(path, scope)
-        lines = _source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
-            continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -1537,7 +1549,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
                 continue
             # Does body raise a project *Error class, not a re-raise or stdlib?
             found_project_raise = False
-            for inner in ast.walk(node):
+            for inner, levels in nested_call_sites(node):
                 if not isinstance(inner, ast.Raise):
                     continue
                 if inner.exc is None:
@@ -1556,6 +1568,9 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
                     continue
                 if name in STDLIB_ERRORS:
                     continue  # stdlib raises are covered by the layer-stdlib check
+                lineage = class_lineage(name, parents)
+                if any(_level_catches(level, lineage) for level in levels):
+                    continue
                 found_project_raise = True
                 break
             if not found_project_raise:
