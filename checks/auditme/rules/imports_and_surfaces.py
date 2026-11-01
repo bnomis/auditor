@@ -468,7 +468,14 @@ def _maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name, rank, ac
 def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag module-level functions whose body is exactly `return f(...)`
     where the call's args are the function's own parameters. These are
-    pass-through shims that add no behaviour and obscure the real callee."""
+    pass-through shims that add no behaviour and obscure the real callee.
+
+    Refinement (2026-11-01): only real forwarding is flagged. Every keyword
+    value must be a Name of one of the wrapper's parameters (a `**` keyword
+    or a computed value is not), no parameter may be passed twice across the
+    positional and keyword arguments (`table.get(name, name)` computes), and
+    a function with any decorator is skipped, since a decorator registers it
+    for something else (a fixture, a command, a route)."""
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
         lines = _source_lines(path)
@@ -478,6 +485,8 @@ def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             continue
         for node in tree.body:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.decorator_list:
                 continue
             # strip a leading docstring
             body = [b for b in node.body if not (isinstance(b, ast.Expr) and isinstance(b.value, ast.Constant))]
@@ -492,6 +501,11 @@ def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             if not call.args:
                 continue
             if not all(isinstance(a, ast.Name) and a.id in param_names for a in call.args):
+                continue
+            if not all(kw.arg is not None and isinstance(kw.value, ast.Name) and kw.value.id in param_names for kw in call.keywords):
+                continue
+            passed = [a.id for a in call.args if isinstance(a, ast.Name)] + [kw.value.id for kw in call.keywords if isinstance(kw.value, ast.Name)]
+            if len(passed) != len(set(passed)):
                 continue
             try:
                 call_src = ast.unparse(call.func)
