@@ -133,6 +133,92 @@ def test_a_resolution_timestamp_is_masked_out_of_the_evidence(
     assert '2026-08-15' not in hits[0]['evidence']
 
 
+LOCK_PROJECT = {
+    'src/probe/mod.py': 'VALUE = 1\n',
+    'pyproject.toml': '[project]\nname = "probe"\n',
+    'uv.lock': 'version = 1\n',
+}
+USER_EXCLUDE_NEWER = (
+    'Resolving despite existing lockfile due to addition of global exclude newer 2026-10-18T09:17:10Z\n'
+    'error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.\n'
+)
+
+
+class LockResult:
+    def __init__(self, returncode: int, stderr: str = '') -> None:
+        self.returncode = returncode
+        self.stdout = ''
+        self.stderr = stderr
+
+
+def recording_run(results: list[LockResult], calls: list[dict[str, object]]) -> collections.abc.Callable[..., LockResult]:
+    def fake_run(*args: object, **kwargs: object) -> LockResult:
+        calls.append(kwargs)
+        return results[len(calls) - 1]
+
+    return fake_run
+
+
+def test_drift_from_a_user_exclude_newer_alone_is_not_reported(
+    project: Builder,
+    run_check: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A user-level `exclude-newer` the lock was not made with re-resolves it on
+    one machine only; CI, without that config, sees no drift."""
+    calls: list[dict[str, object]] = []
+    monkeypatch.setenv('PROBE_VAR', 'kept')
+    monkeypatch.setattr(subprocess, 'run', recording_run([LockResult(1, USER_EXCLUDE_NEWER), LockResult(0)], calls))
+    assert run_check(LOCKFILE, project(LOCK_PROJECT)) == []
+    assert len(calls) == 2
+    assert 'env' not in calls[0]
+    env = calls[1]['env']
+    assert isinstance(env, dict)
+    assert env['UV_NO_CONFIG'] == '1'
+    assert env['PROBE_VAR'] == 'kept'
+
+
+def test_a_lock_that_passes_is_checked_once_with_the_user_config(
+    project: Builder,
+    run_check: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A lock made with the user's `exclude-newer` records it, so dropping the
+    config for it would report drift."""
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(subprocess, 'run', recording_run([LockResult(0)], calls))
+    assert run_check(LOCKFILE, project(LOCK_PROJECT)) == []
+    assert len(calls) == 1
+    assert 'env' not in calls[0]
+
+
+def test_other_drift_is_reported_without_a_retry(
+    project: Builder,
+    run_check: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+    stale = 'error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.\n'
+    monkeypatch.setattr(subprocess, 'run', recording_run([LockResult(1, stale)], calls))
+    hits = run_check(LOCKFILE, project(LOCK_PROJECT))
+    assert len(hits) == 1
+    assert 'out of date' in hits[0]['variant']
+    assert len(calls) == 1
+
+
+def test_drift_that_remains_without_the_user_config_is_reported(
+    project: Builder,
+    run_check: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+    stale = 'error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.\n'
+    monkeypatch.setattr(subprocess, 'run', recording_run([LockResult(1, USER_EXCLUDE_NEWER), LockResult(1, stale)], calls))
+    hits = run_check(LOCKFILE, project(LOCK_PROJECT))
+    assert len(hits) == 1
+    assert 'out of date' in hits[0]['variant']
+
+
 # --------------------------------------------------------------------------
 # check_ruff_version
 # --------------------------------------------------------------------------

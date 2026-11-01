@@ -68,6 +68,8 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
 # `uv lock --check` exits non-zero both when the lockfile is genuinely stale
 # and when it could not resolve at all. Only the first message is the drift.
 _LOCKFILE_DRIFT_MARKER = 'needs to be updated'
+# uv's reason for re-resolving when the user's config adds an `exclude-newer` the lock lacks.
+_USER_EXCLUDE_NEWER_MARKER = 'due to addition of global exclude newer'
 _LOCKFILE_TIMESTAMP_RE = re.compile(r'\d{4}-\d{2}-\d{2}T[\d:.]+Z?')
 
 
@@ -78,6 +80,14 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         return
     try:
         result = subprocess.run(['uv', 'lock', '--check'], capture_output=True, text=True, cwd=scope)
+        # A user-level `exclude-newer` that the lock was not made with re-resolves
+        # it on this machine only; CI, without that config, sees no drift. Only
+        # when uv names that setting as the reason is the check repeated without
+        # the user's config. A lock made with the setting records it and passes
+        # the first run, and dropping the config for it would report drift.
+        if result.returncode != 0 and _USER_EXCLUDE_NEWER_MARKER in (result.stderr or '') + (result.stdout or ''):
+            env = {**os.environ, 'UV_NO_CONFIG': '1'}
+            result = subprocess.run(['uv', 'lock', '--check'], capture_output=True, text=True, cwd=scope, env=env)
     except FileNotFoundError:
         return
     if result.returncode == 0:
