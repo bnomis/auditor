@@ -1906,6 +1906,88 @@ def test_a_callee_only_documenting_the_error_is_still_a_hit(project: Builder, ru
     assert loader_drift(project, run_check, "probe.loader.load('x')", body=body) == OMITS_PARSE_ERROR
 
 
+# --- raises-section-drift: called nested functions --------------------------
+
+NESTED_CALLER = """import probe.errors
+import probe.parse
+
+
+def run(text: str, other: str, strict: bool) -> int:
+    \"\"\"Run it.
+
+    Raises:
+        {declared}: the text is bad.
+    \"\"\"
+{body}"""
+
+REPRODUCTION = """    def attempt() -> int:
+        try:
+            return probe.parse.parse(text)
+        except probe.errors.ParseError:
+            if strict:
+                raise
+            return 0
+
+    try:
+        probe.parse.parse(other)
+    except probe.errors.ParseError:
+        pass
+    return attempt()
+"""
+
+
+def nested_drift(project: Builder, run_check: Runner, body: str, declared: str = 'ParseError') -> list[tuple[str, str]]:
+    return drift(project, run_check, NESTED_CALLER.format(declared=declared, body=body))
+
+
+def test_a_called_nested_def_that_re_raises_keeps_the_declaration_reaching(project: Builder, run_check: Runner) -> None:
+    assert nested_drift(project, run_check, REPRODUCTION) == []
+
+
+def test_a_nested_def_never_called_adds_nothing(project: Builder, run_check: Runner) -> None:
+    body = """    def attempt() -> int:
+        return probe.parse.parse(text)
+
+    return 0
+"""
+    assert nested_drift(project, run_check, body, declared='FetchError') == []
+
+
+def test_a_nested_def_called_outside_any_try_reaches_the_subject(project: Builder, run_check: Runner) -> None:
+    body = """    def attempt() -> int:
+        return probe.parse.parse(text)
+
+    return attempt()
+"""
+    assert nested_drift(project, run_check, body, declared='FetchError') == [
+        ('src/probe/use.py', 'run: Raises: omits ParseError, declared by probe.parse.parse')
+    ]
+
+
+def test_a_nested_def_called_inside_a_catching_try_does_not_reach(project: Builder, run_check: Runner) -> None:
+    body = """    def attempt() -> int:
+        return probe.parse.parse(text)
+
+    try:
+        return attempt()
+    except probe.errors.ParseError:
+        return 0
+"""
+    assert nested_drift(project, run_check, body) == [('src/probe/use.py', 'run: Raises: declares ParseError, which never reaches the caller')]
+
+
+def test_a_bare_raise_in_a_def_inside_a_handler_does_not_make_it_re_raise(project: Builder, run_check: Runner) -> None:
+    body = """    try:
+        return probe.parse.parse(text)
+    except probe.errors.ParseError:
+        def again() -> None:
+            raise
+
+        return 0
+"""
+    assert nested_drift(project, run_check, body) == [('src/probe/use.py', 'run: Raises: declares ParseError, which never reaches the caller')]
+
+
 # --------------------------------------------------------------------------
 # package_class_parents and class_lineage
 # --------------------------------------------------------------------------

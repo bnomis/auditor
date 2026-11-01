@@ -2222,9 +2222,15 @@ _BROAD_HANDLER_NAMES = frozenset({'BaseException', 'Exception'})
 
 
 def _handler_passes_on(handler: ast.ExceptHandler) -> bool:
-    """Whether an `except` clause re-raises (a bare `raise`, or `raise <bound name>`)."""
+    """Whether an `except` clause re-raises (a bare `raise`, or `raise <bound name>`).
+
+    Only the clause's own scope counts: a raise inside a def, lambda or class
+    defined in the handler belongs to that scope.
+    """
     bound = handler.name
-    return any(isinstance(node, ast.Raise) and (node.exc is None or (isinstance(node.exc, ast.Name) and node.exc.id == bound)) for node in ast.walk(handler))
+    return any(
+        isinstance(node, ast.Raise) and (node.exc is None or (isinstance(node.exc, ast.Name) and node.exc.id == bound)) for node in _walk_within_scope(handler)
+    )
 
 
 def _handler_types(handler: ast.ExceptHandler) -> frozenset[str] | None:
@@ -2306,6 +2312,20 @@ def _reach_sites(
 
     for statement in body:
         visit(statement, catches)
+    return sites
+
+
+def nested_call_sites(func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[tuple[ast.AST, tuple[HandlerLevel, ...]]]:
+    """`_reach_sites(func.body)` plus, for each call by bare name to a def
+    nested directly in `func`'s body, that def's own reach sites with the
+    call's handler levels prepended. One level deep; a nested def that is
+    never called contributes nothing.
+    """
+    nested = {stmt.name: stmt for stmt in func.body if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    sites = _reach_sites(func.body)
+    for site, around in list(sites):
+        if isinstance(site, ast.Call) and isinstance(site.func, ast.Name) and site.func.id in nested:
+            sites.extend((inner, (*around, *levels)) for inner, levels in _reach_sites(nested[site.func.id].body))
     return sites
 
 
@@ -2443,6 +2463,13 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     argument (or `*args`/`**kwargs`) keeps the hit. Other value-dependent
     cases (fixed names, pre-checked values, dispatch types) are left to the
     Phase B review (A4).
+
+    Refinement (2026-11-01), nested functions: a def nested directly in the
+    subject and called by bare name contributes its raises and calls under
+    the call's handlers (`nested_call_sites`, one level deep), so an error it
+    catches and re-raises on one branch still reaches the subject's callers;
+    a def never called contributes nothing. A raise inside a def, lambda or
+    class defined in a handler does not make that handler re-raise.
     """
     modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
     for path in _all_py_files(src_root):
@@ -2529,7 +2556,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                         imported[alias.asname] = alias.name
 
         reached: dict[str, set[str]] = defaultdict(set)
-        for site, around in _reach_sites(node.body):
+        for site, around in nested_call_sites(node):
             if isinstance(site, ast.Raise):
                 name = _raised_name(site)
                 if name and is_domain(name) and not caught(name, around):
