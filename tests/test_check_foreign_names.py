@@ -42,3 +42,21 @@ def test_no_list_checks_nothing_and_says_so(tmp_path: pathlib.Path) -> None:
 def test_a_list_of_only_comments_checks_nothing(tmp_path: pathlib.Path) -> None:
     (tmp_path / 'doc.md').write_text('acmeproj\n')
     assert run(tmp_path, '# none yet\n', 'doc.md').returncode == 0
+
+
+def test_an_allowed_name_does_not_fail(tmp_path: pathlib.Path) -> None:
+    # A project that runs the hook on itself allows its own names.
+    (tmp_path / 'doc.md').write_text('Acmeproj runs the queue.\n')
+    assert run(tmp_path, 'acmeproj\notherproj\n', '--allow=acmeproj', 'doc.md').returncode == 0
+
+
+def test_an_allowed_name_still_fails_the_others(tmp_path: pathlib.Path) -> None:
+    (tmp_path / 'doc.md').write_text('Acmeproj ran an otherproj queue.\n')
+    result = run(tmp_path, 'acmeproj\notherproj\n', '--allow=ACMEPROJ', 'doc.md')
+    assert result.returncode == 1
+    assert 'doc.md:1:' in result.stdout
+
+
+def test_allowing_every_name_checks_nothing(tmp_path: pathlib.Path) -> None:
+    (tmp_path / 'doc.md').write_text('acmeproj\n')
+    assert run(tmp_path, 'acmeproj\n', '--allow=acmeproj', 'doc.md').returncode == 0
