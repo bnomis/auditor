@@ -4,7 +4,10 @@
 Sweeps the whole tree with `audit.py` (so cross-file rules see every file) and
 reports each unaccepted hit whose path, or any `related` path, is in scope: the
 files changed since the diff base, or every file with `--all`. A sweep that
-cannot run fails; it is never skipped.
+cannot run (a timeout, a non-zero exit, a line that is not JSON, a crashed
+check) fails. Without `--all`, the sweep is skipped, and the run passes, when
+no diff base resolves or no changed file can carry a hit (`reportable`); the
+push gate and CI run `--all`, which never skips.
 
 Usage:
     changed.py [--all] [--base <ref>] [<repo-root>]
@@ -30,6 +33,11 @@ BASE_CANDIDATES = ('@{upstream}', 'origin/main', 'main')
 CRASH_RULE = 'auditme-check-crash'
 SPEC_SKIP_PARTS = auditme.rules.project_hygiene._SPEC_SKIP_PARTS
 ACCEPT_HELP = 'Fix each hit, or accept one with a comment on its line or the line above:\n    # auditme: accept[<rule>] <reason>'
+# Hits no accept marker can accept: each comes from a tool, and is cleared there.
+RULE_HELP = {
+    'lockfile-drift': 'lockfile-drift: run `uv lock` and commit uv.lock; no accept marker applies.',
+    'ruff': 'ruff: fix the code, or silence one line with `# noqa: <code>`; no accept marker applies.',
+}
 SKIP_HELP = 'To skip this check for one commit: SKIP=auditme-changed git commit'
 SKIP_ALL_HELP = 'To skip this check for one push: SKIP=auditme-all git push'
 
@@ -224,7 +232,12 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
         return 0
     print(format_hits(hits))
     print()
-    print(ACCEPT_HELP)
+    rules = {hit.get('rule') for hit in hits}
+    for rule, advice in sorted(RULE_HELP.items()):
+        if rule in rules:
+            print(advice)
+    if rules - RULE_HELP.keys():
+        print(ACCEPT_HELP)
     print(SKIP_ALL_HELP if args.all else SKIP_HELP)
     return 1
 

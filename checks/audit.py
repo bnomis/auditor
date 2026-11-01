@@ -47,13 +47,26 @@ Output schema (one JSON object per line):
         "line": <1-indexed line number or null>,
         "evidence": "<source snippet or identifier>",
         "accepted": <bool>,
-        "accepted_reason": "<why, if accepted>"
+        "accepted_reason": "<why, if accepted>",
+        "related": ["<other path>", ...]
     }
+
+`related` appears only on a hit that compares files: the other files' paths,
+sorted, never the hit's own. `changed.py` treats the hit as changed when any
+of them changed.
 
 Acceptance is determined exclusively by:
     1. AGENTS.md "Accepted cross-layer exceptions" / "Accepted lazy imports" tables
-    2. An inline `# auditme: accept <reason>` comment on the preceding or
-       same line as the hit.
+    2. An inline `# auditme: accept[<rule>] <reason>` comment on the
+       preceding or same line as the hit, answering for that rule only. The
+       unscoped `# auditme: accept <reason>` answers for every rule on the
+       line, including rules added later, so new markers name their rule.
+    3. A few file-level and multi-line forms some checks document in their
+       own docstrings (a line-1 marker for `src-loose-module`, a marker on
+       any line of a multi-line statement).
+
+`ruff` and `lockfile-drift` hits are never accepted by a marker: they are
+cleared with ruff's `# noqa` or `uv lock`.
 
 No other signal acts as acceptance. The existence of a finding in a
 prior review, a decision note, or an assumption of intentionality does

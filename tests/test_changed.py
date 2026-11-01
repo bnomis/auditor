@@ -286,3 +286,24 @@ def test_all_names_the_push_skip_not_the_commit_skip(repo, stub_sweep, capsys) -
     out = capsys.readouterr().out
     assert 'SKIP=auditme-all git push' in out
     assert 'SKIP=auditme-changed' not in out
+
+
+def test_hits_no_marker_accepts_get_their_own_advice(repo, stub_sweep, capsys) -> None:
+    write(repo, {'uv.lock': 'version = 1\n', 'src/pkg/c.py': 'c = 1\n'})
+    commit_all(repo, 'add lock and c')
+    stub_sweep([hit('uv.lock', rule='lockfile-drift'), hit('src/pkg/c.py', rule='ruff')])
+    assert changed.main([str(repo)]) == 1
+    out = capsys.readouterr().out
+    assert 'lockfile-drift: run `uv lock`' in out
+    assert '# noqa: <code>' in out
+    assert '# auditme: accept[<rule>] <reason>' not in out
+
+
+def test_marker_advice_is_given_beside_rule_advice(repo, stub_sweep, capsys) -> None:
+    write(repo, {'uv.lock': 'version = 1\n', 'src/pkg/c.py': 'c = 1\n'})
+    commit_all(repo, 'add lock and c')
+    stub_sweep([hit('uv.lock', rule='lockfile-drift'), hit('src/pkg/c.py')])
+    assert changed.main([str(repo)]) == 1
+    out = capsys.readouterr().out
+    assert 'lockfile-drift: run `uv lock`' in out
+    assert '# auditme: accept[<rule>] <reason>' in out
