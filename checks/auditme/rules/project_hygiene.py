@@ -100,6 +100,79 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     )
 
 
+_HOOK_REPO_RE = re.compile(r'^\s*-\s*repo:\s*(\S+)')
+_HOOK_REV_RE = re.compile(r"""^\s*rev:\s*['"]?([^'"\s#]+)['"]?\s*(#.*)?$""")
+_PLAIN_VERSION_RE = re.compile(r'^v?(\d+\.\d+\.\d+)$')
+_FROZEN_RE = re.compile(r'#\s*frozen:\s*(v?\d+\.\d+\.\d+)\s*$')
+_RUFF_VERSION_OUTPUT_RE = re.compile(r'^ruff (\d+\.\d+\.\d+)')
+
+
+def _ruff_hook_pin(lines: list[str]) -> tuple[int, int | None, str | None] | None:
+    """Return (repo line, rev line, pinned version text) for the first
+    `ruff-pre-commit` repo entry, or None when the file has none. Line numbers
+    are 1-based; the rev line and version are None when they cannot be read."""
+    for index, text in enumerate(lines):
+        repo = _HOOK_REPO_RE.match(text)
+        if not repo or not repo.group(1).rstrip('/').removesuffix('.git').rstrip('/').endswith('/ruff-pre-commit'):
+            continue
+        for rev_index in range(index + 1, len(lines)):
+            if _HOOK_REPO_RE.match(lines[rev_index]):
+                break
+            rev = _HOOK_REV_RE.match(lines[rev_index])
+            if not rev:
+                continue
+            if _PLAIN_VERSION_RE.match(rev.group(1)):
+                return index + 1, rev_index + 1, rev.group(1)
+            frozen = _FROZEN_RE.search(rev.group(2) or '')
+            return index + 1, rev_index + 1, frozen.group(1) if frozen else None
+        return index + 1, None, None
+    return None
+
+
+def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Emit a `ruff-version-drift` hit when the ruff on PATH is not the version
+    the project's `ruff-pre-commit` hook pins, or when the pin cannot be read.
+
+    Project-level: reads `<scope>/.pre-commit-config.yaml` and runs
+    `ruff --version` in `scope`; `src_root` is unused. Silent when the file is
+    absent, holds no `ruff-pre-commit` repo, or ruff is not installed.
+    """
+    config = scope / '.pre-commit-config.yaml'
+    if not config.exists():
+        return
+    lines = _source_lines(config)
+    pin = _ruff_hook_pin(lines)
+    if pin is None:
+        return
+    repo_line, rev_line, pinned = pin
+    anchor = rev_line or repo_line
+
+    def emit(variant: str, evidence: str) -> None:
+        _emit(
+            rule='ruff-version-drift',
+            variant=variant,
+            path='.pre-commit-config.yaml',
+            line=anchor,
+            evidence=evidence,
+            accepted=(reason := _accept_reason(lines, anchor, rule='ruff-version-drift')) is not None,
+            accepted_reason=reason,
+        )
+
+    if pinned is None:
+        emit('the ruff-pre-commit rev names no version', 'the rev is not a version and has no `# frozen: <version>` comment')
+        return
+    try:
+        result = subprocess.run(['ruff', '--version'], capture_output=True, text=True, cwd=scope)
+    except FileNotFoundError:
+        return
+    running = _RUFF_VERSION_OUTPUT_RE.match(result.stdout.strip())
+    if not running:
+        emit('ruff --version printed no version', result.stdout.strip()[:200])
+        return
+    if running.group(1) != pinned.removeprefix('v'):
+        emit('ruff on PATH differs from the ruff-pre-commit rev', f'ruff on PATH is {running.group(1)}; the hook pins {pinned}')
+
+
 _PHASE_REF_RE = re.compile(r'\bPhase\s+[1-9][a-z]?\b')
 
 _SECTION_REF_RE = re.compile(r'\bSection\s+[0-9]+\.[0-9]+\b')

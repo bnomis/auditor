@@ -47,6 +47,7 @@ from auditme.rules.project_hygiene import (
     check_lockfile,
     check_phase_section_doc_reference,
     check_ruff,
+    check_ruff_version,
     check_spec_api_signature_drift,
 )
 from auditme.rules.state_and_effects import (
@@ -148,4 +149,5 @@ CHECKS = (
     check_from_import,
     check_typing_deprecated_alias,
     check_raises_section_drift,
+    check_ruff_version,
 )

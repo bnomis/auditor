@@ -1,9 +1,12 @@
 """Tests for the project-level predicates: ruff, the lockfile, spec references."""
 
 import collections.abc
+import contextlib
+import io
 import pathlib
 import subprocess
 
+import auditme.core
 import auditme.rules.project_hygiene
 import pytest
 
@@ -12,6 +15,7 @@ Runner = collections.abc.Callable[..., list[dict]]
 
 RUFF = auditme.rules.project_hygiene.check_ruff
 LOCKFILE = auditme.rules.project_hygiene.check_lockfile
+RUFF_VERSION = auditme.rules.project_hygiene.check_ruff_version
 PHASE_SECTION = auditme.rules.project_hygiene.check_phase_section_doc_reference
 
 
@@ -127,6 +131,148 @@ def test_a_resolution_timestamp_is_masked_out_of_the_evidence(
     hits = run_check(LOCKFILE, root)
     assert '<timestamp>' in hits[0]['evidence']
     assert '2026-08-15' not in hits[0]['evidence']
+
+
+# --------------------------------------------------------------------------
+# check_ruff_version
+# --------------------------------------------------------------------------
+
+HOOK_REPO = 'https://github.com/astral-sh/ruff-pre-commit'
+StubRuff = collections.abc.Callable[[str | None], None]
+
+
+def hook_config(rev_line: str | None = '    rev: v0.17.3', repo: str = HOOK_REPO) -> dict[str, str]:
+    lines = ['repos:', f'  - repo: {repo}']
+    if rev_line is not None:
+        lines.append(rev_line)
+    lines.extend(['    hooks:', '      - id: ruff-check'])
+    return {'.pre-commit-config.yaml': '\n'.join(lines) + '\n'}
+
+
+@pytest.fixture
+def stub_ruff(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> StubRuff:
+    """Make a `ruff` stub the only thing on PATH; `None` leaves PATH without ruff."""
+
+    def install(output: str | None) -> None:
+        directory = tmp_path_factory.mktemp('stub-bin')
+        if output is not None:
+            script = directory / 'ruff'
+            script.write_text(f"#!/bin/sh\necho '{output}'\n", encoding='utf-8')
+            script.chmod(0o755)
+        monkeypatch.setenv('PATH', str(directory))
+
+    return install
+
+
+def drift_hits(run_check: Runner, root: pathlib.Path) -> list[dict]:
+    return [hit for hit in run_check(RUFF_VERSION, root) if hit['rule'] == 'ruff-version-drift']
+
+
+def test_equal_versions_give_no_hit(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.3')
+    assert drift_hits(run_check, project(hook_config())) == []
+
+
+def test_different_versions_give_one_hit_at_the_rev_line(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.1')
+    hits = drift_hits(run_check, project(hook_config()))
+    assert len(hits) == 1
+    assert hits[0]['path'] == '.pre-commit-config.yaml'
+    assert hits[0]['line'] == 3
+    assert hits[0]['variant'] == 'ruff on PATH differs from the ruff-pre-commit rev'
+    assert hits[0]['evidence'] == 'ruff on PATH is 0.17.1; the hook pins v0.17.3'
+    assert hits[0]['accepted'] is False
+
+
+def test_a_rev_without_the_v_compares_the_same(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.3')
+    assert drift_hits(run_check, project(hook_config('    rev: 0.17.3'))) == []
+
+
+def test_a_sha_rev_uses_its_frozen_comment(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    root = project(hook_config(f'    rev: {"a" * 40}  # frozen: v0.17.3'))
+    stub_ruff('ruff 0.17.3')
+    assert drift_hits(run_check, root) == []
+    stub_ruff('ruff 0.17.1')
+    hits = drift_hits(run_check, root)
+    assert len(hits) == 1
+    assert hits[0]['variant'] == 'ruff on PATH differs from the ruff-pre-commit rev'
+
+
+def test_a_sha_rev_with_no_comment_names_no_version(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.3')
+    hits = drift_hits(run_check, project(hook_config(f'    rev: {"a" * 40}')))
+    assert len(hits) == 1
+    assert hits[0]['variant'] == 'the ruff-pre-commit rev names no version'
+    assert hits[0]['line'] == 3
+
+
+def test_a_repo_with_no_rev_names_no_version_at_the_repo_line(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.3')
+    hits = drift_hits(run_check, project(hook_config(None)))
+    assert len(hits) == 1
+    assert hits[0]['variant'] == 'the ruff-pre-commit rev names no version'
+    assert hits[0]['line'] == 2
+
+
+def test_a_stub_printing_no_version_is_a_hit(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('something else')
+    hits = drift_hits(run_check, project(hook_config()))
+    assert len(hits) == 1
+    assert hits[0]['variant'] == 'ruff --version printed no version'
+    assert hits[0]['line'] == 3
+    assert hits[0]['evidence'] == 'something else'
+
+
+def test_no_config_gives_no_hit(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.1')
+    assert drift_hits(run_check, project({'src/probe/mod.py': 'VALUE = 1\n'})) == []
+
+
+def test_a_config_without_the_ruff_hook_gives_no_hit(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.1')
+    root = project({'.pre-commit-config.yaml': 'repos:\n  - repo: https://github.com/example/other\n    rev: v1.0.0\n'})
+    assert drift_hits(run_check, root) == []
+
+
+def test_no_ruff_on_path_gives_no_hit(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff(None)
+    assert drift_hits(run_check, project(hook_config())) == []
+
+
+@pytest.mark.parametrize('placement', ['same-line', 'line-above'])
+def test_a_scoped_marker_accepts_the_hit(project: Builder, run_check: Runner, stub_ruff: StubRuff, placement: str) -> None:
+    stub_ruff('ruff 0.17.1')
+    marker = '# auditme: accept[ruff-version-drift] cooldown has not admitted it'
+    rev_line = f'    rev: v0.17.3  {marker}' if placement == 'same-line' else f'    {marker}\n    rev: v0.17.3'
+    hits = drift_hits(run_check, project(hook_config(rev_line)))
+    assert len(hits) == 1
+    assert hits[0]['accepted'] is True
+    assert hits[0]['accepted_reason'] == 'cooldown has not admitted it'
+
+
+def test_a_marker_scoped_to_another_rule_does_not_accept(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.1')
+    hits = drift_hits(run_check, project(hook_config('    rev: v0.17.3  # auditme: accept[lockfile-drift] unrelated')))
+    assert len(hits) == 1
+    assert hits[0]['accepted'] is False
+
+
+@pytest.mark.parametrize('suffix', ['.git', '/', '.git/'])
+def test_a_repo_url_with_a_suffix_is_still_found(project: Builder, run_check: Runner, stub_ruff: StubRuff, suffix: str) -> None:
+    stub_ruff('ruff 0.17.1')
+    assert len(drift_hits(run_check, project(hook_config(repo=f'{HOOK_REPO}{suffix}')))) == 1
+
+
+def test_two_roots_of_one_project_print_one_hit(project: Builder, stub_ruff: StubRuff) -> None:
+    stub_ruff('ruff 0.17.1')
+    root = project(hook_config())
+    auditme.core._EMITTED.clear()
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        RUFF_VERSION(root, root / 'src' / 'probe')
+        RUFF_VERSION(root, root / 'bin')
+    assert len(buffer.getvalue().splitlines()) == 1
 
 
 # --------------------------------------------------------------------------

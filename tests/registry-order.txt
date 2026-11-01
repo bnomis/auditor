@@ -60,3 +60,4 @@ check_failure_as_absence
 check_phase_section_doc_reference
 check_get_container_default_then_method_call
 check_annotated_all_assignment
+check_ruff_version
