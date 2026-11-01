@@ -4,6 +4,7 @@
 `test_get_container_default.py`.
 """
 
+import ast
 import collections.abc
 import pathlib
 
@@ -1770,3 +1771,40 @@ def store(rows: list) -> None:
 """
     root = project({'src/probe/errors.py': ERRORS, 'src/probe/write.py': callee, 'src/probe/use.py': caller})
     assert run_check(RAISES_DRIFT, root) == []
+
+
+# --------------------------------------------------------------------------
+# package_class_parents and class_lineage
+# --------------------------------------------------------------------------
+
+
+def parse_modules(*sources: str) -> list[ast.Module]:
+    return [ast.parse(source) for source in sources]
+
+
+def test_package_class_parents_strips_module_prefix_from_bases() -> None:
+    trees = parse_modules('class A(Base): pass\nclass B(mod.Base): pass\n')
+    parents = auditme.rules.error_handling.package_class_parents(trees)
+    assert parents['A'] == {'Base'}
+    assert parents['B'] == {'Base'}
+
+
+def test_package_class_parents_pools_modules() -> None:
+    trees = parse_modules('class A(Base): pass\n', 'class B(A): pass\n')
+    parents = auditme.rules.error_handling.package_class_parents(trees)
+    assert set(parents) >= {'A', 'B'}
+    assert parents['B'] == {'A'}
+
+
+def test_class_lineage_is_transitive() -> None:
+    parents = {'C': {'B'}, 'B': {'A'}, 'A': set()}
+    assert auditme.rules.error_handling.class_lineage('C', parents) == {'A', 'B', 'C'}
+
+
+def test_class_lineage_terminates_on_a_cycle() -> None:
+    parents = {'A': {'B'}, 'B': {'A'}}
+    assert auditme.rules.error_handling.class_lineage('A', parents) == {'A', 'B'}
+
+
+def test_class_lineage_of_an_unknown_name_is_itself() -> None:
+    assert auditme.rules.error_handling.class_lineage('Nope', {}) == {'Nope'}

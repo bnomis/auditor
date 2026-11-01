@@ -6,7 +6,7 @@ import contextlib
 import pathlib
 import re
 from collections import defaultdict
-from typing import Iterable
+from typing import Iterable, Mapping
 
 from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, module_dotted
 
@@ -956,6 +956,35 @@ def module_tuple_constants(tree: ast.Module) -> dict[str, list[ast.expr]]:
                 if isinstance(value, ast.Tuple):
                     tuples[target.id] = list(value.elts)
     return {name: members for name, members in tuples.items() if counts[name] == 1}
+
+
+def package_class_parents(trees: Iterable[ast.Module]) -> dict[str, set[str]]:
+    """Map each top-level class in the given modules to the names of its bases.
+
+    A base written `mod.Base` is recorded as `Base`, so the table follows the
+    package's own class tree by bare name. Modules are pooled: a class and its
+    base may live in different ones. A class with no base maps to an empty set,
+    so the keys are exactly the package's top-level class names."""
+    parents: dict[str, set[str]] = defaultdict(set)
+    for tree in trees:
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                parents[node.name].update(ast.unparse(base).rsplit('.', 1)[-1] for base in node.bases if isinstance(base, (ast.Name, ast.Attribute)))
+    return dict(parents)
+
+
+def class_lineage(name: str, parents: Mapping[str, set[str]]) -> set[str]:
+    """The name and every ancestor of it, transitively, in `parents`.
+
+    A cycle terminates, and a name `parents` does not know is its own lineage."""
+    seen = {name}
+    stack = [name]
+    while stack:
+        for parent in parents.get(stack.pop(), ()):
+            if parent not in seen:
+                seen.add(parent)
+                stack.append(parent)
+    return seen
 
 
 def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -2357,8 +2386,8 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
             continue
         modules[module_dotted(path, src_root)] = (path, tree, lines)
 
-    parents: dict[str, set[str]] = defaultdict(set)
-    package_classes: set[str] = set()
+    parents = package_class_parents(tree for _path, tree, _lines in modules.values())
+    package_classes = set(parents)
     declared_by: dict[str, set[str]] = {}
     path_of: dict[str, pathlib.Path] = {}
     functions: list[tuple[str, str, str | None, ast.FunctionDef | ast.AsyncFunctionDef]] = []
@@ -2367,10 +2396,6 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 functions.append((module, f'{module}.{node.name}', None, node))
             elif isinstance(node, ast.ClassDef):
-                package_classes.add(node.name)
-                for base in node.bases:
-                    if isinstance(base, (ast.Name, ast.Attribute)):
-                        parents[node.name].add(ast.unparse(base).rsplit('.', 1)[-1])
                 for member in node.body:
                     if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         functions.append((module, f'{module}.{node.name}.{member.name}', node.name, member))
@@ -2395,14 +2420,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                     changed = True
 
     def ancestors(name: str) -> set[str]:
-        seen: set[str] = set()
-        stack = [name]
-        while stack:
-            for parent in parents.get(stack.pop(), ()):
-                if parent not in seen:
-                    seen.add(parent)
-                    stack.append(parent)
-        return seen
+        return class_lineage(name, parents) - {name}
 
     def is_domain(name: str) -> bool:
         return name in package_classes and name not in STDLIB_ERRORS
