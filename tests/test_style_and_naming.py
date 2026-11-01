@@ -261,6 +261,52 @@ def test_only_a_fixed_length_tuple_is_exempt(source: str, project: Builder, run_
     assert [hit['rule'] for hit in run_check(LITERALS, root)] == ['non-alphabetical-literal']
 
 
+RUFF_ORDER = "['X_Y', 'Thing', '_private', 'helper', 'item2', 'item10']"
+
+
+def test_ruff_order_of_dunder_all_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': f'__all__ = {RUFF_ORDER}\n'})
+    assert run_check(LITERALS, root) == []
+
+
+def test_ruff_order_under_another_name_is_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': f'NAMES = {RUFF_ORDER}\n'})
+    assert [hit['rule'] for hit in run_check(LITERALS, root)] == ['non-alphabetical-literal']
+
+
+def test_a_plainly_sorted_dunder_all_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': "__all__ = ['Thing', 'helper']\n"})
+    assert run_check(LITERALS, root) == []
+
+
+def test_a_dunder_all_in_neither_order_is_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': "__all__ = ['helper', 'X_Y', 'Thing']\n"})
+    assert [hit['rule'] for hit in run_check(LITERALS, root)] == ['non-alphabetical-literal']
+
+
+def test_an_annotated_dunder_all_in_ruff_order_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': f'__all__: list[str] = {RUFF_ORDER}\n'})
+    assert run_check(LITERALS, root) == []
+
+
+def test_ruff_dunder_all_key_groups_then_natural_order() -> None:
+    names = ['item10', 'helper', 'Thing', '_private', 'X_Y', 'item2']
+    assert sorted(names, key=auditme.rules.style_and_naming.ruff_dunder_all_key) == [
+        'X_Y',
+        'Thing',
+        '_private',
+        'helper',
+        'item2',
+        'item10',
+    ]
+
+
+def test_ruff_dunder_all_key_treats_a_single_capital_as_camel_case() -> None:
+    key = auditme.rules.style_and_naming.ruff_dunder_all_key
+    assert key('A')[0] == 1
+    assert key('AB')[0] == 0
+
+
 # --------------------------------------------------------------------------
 # check_non_alphabetical_dict_keys
 # --------------------------------------------------------------------------

@@ -150,7 +150,41 @@ def is_fixed_length_tuple(annotation: ast.expr) -> bool:
     return not any(isinstance(m, ast.Constant) and m.value is Ellipsis for m in members)
 
 
+def is_dunder_all_assignment(node: ast.Assign | ast.AnnAssign) -> bool:
+    """Return True when `node` assigns to the single target `__all__`."""
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+    return len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == '__all__'
+
+
+def ruff_dunder_all_key(name: str) -> tuple[int, list[int | str]]:
+    """Sort key for ruff's RUF022 order of `__all__`.
+
+    Group 0: more than one character and `name.isupper()` (SCREAMING_SNAKE);
+    group 1: first character upper case (CamelCase); group 2: the rest.
+    Within a group, natural order: digit runs compare as integers.
+    """
+    if len(name) > 1 and name.isupper():
+        group = 0
+    elif name[:1].isupper():
+        group = 1
+    else:
+        group = 2
+    natural = [int(part) if part.isdigit() else part for part in re.split(r'(\d+)', name)]
+    return group, natural
+
+
 def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag module-level string tuple, list, set and `frozenset(...)` literals not in sorted order.
+
+    Only top-level assignments are read, and a literal needs two or more string
+    members. A fixed-length tuple annotation (`tuple[str, str]`) is exempt,
+    since its positions carry meaning.
+
+    Refinement (2026-11-01): an `__all__` assignment (plain or annotated, single
+    target) also passes when its members equal `sorted(members,
+    key=ruff_dunder_all_key)`, the order ruff's RUF022 writes. Any other name
+    keeps the plain `sorted()` test.
+    """
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
         lines = _source_lines(path)
@@ -183,6 +217,8 @@ def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) 
                 continue
             actual = [m.value for m in members]
             if actual == sorted(actual):
+                continue
+            if is_dunder_all_assignment(node) and actual == sorted(actual, key=ruff_dunder_all_key):
                 continue
             accept = _accept_reason(lines, node.lineno, rule='non-alphabetical-literal')
             _emit(
