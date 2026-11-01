@@ -31,6 +31,7 @@ jobs:
       # Install the project's locked dependencies.
       - run: uv sync
       # The checker runs `ruff` from PATH: use the project's locked one.
+      # The locked ruff must equal the ruff hook's `rev`, or the sweep reports ruff-version-drift.
       - run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       # The project's own tests need no deploy key, so they run before it
