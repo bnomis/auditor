@@ -196,7 +196,7 @@ Rules for reviewers:
 
 ### 5. Spec review
 
-For each spec in scope, check it against the validation criteria and spec template in `agents/skills/specdev/SKILL.md`. Record gaps as findings. Skip if no specs in scope.
+For each spec in scope, check it against the validation criteria and spec template in `claude/skills/specdev/SKILL.md`. Record gaps as findings. Skip if no specs in scope.
 
 ### 6. Re-verify prior findings
 
@@ -248,7 +248,7 @@ If there are findings: `/taskdev agents/audit-reviews/review-N.md`. If none: tel
 2. If there are uncommitted changes, ask the user to commit them first
 3. Stage: `git add agents/audit-reviews/review-N.md agents/audit-reviews/summary.md agents/audit-reviews/index.md` plus any task files you marked done
 4. Ask the user if they would like to commit
-5. Commit message: `auditme: add review-N`
+5. Commit message: `docs(audit): add review-N`
 6. Do not push unless asked
 
 ## Acceptance mechanism
