@@ -106,7 +106,8 @@ Do **not** alphabetise lists where order is semantically meaningful (e.g., proce
 ## Data structures
 
 - Prefer `dataclasses` for structured data
-- Use `cappa` dataclass conventions for CLI argument definitions
+- Use `cappa` dataclass conventions for every command-line interface;
+  argparse only where [argparse.md](argparse.md) allows it
 
 ## Exception syntax
 
@@ -148,7 +149,7 @@ Function docstrings are not required for all functions but you may add them to d
   - `warning` for recoverable issues
   - `error` for failures
   - `exception` to log exceptions in `except` blocks
-- CLI entry points (`cli.py`, `ensemble/cli.py`) may use `print()` for
+- CLI entry points (`cli.py`, `<package>/cli.py`) may use `print()` for
   machine-consumable stdout (config dumps via `--dump-config`, result
   summaries written to stdout). This output is typically piped into files
   or other tools, so `loguru` would add unwanted structured log overhead.
