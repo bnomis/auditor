@@ -319,6 +319,50 @@ def test_a_name_with_no_module_level_definition_does_not_fire(project: Builder, 
     assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
 
 
+def test_a_method_in_a_spec_class_block_does_not_fire(project: Builder, run_check: Runner) -> None:
+    """A method written inside a spec's `class` block is not compared with a
+    module-level function that happens to share its name: `_source_definitions`
+    holds module-level definitions only, so the two are unrelated."""
+    root = project(
+        {
+            'agents/specs/probe/spec.md': """
+        ## API
+
+        ```python
+        class Store:
+            @classmethod
+            def load(cls, path: pathlib.Path, *, strict: bool = True) -> Store:
+        ```
+        """,
+            'src/probe/store.py': 'class Store:\n    @classmethod\n    def load(cls, path, *, strict=True):\n        return None\n',
+            'src/probe/other.py': 'def load(path):\n    return None\n',
+        }
+    )
+    assert rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift') == []
+
+
+def test_a_module_level_def_after_a_spec_class_block_still_fires(project: Builder, run_check: Runner) -> None:
+    """Skipping methods ends with the class block: a `def` back at the class
+    line's indent is module-level again and is checked."""
+    root = spec_project(
+        project,
+        """
+        ## API
+
+        ```python
+        class Batch:
+            def size(self) -> int:
+
+        def extract_directory(settings: AppSettings) -> ExtractBatch:
+        ```
+        """,
+        'def extract_directory(settings, output_path=None):\n    return None\n',
+    )
+    hits = rows(run_check(SPEC_SIGNATURE, root), 'spec-api-signature-drift')
+    assert len(hits) == 1
+    assert 'extract_directory' in hits[0]['variant']
+
+
 def test_an_elided_signature_does_not_fire(project: Builder, run_check: Runner) -> None:
     """`def f(...)` is a spec showing a contract, not a signature."""
     root = spec_project(

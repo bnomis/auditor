@@ -266,6 +266,7 @@ _API_HEADING_RE = re.compile(r'^#{2,4}\s+API\b', re.IGNORECASE)
 _ANY_HEADING_RE = re.compile(r'^#{1,6}\s+')
 _FENCE_RE = re.compile(r'^\s*```')
 _DEF_LINE_RE = re.compile(r'^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(')
+_CLASS_LINE_RE = re.compile(r'^(\s*)class\s+[A-Za-z_]\w*\s*[(:]')
 _SPEC_SKIP_PARTS = frozenset({'.git', '.venv', 'node_modules', '__pycache__', 'audit-reviews', 'tasks'})
 
 
@@ -394,6 +395,10 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
       - **An ambiguous name does not fire.** If the corpus holds more than
         one module-level `def` with that name, the check cannot know which one
         the spec means, so it says nothing rather than guessing.
+      - **A method in a spec's `class` block does not fire.** A `def`
+        indented under a `class` line in the same fence is a method; methods
+        are not in `_source_definitions`, so its bare name would otherwise be
+        compared with an unrelated module-level function of the same name.
       - **A name with no module-level definition does not fire.** A Protocol
         method plus its implementations, and `__init__` everywhere, resolve to
         methods only; a spec block showing such a contract is not checked.
@@ -422,11 +427,13 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
         rel = _relpath(doc, scope)
         in_api_section = False
         in_fence = False
+        class_indent: int | None = None
         index = 0
         while index < len(lines):
             line = lines[index]
             if _FENCE_RE.match(line):
                 in_fence = not in_fence
+                class_indent = None
                 index += 1
                 continue
             if not in_fence and _ANY_HEADING_RE.match(line):
@@ -436,8 +443,19 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
             if not (in_fence and in_api_section):
                 index += 1
                 continue
+            indent = len(line) - len(line.lstrip())
+            if line.strip() and class_indent is not None and indent <= class_indent:
+                class_indent = None
+            class_match = _CLASS_LINE_RE.match(line)
+            if class_match and class_indent is None:
+                class_indent = len(class_match.group(1))
+                index += 1
+                continue
             match = _DEF_LINE_RE.match(line)
             if not match:
+                index += 1
+                continue
+            if class_indent is not None:
                 index += 1
                 continue
             parsed = _parse_spec_def(lines, index)
