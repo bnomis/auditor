@@ -83,3 +83,20 @@ def test_list_candidates_on_unregistered_question_raises(isolated_registry: None
 def test_question_brief_on_unregistered_question_raises(isolated_registry: None) -> None:
     with pytest.raises(phaseb.PhaseBError, match='Q9'):
         phaseb.question_brief('Q9')
+
+
+def test_question_registered_without_a_size_reads_back_the_default(isolated_registry: None, tmp_path: pathlib.Path) -> None:
+    phaseb.register_question('Q1', tmp_path / 'Q1.md')(lambda root: [])
+
+    assert phaseb.question_batch_size('Q1') == 48
+
+
+def test_question_registered_with_a_size_reads_it_back(isolated_registry: None, tmp_path: pathlib.Path) -> None:
+    phaseb.register_question('Q1', tmp_path / 'Q1.md', batch_size=12)(lambda root: [])
+
+    assert phaseb.question_batch_size('Q1') == 12
+
+
+def test_question_batch_size_on_unregistered_question_raises(isolated_registry: None) -> None:
+    with pytest.raises(phaseb.PhaseBError, match='Q9'):
+        phaseb.question_batch_size('Q9')

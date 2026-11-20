@@ -48,21 +48,28 @@ class Verdict:
 
 Lister = collections.abc.Callable[[pathlib.Path], list[Candidate]]
 
-REGISTRY: dict[str, tuple[Lister, pathlib.Path]] = {}
+DEFAULT_BATCH_SIZE = 48
+
+REGISTRY: dict[str, tuple[Lister, pathlib.Path, int]] = {}
 
 
-def register_question(question: str, brief: pathlib.Path) -> collections.abc.Callable[[Lister], Lister]:
-    """Register a candidate lister for a Phase B question, with its brief."""
+def register_question(question: str, brief: pathlib.Path, batch_size: int = DEFAULT_BATCH_SIZE) -> collections.abc.Callable[[Lister], Lister]:
+    """Register a candidate lister for a Phase B question, with its brief and batch size.
+
+    The batch size is how many candidates one reviewer judges when `phaseb.py
+    plan` is not given `--batch-size`; a question whose candidates are costly
+    to judge registers a smaller one.
+    """
 
     def decorate(lister: Lister) -> Lister:
-        REGISTRY[question] = (lister, brief)
+        REGISTRY[question] = (lister, brief, batch_size)
         return lister
 
     return decorate
 
 
-def registered(question: str) -> tuple[Lister, pathlib.Path]:
-    """Return a question's lister and brief path.
+def registered(question: str) -> tuple[Lister, pathlib.Path, int]:
+    """Return a question's lister, brief path and batch size.
 
     Raises:
         PhaseBError: question has no registered lister.
@@ -82,6 +89,15 @@ def question_brief(question: str) -> pathlib.Path:
     return registered(question)[1]
 
 
+def question_batch_size(question: str) -> int:
+    """Return the number of candidates one reviewer judges for a question.
+
+    Raises:
+        PhaseBError: question has no registered lister.
+    """
+    return registered(question)[2]
+
+
 def list_candidates(question: str, root: pathlib.Path, depth: int | None = None) -> list[Candidate]:
     """List every candidate for question under root, sorted by id.
 
@@ -91,7 +107,7 @@ def list_candidates(question: str, root: pathlib.Path, depth: int | None = None)
     Raises:
         PhaseBError: question has no registered lister.
     """
-    lister, _ = registered(question)
+    lister, _, _ = registered(question)
     found = lister(root) if depth is None else lister(root, depth)  # type: ignore[call-arg]
     return sorted(found, key=lambda candidate: candidate.id)
 

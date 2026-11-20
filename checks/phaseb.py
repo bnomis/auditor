@@ -3,7 +3,7 @@
 
 Usage (run from anywhere; <root> is the project root):
     phaseb.py candidates <root> --question A4 [--depth 3]
-    phaseb.py plan <root> --question A4 --out <dir> [--batch-size 48] [--depth 3] [--rejudge]
+    phaseb.py plan <root> --question A4 --out <dir> [--batch-size N] [--depth 3] [--rejudge]
     phaseb.py check <dir>
     phaseb.py merge <root> --question A4 <dir> [--depth 3]
     phaseb.py report <root> --question A4 [--depth 3]
@@ -26,7 +26,6 @@ import sys
 import auditme.phaseb
 from auditme.phaseb import PhaseBError, batches
 
-DEFAULT_BATCH_SIZE = 48
 DEFAULT_DEPTH = 3
 LEDGER_PARTS = ('agents', 'audit-reviews', 'ledger')
 
@@ -76,8 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument(
         '--batch-size',
         type=int,
-        default=DEFAULT_BATCH_SIZE,
-        help=f'Candidates per reviewer (default {DEFAULT_BATCH_SIZE})',
+        default=None,
+        help="Candidates per reviewer (default: the question's registered batch size)",
     )
     plan.add_argument(
         '--rejudge',
@@ -122,7 +121,8 @@ def run_plan(args: argparse.Namespace) -> int:
     version = auditme.phaseb.brief_version(brief)
     found = auditme.phaseb.list_candidates(args.question, args.root, args.depth)
     ledger = auditme.phaseb.read_ledger(ledger_path(args.root, args.question))
-    planned = batches.plan_batches(found, ledger, version, args.batch_size, args.rejudge)
+    size = auditme.phaseb.question_batch_size(args.question) if args.batch_size is None else args.batch_size
+    planned = batches.plan_batches(found, ledger, version, size, args.rejudge)
     count = sum(len(batch) for batch in planned)
     batches.write_plan(args.question, brief, version, planned, args.out)
     print(f'{count} planned in {len(planned)} batches, {len(found) - count} reused (brief version {version}) in {args.out}')
