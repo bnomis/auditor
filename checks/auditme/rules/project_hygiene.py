@@ -7,8 +7,7 @@ import pathlib
 import re
 import subprocess
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines
-from auditme.rules.state_and_effects import _corpus_py_files
+from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, corpus_definitions
 
 
 def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:
@@ -328,35 +327,6 @@ def _parse_spec_def(block_lines: list[str], start: int) -> tuple[ast.AST, int] |
     return module.body[0], index
 
 
-def _source_definitions(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, list[tuple[ast.AST, pathlib.Path]]]:
-    """Every MODULE-LEVEL `def` across the whole corpus, keyed by bare name.
-
-    Two deliberate choices, both learned from the first run against a real
-    project:
-
-    - **Corpus-wide, not per-root.** The driver audits one root per pass, so
-      resolving against `src_root` answers a different question on each pass:
-      one project's `write_worklist` resolved to the library function on the
-      library's pass and to a test double's method on the `src/tests` one,
-      and the spec was reported as drifting from both. A name is ambiguous or
-      it is not, and that is a property of the corpus.
-    - **Module-level only.** A method that happens to share a module-level
-      function's name is not a candidate for the `def` a spec's API block
-      documents - it is usually a test double. Including methods made every
-      such name ambiguous and silently dropped a real finding.
-    """
-    out: dict[str, list[tuple[ast.AST, pathlib.Path]]] = {}
-    for path in _corpus_py_files(scope, src_root):
-        try:
-            tree = ast.parse('\n'.join(_source_lines(path)))
-        except SyntaxError:
-            continue
-        for node in ast.iter_child_nodes(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                out.setdefault(node.name, []).append((node, path))
-    return out
-
-
 def _spec_markdown_files(scope: pathlib.Path) -> list[pathlib.Path]:
     """Markdown under scope, minus records and hidden directories.
 
@@ -387,7 +357,7 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
       - a `def`/`async def` line inside a fenced code block that follows an
         `## API` (or `### API`) heading and precedes the next heading;
       - the same bare name resolves to exactly one module-level definition
-        across the whole corpus (see `_source_definitions`);
+        across the whole corpus (see `corpus_definitions`);
       - the ordered parameter lists differ (see `_signature_params` - names,
         `*` placement and the presence of a default, never types).
 
@@ -397,7 +367,7 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
         the spec means, so it says nothing rather than guessing.
       - **A method in a spec's `class` block does not fire.** A `def`
         indented under a `class` line in the same fence is a method; methods
-        are not in `_source_definitions`, so its bare name would otherwise be
+        are not in `corpus_definitions`, so its bare name would otherwise be
         compared with an unrelated module-level function of the same name.
       - **A name with no module-level definition does not fire.** A Protocol
         method plus its implementations, and `__init__` everywhere, resolve to
@@ -418,7 +388,7 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
     instances by hand in a single pass, nearly all of them a
     parameter added by a fix whose commit did not touch the spec.
     """
-    definitions = _source_definitions(scope, src_root)
+    definitions = corpus_definitions(scope, src_root)
     if not definitions:
         return
 

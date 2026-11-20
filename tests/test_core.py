@@ -150,3 +150,37 @@ def test_emit_writes_one_json_object_per_line(capsys: pytest.CaptureFixture[str]
     auditme.core._emit(rule='r', variant='v', path='b.py', line=1, evidence='x', accepted=False, accepted_reason=None)
     for line in io.StringIO(capsys.readouterr().out):
         assert json.loads(line)
+
+
+# corpus definitions
+
+_DEFINITIONS_SOURCE = 'def run() -> None:\n    pass\n\n\nclass Probe:\n    def load(self) -> None:\n        pass\n'
+
+
+def test_corpus_definitions_default_keys_module_level_functions_only(project: Builder) -> None:
+    root = project({'src/pkg/mod.py': _DEFINITIONS_SOURCE})
+    found = auditme.core.corpus_definitions(root, root / 'src' / 'pkg')
+    assert list(found) == ['run']
+    node, path = found['run'][0]
+    assert isinstance(node, ast.FunctionDef)
+    assert auditme.core._relpath(path, root) == 'src/pkg/mod.py'
+
+
+def test_corpus_definitions_skips_a_file_with_a_syntax_error(project: Builder) -> None:
+    root = project({'src/pkg/good.py': _DEFINITIONS_SOURCE, 'src/pkg/bad.py': 'def broken(:\n'})
+    assert list(auditme.core.corpus_definitions(root, root / 'src' / 'pkg')) == ['run']
+
+
+def test_corpus_definitions_with_classes_adds_classes_and_methods(project: Builder) -> None:
+    root = project({'src/pkg/mod.py': _DEFINITIONS_SOURCE})
+    found = auditme.core.corpus_definitions(root, root / 'src' / 'pkg', classes=True)
+    assert sorted(found) == ['Probe', 'load', 'run']
+    assert isinstance(found['Probe'][0][0], ast.ClassDef)
+    assert isinstance(found['load'][0][0], ast.FunctionDef)
+    assert auditme.core._relpath(found['load'][0][1], root) == 'src/pkg/mod.py'
+
+
+def test_corpus_definitions_keeps_a_name_defined_in_two_modules_twice(project: Builder) -> None:
+    root = project({'src/pkg/a.py': 'def run() -> None:\n    pass\n', 'src/pkg/b.py': 'def run() -> None:\n    pass\n'})
+    found = auditme.core.corpus_definitions(root, root / 'src' / 'pkg')
+    assert [auditme.core._relpath(path, root) for _, path in found['run']] == ['src/pkg/a.py', 'src/pkg/b.py']

@@ -6,7 +6,15 @@ import pathlib
 import re
 from collections import defaultdict
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _extra_roots, _relpath, _source_lines, module_dotted
+from auditme.core import (
+    _accept_reason,
+    _all_py_files,
+    _corpus_py_files,
+    _emit,
+    _relpath,
+    _source_lines,
+    module_dotted,
+)
 
 _DISK_IO_NAMES = {
     'open',
@@ -714,30 +722,6 @@ def mutable_value_shape(value: ast.expr) -> tuple[str, str] | None:
     if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
         return _MUTABLE_CONSTRUCTORS.get(value.func.id)
     return None
-
-
-def _corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib.Path]:
-    """Every `.py` file the sweep reads, not just the root being swept.
-
-    The driver audits one root per pass, so `src_root` is a single package (or
-    a single extra root such as `bin/`). That is the right scope for finding a
-    package's own exports, and the wrong scope for finding who reads them: a
-    project whose `src/` holds both the library and the test tree has readers
-    in a sibling package, invisible to a scan rooted at the library. On one
-    project that hid mutable exported dicts whose only cross-module readers were
-    in `src/tests/`. A script in `bin/` is a reader on the same argument.
-
-    Falls back to the root being swept when the project has neither a `src/`
-    nor an extra root, which only happens when a check is called directly
-    rather than by the driver.
-    """
-    roots = _extra_roots(scope)
-    src = scope / 'src'
-    if src.is_dir():
-        roots.insert(0, src)
-    if not roots:
-        return _all_py_files(src_root)
-    return sorted(path for root in roots for path in _all_py_files(root))
 
 
 def _dotted_read(node: ast.Attribute) -> tuple[str, str] | None:

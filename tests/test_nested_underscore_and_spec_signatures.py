@@ -321,7 +321,7 @@ def test_a_name_with_no_module_level_definition_does_not_fire(project: Builder, 
 
 def test_a_method_in_a_spec_class_block_does_not_fire(project: Builder, run_check: Runner) -> None:
     """A method written inside a spec's `class` block is not compared with a
-    module-level function that happens to share its name: `_source_definitions`
+    module-level function that happens to share its name: `corpus_definitions`
     holds module-level definitions only, so the two are unrelated."""
     root = project(
         {
