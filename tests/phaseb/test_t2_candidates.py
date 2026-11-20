@@ -1,9 +1,15 @@
 """Tests for the T2 candidate rule."""
 
 import ast
+import collections.abc
+import hashlib
+import pathlib
 import textwrap
 
+from auditme import phaseb
 from auditme.phaseb import candidates
+
+Project = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
 PACKAGE = """
 import dataclasses
@@ -181,3 +187,189 @@ def test_branch_in_nested_def_does_not_count() -> None:
 
 def test_comprehension_counts() -> None:
     assert _is_candidate('def target(xs: list[int]) -> list[int]:\n    return [x for x in xs]\n')
+
+
+MOD = """
+    import dataclasses
+
+
+    @dataclasses.dataclass(frozen=True)
+    class Probe:
+        x: int
+
+
+    @dataclasses.dataclass(frozen=True)
+    class Wrapper:
+        probe: Probe
+
+
+    def parse_probe(s: str) -> Probe:
+        if s:
+            return Probe(int(s))
+        return Probe(0)
+
+
+    def format_probe(p: Probe) -> str:
+        if p.x:
+            return str(p.x)
+        return ''
+
+
+    def encode(s: str) -> bytes:
+        return bytes(c for c in s.encode() if c)
+
+
+    def decode(b: bytes) -> str:
+        return ''.join(chr(c) for c in b)
+
+
+    def to_x(n: int) -> str:
+        return ''.join(str(d) for d in range(n))
+
+
+    def from_x(s: str) -> int:
+        return len([c for c in s])
+
+
+    def dumps(n: int) -> str:
+        if n:
+            return str(n)
+        return ''
+
+
+    def loads(s: str) -> int:
+        if s:
+            return int(s)
+        return 0
+
+
+    def unwrap(w: Wrapper) -> int:
+        if w.probe.x:
+            return 1
+        return 0
+
+
+    def plain(n: int) -> int:
+        return n
+
+
+    def untyped(n):
+        if n:
+            return 1
+        return 0
+"""
+
+BASE = {
+    'src/pkg/__init__.py': '',
+    'src/pkg/mod.py': MOD,
+    'src/tests/__init__.py': '',
+    'src/tests/pkg/test_mod.py': """
+        from hypothesis import given, strategies
+
+        from pkg.mod import parse_probe, unwrap
+
+
+        @given(strategies.text())
+        def test_parse(s):
+            parse_probe(s)
+
+
+        def test_unwrap():
+            assert unwrap(None) == 0
+    """,
+    'src/tests/test_other.py': """
+        def test_other():
+            assert 1
+    """,
+}
+
+
+def _t2(root: pathlib.Path) -> dict[str, phaseb.Candidate]:
+    return {candidate.id: candidate for candidate in candidates.list_t2_candidates(root)}
+
+
+def test_candidates_are_the_functions_the_rule_accepts(project: Project) -> None:
+    found = _t2(project(BASE))
+    assert set(found) == {
+        f'src/pkg/mod.py::{name}' for name in ('parse_probe', 'format_probe', 'encode', 'decode', 'to_x', 'from_x', 'dumps', 'loads', 'unwrap')
+    }
+
+
+def test_params_returns_and_types(project: Project) -> None:
+    found = _t2(project(BASE))
+    candidate = found['src/pkg/mod.py::parse_probe']
+    assert candidate.question == 'T2'
+    assert candidate.payload['params'] == [{'name': 's', 'annotation': 'str'}]
+    assert candidate.payload['returns'] == 'Probe'
+    assert candidate.payload['types'] == [{'id': 'src/pkg/mod.py::Probe', 'path': 'src/pkg/mod.py', 'start': 4, 'end': 6}]
+
+
+def test_types_include_classes_named_through_a_field(project: Project) -> None:
+    found = _t2(project(BASE))
+    ids = [entry['id'] for entry in found['src/pkg/mod.py::unwrap'].payload['types']]
+    assert ids == ['src/pkg/mod.py::Probe', 'src/pkg/mod.py::Wrapper']
+    assert found['src/pkg/mod.py::dumps'].payload['types'] == []
+
+
+def test_inverse_names_list_each_other_in_pairs(project: Project) -> None:
+    found = _t2(project(BASE))
+    for first, second in (('parse_probe', 'format_probe'), ('encode', 'decode'), ('to_x', 'from_x'), ('dumps', 'loads')):
+        assert found[f'src/pkg/mod.py::{first}'].payload['pairs'] == [f'src/pkg/mod.py::{second}']
+        assert found[f'src/pkg/mod.py::{second}'].payload['pairs'] == [f'src/pkg/mod.py::{first}']
+    assert found['src/pkg/mod.py::unwrap'].payload['pairs'] == []
+
+
+def test_test_files_are_never_candidates(project: Project) -> None:
+    body = 'def f(x: int) -> int:\n    if x:\n        return 1\n    return 0\n'
+    root = project({**BASE, 'src/pkg/test_thing.py': body, 'src/pkg/thing_test.py': body, 'src/pkg/conftest.py': body, 'src/pkg/tests/helper.py': body})
+    assert {candidate.path for candidate in _t2(root).values()} == {'src/pkg/mod.py'}
+
+
+def test_property_test_calling_the_candidate_is_marked(project: Project) -> None:
+    found = _t2(project(BASE))
+    parse = found['src/pkg/mod.py::parse_probe'].payload
+    assert [(ref['id'], ref['route'], ref['property']) for ref in parse['tests']] == [('src/tests/pkg/test_mod.py::test_parse', 'direct', True)]
+    unwrap = found['src/pkg/mod.py::unwrap'].payload
+    assert [(ref['id'], ref['property']) for ref in unwrap['tests']] == [('src/tests/pkg/test_mod.py::test_unwrap', False)]
+    assert parse['test_files'] == ['src/tests/pkg/test_mod.py']
+
+
+def test_hash_is_sha256_of_source_types_then_test_files_nul_separated(project: Project) -> None:
+    root = project(BASE)
+    lines = (root / 'src/pkg/mod.py').read_text(encoding='utf-8').splitlines()
+    parts = [
+        '\n'.join(lines[13:17]),
+        '\n'.join(lines[3:6]),
+        (root / 'src/tests/pkg/test_mod.py').read_text(encoding='utf-8'),
+    ]
+    expected = hashlib.sha256('\0'.join(parts).encode('utf-8')).hexdigest()
+    assert _t2(root)['src/pkg/mod.py::parse_probe'].hash == expected
+
+
+def test_adding_a_field_to_a_type_changes_the_hash(project: Project) -> None:
+    root = project(BASE)
+    before = _t2(root)
+    path = root / 'src/pkg/mod.py'
+    path.write_text(path.read_text(encoding='utf-8').replace('    x: int\n', '    x: int\n    y: int = 0\n', 1), encoding='utf-8')
+    after = _t2(root)
+    assert after['src/pkg/mod.py::parse_probe'].hash != before['src/pkg/mod.py::parse_probe'].hash
+    assert after['src/pkg/mod.py::dumps'].hash == before['src/pkg/mod.py::dumps'].hash
+
+
+def test_adding_a_test_to_the_mirrored_file_changes_the_hash(project: Project) -> None:
+    root = project(BASE)
+    before = _t2(root)['src/pkg/mod.py::parse_probe'].hash
+    mirrored = root / 'src/tests/pkg/test_mod.py'
+    mirrored.write_text(mirrored.read_text(encoding='utf-8') + '\n\ndef test_more():\n    assert parse_probe("")\n', encoding='utf-8')
+    assert _t2(root)['src/pkg/mod.py::parse_probe'].hash != before
+
+
+def test_second_call_gives_the_same_candidates_and_hashes(project: Project) -> None:
+    root = project(BASE)
+    first = phaseb.list_candidates('T2', root)
+    assert first == phaseb.list_candidates('T2', root)
+    assert [candidate.id for candidate in first] == sorted(candidate.id for candidate in first)
+
+
+def test_t2_is_registered_with_its_brief_path() -> None:
+    assert phaseb.question_brief('T2').as_posix().endswith('claude/skills/auditme/phaseb/briefs/T2.md')

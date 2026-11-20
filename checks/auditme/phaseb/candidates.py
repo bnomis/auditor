@@ -883,3 +883,133 @@ def is_t2_candidate(node: ast.FunctionDef, package_types: collections.abc.Mappin
                 if isinstance(part, (ast.Attribute, ast.Subscript)) and root_name(part) in names:
                     return False
     return any(isinstance(inner, T2_BRANCHES) for inner in own)
+
+
+T2_BRIEF = DOC_BRIEFS / 'T2.md'
+T2_INVERSES = (('parse', 'format'), ('encode', 'decode'), ('to', 'from'), ('dumps', 'loads'))
+
+
+def inverse_names(name: str) -> set[str]:
+    """The names that invert `name`: `parse_x`/`format_x`, `encode`/`decode`, `to_x`/`from_x`, `dumps`/`loads`."""
+    head, separator, rest = name.partition('_')
+    found: set[str] = set()
+    for first, second in T2_INVERSES:
+        if head == first:
+            found.add(f'{second}{separator}{rest}')
+        elif head == second:
+            found.add(f'{first}{separator}{rest}')
+    return found
+
+
+def annotation_names(annotation: ast.expr) -> set[str]:
+    """Every name an annotation mentions, parsing string annotations."""
+    names: set[str] = set()
+    for part in ast.walk(annotation):
+        if isinstance(part, ast.Name):
+            names.add(part.id)
+        elif isinstance(part, ast.Attribute):
+            names.add(part.attr)
+        elif isinstance(part, ast.Constant) and isinstance(part.value, str):
+            try:
+                names |= annotation_names(ast.parse(part.value, mode='eval').body)
+            except SyntaxError:
+                continue
+    return names
+
+
+def referenced_types(annotations: list[ast.expr], package_types: collections.abc.Mapping[str, ast.ClassDef]) -> set[str]:
+    """The package class names the annotations name, directly or through a class's fields."""
+    found: set[str] = set()
+    pending = [name for annotation in annotations for name in annotation_names(annotation)]
+    while pending:
+        name = pending.pop()
+        if name in found or name not in package_types:
+            continue
+        found.add(name)
+        for field in package_types[name].body:
+            if isinstance(field, ast.AnnAssign):
+                pending.extend(annotation_names(field.annotation))
+    return found
+
+
+@register_question('T2', T2_BRIEF)
+def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
+    """List every function `is_t2_candidate` accepts, with its types, inverse pairs and tests.
+
+    The hash is a sha256 over its source, each `types` class's source in id
+    order, then each `test_files` file's text in path order, NUL-separated.
+
+    Raises:
+        PhaseBError: a test file or audited source file does not parse.
+    """
+    index = auditme.phaseb.testmap.build_index(scope)
+    refs = index.refs(depth)
+    hidden = {module: auditme.core._type_checking_linenos(file.tree) for module, file in index.sources.items()}
+    class_sites: dict[str, tuple[auditme.phaseb.testmap.ParsedFile, ast.ClassDef]] = {}
+    for module in sorted(index.sources):
+        file = index.sources[module]
+        for node in file.tree.body:
+            if isinstance(node, ast.ClassDef):
+                class_sites[node.name] = (file, node)
+    package_types = {name: cls for name, (_, cls) in class_sites.items()}
+    accepted = [
+        site
+        for site in index.sites.values()
+        if isinstance(site.node, ast.FunctionDef)
+        and (site.cls is None or any(short_name(decorator) == 'staticmethod' for decorator in site.node.decorator_list))
+        and not is_overload(site.node)
+        and site.node.lineno not in hidden[site.module]
+        and is_t2_candidate(site.node, package_types)
+    ]
+    by_name: dict[str, list[str]] = {}
+    for site in accepted:
+        by_name.setdefault(site.node.name, []).append(site.id)
+    found: list[Candidate] = []
+    for site in accepted:
+        node = site.node
+        arguments = node.args
+        parameters = [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
+        if arguments.vararg is not None:
+            parameters.append(arguments.vararg)
+        if arguments.kwarg is not None:
+            parameters.append(arguments.kwarg)
+        annotated = [(parameter.arg, parameter.annotation) for parameter in parameters if parameter.annotation is not None]
+        returns = node.returns
+        if returns is None:
+            continue
+        text = '\n'.join(site.lines)
+        types: list[dict[str, str | int]] = []
+        class_sources: list[tuple[str, bytes]] = []
+        for name in referenced_types([*(annotation for _, annotation in annotated), returns], package_types):
+            file, cls = class_sites[name]
+            start = min([cls.lineno, *(decorator.lineno for decorator in cls.decorator_list)])
+            end = cls.end_lineno or cls.lineno
+            type_id = f'{file.rel}::{cls.name}'
+            types.append({'id': type_id, 'path': file.rel, 'start': start, 'end': end})
+            class_sources.append((type_id, '\n'.join(file.lines[start - 1 : end]).encode('utf-8')))
+        types.sort(key=lambda entry: str(entry['id']))
+        class_sources.sort()
+        test_files = index.test_files(site.id, depth)
+        parts = [site.source.encode('utf-8'), *(source for _, source in class_sources), *((scope / name).read_bytes() for name in test_files)]
+        pairs = sorted(other for inverse in inverse_names(node.name) for other in by_name.get(inverse, ()))
+        found.append(
+            Candidate(
+                question='T2',
+                id=site.id,
+                path=site.path,
+                start=site.start,
+                end=site.end,
+                payload={
+                    'params': [
+                        {'name': name, 'annotation': ast.get_source_segment(text, annotation) or ast.unparse(annotation)} for name, annotation in annotated
+                    ],
+                    'returns': ast.get_source_segment(text, returns) or ast.unparse(returns),
+                    'types': types,
+                    'pairs': pairs,
+                    'tests': [dataclasses.asdict(ref) for ref in refs.get(site.id, ())],
+                    'test_files': test_files,
+                },
+                hash=digest(parts),
+            )
+        )
+    return found
