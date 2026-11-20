@@ -23,6 +23,21 @@ from auditme.core import (
 )
 
 
+def is_broad_handler(handler: ast.ExceptHandler) -> bool:
+    """True for a bare `except:` and for `Exception` or `BaseException`,
+    alone or inside a tuple."""
+    exc = handler.type
+    if exc is None:
+        return True
+    if isinstance(exc, ast.Name):
+        names = [exc.id]
+    elif isinstance(exc, ast.Tuple):
+        names = [e.id for e in exc.elts if isinstance(e, ast.Name)]
+    else:
+        return False
+    return any(n in {'Exception', 'BaseException'} for n in names)
+
+
 def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -34,15 +49,7 @@ def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> No
         for node in ast.walk(tree):
             if not isinstance(node, ast.ExceptHandler):
                 continue
-            exc = node.type
-            exc_names: list[str] = []
-            if isinstance(exc, ast.Name):
-                exc_names = [exc.id]
-            elif isinstance(exc, ast.Tuple):
-                exc_names = [e.id for e in exc.elts if isinstance(e, ast.Name)]
-            elif exc is None:
-                exc_names = ['*bare*']
-            if not any(n in {'Exception', 'BaseException', '*bare*'} for n in exc_names):
+            if not is_broad_handler(node):
                 continue
             body_src = '\n'.join(ast.unparse(c) for c in node.body) if hasattr(ast, 'unparse') else ''
             has_log = bool(re.search(r'\blogger\.|loguru\.logger\.|logging\.', body_src))
@@ -188,15 +195,7 @@ def check_broad_except_wrong_level(scope: pathlib.Path, src_root: pathlib.Path) 
         for node in ast.walk(tree):
             if not isinstance(node, ast.ExceptHandler):
                 continue
-            exc = node.type
-            exc_names: list[str] = []
-            if isinstance(exc, ast.Name):
-                exc_names = [exc.id]
-            elif isinstance(exc, ast.Tuple):
-                exc_names = [e.id for e in exc.elts if isinstance(e, ast.Name)]
-            elif exc is None:
-                exc_names = ['*bare*']
-            if not any(n in {'Exception', 'BaseException', '*bare*'} for n in exc_names):
+            if not is_broad_handler(node):
                 continue
             body_src = '\n'.join(ast.unparse(c) for c in node.body) if hasattr(ast, 'unparse') else ''
             wrong_level = re.search(r'\b(logger|loguru\.logger|logging)\.(warning|error|info|debug)\(', body_src)

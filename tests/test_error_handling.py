@@ -2346,3 +2346,28 @@ def test_a_marker_accepts_a_wrapper_hit(project: Builder, run_check: Runner) -> 
     files = {'src/probe/wrap.py': wrapper_file(), 'src/probe/use.py': caller}
     hits = sectionless_hits(project, run_check, files)
     assert [(hit['accepted'], hit['accepted_reason']) for hit in hits] == [(True, 'wrapper is internal')]
+
+
+# --------------------------------------------------------------------------
+# is_broad_handler
+# --------------------------------------------------------------------------
+
+
+def handler(clause: str) -> ast.ExceptHandler:
+    tree = ast.parse(f'try:\n    pass\n{clause}:\n    pass\n')
+    node = tree.body[0]
+    assert isinstance(node, ast.Try)
+    return node.handlers[0]
+
+
+@pytest.mark.parametrize(
+    'clause',
+    ['except', 'except Exception', 'except BaseException', 'except (ValueError, Exception)', 'except (BaseException, OSError)'],
+)
+def test_is_broad_handler_true(clause: str) -> None:
+    assert auditme.rules.error_handling.is_broad_handler(handler(clause))
+
+
+@pytest.mark.parametrize('clause', ['except ValueError', 'except (ValueError, OSError)'])
+def test_is_broad_handler_false(clause: str) -> None:
+    assert not auditme.rules.error_handling.is_broad_handler(handler(clause))

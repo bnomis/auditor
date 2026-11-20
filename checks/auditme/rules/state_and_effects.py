@@ -1,7 +1,9 @@
 """Checks on mutation, side effects and hidden state."""
 
 import ast
+import collections.abc
 import contextlib
+import dataclasses
 import pathlib
 import re
 from collections import defaultdict
@@ -490,6 +492,44 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
                     )
 
 
+@dataclasses.dataclass(frozen=True)
+class IfChain:
+    """An `if/elif/...` chain whose every test names the same subject."""
+
+    subject: str
+    tests: list[ast.expr]
+    orelse: list[ast.stmt] | None
+
+
+def if_chain(node: ast.If, subject_of: collections.abc.Callable[[ast.expr], str | None]) -> IfChain | None:
+    """Walk the `elif` chain starting at `node`.
+
+    Return None when a test has no subject (`subject_of` returns None) or two
+    tests name different subjects. `orelse` is the body of a final plain
+    `else`, or None when the chain has none."""
+    subject: str | None = None
+    tests: list[ast.expr] = []
+    orelse: list[ast.stmt] | None = None
+    cursor: ast.If | None = node
+    while cursor is not None:
+        name = subject_of(cursor.test)
+        if name is None or (subject is not None and name != subject):
+            return None
+        subject = name
+        tests.append(cursor.test)
+        rest = cursor.orelse
+        if not rest:
+            cursor = None
+        elif len(rest) == 1 and isinstance(rest[0], ast.If):
+            cursor = rest[0]
+        else:
+            orelse = rest
+            cursor = None
+    if subject is None:
+        return None
+    return IfChain(subject=subject, tests=tests, orelse=orelse)
+
+
 def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag `if/elif` chains that dispatch on string equality of a single
     variable and either (a) terminate without an `else` or (b) end with a
@@ -515,35 +555,12 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
         for node in ast.walk(tree):
             if not isinstance(node, ast.If):
                 continue
-            # Walk the chain, collecting tested variable names
-            chain_var: str | None = None
-            chain_len = 0
-            cursor: ast.If | None = node
-            terminal_else: list[ast.stmt] | None = None
-            consistent = True
-            while cursor is not None:
-                test = cursor.test
-                var_name = _extract_string_eq_var(test)
-                if var_name is None:
-                    consistent = False
-                    break
-                if chain_var is None:
-                    chain_var = var_name
-                elif var_name != chain_var:
-                    consistent = False
-                    break
-                chain_len += 1
-                orelse = cursor.orelse
-                if not orelse:
-                    terminal_else = None
-                    cursor = None
-                elif len(orelse) == 1 and isinstance(orelse[0], ast.If):
-                    cursor = orelse[0]
-                else:
-                    terminal_else = orelse
-                    cursor = None
-            if not consistent or chain_var is None or chain_len < 3:
+            chain = if_chain(node, _extract_string_eq_var)
+            if chain is None or len(chain.tests) < 3:
                 continue
+            chain_var = chain.subject
+            chain_len = len(chain.tests)
+            terminal_else = chain.orelse
             # Already uses assert_never? OK.
             if terminal_else is not None:
                 has_assert_never = False

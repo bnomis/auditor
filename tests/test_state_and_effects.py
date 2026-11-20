@@ -1,5 +1,6 @@
 """Tests for the mutation, side-effect and hidden-state predicates."""
 
+import ast
 import collections.abc
 import pathlib
 
@@ -998,3 +999,51 @@ def test_a_name_that_does_not_promise_invariance_is_out_of_scope(project: Builde
         }
     )
     assert run_check(SUBPROCESS, root) == []
+
+
+# --------------------------------------------------------------------------
+# if_chain
+# --------------------------------------------------------------------------
+
+
+def first_if(source: str) -> ast.If:
+    node = ast.parse(source).body[0]
+    assert isinstance(node, ast.If)
+    return node
+
+
+THREE_ARMS = """
+if mode == 'a':
+    pass
+elif mode == 'b':
+    pass
+elif mode == 'c':
+    pass
+"""
+
+
+def test_if_chain_returns_subject_and_tests() -> None:
+    chain = auditme.rules.state_and_effects.if_chain(first_if(THREE_ARMS), auditme.rules.state_and_effects._extract_string_eq_var)
+    assert chain is not None
+    assert chain.subject == 'mode'
+    assert len(chain.tests) == 3
+    assert chain.orelse is None
+
+
+def test_if_chain_returns_the_final_else_body() -> None:
+    chain = auditme.rules.state_and_effects.if_chain(
+        first_if(THREE_ARMS + 'else:\n    x = 1\n'),
+        auditme.rules.state_and_effects._extract_string_eq_var,
+    )
+    assert chain is not None
+    assert chain.orelse is not None
+    assert len(chain.orelse) == 1
+
+
+def test_if_chain_rejects_a_second_subject() -> None:
+    source = THREE_ARMS.replace("elif mode == 'b'", "elif other == 'b'")
+    assert auditme.rules.state_and_effects.if_chain(first_if(source), auditme.rules.state_and_effects._extract_string_eq_var) is None
+
+
+def test_if_chain_rejects_a_test_the_callable_rejects() -> None:
+    assert auditme.rules.state_and_effects.if_chain(first_if(THREE_ARMS), lambda test: None) is None
