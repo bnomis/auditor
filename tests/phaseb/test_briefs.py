@@ -68,3 +68,22 @@ def test_doc_brief_holds_question_keys_and_security_rule(question: str, keys: tu
 
 def test_doc5_question_covers_readme() -> None:
     assert 'Drift between `docs/` or `README.md` and `src/`.' in _question_line('Doc5')
+
+
+@pytest.mark.parametrize(
+    ('question', 'keys'),
+    [
+        ('T1', ('reasons', 'tests', 'callers', 'test_files', 'private', 'direct', 'caller', 'findings', 'missing', 'reason', 'xfail', '--rejudge')),
+        ('T2', ('params', 'returns', 'types', 'pairs', 'tests', 'test_files', 'property', 'findings', 'missing', 'reason', 'hypothesis', '--rejudge')),
+    ],
+)
+def test_test_brief_holds_question_keys_and_security_rule(question: str, keys: tuple[str, ...]) -> None:
+    brief = phaseb.question_brief(question)
+    text = brief.read_text(encoding='utf-8')
+    assert len(re.findall(r'^\*\*Brief version:\*\* 1$', text, re.MULTILINE)) == 1
+    assert phaseb.brief_version(brief) == 1
+    assert _question_line(question) in text
+    assert 'printenv' in text
+    assert '[ -n "${VAR:-}" ]' in text
+    for key in keys:
+        assert key in text, key
