@@ -8,5 +8,18 @@ of listers; `PhaseBError` is defined in `errors.py` and re-exported here.
 
 from auditme.phaseb.candidates import Candidate, Lister, Verdict, list_candidates, question_brief, register_question
 from auditme.phaseb.errors import PhaseBError
+from auditme.phaseb.ledger import MergeResult, dismiss_verdict, merge_verdicts, read_ledger
 
-__all__ = ['Candidate', 'Lister', 'PhaseBError', 'Verdict', 'list_candidates', 'question_brief', 'register_question']
+__all__ = [
+    'Candidate',
+    'Lister',
+    'MergeResult',
+    'PhaseBError',
+    'Verdict',
+    'dismiss_verdict',
+    'list_candidates',
+    'merge_verdicts',
+    'question_brief',
+    'read_ledger',
+    'register_question',
+]
