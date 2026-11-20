@@ -6,6 +6,7 @@ import pathlib
 
 import auditme.core
 import auditme.rules.error_handling
+import auditme.rules.imports_and_surfaces
 import pytest
 from auditme import phaseb
 from auditme.phaseb import architecture
@@ -722,3 +723,73 @@ def test_a1_hash_tracks_the_domain_errors(project: Project) -> None:
 def test_a1_numbers_repeated_calls_in_order(project: Project) -> None:
     body = 'def load(a, b):\n    return open(a).read() + open(b).read()\n'
     assert list(_a1(_a1_project(project, body))) == ['src/pkg/mod.py::load::call:open#1', 'src/pkg/mod.py::load::call:open#2']
+
+
+# A17
+
+A17_INIT = "from .base import Probe\n\n__all__ = ['Probe']\n"
+A17_BASE = 'class Probe:\n    pass\n'
+A17_READER = 'import pkg.sub\n\n\ndef use():\n    return pkg.sub.Probe\n'
+A17_KEY = 'src/pkg/sub/__init__.py'
+
+
+def _a17(root: pathlib.Path) -> dict[str, phaseb.Candidate]:
+    return {candidate.id: candidate for candidate in phaseb.list_candidates('A17', root)}
+
+
+def _a17_project(project: Project, extra: dict[str, str] | None = None, init: str = A17_INIT) -> pathlib.Path:
+    files = {'src/pkg/__init__.py': '', A17_KEY: init, 'src/pkg/sub/base.py': A17_BASE}
+    files.update(extra or {})
+    return project(files)
+
+
+def test_a17_lists_an_all_init_with_its_consumers(project: Project) -> None:
+    candidate = _a17(_a17_project(project, {'src/pkg/user.py': A17_READER}))[A17_KEY]
+    assert candidate.payload['all'] == ['Probe']
+    assert candidate.payload['consumers'] == {'Probe': ['src/pkg/user.py: return pkg.sub.Probe']}
+
+
+def test_a17_leaves_out_a_test_tree_reader_and_its_hash(project: Project) -> None:
+    first = _a17(_a17_project(project))[A17_KEY]
+    with_test = _a17(_a17_project(project, {'src/tests/test_sub.py': A17_READER}))[A17_KEY]
+    assert with_test.payload['consumers'] == {'Probe': []}
+    assert with_test.hash == first.hash
+
+
+def test_a17_counts_a_project_script_target_as_a_consumer(project: Project) -> None:
+    root = _a17_project(project, {'pyproject.toml': '[project.scripts]\nprobe = "pkg.sub:Probe"\n'})
+    assert _a17(root)[A17_KEY].payload['consumers'] == {'Probe': ['pyproject.toml: probe = "pkg.sub:Probe"']}
+
+
+def test_a17_lists_reach_ins_for_an_empty_init(project: Project) -> None:
+    root = _a17_project(project, {'src/pkg/user.py': 'from pkg.sub.base import Probe\n'}, init='')
+    assert _a17(root)[A17_KEY].payload['reach_ins'] == ['src/pkg/user.py: from pkg.sub.base import Probe']
+
+
+def test_a17_drops_an_init_on_an_empty_init_hit(project: Project) -> None:
+    root = project(
+        {
+            'src/pkg/__init__.py': '',
+            'src/pkg/sub/__init__.py': '',
+            'src/pkg/big/__init__.py': "__all__ = ['a', 'b', 'c', 'd', 'e']\n",
+        }
+    )
+    found = _a17(root)
+    assert A17_KEY not in found
+    assert 'src/pkg/big/__init__.py' in found
+
+
+def test_a17_removes_a_consumer_a_shim_hit_names(project: Project) -> None:
+    files = {'src/pkg/canon.py': A17_BASE, 'src/pkg/user.py': 'from pkg.sub import Probe\n'}
+    root = _a17_project(project, files, init="import pkg.canon\n\n__all__ = ['Probe']\n\nProbe = pkg.canon.Probe\n")
+    hits = architecture.capture_hits(root, (auditme.rules.imports_and_surfaces.check_migration_shim_consumers,))
+    assert ('migration-shim-consumer', 'src/pkg/user.py', 1) in hits
+    assert _a17(root)[A17_KEY].payload['consumers'] == {'Probe': []}
+
+
+def test_a17_hash_ignores_a_moved_consumer_line_and_tracks_an_init_edit(project: Project) -> None:
+    first = _a17(_a17_project(project, {'src/pkg/user.py': A17_READER}))[A17_KEY]
+    moved = _a17(_a17_project(project, {'src/pkg/user.py': 'X = 1\n' + A17_READER}))[A17_KEY]
+    assert moved.hash == first.hash
+    edited = _a17(_a17_project(project, {'src/pkg/user.py': A17_READER}, init=A17_INIT + '# edit\n'))[A17_KEY]
+    assert edited.hash != first.hash
