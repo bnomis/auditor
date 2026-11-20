@@ -187,17 +187,21 @@ Phase B is **not** free-form reading. It is a fixed checklist applied across eve
 
 This is the cure for failure mode 2. When 24 architecture questions are split across reviewers by file, each reviewer applies a slightly different judgment threshold to its slice of the corpus, and a different threshold to a different question, multiplying variance. With per-question fan-out, one reviewer applies one threshold to one predicate, eliminating cross-question and cross-file judgment drift.
 
-**Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The question with a lister is A4. For a listed question, run `checks/phaseb.py` (from the skill directory, with `<root>` the project root) in this order:
+**Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The listed questions are A4, Doc1, Doc2, Doc4 and Doc5. For a listed question, run `checks/phaseb.py` (from the skill directory, with `<root>` the project root) in this order:
 
-1. `phaseb.py plan <root> --question A4 --out <dir>` writes `batch-NN.jsonl` and `plan.json`. A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again.
-2. Spawn one reviewer per batch, each given the question's brief (`phaseb/briefs/A4.md`, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
+1. `phaseb.py plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json`. A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again.
+2. Spawn one reviewer per batch, each given the question's brief (`phaseb/briefs/<Q>.md`, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
 3. `phaseb.py check <dir>` exits 1 and names each batch with a problem. Send a failing batch to a fresh reviewer, up to two retries per batch. A batch still failing after that is reported in the review, never merged.
-4. `phaseb.py merge <root> --question A4 <dir>` writes the verified results into the project's ledger.
-5. `phaseb.py report <root> --question A4` prints the open findings, new and carried.
+4. `phaseb.py merge <root> --question <Q> <dir>` writes the verified results into the project's ledger.
+5. `phaseb.py report <root> --question <Q>` prints the open findings, new and carried.
 
-A listed question's findings are its flagged ledger verdicts, new or carried. A carried finding is not a regression and is never marked "missed by" a review. When the operator dismisses a finding on the review page, record it with `phaseb.py dismiss <root> --question A4 <id> --reason <text>`.
+A listed question's findings are its flagged ledger verdicts, new or carried. A carried finding is not a regression and is never marked "missed by" a review. When the operator dismisses a finding on the review page, record it with `phaseb.py dismiss <root> --question <Q> <id> --reason <text>`.
 
-Every other question is sampled: mark it `(sampled)` in the review. A new site found by a sampled question is coverage, not drift.
+Every other question is sampled: mark it `(sampled)` in the review. A new site found by a sampled question is coverage, not drift: it goes under "Coverage (sampled)" and is never marked "missed by" a review.
+
+**Sampled cadence.** Every audit runs each sampled question on the files changed since the previous review's `**Commit:**`, using the diff base `checks/changed.py` resolves. Every third audit, counted from the first audit after the Doc questions were listed, and any audit with no previous `**Commit:**`, runs it on the whole tree. The review records each sampled question's mode: changed files since a named commit, or full.
+
+**First audit after the Doc questions were listed.** It judges every Doc candidate. Its findings in unchanged code are catch-up, not regressions; this includes README findings, because Doc5's predicate now covers `README.md` as well as `docs/`. Its Convergence note names the newly listed questions.
 
 Putting a question on the listed path (its lister, brief and tests) is a skill change made between audits, never during one.
 
@@ -230,6 +234,7 @@ Before writing the review file, confirm:
 - [ ] Phase B ran with per-question fan-out covering EVERY question in EVERY category (`--category` was NOT used unless the user explicitly asked for a partial verification)
 - [ ] Every Phase B subagent returned an explicit hit list (or "no hits") - no question silently skipped
 - [ ] Every listed question has a current verdict for every candidate, or the review names each id not judged
+- [ ] Every sampled question ran in its cadence's mode (changed files, or the whole tree on every third audit and on any audit with no previous `**Commit:**`), and the review records the mode
 - [ ] Every unresolved `summary.md` finding was re-verified
 - [ ] Every incomplete task file was re-verified against source
 - [ ] No new check was added to `checks/auditme/rules/` during this audit (script-coverage delta is zero)
@@ -387,6 +392,7 @@ Assess by reading test files - do not run the suite.
 
 **Date:** YYYY-MM-DD
 **Scope:** <"full" or specific modules/specs>
+**Commit:** <the audited `HEAD`>
 **Script output:** /tmp/audit-<project>.jsonl (N hits, M accepted, K unaccepted)
 **Convergence note:** <"clean - script unchanged since review-(N-1)" OR "script extended since review-(N-1) by these checks: [list]; expect mechanical delta">
 
@@ -412,15 +418,20 @@ Group by rule. Enumerate every `accepted: false` hit. Do NOT sample.
 
 For each Phase B question (subagent fan-out), one block. Include EVERY question across EVERY category that was run, including questions with zero hits.
 
-### A2: Except tuple coverage
+### A2 (sampled): Except tuple coverage
 
+- **Mode:** <changed files since commit <hash>, or full>
 - **Subagent ran on:** all 103 src files
 - **Hits:**
   - `path:line` - `except UnicodeDecodeError` body calls `read_text`; `OSError` missing
   - `path:line` - ...
 - **No-hit confirmation:** N files inspected, M had no matching `try/except`
 
-(Repeat for every question - A1..A25, S1..S4, etc.)
+(Repeat for every question - A1..A25, S1..S4, etc. A sampled question carries `(sampled)` and its mode; a listed question names its candidates judged, and any id not judged.)
+
+### Coverage (sampled)
+
+New sites found by sampled questions: coverage, not drift. Never marked "missed by" a review.
 
 ## Phase B findings (consolidated)
 

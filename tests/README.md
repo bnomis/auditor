@@ -38,7 +38,7 @@ cycle later.
 | `test_style_and_naming.py` | the naming, ordering and annotation-style predicates |
 | `test_leading_underscore_binding.py` | `leading-underscore-binding`: every binding shape, the names it leaves to other rules, and the retired regexes staying retired |
 | `test_project_hygiene.py` | ruff, the lockfile, and numbered spec cross-references |
-| `phaseb/` | the listed Phase B path: the A4 lister, candidate hash, ledger read, merge and dismiss, batch planning and run checking, the command line, and the briefs |
+| `phaseb/` | the listed Phase B path: the A4 lister and the Doc1, Doc2, Doc4 and Doc5 listers, the `docrefs` sections and name resolution, candidate hash, ledger read, merge and dismiss, batch planning and run checking, the command line, and the briefs |
 
 Each predicate has at least one case for the shape it fires on and one for the
 nearest shape it must not fire on. Where a predicate documents a carve-out -
