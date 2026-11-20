@@ -5,6 +5,7 @@ import collections.abc
 import json
 import pathlib
 import re
+from collections import defaultdict
 
 # An accept marker may name the single rule it answers for:
 #     # auditme: accept[failure-as-absence] the caller reads batch.error
@@ -200,7 +201,7 @@ def _audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
     This is the driver's pass list, and each entry becomes one check's
     `src_root`. A check that instead asks a corpus-wide question - "does
     anything read this name?" - wants every file rather than every root, and
-    reads it from `_corpus_py_files`, which spans all of `src/` and the same
+    reads it from `corpus_py_files`, which spans all of `src/` and the same
     extras. Asking that question of a single root answers about a fragment
     while reading like an answer about the whole.
     """
@@ -318,7 +319,7 @@ def resolve_call(
 # corpus definitions
 
 
-def _corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib.Path]:
+def corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib.Path]:
     """Every `.py` file the sweep reads, not just the root being swept.
 
     The driver audits one root per pass, so `src_root` is a single package (or
@@ -340,6 +341,85 @@ def _corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathli
     if not roots:
         return _all_py_files(src_root)
     return sorted(path for root in roots for path in _all_py_files(root))
+
+
+def dotted_read(node: ast.Attribute) -> tuple[str, str] | None:
+    """Resolve an attribute chain to the `(module, name)` it reads, or None.
+
+    Two rooted forms count. The ordinary one is a chain of attributes on a
+    name - `pkg.evaluation.primary.METRICS_BY_HEAD` reads `METRICS_BY_HEAD`
+    from `pkg.evaluation.primary`. The second is the `sys.modules`
+    indirection - `sys.modules['pkg.evaluation.primary'].METRICS_BY_HEAD` -
+    which is the documented idiom for reaching a module without importing it,
+    used to break a package-initialisation ordering cycle. It reads exactly
+    what the dotted form reads, so a scan that resolved only the dotted form
+    reported a container with many such readers as private. Literal subscripts
+    only: a computed key names no module a scan can know.
+    """
+    parts: list[str] = []
+    cur: ast.AST = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
+    elif isinstance(cur, ast.Subscript):
+        key = sys_modules_key(cur)
+        if key is None:
+            return None
+        parts.append(key)
+    else:
+        return None
+    parts.reverse()
+    if len(parts) < 2:
+        return None
+    return '.'.join(parts[:-1]), parts[-1]
+
+
+def sys_modules_key(node: ast.Subscript) -> str | None:
+    """`sys.modules['pkg.mod']` -> `'pkg.mod'`; any other subscript -> None."""
+    target = node.value
+    if not (isinstance(target, ast.Attribute) and target.attr == 'modules'):
+        return None
+    if not (isinstance(target.value, ast.Name) and target.value.id == 'sys'):
+        return None
+    key = node.slice
+    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+        return key.value
+    return None
+
+
+def reads_by_module_and_name(
+    scope: pathlib.Path,
+    src_root: pathlib.Path,
+) -> dict[tuple[str, str], list[tuple[pathlib.Path, int]]]:
+    """Every `(module, name)` the corpus reads, mapped to where it reads it.
+
+    Both spellings count. `from <module> import NAME` is the one a project
+    that permits it writes; a project that mandates full import paths writes
+    every read dotted, as `<module>.NAME`, and a scan that saw only the first
+    would read a heavily-used export as private.
+
+    The corpus is every root the sweep reads, not the one being swept: a
+    reader in a sibling package, or in a script under `bin/`, is a reader.
+    """
+    reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = defaultdict(list)
+    for path in corpus_py_files(scope, src_root):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except SyntaxError, UnicodeDecodeError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.module is None:
+                    continue
+                for alias in node.names:
+                    reads[(node.module, alias.name)].append((path, node.lineno))
+            elif isinstance(node, ast.Attribute):
+                read = dotted_read(node)
+                if read is not None:
+                    reads[read].append((path, node.lineno))
+    return reads
 
 
 def corpus_definitions(
@@ -370,7 +450,7 @@ def corpus_definitions(
     be a class or a method. A file with a syntax error is skipped.
     """
     out: dict[str, list[tuple[ast.AST, pathlib.Path]]] = {}
-    for path in _corpus_py_files(scope, src_root):
+    for path in corpus_py_files(scope, src_root):
         try:
             tree = ast.parse('\n'.join(_source_lines(path)))
         except SyntaxError:

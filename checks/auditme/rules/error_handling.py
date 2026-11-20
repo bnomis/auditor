@@ -899,7 +899,7 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
 # cache / does writing I/O. Catching only library-specific exceptions
 # (MlflowException, BotoException, etc.) without also catching OSError
 # leaks disk failures to callers.
-_FILESYSTEM_TOUCHING_CALLS = {
+FILESYSTEM_TOUCHING_CALLS = {
     # Third-party helpers that cache to disk / upload / download
     'download_artifacts',
     'download_file',
@@ -1039,7 +1039,7 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                         short = sub.func.id
                     elif isinstance(sub.func, ast.Attribute):
                         short = sub.func.attr
-                    if short in _FILESYSTEM_TOUCHING_CALLS:
+                    if short in FILESYSTEM_TOUCHING_CALLS:
                         touched_fs = True
                         break
                 if touched_fs:
@@ -1993,7 +1993,7 @@ def _handler_catches(handler: ast.ExceptHandler) -> set[str]:
         return set()
 
 
-def _handler_translates(handler: ast.ExceptHandler) -> bool:
+def handler_translates(handler: ast.ExceptHandler) -> bool:
     """True when this handler raises something whose name ends in `Error`.
 
     The same signal `check_asymmetric_exception_translation` uses. It is what
@@ -2014,7 +2014,7 @@ def _handler_translates(handler: ast.ExceptHandler) -> bool:
     return False
 
 
-def _translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
+def translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
     """Map every error-translating function's name to what its handlers catch.
 
     Indexed by short name rather than by dotted path, because the decorator is
@@ -2040,14 +2040,14 @@ def _translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
                 if not isinstance(sub, ast.Try):
                     continue
                 for handler in sub.handlers:
-                    if _handler_translates(handler):
+                    if handler_translates(handler):
                         caught |= _handler_catches(handler)
             if caught:
                 envelopes[node.name] |= caught
     return {name: frozenset(caught) for name, caught in envelopes.items()}
 
 
-def _callable_short_name(expr: ast.expr) -> str | None:
+def callable_short_name(expr: ast.expr) -> str | None:
     """The bare name a decorator or `with` item invokes.
 
     `@translate('...')`, `@errors.translate` and `@translate` all give
@@ -2101,7 +2101,7 @@ def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
             branches.append(('gzip.BadGzipFile', frozenset({'BadGzipFile'})))
     if short in _TEXT_DECODING_CALLS:
         branches.append(('UnicodeDecodeError', frozenset({'UnicodeDecodeError'})))
-    if short in _FILESYSTEM_TOUCHING_CALLS:
+    if short in FILESYSTEM_TOUCHING_CALLS:
         branches.append(('OSError', _OSERROR_SATISFIERS))
     return branches
 
@@ -2124,7 +2124,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     Signal:
       - Function F is decorated with, or contains a `with` block entering, a
         function defined in this package whose own `except` handler raises a
-        `*Error` (see `_handler_translates`). That handler's tuple is F's
+        `*Error` (see `handler_translates`). That handler's tuple is F's
         envelope.
       - F's body calls something that triggers a branch of A2's locked set:
         `json.load*` needs `json.JSONDecodeError`; `pd.read_*` needs
@@ -2144,7 +2144,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     One finding per function, at its earliest triggering call, so a function
     parsing several columns is one item of work rather than several.
     """
-    envelopes = _translator_envelopes(src_root)
+    envelopes = translator_envelopes(src_root)
     if not envelopes:
         return
     for path in _all_py_files(src_root):
@@ -2160,7 +2160,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             caught: set[str] = set()
             sources: list[str] = []
             for decorator in func.decorator_list:
-                short = _callable_short_name(decorator)
+                short = callable_short_name(decorator)
                 if short in envelopes:
                     caught |= envelopes[short]
                     sources.append(f'@{short}')
@@ -2180,7 +2180,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 block_caught: set[str] = set()
                 block_names: list[str] = []
                 for item in sub.items:
-                    short = _callable_short_name(item.context_expr)
+                    short = callable_short_name(item.context_expr)
                     if short in envelopes:
                         block_caught |= envelopes[short]
                         block_names.append(short)

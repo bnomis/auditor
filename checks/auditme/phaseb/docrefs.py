@@ -183,7 +183,7 @@ class CorpusIndex:
         definitions = auditme.core.corpus_definitions(scope, src_root, classes=True)
         index = cls(scope, files, directories, definitions, {}, {}, {}, {}, {})
         from_bindings: dict[str, dict[str, str]] = {}
-        for path in auditme.core._corpus_py_files(scope, src_root):
+        for path in auditme.core.corpus_py_files(scope, src_root):
             try:
                 tree = ast.parse('\n'.join(auditme.core._source_lines(path)))
             except SyntaxError:

@@ -572,7 +572,7 @@ def imported_modules(scope: pathlib.Path) -> set[str]:
     roots = auditme.core._audit_roots(scope)
     src_root = roots[0] if roots else scope / 'src'
     modules: set[str] = set()
-    for path in auditme.core._corpus_py_files(scope, src_root):
+    for path in auditme.core.corpus_py_files(scope, src_root):
         try:
             tree = ast.parse('\n'.join(auditme.core._source_lines(path)))
         except SyntaxError:
