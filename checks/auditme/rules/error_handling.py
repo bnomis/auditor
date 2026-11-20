@@ -8,7 +8,17 @@ import re
 from collections import defaultdict
 from typing import Iterable, Mapping
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, module_dotted
+from auditme.core import (
+    _accept_reason,
+    _all_py_files,
+    _emit,
+    _relpath,
+    _source_lines,
+    call_bindings,
+    module_dotted,
+    reexport_aliases,
+    resolve_call,
+)
 
 
 def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -2344,28 +2354,6 @@ def nested_call_sites(func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[tupl
     return sites
 
 
-def _from_import_bindings(tree: ast.Module, module: str, is_package: bool) -> dict[str, str]:
-    """Each name a module's top-level `from ... import` binds, to its dotted target.
-
-    A relative import resolves against the module's own package. Pure.
-    """
-    package = module if is_package else module.rpartition('.')[0]
-    bindings: dict[str, str] = {}
-    for statement in tree.body:
-        if not isinstance(statement, ast.ImportFrom):
-            continue
-        if statement.level:
-            base = package.rsplit('.', statement.level - 1)[0] if statement.level > 1 else package
-            source = f'{base}.{statement.module}' if statement.module else base
-        elif statement.module:
-            source = statement.module
-        else:
-            continue
-        for alias in statement.names:
-            bindings[alias.asname or alias.name] = f'{source}.{alias.name}'
-    return bindings
-
-
 def _function_levels(body: list[ast.stmt]) -> list[HandlerLevel]:
     """Every `try` level in a function body, nested defs skipped."""
     levels: list[HandlerLevel] = []
@@ -2514,21 +2502,9 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         node_of[qualname] = node
         path_of[qualname] = modules[_module][0]
 
-    # A package's `__init__.py` (or any module) re-exporting a function makes
-    # `pkg.name` another path to it. Followed until no alias is added, so a
-    # re-export of a re-export resolves too.
-    bindings_of = {module: _from_import_bindings(tree, module, path.name == '__init__.py') for module, (path, tree, _lines) in modules.items()}
-    aliases: dict[str, str] = {}
-    changed = True
-    while changed:
-        changed = False
-        for module, bindings in bindings_of.items():
-            for name, target in bindings.items():
-                target = aliases.get(target, target)
-                alias = f'{module}.{name}'
-                if target in declared_by and aliases.get(alias) != target and alias not in declared_by:
-                    aliases[alias] = target
-                    changed = True
+    known = {qualname: cls for _module, qualname, cls, _node in functions}
+    bindings_of = {module: call_bindings(tree, module, path.name == '__init__.py') for module, (path, tree, _lines) in modules.items()}
+    aliases = reexport_aliases(bindings_of, known)
 
     def ancestors(name: str) -> set[str]:
         return class_lineage(name, parents) - {name}
@@ -2540,35 +2516,13 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         lineage = {name} | ancestors(name)
         return any(_level_catches(level, lineage) for level in around)
 
-    def resolve(call: ast.Call, module: str, cls: str | None, imported: dict[str, str]) -> str | None:
-        """The package function a call reaches, or None when it cannot be told."""
-        func = call.func
-        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == 'self' and cls:
-            method = f'{module}.{cls}.{func.attr}'
-            return method if method in declared_by else None
-        if not isinstance(func, (ast.Name, ast.Attribute)):
-            return None
-        dotted = ast.unparse(func)
-        head, _, rest = dotted.partition('.')
-        if head in imported:
-            dotted = imported[head] + (f'.{rest}' if rest else '')
-        elif isinstance(func, ast.Name):
-            dotted = f'{module}.{dotted}'
-        dotted = aliases.get(dotted, dotted)
-        return dotted if dotted in declared_by else None
-
     for module, qualname, cls, node in functions:
         doc = ast.get_docstring(node) or ''
         if 'Raises:' not in doc:
             continue
         declared = {name for name in raises_section_names(doc) if is_domain(name)}
         path, tree, lines = modules[module]
-        imported = dict(bindings_of[module])
-        for statement in tree.body:
-            if isinstance(statement, ast.Import):
-                for alias in statement.names:
-                    if alias.asname:
-                        imported[alias.asname] = alias.name
+        imported = bindings_of[module]
 
         reached: dict[str, set[str]] = defaultdict(set)
         for site, around in nested_call_sites(node):
@@ -2577,7 +2531,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 if name and is_domain(name) and not caught(name, around):
                     reached[name].add('')
                 continue
-            callee = resolve(site, module, cls, imported)
+            callee = resolve_call(site, module, cls, imported, known, aliases)
             if callee is None or callee == qualname:
                 continue
             callee_node = node_of.get(callee)

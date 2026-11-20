@@ -205,3 +205,111 @@ def _audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
     while reading like an answer about the whole.
     """
     return _packages_under(scope / 'src') + _extra_roots(scope)
+
+
+# call resolver
+
+
+def from_import_bindings(tree: ast.Module, module: str, is_package: bool) -> dict[str, str]:
+    """Each name a module's top-level `from ... import` binds, to its dotted target.
+
+    A relative import resolves against the module's own package. Pure.
+    """
+    package = module if is_package else module.rpartition('.')[0]
+    bindings: dict[str, str] = {}
+    for statement in tree.body:
+        if not isinstance(statement, ast.ImportFrom):
+            continue
+        if statement.level:
+            base = package.rsplit('.', statement.level - 1)[0] if statement.level > 1 else package
+            source = f'{base}.{statement.module}' if statement.module else base
+        elif statement.module:
+            source = statement.module
+        else:
+            continue
+        for alias in statement.names:
+            bindings[alias.asname or alias.name] = f'{source}.{alias.name}'
+    return bindings
+
+
+def call_bindings(tree: ast.Module, module: str, is_package: bool) -> dict[str, str]:
+    """Every name a module's top-level imports bind, to its dotted target.
+
+    The `from ... import` bindings plus each `import a.b as c`. Pure.
+    """
+    bindings = from_import_bindings(tree, module, is_package)
+    for statement in tree.body:
+        if isinstance(statement, ast.Import):
+            for alias in statement.names:
+                if alias.asname:
+                    bindings[alias.asname] = alias.name
+    return bindings
+
+
+def reexport_aliases(
+    from_bindings: collections.abc.Mapping[str, collections.abc.Mapping[str, str]],
+    known: collections.abc.Collection[str],
+) -> dict[str, str]:
+    """Each `module.name` that re-exports a known function, mapped to its target.
+
+    `from_bindings` maps a module to its `from_import_bindings`. A package's
+    `__init__.py` (or any module) re-exporting a function makes `pkg.name`
+    another path to it. Followed until no alias is added, so a re-export of a
+    re-export resolves too. Pure.
+    """
+    aliases: dict[str, str] = {}
+    changed = True
+    while changed:
+        changed = False
+        for module, bindings in from_bindings.items():
+            for name, target in bindings.items():
+                target = aliases.get(target, target)
+                alias = f'{module}.{name}'
+                if target in known and aliases.get(alias) != target and alias not in known:
+                    aliases[alias] = target
+                    changed = True
+    return aliases
+
+
+def resolve_call(
+    call: ast.Call,
+    module: str,
+    cls: str | None,
+    imported: collections.abc.Mapping[str, str],
+    known: collections.abc.Mapping[str, str | None],
+    aliases: collections.abc.Mapping[str, str],
+    class_methods: bool = False,
+) -> str | None:
+    """The package function a call reaches, or None when it cannot be told.
+
+    `known` maps the dotted name of every function the package defines to the
+    class that owns it (None for a module function). A call resolves when it is
+    a method call on `self`, a same-module name, or a dotted or imported name
+    reaching a known function, following `aliases` (see `reexport_aliases`).
+
+    `class_methods` also resolves `<ClassName>.<method>(...)` for a class the
+    package defines, in the same module or imported by name. It is off by
+    default, and then a call that reaches a method other than through `self`
+    resolves to None: the `Raises:` drift rule follows only calls whose callee
+    is certain, and a classmethod and an instance method called on the class
+    look alike. The A4 lister turns it on, because a question listing a
+    reachable classmethod is cheap to dismiss and a missed one is not. Pure.
+    """
+    func = call.func
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == 'self' and cls:
+        method = f'{module}.{cls}.{func.attr}'
+        return method if method in known else None
+    if not isinstance(func, (ast.Name, ast.Attribute)):
+        return None
+    dotted = ast.unparse(func)
+    head, _, rest = dotted.partition('.')
+    if head in imported:
+        dotted = imported[head] + (f'.{rest}' if rest else '')
+    elif isinstance(func, ast.Name) or (class_methods and isinstance(func.value, ast.Name)):
+        dotted = f'{module}.{dotted}'
+    dotted = aliases.get(dotted, dotted)
+    if dotted not in known:
+        return None
+    if known[dotted] is not None and not class_methods:
+        return None
+    return dotted
