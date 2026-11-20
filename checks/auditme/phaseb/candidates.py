@@ -10,7 +10,9 @@ import re
 import typing
 
 import auditme.core
+import auditme.phaseb.docrefs
 import auditme.rules.error_handling
+import auditme.rules.project_hygiene
 from auditme.phaseb.errors import PhaseBError
 
 
@@ -285,3 +287,162 @@ def list_a4_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     its source then its callees' source in id order, NUL-separated.
     """
     return [candidate for src_root in auditme.core._audit_roots(scope) for candidate in root_candidates(scope, src_root, depth)]
+
+
+DOC_BATCH_SIZE = 24
+DOC_BRIEFS = A4_BRIEF.parent
+UNRESOLVED = '(unresolved)'
+IMPLEMENTED_RE = re.compile(r'^\*\*Status:\*\*\s*implemented\s*$', re.MULTILINE)
+LIST_ITEM_RE = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s')
+TABLE_ROW_RE = re.compile(r'^\s*\|')
+FENCE_LINE_RE = re.compile(r'^\s*(```|~~~)')
+
+
+def read_text(path: pathlib.Path) -> str:
+    """Return a listed document's text.
+
+    Raises:
+        PhaseBError: the file cannot be read or decoded as UTF-8.
+    """
+    try:
+        return path.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError) as error:
+        raise PhaseBError(f'cannot read {path}: {error}') from error
+
+
+def section_blocks(lines: list[str], start: int, end: int) -> list[tuple[int, int]]:
+    """The (first, last) lines of each paragraph, list item, table row and fence between a heading and the section's end."""
+    blocks: list[tuple[int, int]] = []
+    first: int | None = None
+    in_fence = False
+    for number in range(start + 1, end + 1):
+        line = lines[number - 1]
+        if FENCE_LINE_RE.match(line):
+            if in_fence:
+                blocks.append((first or number, number))
+                first = None
+            else:
+                if first is not None:
+                    blocks.append((first, number - 1))
+                first = number
+            in_fence = not in_fence
+        elif in_fence:
+            continue
+        elif not line.strip():
+            if first is not None:
+                blocks.append((first, number - 1))
+                first = None
+        elif TABLE_ROW_RE.match(line):
+            if first is not None:
+                blocks.append((first, number - 1))
+            blocks.append((number, number))
+            first = None
+        elif LIST_ITEM_RE.match(line):
+            if first is not None:
+                blocks.append((first, number - 1))
+            first = number
+        elif first is None:
+            first = number
+    if first is not None:
+        blocks.append((first, end))
+    return blocks
+
+
+def target_bytes(target: auditme.phaseb.docrefs.DocTarget, index: auditme.phaseb.docrefs.CorpusIndex) -> bytes:
+    """The bytes a target's hash covers: its source lines, a file's content or a directory's sorted tracked entries."""
+    if target.kind == 'directory':
+        return '\n'.join(sorted(name for name in index.files if name.startswith(f'{target.path}/'))).encode('utf-8', errors='surrogateescape')
+    try:
+        data = (index.scope / target.path).read_bytes()
+    except OSError as error:
+        raise PhaseBError(f'cannot read {target.path}: {error}') from error
+    if target.kind == 'file':
+        return data
+    return b'\n'.join(data.splitlines()[target.start - 1 : target.end])
+
+
+def digest(parts: list[bytes]) -> str:
+    return hashlib.sha256(b'\0'.join(parts)).hexdigest()
+
+
+def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.Path]) -> list[Candidate]:
+    """One candidate per (section, target) pair and one `(unresolved)` candidate per section with unresolved names."""
+    index = auditme.phaseb.docrefs.CorpusIndex.build(scope)
+    found: list[Candidate] = []
+    for document in documents:
+        lines = read_text(document).splitlines()
+        for section in auditme.phaseb.docrefs.read_sections(document, scope):
+            blocks = section_blocks(lines, section.start, section.end)
+            named: dict[str, tuple[auditme.phaseb.docrefs.DocTarget, list[int]]] = {}
+            unresolved: list[dict[str, typing.Any]] = []
+            for number, token in section.names:
+                targets = auditme.phaseb.docrefs.resolve_name(token, document, index)
+                if len(targets) == 1:
+                    named.setdefault(targets[0].id, (targets[0], []))[1].append(number)
+                else:
+                    unresolved.append({'name': token, 'line': number, 'definitions': [dataclasses.asdict(target) for target in targets]})
+            prefix = f'{section.doc}::{section.heading_path}::'
+            for target, numbers in named.values():
+                covering = sorted({block for block in blocks for number in numbers if block[0] <= number <= block[1]})
+                parts = ['\n'.join(lines[first - 1 : last]).encode('utf-8') for first, last in covering]
+                found.append(
+                    Candidate(
+                        question=question,
+                        id=prefix + target.id,
+                        path=section.doc,
+                        start=section.start,
+                        end=section.end,
+                        payload={
+                            'target': dataclasses.asdict(target),
+                            'lines': [{'line': number, 'text': lines[number - 1].strip()} for number in sorted(set(numbers))],
+                        },
+                        hash=digest([*parts, target_bytes(target, index)]),
+                    )
+                )
+            if unresolved:
+                text = '\n'.join(lines[section.start - 1 : section.end]).encode('utf-8')
+                tokens = '\n'.join(sorted(entry['name'] for entry in unresolved)).encode('utf-8')
+                found.append(
+                    Candidate(
+                        question=question,
+                        id=prefix + UNRESOLVED,
+                        path=section.doc,
+                        start=section.start,
+                        end=section.end,
+                        payload={'tokens': unresolved},
+                        hash=digest([text, tokens]),
+                    )
+                )
+    return found
+
+
+@register_question('Doc4', DOC_BRIEFS / 'Doc4.md', DOC_BATCH_SIZE)
+def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
+    """List the (section, target) pairs of every implemented spec under `agents/specs/`.
+
+    A proposed spec describes code not yet written, so it is not listed.
+
+    Raises:
+        PhaseBError: a spec cannot be read.
+    """
+    specs = [
+        path
+        for path in auditme.rules.project_hygiene._spec_markdown_files(scope)
+        if path.relative_to(scope).as_posix().startswith('agents/specs/') and IMPLEMENTED_RE.search(read_text(path))
+    ]
+    return doc_candidates('Doc4', scope, specs)
+
+
+@register_question('Doc5', DOC_BRIEFS / 'Doc5.md', DOC_BATCH_SIZE)
+def list_doc5_candidates(scope: pathlib.Path) -> list[Candidate]:
+    """List the (section, target) pairs of every `docs/**/*.md` and the root `README.md`.
+
+    Raises:
+        PhaseBError: a document cannot be read.
+    """
+    documents = [
+        path
+        for path in auditme.rules.project_hygiene._spec_markdown_files(scope)
+        if (rel := path.relative_to(scope).as_posix()).startswith('docs/') or rel == 'README.md'
+    ]
+    return doc_candidates('Doc5', scope, documents)
