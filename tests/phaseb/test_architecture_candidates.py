@@ -302,3 +302,148 @@ def test_a11_id_survives_an_edit_above_and_hash_tracks_the_chain(project: Projec
     assert inside.hash != first.hash
     outside = _a11(_a11_project(project, A11_TWO_ARM.replace('def run(mode):', 'def run(mode):\n    x = 1')))[key]
     assert outside.hash == first.hash
+
+
+# A19
+
+A19_WARNING = """
+import loguru
+
+
+def load(path):
+    try:
+        return open(path).read()
+    except Exception as error:
+        loguru.logger.critical(f'bad {error}')
+        return ''
+"""
+
+A19_OTHER = """
+def other():
+    return 1
+"""
+
+A19_TWO_HANDLERS = """
+import loguru
+
+
+def load(path):
+    try:
+        return open(path).read()
+    except Exception as error:
+        loguru.logger.critical(f'bad {error}')
+        return ''
+    try:
+        return 2
+    except BaseException as other:
+        loguru.logger.critical(str(other))
+        return ''
+"""
+
+A19_MODULE_LEVEL = """
+import loguru
+
+try:
+    import json
+except Exception:
+    loguru.logger.critical('x')
+    json = None
+"""
+
+A19_FALLTHROUGH = """
+def load(logger, path):
+    try:
+        return open(path).read()
+    except ValueError:
+        logger.exception('x')
+    return ''
+"""
+
+
+def _a19(root: pathlib.Path) -> dict[str, phaseb.Candidate]:
+    return {candidate.id: candidate for candidate in phaseb.list_candidates('A19', root)}
+
+
+def _a19_project(project: Project, body: str) -> pathlib.Path:
+    return project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': body})
+
+
+def _handler(exception: str, call: str) -> str:
+    return f"""
+def load(logger, path):
+    try:
+        return open(path).read()
+    except {exception}:
+        {call}
+        raise
+"""
+
+
+def test_a19_lists_a_broad_handler_with_its_payload(project: Project) -> None:
+    found = _a19(_a19_project(project, A19_WARNING))
+    assert list(found) == ['src/pkg/mod.py::load::except#1']
+    payload = found['src/pkg/mod.py::load::except#1'].payload
+    assert payload['log_calls'] == ["critical: f'bad {error}'"]
+    assert payload['handler'].startswith('except Exception as error:')
+    assert payload['try'].startswith('try:')
+    function = payload['function']
+    assert (function['name'], function['signature'], function['returns']) == ('load', 'path', None)
+    assert function['last_statement'].startswith('try:')
+
+
+def test_a19_lists_a_bare_except(project: Project) -> None:
+    found = _a19(_a19_project(project, _handler('', 'pass').replace('except :', 'except:')))
+    assert list(found) == ['src/pkg/mod.py::load::except#1']
+
+
+@pytest.mark.parametrize('receiver', ['logger', 'log', '_logger', 'LOGGER', 'logging', 'loguru.logger', 'self.logger'])
+def test_a19_lists_a_narrow_handler_that_logs_exception(project: Project, receiver: str) -> None:
+    found = _a19(_a19_project(project, _handler('ValueError', f"{receiver}.exception('x')")))
+    assert list(found) == ['src/pkg/mod.py::load::except#1']
+    assert found['src/pkg/mod.py::load::except#1'].payload['log_calls'] == ["exception: 'x'"]
+
+
+def test_a19_ignores_a_narrow_handler_that_logs_at_error(project: Project) -> None:
+    assert _a19(_a19_project(project, _handler('ValueError', "logger.error('x')"))) == {}
+
+
+def test_a19_drops_a_handler_on_a_silent_broad_except_hit(project: Project) -> None:
+    assert _a19(_a19_project(project, SILENT)) == {}
+
+
+def test_a19_drops_a_handler_on_a_wrong_level_hit(project: Project) -> None:
+    assert _a19(_a19_project(project, _handler('Exception', "logger.warning('x')"))) == {}
+
+
+def test_a19_drops_a_handler_on_a_graceful_degradation_hit_on_the_last_return(project: Project) -> None:
+    assert _a19(_a19_project(project, A19_FALLTHROUGH)) == {}
+
+
+def test_a19_drops_a_handler_whose_hit_is_accepted(project: Project) -> None:
+    assert _a19(_a19_project(project, ACCEPTED)) == {}
+
+
+def test_a19_numbers_two_handlers_in_one_function_in_order(project: Project) -> None:
+    assert list(_a19(_a19_project(project, A19_TWO_HANDLERS))) == ['src/pkg/mod.py::load::except#1', 'src/pkg/mod.py::load::except#2']
+
+
+def test_a19_module_level_handler_hashes_the_try_statement(project: Project) -> None:
+    found = _a19(_a19_project(project, A19_MODULE_LEVEL))
+    key = 'src/pkg/mod.py::<module>::except#1'
+    assert list(found) == [key]
+    assert found[key].payload['function'] is None
+    edited = _a19(_a19_project(project, A19_MODULE_LEVEL.replace('json = None', 'json = 1')))[key]
+    assert edited.hash != found[key].hash
+    outside = _a19(_a19_project(project, A19_MODULE_LEVEL + '\nY = 2\n'))[key]
+    assert outside.hash == found[key].hash
+
+
+def test_a19_hash_tracks_the_enclosing_function_only(project: Project) -> None:
+    key = 'src/pkg/mod.py::load::except#1'
+    first = _a19(_a19_project(project, A19_WARNING + A19_OTHER))[key]
+    inside = _a19(_a19_project(project, (A19_WARNING + A19_OTHER).replace("return ''", 'return None')))[key]
+    assert inside.hash != first.hash
+    elsewhere = _a19(_a19_project(project, A19_WARNING + A19_OTHER.replace('return 1', 'return 2')))[key]
+    assert elsewhere.hash == first.hash
+    above = _a19(_a19_project(project, 'X = 1\n' + A19_WARNING + A19_OTHER))[key]
+    assert above.hash == first.hash

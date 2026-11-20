@@ -16,6 +16,7 @@ import pathlib
 import textwrap
 
 import auditme.core
+import auditme.rules.error_handling
 import auditme.rules.state_and_effects
 from auditme.phaseb import candidates
 from auditme.phaseb.errors import PhaseBError
@@ -306,4 +307,101 @@ def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                     hash=candidates.digest([part.encode('utf-8') for part in (source, subject, annotation or '', type_source or '')]),
                 )
             )
+    return found
+
+
+A19_BRIEF = candidates.DOC_BRIEFS / 'A19.md'
+A19_RULES = ('silent-broad-except', 'broad-except-wrong-level', 'logger-exception-graceful-degradation')
+A19_CHECKS = (
+    auditme.rules.error_handling.check_silent_broad_except,
+    auditme.rules.error_handling.check_broad_except_wrong_level,
+    auditme.rules.error_handling.check_logger_exception_graceful_degradation,
+)
+LOGGER_NAMES = frozenset({'logger', 'log', '_logger', 'LOGGER', 'logging', 'loguru.logger'})
+LOG_LEVELS = frozenset({'debug', 'info', 'warning', 'warn', 'error', 'critical', 'exception'})
+LEAVING_STATEMENTS = (ast.Return, ast.Raise, ast.Continue, ast.Break)
+
+
+def logger_call_level(node: ast.AST) -> str | None:
+    """The level when the node is a call to a logging method on a logger name, else None."""
+    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute) or node.func.attr not in LOG_LEVELS:
+        return None
+    receiver = dotted_name(node.func.value)
+    if receiver is None:
+        return None
+    return node.func.attr if receiver.removeprefix('self.') in LOGGER_NAMES else None
+
+
+def log_calls_of(handler: ast.ExceptHandler) -> list[str]:
+    """Each logger call in the handler body as `level: text`, text being its first argument."""
+    calls: list[str] = []
+    for statement in handler.body:
+        for node in ast.walk(statement):
+            level = logger_call_level(node)
+            if level is not None and isinstance(node, ast.Call):
+                calls.append(f'{level}: {ast.unparse(node.args[0]) if node.args else ""}')
+    return calls
+
+
+def function_summary(function: FunctionNode) -> dict[str, str | None]:
+    """Name, signature, return annotation and last statement of a function."""
+    return {
+        'name': function.name,
+        'signature': ast.unparse(function.args),
+        'returns': ast.unparse(function.returns) if function.returns is not None else None,
+        'last_statement': ast.unparse(function.body[-1]) if function.body else None,
+    }
+
+
+def handler_anchor_lines(handler: ast.ExceptHandler, function: FunctionNode | None) -> list[int]:
+    """The handler's lines, plus the function's last `return` when the handler falls through."""
+    lines = list(range(handler.lineno, (handler.end_lineno or handler.lineno) + 1))
+    falls_through = not handler.body or not isinstance(handler.body[-1], LEAVING_STATEMENTS)
+    if falls_through and function is not None and function.body and isinstance(function.body[-1], ast.Return):
+        lines.append(function.body[-1].lineno)
+    return lines
+
+
+@candidates.register_question('A19', A19_BRIEF)
+def list_a19_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
+    """Every broad handler and every handler logging `.exception(` that the sweep does not already report."""
+    files = parse_audited_files(scope)
+    hits = capture_hits(scope, A19_CHECKS)
+    found: list[candidates.Candidate] = []
+    for file in files:
+        scopes = scope_nodes(file.tree)
+        counter = SiteCounter()
+        for qualname, node in walk_with_qualname(file.tree):
+            if not isinstance(node, (ast.Try, ast.TryStar)):
+                continue
+            function = scopes.get(qualname)
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                function = None
+            try_source = textwrap.dedent('\n'.join(file.lines[node.lineno - 1 : node.end_lineno]))
+            for handler in node.handlers:
+                log_calls = log_calls_of(handler)
+                logs_exception = any(call.startswith('exception: ') for call in log_calls)
+                if not (auditme.rules.error_handling.is_broad_handler(handler) or logs_exception):
+                    continue
+                number = counter.next(f'{qualname}::except')
+                if hit_on_anchor(hits, file.rel, handler_anchor_lines(handler, function), A19_RULES):
+                    continue
+                function_source = textwrap.dedent('\n'.join(file.lines[function.lineno - 1 : function.end_lineno])) if function is not None else try_source
+                handler_source = textwrap.dedent('\n'.join(file.lines[handler.lineno - 1 : handler.end_lineno]))
+                found.append(
+                    candidates.Candidate(
+                        question='A19',
+                        id=f'{file.rel}::{qualname}::except#{number}',
+                        path=file.rel,
+                        start=handler.lineno,
+                        end=handler.end_lineno or handler.lineno,
+                        payload={
+                            'handler': handler_source,
+                            'try': try_source,
+                            'function': function_summary(function) if function is not None else None,
+                            'log_calls': log_calls,
+                        },
+                        hash=candidates.digest([function_source.encode('utf-8')]),
+                    )
+                )
     return found
