@@ -422,3 +422,46 @@ def is_dunder_all_assignment(node: ast.Assign | ast.AnnAssign) -> bool:
     """Return True when `node` assigns to the single target `__all__`."""
     targets = node.targets if isinstance(node, ast.Assign) else [node.target]
     return len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == '__all__'
+
+
+def _all_names(path: pathlib.Path) -> set[str] | None:
+    """The string members of the `__all__` in `path`, or None when it has none."""
+    if not path.is_file():
+        return None
+    try:
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+    except SyntaxError, UnicodeDecodeError:
+        return None
+    names: set[str] | None = None
+    for node in tree.body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and is_dunder_all_assignment(node):
+            names = set() if names is None else names
+            if isinstance(node.value, (ast.List, ast.Tuple)):
+                names.update(e.value for e in node.value.elts if isinstance(e, ast.Constant) and isinstance(e.value, str))
+    return names
+
+
+def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
+    """Whether the function or class qualname in module is private (decision 1).
+
+    The files that count are module's own `__all__` and the `__all__` of every
+    package `__init__.py` above it. Public when any of them names qualname's
+    first segment; private when at least one of them has an `__all__` and none
+    names it; where none has an `__all__`, private when a segment of qualname
+    or module starts with an underscore (clarified in 1.2).
+    """
+    first, *rest = module.split('.')
+    files: list[pathlib.Path] = []
+    for pkg_root in (r for r in _audit_roots(root) if r.name == first):
+        files.append(pkg_root / '__init__.py')
+        current = pkg_root
+        for index, part in enumerate(rest):
+            if index == len(rest) - 1:
+                files.append(current / f'{part}.py')
+            current = current / part
+            files.append(current / '__init__.py')
+    found = [names for names in (_all_names(f) for f in files) if names is not None]
+    if found:
+        return qualname.split('.')[0] not in set().union(*found)
+    segments = qualname.split('.') + module.split('.')
+    return any(s.startswith('_') and not (s.startswith('__') and s.endswith('__')) for s in segments)
