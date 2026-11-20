@@ -447,3 +447,278 @@ def test_a19_hash_tracks_the_enclosing_function_only(project: Project) -> None:
     assert elsewhere.hash == first.hash
     above = _a19(_a19_project(project, 'X = 1\n' + A19_WARNING + A19_OTHER))[key]
     assert above.hash == first.hash
+
+
+# A1
+
+A1_BASE = """
+class ProbeError(Exception):
+    pass
+"""
+
+A1_OPEN = """
+def load(path):
+    return open(path).read()
+"""
+
+A1_TRY = """
+import pkg.base
+
+
+def load(path):
+    try:
+        return open(path).read()
+    except OSError as error:
+        raise pkg.base.ProbeError(str(error)) from error
+"""
+
+A1_GUARD = """
+import contextlib
+
+import pkg.base
+
+
+@contextlib.contextmanager
+def translate():
+    try:
+        yield
+    except OSError as error:
+        raise pkg.base.ProbeError(str(error)) from error
+"""
+
+A1_WITH_ENVELOPE = """
+import pkg.guard
+
+
+def load(path):
+    with pkg.guard.translate():
+        return open(path).read()
+"""
+
+A1_NARROW = """
+import pkg.base
+
+
+def load(path):
+    try:
+        return path.read_text()
+    except ValueError as error:
+        raise pkg.base.ProbeError(str(error)) from error
+"""
+
+A1_NARROW_ACCEPTED = A1_NARROW.replace('except ValueError as error:', 'except ValueError as error:  # auditme: accept[filesystem-envelope-gap] probe')
+
+A1_PUBLIC_INIT = """
+from .mod import load
+
+__all__ = ['load']
+"""
+
+A1_UNGUARDED = """
+def load(path):
+    path.write_text('x')
+"""
+
+A1_NARROW_GUARD = """
+import contextlib
+
+import pkg.base
+
+
+@contextlib.contextmanager
+def translate():
+    try:
+        yield
+    except ValueError as error:
+        raise pkg.base.ProbeError(str(error)) from error
+"""
+
+A1_NARROW_DECORATED = """
+import pkg.guard
+
+
+@pkg.guard.translate()
+def load(path):
+    return path.read_text()
+"""
+
+A1_HELPER = """
+import pkg.base
+
+
+def _read(path):
+    return open(path).read()
+
+
+def load(path):
+    try:
+        return _read(path)
+    except OSError as error:
+        raise pkg.base.ProbeError(str(error)) from error
+"""
+
+A1_HELPER_OTHER = """
+
+
+def other(path):
+    return _read(path)
+"""
+
+A1_NESTED = """
+import pkg.base
+
+
+def load(path):
+    def read():
+        return open(path).read()
+
+    try:
+        return read()
+    except OSError as error:
+        raise pkg.base.ProbeError(str(error)) from error
+"""
+
+A1_UNRELATED = """
+
+
+def unrelated():
+    return 1
+"""
+
+
+def _a1(root: pathlib.Path) -> dict[str, phaseb.Candidate]:
+    return {candidate.id: candidate for candidate in phaseb.list_candidates('A1', root)}
+
+
+def _a1_project(project: Project, body: str, **extra: str) -> pathlib.Path:
+    files = {'src/pkg/__init__.py': '', 'src/pkg/base.py': A1_BASE, 'src/pkg/mod.py': body}
+    files.update({f'src/pkg/{name}.py': text for name, text in extra.items()})
+    return project(files)
+
+
+def test_a1_lists_an_open_call_with_its_payload(project: Project) -> None:
+    found = _a1(_a1_project(project, A1_OPEN))
+    assert list(found) == ['src/pkg/mod.py::load::call:open#1']
+    payload = found['src/pkg/mod.py::load::call:open#1'].payload
+    assert payload['call'] == 'open'
+    assert payload['try'] is None
+    assert payload['envelopes'] == []
+    assert payload['domain_errors'] == ['ProbeError']
+    assert 'callers' not in payload
+
+
+def test_a1_gives_the_enclosing_try(project: Project) -> None:
+    payload = _a1(_a1_project(project, A1_TRY))['src/pkg/mod.py::load::call:open#1'].payload
+    assert payload['try'].startswith('try:')
+
+
+def test_a1_gives_a_translating_with_envelope(project: Project) -> None:
+    found = _a1(_a1_project(project, A1_WITH_ENVELOPE, guard=A1_GUARD))
+    payload = found['src/pkg/mod.py::load::call:open#1'].payload
+    assert payload['envelopes'] == [{'name': 'translate', 'catches': ['OSError']}]
+
+
+@pytest.mark.parametrize(
+    ('imports', 'call', 'callee'),
+    [
+        ('', "path.write_text('x')", 'path.write_text'),
+        ('import subprocess', "subprocess.run(['x'])", 'subprocess.run'),
+        ('import torch', 'torch.load(path)', 'torch.load'),
+        ('import pandas', 'pandas.read_csv(path)', 'pandas.read_csv'),
+        ('', "df.to_parquet('x')", 'df.to_parquet'),
+        ('import requests', "requests.get('x')", 'requests.get'),
+        ('import pandas as pd', 'pd.read_json(path)', 'pd.read_json'),
+        ('from requests import get', "get('x')", 'get'),
+    ],
+)
+def test_a1_lists_each_external_call_shape(project: Project, imports: str, call: str, callee: str) -> None:
+    body = f'{imports}\n\n\ndef load(path, df):\n    return {call}\n'
+    assert list(_a1(_a1_project(project, body))) == [f'src/pkg/mod.py::load::call:{callee}#1']
+
+
+def test_a1_lists_a_client_method_only_in_a_module_importing_a_client(project: Project) -> None:
+    with_client = 'import sqlite3\n\n\ndef load(conn):\n    return conn.execute("x")\n'
+    without = 'def load(conn):\n    return conn.execute("x")\n'
+    assert list(_a1(_a1_project(project, with_client))) == ['src/pkg/mod.py::load::call:conn.execute#1']
+    assert _a1(_a1_project(project, without)) == {}
+
+
+def test_a1_ignores_a_package_without_a_domain_error(project: Project) -> None:
+    root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': A1_OPEN})
+    assert _a1(root) == {}
+
+
+@pytest.mark.parametrize('name', ['test_probe.py', 'probe_test.py', 'conftest.py', 'tests/helpers.py'])
+def test_a1_ignores_test_files(project: Project, name: str) -> None:
+    root = project({'src/pkg/__init__.py': '', 'src/pkg/base.py': A1_BASE, f'src/pkg/{name}': A1_OPEN})
+    assert _a1(root) == {}
+
+
+def test_a1_drops_a_call_on_a_filesystem_envelope_gap_hit(project: Project) -> None:
+    assert _a1(_a1_project(project, A1_NARROW)) == {}
+
+
+def test_a1_drops_a_call_whose_hit_is_accepted(project: Project) -> None:
+    assert _a1(_a1_project(project, A1_NARROW_ACCEPTED)) == {}
+
+
+def test_a1_drops_a_call_on_a_filesystem_op_without_envelope_hit(project: Project) -> None:
+    root = project({'src/pkg/__init__.py': A1_PUBLIC_INIT, 'src/pkg/errors.py': A1_BASE, 'src/pkg/mod.py': A1_UNGUARDED})
+    assert _a1(root) == {}
+
+
+def test_a1_drops_a_call_on_a_translator_envelope_gap_hit(project: Project) -> None:
+    assert _a1(_a1_project(project, A1_NARROW_DECORATED, guard=A1_NARROW_GUARD)) == {}
+
+
+def test_a1_lists_the_callers_of_a_private_helper(project: Project) -> None:
+    found = _a1(_a1_project(project, A1_HELPER + A1_HELPER_OTHER))
+    callers = found['src/pkg/mod.py::_read::call:open#1'].payload['callers']
+    assert [(caller['at'], caller['caller']) for caller in callers] == [('src/pkg/mod.py:10', 'load'), ('src/pkg/mod.py:17', 'other')]
+    assert callers[0]['envelope']['try'].startswith('try:')
+    assert callers[1]['envelope'] is None
+
+
+def test_a1_lists_the_callers_of_a_nested_helper(project: Project) -> None:
+    found = _a1(_a1_project(project, A1_NESTED))
+    payload = found['src/pkg/mod.py::load.read::call:open#1'].payload
+    assert [caller['caller'] for caller in payload['callers']] == ['load']
+
+
+def test_a1_public_helper_has_no_callers_key(project: Project) -> None:
+    found = _a1(_a1_project(project, A1_HELPER.replace('_read', 'read_it')))
+    assert 'callers' not in found['src/pkg/mod.py::read_it::call:open#1'].payload
+
+
+def test_a1_hash_tracks_the_callers_of_a_helper(project: Project) -> None:
+    key = 'src/pkg/mod.py::_read::call:open#1'
+    first = _a1(_a1_project(project, A1_HELPER))[key]
+    with_new_caller = _a1(_a1_project(project, A1_HELPER + A1_HELPER_OTHER))[key]
+    assert with_new_caller.hash != first.hash
+    unlisted_edit = _a1(_a1_project(project, A1_HELPER + A1_UNRELATED))[key]
+    assert unlisted_edit.hash == first.hash
+    edited_caller = _a1(_a1_project(project, A1_HELPER.replace('return _read(path)', 'return _read(path).strip()')))[key]
+    assert edited_caller.hash != first.hash
+
+
+def test_a1_id_survives_an_edit_above_and_hash_tracks_the_function(project: Project) -> None:
+    key = 'src/pkg/mod.py::load::call:open#1'
+    first = _a1(_a1_project(project, A1_OPEN + A1_UNRELATED))[key]
+    above = _a1(_a1_project(project, 'X = 1\n' + A1_OPEN + A1_UNRELATED))[key]
+    assert above.hash == first.hash
+    outside = _a1(_a1_project(project, A1_OPEN + A1_UNRELATED.replace('return 1', 'return 2')))[key]
+    assert outside.hash == first.hash
+    inside = _a1(_a1_project(project, (A1_OPEN + A1_UNRELATED).replace('.read()', '.read(1)')))[key]
+    assert inside.hash != first.hash
+
+
+def test_a1_hash_tracks_the_domain_errors(project: Project) -> None:
+    key = 'src/pkg/mod.py::load::call:open#1'
+    first = _a1(_a1_project(project, A1_OPEN))[key]
+    root = project({'src/pkg/__init__.py': '', 'src/pkg/base.py': A1_BASE + '\n\nclass OtherError(ProbeError):\n    pass\n', 'src/pkg/mod.py': A1_OPEN})
+    assert _a1(root)[key].hash != first.hash
+
+
+def test_a1_numbers_repeated_calls_in_order(project: Project) -> None:
+    body = 'def load(a, b):\n    return open(a).read() + open(b).read()\n'
+    assert list(_a1(_a1_project(project, body))) == ['src/pkg/mod.py::load::call:open#1', 'src/pkg/mod.py::load::call:open#2']
