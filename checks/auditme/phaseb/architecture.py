@@ -21,7 +21,7 @@ import auditme.core
 import auditme.rules.error_handling
 import auditme.rules.imports_and_surfaces
 import auditme.rules.state_and_effects
-from auditme.phaseb import candidates
+from auditme.phaseb import candidates, testmap
 from auditme.phaseb.errors import PhaseBError
 
 Check = collections.abc.Callable[[pathlib.Path, pathlib.Path], None]
@@ -476,12 +476,6 @@ def call_sites(node: ast.AST, scope: Scope) -> collections.abc.Iterator[CallSite
             yield from call_sites(child, scope)
 
 
-def is_test_path(rel: str) -> bool:
-    """True for `test_*.py`, `*_test.py`, `conftest.py` and anything under a `tests` directory."""
-    path = pathlib.PurePosixPath(rel)
-    return path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py' or 'tests' in path.parts[:-1]
-
-
 def import_targets(tree: ast.Module) -> dict[str, str]:
     """Each name an absolute import binds, mapped to the dotted module or object it names."""
     targets: dict[str, str] = {}
@@ -621,7 +615,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     sites: dict[str, list[CallSite]] = {}
     callers_of: dict[str, list[tuple[ParsedSource, CallSite]]] = collections.defaultdict(list)
     for file in files:
-        if is_test_path(file.rel):
+        if testmap.is_test_relpath(file.rel):
             continue
         sites[file.rel] = list(call_sites(file.tree, Scope(MODULE_QUALNAME, None, False, None, None)))
         for site in sites[file.rel]:
@@ -647,7 +641,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
     found: list[candidates.Candidate] = []
     for file in files:
-        if is_test_path(file.rel) or file.module.partition('.')[0] not in domain_errors:
+        if testmap.is_test_relpath(file.rel) or file.module.partition('.')[0] not in domain_errors:
             continue
         errors = domain_errors[file.module.partition('.')[0]]
         imports = import_targets(file.tree)
@@ -766,7 +760,7 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                 continue
             for path, line in where:
                 rel = auditme.core._relpath(path, scope)
-                if rel.startswith(f'{directory}/') or is_test_path(rel) or (A17_SHIM_RULE, rel, line) in hits:
+                if rel.startswith(f'{directory}/') or testmap.is_test_relpath(rel) or (A17_SHIM_RULE, rel, line) in hits:
                     continue
                 text = line_cache.setdefault(path, path.read_text(encoding='utf-8').splitlines())[line - 1].strip()
                 entries.append((name, f'{rel}: {text}'))
