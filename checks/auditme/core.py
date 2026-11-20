@@ -384,3 +384,41 @@ def corpus_definitions(
                     if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         out.setdefault(member.name, []).append((member, path))
     return out
+
+
+_SIDE_EFFECT_CALL_NAMES = {
+    'mkdir',
+    'rmdir',
+    'unlink',
+    'rmtree',
+    'makedirs',
+    'remove',
+    'write_text',
+    'write_bytes',
+    'touch',
+    'copytree',
+    'symlink_to',
+    'mkstemp',
+    'mkdtemp',
+}
+
+
+def _walk_within_scope(node: ast.AST) -> collections.abc.Iterable[ast.AST]:
+    """Yield descendants of node without entering a nested function or class.
+
+    ast.walk cannot prune, and a `return None` inside a nested helper belongs
+    to that helper, not to the handler being examined.
+    """
+    stack: list[ast.AST] = list(ast.iter_child_nodes(node))
+    while stack:
+        current = stack.pop()
+        yield current
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            continue
+        stack.extend(ast.iter_child_nodes(current))
+
+
+def is_dunder_all_assignment(node: ast.Assign | ast.AnnAssign) -> bool:
+    """Return True when `node` assigns to the single target `__all__`."""
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+    return len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == '__all__'

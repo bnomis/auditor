@@ -7,6 +7,7 @@ import re
 from collections import defaultdict
 
 from auditme.core import (
+    _SIDE_EFFECT_CALL_NAMES,
     _accept_reason,
     _all_py_files,
     _corpus_py_files,
@@ -345,23 +346,6 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                             accepted=bool(accept),
                             accepted_reason=accept,
                         )
-
-
-_SIDE_EFFECT_CALL_NAMES = {
-    'mkdir',
-    'rmdir',
-    'unlink',
-    'rmtree',
-    'makedirs',
-    'remove',
-    'write_text',
-    'write_bytes',
-    'touch',
-    'copytree',
-    'symlink_to',
-    'mkstemp',
-    'mkdtemp',
-}
 
 
 def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path) -> None:

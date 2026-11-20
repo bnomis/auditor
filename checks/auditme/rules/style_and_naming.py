@@ -5,7 +5,7 @@ import pathlib
 import re
 from collections import defaultdict
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines
+from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, is_dunder_all_assignment
 
 # Public stdlib API spelt with a leading underscore, so not private access:
 # `os._exit` (https://docs.python.org/3/library/os.html#os._exit) and the
@@ -148,12 +148,6 @@ def is_fixed_length_tuple(annotation: ast.expr) -> bool:
         return False
     members = annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
     return not any(isinstance(m, ast.Constant) and m.value is Ellipsis for m in members)
-
-
-def is_dunder_all_assignment(node: ast.Assign | ast.AnnAssign) -> bool:
-    """Return True when `node` assigns to the single target `__all__`."""
-    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-    return len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == '__all__'
 
 
 def ruff_dunder_all_key(name: str) -> tuple[int, list[int | str]]:

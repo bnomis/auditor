@@ -184,3 +184,32 @@ def test_corpus_definitions_keeps_a_name_defined_in_two_modules_twice(project: B
     root = project({'src/pkg/a.py': 'def run() -> None:\n    pass\n', 'src/pkg/b.py': 'def run() -> None:\n    pass\n'})
     found = auditme.core.corpus_definitions(root, root / 'src' / 'pkg')
     assert [auditme.core._relpath(path, root) for _, path in found['run']] == ['src/pkg/a.py', 'src/pkg/b.py']
+
+
+# scope walk
+
+_SCOPE_SOURCE = (
+    'def outer():\n'
+    '    if a:\n'
+    '        pass\n'
+    '    def inner():\n'
+    '        if b:\n'
+    '            pass\n'
+    '    f = lambda: (1 if c else 2)\n'
+    '    class Probe:\n'
+    '        if d:\n'
+    '            pass\n'
+)
+
+
+def test_walk_within_scope_yields_an_if_in_the_body() -> None:
+    func = ast.parse(_SCOPE_SOURCE).body[0]
+    tests = [ast.unparse(n.test) for n in auditme.core._walk_within_scope(func) if isinstance(n, ast.If)]
+    assert tests == ['a']
+
+
+def test_walk_within_scope_does_not_enter_nested_scopes() -> None:
+    func = ast.parse(_SCOPE_SOURCE).body[0]
+    nodes = list(auditme.core._walk_within_scope(func))
+    assert not any(isinstance(n, ast.IfExp) for n in nodes)
+    assert any(isinstance(n, ast.FunctionDef) and n.name == 'inner' for n in nodes)

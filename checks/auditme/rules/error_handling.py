@@ -15,6 +15,7 @@ from auditme.core import (
     _emit,
     _relpath,
     _source_lines,
+    _walk_within_scope,
     call_bindings,
     module_dotted,
     reexport_aliases,
@@ -1673,21 +1674,6 @@ _FAILURE_WORD_RE = re.compile(r'error|failure|failed|cannot_answer', re.IGNORECA
 _LOGGING_CALL_RE = re.compile(r'^(logger|logging|log)\b|\.(debug|info|warning|error|exception|critical)$')
 
 _STATUS_TEST_RE = re.compile(r'\b(status|status_code|statuscode)\b')
-
-
-def _walk_within_scope(node: ast.AST) -> Iterable[ast.AST]:
-    """Yield descendants of node without entering a nested function or class.
-
-    ast.walk cannot prune, and a `return None` inside a nested helper belongs
-    to that helper, not to the handler being examined.
-    """
-    stack: list[ast.AST] = list(ast.iter_child_nodes(node))
-    while stack:
-        current = stack.pop()
-        yield current
-        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
-            continue
-        stack.extend(ast.iter_child_nodes(current))
 
 
 def _clean_absence_return(node: ast.Return) -> str | None:
