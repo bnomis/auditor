@@ -1,6 +1,7 @@
 """Tests for docrefs: markdown sections and code-shaped names."""
 
 import pathlib
+import subprocess
 import textwrap
 
 import pytest
@@ -130,3 +131,151 @@ def test_directory_raises(tmp_path):
     (tmp_path / 'dir.md').mkdir()
     with pytest.raises(phaseb.PhaseBError):
         docrefs.read_sections(tmp_path / 'dir.md', tmp_path)
+
+
+# resolution
+
+FIXTURE = {
+    'src/pkg/__init__.py': 'from pkg.mod import run_it\n',
+    'src/pkg/mod.py': """
+        import argparse
+
+
+        def run_it():
+            return 1
+
+
+        def twice():
+            return 1
+
+
+        class Probe:
+            size: int = 3
+
+            def load(self):
+                return 2
+
+            @staticmethod
+            def twice():
+                return 3
+
+
+        class Inner:
+            port: int = 80
+
+
+        class AppSettings(BaseSettings):
+            app: Inner = Inner()
+            name: str = 'x'
+
+
+        def parse():
+            parser = argparse.ArgumentParser()
+            parser.add_argument('--limit', type=int)
+            return parser
+    """,
+    'agents/specs/probe/spec.md': '# Probe\n',
+    'docs/guide.md': '# Guide\n',
+    'docs/sub/notes.md': '# Notes\n',
+    'AGENTS.md': '# Agents\n',
+}
+
+
+def _git(root: pathlib.Path, *args: str) -> None:
+    subprocess.run(['git', *args], cwd=root, check=True, capture_output=True)
+
+
+@pytest.fixture
+def indexed(tmp_path: pathlib.Path) -> tuple[pathlib.Path, docrefs.CorpusIndex]:
+    for name, text in FIXTURE.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(textwrap.dedent(text), encoding='utf-8')
+    _git(tmp_path, 'init', '-q')
+    _git(tmp_path, 'add', '-A')
+    (tmp_path / 'untracked.py').write_text('x = 1\n', encoding='utf-8')
+    return tmp_path, docrefs.CorpusIndex.build(tmp_path)
+
+
+def _resolve(indexed, token: str, doc: str = 'docs/guide.md') -> list[docrefs.DocTarget]:
+    root, index = indexed
+    return docrefs.resolve_name(token, root / doc, index)
+
+
+def test_tracked_path_relative_to_root(indexed):
+    (target,) = _resolve(indexed, 'src/pkg/mod.py')
+    assert (target.kind, target.id, target.path) == ('file', 'src/pkg/mod.py', 'src/pkg/mod.py')
+
+
+def test_tracked_directory_resolves(indexed):
+    (target,) = _resolve(indexed, 'src/pkg')
+    assert (target.kind, target.id) == ('directory', 'src/pkg')
+
+
+def test_path_relative_to_the_document(indexed):
+    (target,) = _resolve(indexed, 'sub/notes.md')
+    assert (target.kind, target.id) == ('file', 'docs/sub/notes.md')
+
+
+def test_untracked_path_does_not_resolve(indexed):
+    assert _resolve(indexed, 'untracked.py') == []
+
+
+def test_dotted_reexport_resolves_to_definition(indexed):
+    (target,) = _resolve(indexed, 'pkg.run_it')
+    assert (target.kind, target.id) == ('function', 'src/pkg/mod.py::run_it')
+
+
+def test_unique_bare_function_and_class(indexed):
+    (function,) = _resolve(indexed, 'run_it')
+    (cls,) = _resolve(indexed, 'AppSettings')
+    assert (function.kind, cls.kind) == ('function', 'class')
+    assert cls.id == 'src/pkg/mod.py::AppSettings'
+
+
+def test_bare_name_defined_twice_returns_both(indexed):
+    found = _resolve(indexed, 'twice')
+    assert sorted(t.kind for t in found) == ['function', 'method']
+    assert sorted(t.id for t in found) == ['src/pkg/mod.py::Probe.twice', 'src/pkg/mod.py::twice']
+
+
+def test_class_method_and_field(indexed):
+    (method,) = _resolve(indexed, 'Probe.load')
+    (field,) = _resolve(indexed, 'Probe.size')
+    assert (method.kind, method.id) == ('method', 'src/pkg/mod.py::Probe.load')
+    assert (field.kind, field.id) == ('field', 'src/pkg/mod.py::Probe.size')
+
+
+def test_setting_through_a_settings_class(indexed):
+    (target,) = _resolve(indexed, 'app.port')
+    assert (target.kind, target.id) == ('setting', 'src/pkg/mod.py::Inner.port')
+
+
+def test_dotted_key_with_no_settings_field_does_not_resolve(indexed):
+    assert _resolve(indexed, 'nothing.port') == []
+    assert _resolve(indexed, 'size.port') == []
+
+
+def test_option_literal_passed_to_add_argument(indexed):
+    (target,) = _resolve(indexed, '--limit')
+    assert (target.kind, target.id) == ('option', 'src/pkg/mod.py::--limit')
+
+
+def test_unknown_name_returns_empty(indexed):
+    assert _resolve(indexed, 'never_defined') == []
+    assert _resolve(indexed, '--never') == []
+
+
+def test_each_target_carries_path_and_lines(indexed):
+    (target,) = _resolve(indexed, 'run_it')
+    assert target.path == 'src/pkg/mod.py'
+    assert (target.start, target.end) == (5, 6)
+    (method,) = _resolve(indexed, 'Probe.load')
+    assert (method.start, method.end) == (16, 17)
+    (static,) = (t for t in _resolve(indexed, 'twice') if t.kind == 'method')
+    assert (static.start, static.end) == (19, 21)
+
+
+def test_git_failure_raises(tmp_path):
+    with pytest.raises(phaseb.PhaseBError):
+        docrefs.CorpusIndex.build(tmp_path)
