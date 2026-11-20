@@ -633,3 +633,66 @@ def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
             )
         )
     return found
+
+
+def _self_attribute(node: ast.AST) -> str | None:
+    """The attribute name when node is `self.<attr>`, else None."""
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == 'self':
+        return node.attr
+    return None
+
+
+def _tested_attributes(method: FunctionNode) -> set[str]:
+    """The `self.<attr>` names method tests in an `if`, a `match` subject or a comparison."""
+    tested: set[str] = set()
+    for node in auditme.core._walk_within_scope(method):
+        if isinstance(node, ast.If):
+            expressions: list[ast.AST] = [node.test]
+        elif isinstance(node, ast.Match):
+            expressions = [node.subject]
+        elif isinstance(node, ast.Compare):
+            expressions = [node]
+        else:
+            continue
+        for expression in expressions:
+            for inner in ast.walk(expression):
+                name = _self_attribute(inner)
+                if name is not None:
+                    tested.add(name)
+    return tested
+
+
+def _assigned_attributes(node: FunctionNode) -> set[str]:
+    """The `self.<attr>` names node assigns in its own body."""
+    assigned: set[str] = set()
+    for inner in auditme.core._walk_within_scope(node):
+        targets: list[ast.expr] = []
+        if isinstance(inner, ast.Assign):
+            targets = inner.targets
+        elif isinstance(inner, (ast.AugAssign, ast.AnnAssign)):
+            targets = [inner.target]
+        for target in targets:
+            for part in ast.walk(target):
+                name = _self_attribute(part)
+                if name is not None:
+                    assigned.add(name)
+    return assigned
+
+
+def t1_reasons(node: ast.FunctionDef | ast.AsyncFunctionDef, cls: ast.ClassDef | None) -> list[str]:
+    """Why node is a T1 candidate: any of 'if', 'try', 'match', 'state'; empty if not."""
+    own = list(auditme.core._walk_within_scope(node))
+    reasons: list[str] = []
+    if any(isinstance(inner, ast.If) for inner in own):
+        reasons.append('if')
+    if any(isinstance(inner, (ast.Try, ast.TryStar)) and inner.handlers for inner in own):
+        reasons.append('try')
+    if any(isinstance(inner, ast.Match) for inner in own):
+        reasons.append('match')
+    if cls is not None:
+        assigned = _assigned_attributes(node)
+        if assigned:
+            others = (method for method in cls.body if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method is not node)
+            if any(assigned & _tested_attributes(method) for method in others):
+                reasons.append('state')
+    return reasons
