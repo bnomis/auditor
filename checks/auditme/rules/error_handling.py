@@ -2449,11 +2449,14 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     A domain error is an exception class the swept package defines - positive
     evidence, so `sqlite3.Error` (tail `Error`) and a third-party `*Error` are
     not one - and never a builtin (`STDLIB_ERRORS`). Subclasses follow the package's own class tree: catching
-    or declaring a base covers its subclasses. Callees are followed one level,
-    through the callee's declared section, not its body, and only within the
-    package being swept: a module function called by its dotted path (or a
-    name imported from a package module), a same-module function, or a method
-    called on `self`, following re-exports such as a package `__init__.py`'s
+    or declaring a base covers its subclasses. A callee with a `Raises:`
+    section is followed through that declared section, not its body; a callee
+    with no section is followed into its own raises and callees, up to
+    `SECTIONLESS_DEPTH` calls deep. Only calls within the package being swept
+    resolve: a module function called by its dotted path (or a name imported
+    from a package module), a same-module function, a method called on
+    `self`, or `<ClassName>.<method>(...)` for a class the package defines,
+    following re-exports such as a package `__init__.py`'s
     `from pkg.mod import name`. A call the check cannot resolve contributes
     nothing, which is why an extra needs a catching handler: without one, the
     declared error may arrive through such a call.
@@ -2478,6 +2481,14 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     catches and re-raises on one branch still reaches the subject's callers;
     a def never called contributes nothing. A raise inside a def, lambda or
     class defined in a handler does not make that handler re-raise.
+
+    Extension (2026-11-20): both resolution gaps in the request "`raises-section-drift`
+    should follow pass-through callees and `Class.method()` calls" in
+    `claude/skills/auditme/requests.md` are closed. A `<ClassName>.<method>(...)`
+    call resolves like a call on `self`, and a callee with no `Raises:` section
+    is followed into its own raises and callees up to `SECTIONLESS_DEPTH`
+    calls deep, with the chain named in the hit's variant. Omission hits grow;
+    an extra declaration is reported only if it still never reaches the caller.
     """
     modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
     for path in _all_py_files(src_root):
