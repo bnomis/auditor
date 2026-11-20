@@ -294,3 +294,146 @@ def test_each_test_file_is_parsed_once(project: Project, monkeypatch: pytest.Mon
     monkeypatch.setattr(testmap, 'parse_file', counting)
     _map(root)
     assert parsed.count(root / 'src/tests/test_mod.py') == 1
+
+
+CHAIN = {
+    'src/pkg/__init__.py': '',
+    'src/pkg/mod.py': """
+        def load():
+            return 1
+    """,
+    'src/pkg/mid.py': """
+        from pkg.mod import load
+
+
+        def run():
+            return load()
+    """,
+    'src/pkg/top.py': """
+        from pkg.mid import run
+
+
+        def start():
+            return run()
+
+
+        def deep():
+            return start()
+    """,
+    'src/tests/__init__.py': '',
+}
+
+
+def test_caller_route_gives_a_caller_ref_with_via(project: Project) -> None:
+    root = project(
+        {
+            **CHAIN,
+            'src/tests/test_mid.py': """
+                from pkg.mid import run
+
+
+                def test_run():
+                    run()
+            """,
+        }
+    )
+    (ref,) = _map(root)['src/pkg/mod.py::load']
+    assert ref.route == 'caller'
+    assert ref.via == 'src/pkg/mid.py::run'
+    assert ref.id == 'src/tests/test_mid.py::test_run'
+
+
+def test_caller_route_is_bounded_by_depth(project: Project) -> None:
+    root = project(
+        {
+            **CHAIN,
+            'src/tests/test_top.py': """
+                from pkg.top import deep
+
+
+                def test_deep():
+                    deep()
+            """,
+        }
+    )
+    assert 'src/pkg/mod.py::load' in _map(root, 3)
+    assert 'src/pkg/mod.py::load' not in _map(root, 2)
+    assert 'src/pkg/mid.py::run' in _map(root, 2)
+
+
+def test_direct_and_caller_refs_are_both_kept(project: Project) -> None:
+    root = project(
+        {
+            **CHAIN,
+            'src/tests/test_both.py': """
+                from pkg.mid import run
+                from pkg.mod import load
+
+
+                def test_load():
+                    load()
+
+
+                def test_run():
+                    run()
+            """,
+        }
+    )
+    refs = _map(root)['src/pkg/mod.py::load']
+    assert [(ref.id.split('::')[1], ref.route) for ref in refs] == [('test_load', 'direct'), ('test_run', 'caller')]
+
+
+def test_a_call_cycle_terminates(project: Project) -> None:
+    root = project(
+        {
+            'src/pkg/__init__.py': '',
+            'src/pkg/cyc.py': """
+                def ping():
+                    return pong()
+
+
+                def pong():
+                    return ping()
+            """,
+            'src/tests/__init__.py': '',
+            'src/tests/test_cyc.py': """
+                from pkg.cyc import ping
+
+
+                def test_ping():
+                    ping()
+            """,
+        }
+    )
+    refs = _map(root, 10)
+    assert refs['src/pkg/cyc.py::ping'][0].route == 'direct'
+    assert refs['src/pkg/cyc.py::pong'][0].route == 'caller'
+
+
+def test_callers_lists_functions_reaching_the_target_within_depth(project: Project) -> None:
+    root = project(CHAIN)
+    index = testmap.build_index(root)
+    found = index.callers('src/pkg/mod.py::load', 2)
+    assert [caller['id'] for caller in found] == ['src/pkg/mid.py::run', 'src/pkg/top.py::start']
+    assert found[0] == {'id': 'src/pkg/mid.py::run', 'path': 'src/pkg/mid.py', 'start': 4, 'end': 5}
+    assert [caller['id'] for caller in index.callers('src/pkg/mod.py::load', 1)] == ['src/pkg/mid.py::run']
+
+
+def test_test_files_holds_mirror_importers_and_caller_importers(project: Project) -> None:
+    root = project(
+        {
+            **CHAIN,
+            'src/tests/pkg/__init__.py': '',
+            'src/tests/pkg/test_mod.py': 'def test_nothing():\n    pass\n',
+            'src/tests/test_importer.py': 'import pkg.mod\n\n\ndef test_x():\n    pass\n',
+            'src/tests/test_caller.py': 'from pkg import mid\n\n\ndef test_y():\n    pass\n',
+            'src/tests/test_other.py': 'from pkg import top\n\n\ndef test_z():\n    pass\n',
+        }
+    )
+    index = testmap.build_index(root)
+    assert index.test_files('src/pkg/mod.py::load', 1) == [
+        'src/tests/pkg/test_mod.py',
+        'src/tests/test_caller.py',
+        'src/tests/test_importer.py',
+    ]
+    assert 'src/tests/test_other.py' in index.test_files('src/pkg/mod.py::load', 2)

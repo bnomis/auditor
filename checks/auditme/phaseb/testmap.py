@@ -174,34 +174,140 @@ def test_functions(file: ParsedFile) -> list[tuple[str, ast.FunctionDef | ast.As
     return found
 
 
-def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
-    """Map each package function id to the tests that reach it, sorted by id.
+def imported_names(file: ParsedFile) -> set[str]:
+    """Every dotted name a file's top-level imports bind or name."""
+    names = set(file.bindings.values())
+    for statement in file.tree.body:
+        if isinstance(statement, ast.Import):
+            names.update(alias.name for alias in statement.names)
+    return names
+
+
+def imports_module(file: ParsedFile, module: str) -> bool:
+    """True when a file imports the module, or a name or submodule inside it."""
+    return any(name == module or name.startswith(f'{module}.') for name in imported_names(file))
+
+
+def reach(direct: collections.abc.Mapping[str, list[str]], start: collections.abc.Iterable[str], depth: int) -> dict[str, int]:
+    """Each name reached from `start` within `depth` calls, with its distance; `start` itself is at 0."""
+    distance = dict.fromkeys(start, 0)
+    frontier = list(distance)
+    for step in range(1, depth + 1):
+        frontier = sorted({callee for name in frontier for callee in direct.get(name, []) if callee not in distance})
+        distance.update(dict.fromkeys(frontier, step))
+    return distance
+
+
+@dataclasses.dataclass
+class TestIndex:
+    """The parsed package and test tree, built once, with the tests' routes to each function."""
+
+    __test__ = False
+
+    root: pathlib.Path
+    sites: dict[str, auditme.phaseb.candidates.Site]  # by dotted qualname
+    direct: dict[str, list[str]]  # qualname -> sorted resolved callees
+    tests: list[ParsedFile]
+    conftests: dict[pathlib.Path, ParsedFile]
+    reached: dict[str, dict[str, tuple[ast.FunctionDef | ast.AsyncFunctionDef, set[str]]]]  # test file rel -> test name -> (node, directly reached)
+    by_id: dict[str, auditme.phaseb.candidates.Site]
+
+    def refs(self, depth: int) -> dict[str, tuple[TestRef, ...]]:
+        """Map each package function id to the tests that reach it, sorted by id."""
+        found: dict[str, dict[str, TestRef]] = {}
+        for file in self.tests:
+            for qualname, (node, targets) in self.reached[file.rel].items():
+                test_id = f'{file.rel}::{qualname}'
+                base = TestRef(
+                    id=test_id,
+                    path=file.rel,
+                    start=min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)]),
+                    end=node.end_lineno or node.lineno,
+                    route='direct',
+                    via=None,
+                    property=is_property_test(node, file.bindings),
+                )
+                for target in sorted(targets):
+                    found.setdefault(self.sites[target].id, {})[test_id] = base
+                for via in sorted(targets):
+                    for target in reach(self.direct, [via], depth):
+                        if target != via and target not in targets:
+                            found.setdefault(self.sites[target].id, {}).setdefault(test_id, dataclasses.replace(base, route='caller', via=self.sites[via].id))
+        return {function_id: tuple(sorted(refs.values(), key=lambda ref: ref.id)) for function_id, refs in found.items()}
+
+    def caller_sites(self, function_id: str, depth: int) -> list[auditme.phaseb.candidates.Site]:
+        """The package functions that reach a function within `depth` calls, sorted by id."""
+        target = self.by_id[function_id].qualname
+        reverse: dict[str, list[str]] = {}
+        for name, callees in self.direct.items():
+            for callee in callees:
+                reverse.setdefault(callee, []).append(name)
+        found = reach(reverse, [target], depth)
+        return sorted((self.sites[name] for name in found if name != target), key=lambda site: site.id)
+
+    def callers(self, function_id: str, depth: int) -> list[dict[str, str | int]]:
+        """The callers of a function as `{id, path, start, end}`, sorted by id."""
+        return [{'id': site.id, 'path': site.path, 'start': site.start, 'end': site.end} for site in self.caller_sites(function_id, depth)]
+
+    def test_files(self, function_id: str, depth: int) -> list[str]:
+        """The test files that bear on a function, sorted.
+
+        The mirrored test file where it exists (`src/<project>/<pkg>/<f>.py` ->
+        `src/tests/<pkg>/test_<f>.py`, also with the project directory kept),
+        every test file importing the function's module, and every one
+        importing a caller's module.
+        """
+        site = self.by_id[function_id]
+        modules = {site.module, *(caller.module for caller in self.caller_sites(function_id, depth))}
+        found = {file.rel for file in self.tests if any(imports_module(file, module) for module in modules)}
+        found.update(self.mirrored(site))
+        return sorted(found)
+
+    def mirrored(self, site: auditme.phaseb.candidates.Site) -> list[str]:
+        """The mirrored test files of a function's module that exist."""
+        source = pathlib.PurePosixPath(site.path)
+        parts = source.parts[1:] if source.parts[0] == 'src' else source.parts
+        stem = f'test_{source.stem}.py'
+        candidates = {(*parts[:-1], stem), (*parts[1:-1], stem)}
+        return sorted(
+            auditme.core._relpath(path, self.root)
+            for tree_root in test_tree_roots(self.root)
+            for names in candidates
+            for path in [tree_root.joinpath(*names)]
+            if path.is_file()
+        )
+
+
+def build_index(root: pathlib.Path) -> TestIndex:
+    """Parse the package and its test tree once and resolve every test's direct calls.
 
     A test reaches a function directly when a call in its body, or in a
     fixture it requests from its own file or a `conftest.py` above it,
-    resolves to it. `depth` bounds the caller route.
+    resolves to it.
 
     Raises:
         PhaseBError: a test file or audited source file does not parse.
     """
-    sites, parsed_sources = source_sites(root)
+    site_list, parsed_sources = source_sites(root)
     tests, conftests = parse_test_tree(root)
-    by_name = {site.qualname: site for site in sites}
-    known = {site.qualname: site.cls for site in sites}
+    sites = {site.qualname: site for site in site_list}
+    known = {site.qualname: site.cls for site in site_list}
     aliases = auditme.core.reexport_aliases(
         {module: auditme.core.from_import_bindings(file.tree, module, file.path.name == '__init__.py') for module, file in parsed_sources.items()},
         known,
     )
     tree_root_names = set(test_tree_roots(root))
 
-    def called(file: ParsedFile, node: ast.AST) -> set[str]:
+    def called(file: ParsedFile, node: ast.AST, cls: str | None = None) -> set[str]:
         return {
             target
             for call in ast.walk(node)
             if isinstance(call, ast.Call)
-            for target in [auditme.core.resolve_call(call, file.module, None, file.bindings, known, aliases, class_methods=True)]
+            for target in [auditme.core.resolve_call(call, file.module, cls, file.bindings, known, aliases, class_methods=True)]
             if target
         }
+
+    direct = {site.qualname: sorted(called(parsed_sources[site.module], site.node, site.cls) - {site.qualname}) for site in site_list}
 
     def direct_targets(file: ParsedFile, node: ast.FunctionDef | ast.AsyncFunctionDef, chain: list[tuple[ParsedFile, dict]]) -> set[str]:
         reached = called(file, node)
@@ -220,20 +326,22 @@ def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, .
                     break
         return reached
 
-    refs: dict[str, dict[str, TestRef]] = {}
+    reached: dict[str, dict[str, tuple[ast.FunctionDef | ast.AsyncFunctionDef, set[str]]]] = {}
     for file in tests:
         chain = [(owner, fixtures_of(owner)) for owner in [file, *conftest_chain(file, tree_root_names, conftests)]]
-        for qualname, node in test_functions(file):
-            test_id = f'{file.rel}::{qualname}'
-            ref = TestRef(
-                id=test_id,
-                path=file.rel,
-                start=min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)]),
-                end=node.end_lineno or node.lineno,
-                route='direct',
-                via=None,
-                property=is_property_test(node, file.bindings),
-            )
-            for target in direct_targets(file, node, chain):
-                refs.setdefault(by_name[target].id, {})[test_id] = ref
-    return {function_id: tuple(sorted(found.values(), key=lambda ref: ref.id)) for function_id, found in refs.items()}
+        reached[file.rel] = {qualname: (node, direct_targets(file, node, chain)) for qualname, node in test_functions(file)}
+    return TestIndex(root, sites, direct, tests, conftests, reached, {site.id: site for site in site_list})
+
+
+def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
+    """Map each package function id to the tests that reach it, sorted by id.
+
+    A test reaches a function directly when a call in its body, or in a
+    fixture it requests, resolves to it; through a caller when a function it
+    reaches directly has callees reaching the target within `depth` calls,
+    `via` naming that function.
+
+    Raises:
+        PhaseBError: a test file or audited source file does not parse.
+    """
+    return build_index(root).refs(depth)
