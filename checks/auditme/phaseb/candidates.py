@@ -751,3 +751,135 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
             )
         )
     return found
+
+
+# The type set and the extra call names below change only with a bump of the
+# T2 brief version: a change re-plans every candidate through its hash.
+T2_SCALAR_TYPES = frozenset({'Decimal', 'Fraction', 'bool', 'bytes', 'date', 'datetime', 'float', 'int', 'str', 'timedelta'})
+T2_CONTAINER_TYPES = frozenset({'Iterable', 'Mapping', 'Optional', 'Sequence', 'Union', 'dict', 'frozenset', 'list', 'set', 'tuple'})
+T2_ENUM_BASES = frozenset({'Enum', 'Flag', 'IntEnum', 'IntFlag', 'StrEnum'})
+T2_EXTRA_CALL_NAMES = frozenset(
+    {'Popen', 'check_call', 'check_output', 'choice', 'input', 'now', 'open', 'print', 'randint', 'randrange', 'shuffle', 'time', 'uniform'}
+)
+T2_EFFECT_MODULES = frozenset({'random', 'subprocess'})
+T2_BRANCHES = (ast.If, ast.IfExp, ast.Match, ast.For, ast.While, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+
+def short_name(node: ast.AST) -> str | None:
+    """The last dotted component of a name or attribute, else None."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def root_name(node: ast.AST) -> str | None:
+    """The leftmost name of an attribute, subscript or call chain, else None."""
+    while isinstance(node, (ast.Attribute, ast.Subscript, ast.Call)):
+        node = node.func if isinstance(node, ast.Call) else node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def is_frozen_dataclass(cls: ast.ClassDef) -> bool:
+    """True for a class decorated `dataclass(frozen=True)`."""
+    for decorator in cls.decorator_list:
+        if isinstance(decorator, ast.Call) and short_name(decorator.func) == 'dataclass':
+            if any(keyword.arg == 'frozen' and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in decorator.keywords):
+                return True
+    return False
+
+
+def is_well_defined_class(cls: ast.ClassDef, package_types: collections.abc.Mapping[str, ast.ClassDef], checking: set[str]) -> bool:
+    """True when cls is an Enum, or a frozen dataclass, NamedTuple or TypedDict of well-defined fields."""
+    bases = {short_name(base) for base in cls.bases}
+    if bases & T2_ENUM_BASES:
+        return True
+    if not (bases & {'NamedTuple', 'TypedDict'} or is_frozen_dataclass(cls)):
+        return False
+    checking = checking | {cls.name}
+    for field in cls.body:
+        if isinstance(field, ast.AnnAssign) and short_name(field.annotation) != 'ClassVar':
+            if not is_well_defined_type(field.annotation, package_types, checking):
+                return False
+    return True
+
+
+def is_well_defined_type(annotation: ast.expr, package_types: collections.abc.Mapping[str, ast.ClassDef], checking: set[str]) -> bool:
+    """True when annotation is built only from the T2 type set."""
+    if isinstance(annotation, ast.Constant):
+        if annotation.value is None or annotation.value is Ellipsis:
+            return True
+        if isinstance(annotation.value, str):
+            try:
+                inner = ast.parse(annotation.value, mode='eval').body
+            except SyntaxError:
+                return False
+            return is_well_defined_type(inner, package_types, checking)
+        return False
+    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        return is_well_defined_type(annotation.left, package_types, checking) and is_well_defined_type(annotation.right, package_types, checking)
+    if isinstance(annotation, ast.Subscript):
+        head = short_name(annotation.value)
+        if head == 'Literal':
+            return True
+        if head not in T2_CONTAINER_TYPES:
+            return False
+        arguments = annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
+        return all(is_well_defined_type(argument, package_types, checking) for argument in arguments)
+    name = short_name(annotation)
+    if name is None:
+        return False
+    if name in T2_SCALAR_TYPES:
+        return True
+    cls = package_types.get(name)
+    if cls is None:
+        return False
+    if name in checking:
+        return True
+    return is_well_defined_class(cls, package_types, checking)
+
+
+def is_t2_candidate(node: ast.FunctionDef, package_types: collections.abc.Mapping[str, ast.ClassDef]) -> bool:
+    """True when node is pure over well-defined types and has logic a property can test."""
+    if not isinstance(node, ast.FunctionDef):
+        return False
+    arguments = node.args
+    decorators = {short_name(decorator) for decorator in node.decorator_list}
+    parameters = [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
+    if arguments.vararg is not None:
+        parameters.append(arguments.vararg)
+    if arguments.kwarg is not None:
+        parameters.append(arguments.kwarg)
+    if not parameters or 'classmethod' in decorators:
+        return False
+    if parameters[0].arg in {'self', 'cls'} and 'staticmethod' not in decorators:
+        return False
+    returns = node.returns
+    if returns is None or (isinstance(returns, ast.Constant) and returns.value is None):
+        return False
+    annotations = [parameter.annotation for parameter in parameters]
+    if any(annotation is None for annotation in annotations):
+        return False
+    if not all(is_well_defined_type(annotation, package_types, set()) for annotation in [*annotations, returns] if annotation is not None):
+        return False
+    names = {parameter.arg for parameter in parameters}
+    effects = auditme.core._SIDE_EFFECT_CALL_NAMES | T2_EXTRA_CALL_NAMES
+    own = list(auditme.core._walk_within_scope(node))
+    for inner in own:
+        if isinstance(inner, (ast.Yield, ast.YieldFrom, ast.Global, ast.Nonlocal, ast.Await)):
+            return False
+        if isinstance(inner, ast.Call) and (short_name(inner.func) in effects or root_name(inner.func) in T2_EFFECT_MODULES):
+            return False
+        targets: list[ast.expr] = []
+        if isinstance(inner, ast.Assign):
+            targets = inner.targets
+        elif isinstance(inner, (ast.AugAssign, ast.AnnAssign)):
+            targets = [inner.target]
+        elif isinstance(inner, ast.Delete):
+            targets = inner.targets
+        for target in targets:
+            for part in ast.walk(target):
+                if isinstance(part, (ast.Attribute, ast.Subscript)) and root_name(part) in names:
+                    return False
+    return any(isinstance(inner, T2_BRANCHES) for inner in own)
