@@ -6,6 +6,7 @@ import collections.abc
 import dataclasses
 import hashlib
 import pathlib
+import re
 import typing
 
 import auditme.core
@@ -81,14 +82,37 @@ def question_brief(question: str) -> pathlib.Path:
     return registered(question)[1]
 
 
-def list_candidates(question: str, root: pathlib.Path) -> list[Candidate]:
+def list_candidates(question: str, root: pathlib.Path, depth: int | None = None) -> list[Candidate]:
     """List every candidate for question under root, sorted by id.
+
+    A depth is handed to the lister, which follows callees that far; without
+    one the lister uses its own default.
 
     Raises:
         PhaseBError: question has no registered lister.
     """
     lister, _ = registered(question)
-    return sorted(lister(root), key=lambda candidate: candidate.id)
+    found = lister(root) if depth is None else lister(root, depth)  # type: ignore[call-arg]
+    return sorted(found, key=lambda candidate: candidate.id)
+
+
+BRIEF_VERSION_LINE = re.compile(r'^\*\*Brief version:\*\*\s*(\d+)\s*$', re.MULTILINE)
+
+
+def brief_version(brief: pathlib.Path) -> int:
+    """Return the version a brief declares on its `**Brief version:** N` line.
+
+    Raises:
+        PhaseBError: the brief cannot be read or has not exactly one version line.
+    """
+    try:
+        text = brief.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError) as error:
+        raise PhaseBError(f'cannot read brief {brief}: {error}') from error
+    found = BRIEF_VERSION_LINE.findall(text)
+    if len(found) != 1 or int(found[0]) < 1:
+        raise PhaseBError(f'brief {brief} must have exactly one `**Brief version:** N` line with N a positive integer')
+    return int(found[0])
 
 
 DEFAULT_DEPTH = 3
