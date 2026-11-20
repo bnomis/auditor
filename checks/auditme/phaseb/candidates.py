@@ -13,6 +13,7 @@ import typing
 
 import auditme.core
 import auditme.phaseb.docrefs
+import auditme.phaseb.testmap
 import auditme.rules.error_handling
 import auditme.rules.project_hygiene
 from auditme.phaseb.errors import PhaseBError
@@ -696,3 +697,57 @@ def t1_reasons(node: ast.FunctionDef | ast.AsyncFunctionDef, cls: ast.ClassDef |
             if any(assigned & _tested_attributes(method) for method in others):
                 reasons.append('state')
     return reasons
+
+
+T1_BRIEF = DOC_BRIEFS / 'T1.md'
+
+
+def is_overload(node: FunctionNode) -> bool:
+    """True for a function decorated with `overload` or `typing.overload`."""
+    return any(ast.unparse(decorator).rpartition('.')[2] == 'overload' for decorator in node.decorator_list)
+
+
+@register_question('T1', T1_BRIEF)
+def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
+    """List every function or method whose own body branches, with the tests that reach it.
+
+    Each carries its reasons, its direct and caller tests, its callers to
+    `depth`, its `test_files` and whether it is private. The hash is a sha256
+    over its source then each `test_files` file's text in path order,
+    NUL-separated. `@typing.overload` stubs and defs under `if TYPE_CHECKING:`
+    are left out.
+
+    Raises:
+        PhaseBError: a test file or audited source file does not parse.
+    """
+    index = auditme.phaseb.testmap.build_index(scope)
+    refs = index.refs(depth)
+    hidden = {module: auditme.core._type_checking_linenos(file.tree) for module, file in index.sources.items()}
+    classes = {(module, node.name): node for module, file in index.sources.items() for node in file.tree.body if isinstance(node, ast.ClassDef)}
+    found: list[Candidate] = []
+    for site in index.sites.values():
+        if is_overload(site.node) or site.node.lineno in hidden[site.module]:
+            continue
+        reasons = t1_reasons(site.node, classes.get((site.module, site.cls)) if site.cls else None)
+        if not reasons:
+            continue
+        test_files = index.test_files(site.id, depth)
+        parts = [site.source.encode('utf-8'), *((scope / name).read_bytes() for name in test_files)]
+        found.append(
+            Candidate(
+                question='T1',
+                id=site.id,
+                path=site.path,
+                start=site.start,
+                end=site.end,
+                payload={
+                    'reasons': reasons,
+                    'tests': [dataclasses.asdict(ref) for ref in refs.get(site.id, ())],
+                    'callers': index.callers(site.id, depth),
+                    'test_files': test_files,
+                    'private': auditme.core.is_private(site.qualname.removeprefix(f'{site.module}.'), site.module, scope),
+                },
+                hash=digest(parts),
+            )
+        )
+    return found

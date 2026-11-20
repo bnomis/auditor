@@ -212,3 +212,17 @@ def test_plan_uses_the_registered_size_without_batch_size(root: pathlib.Path, tm
 
 def test_plan_batch_size_option_overrides_the_registered_size(root: pathlib.Path, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert _plan_in_process(monkeypatch, root, tmp_path / 'out', '--batch-size', '2') == [[FIRST, SECOND]]
+
+
+def test_candidates_lists_t1(project: Project) -> None:
+    root = project(
+        {
+            'src/pkg/__init__.py': '',
+            'src/pkg/mod.py': 'def load(x):\n    if x:\n        return 1\n    return 0\n',
+            'src/tests/__init__.py': '',
+        }
+    )
+    done = run('candidates', root, '--question', 'T1')
+    assert done.returncode == 0, done.stderr
+    records = [json.loads(line) for line in done.stdout.splitlines()]
+    assert [record['id'] for record in records] == ['src/pkg/mod.py::load']

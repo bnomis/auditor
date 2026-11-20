@@ -1,9 +1,15 @@
 """Tests for the T1 lister: reasons, candidates, tests and the content hash."""
 
 import ast
+import collections.abc
+import hashlib
+import pathlib
 import textwrap
 
+from auditme import phaseb
 from auditme.phaseb import candidates
+
+Project = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
 
 def _reasons(source: str, name: str = 'target') -> list[str]:
@@ -106,3 +112,153 @@ def test_reasons_in_fixed_order_without_repeats() -> None:
                     pass
     """
     assert _reasons(source) == ['if', 'try', 'match', 'state']
+
+
+MOD = """
+    import typing
+
+    if typing.TYPE_CHECKING:
+        def hidden(x):
+            if x:
+                pass
+
+
+    def load(x):
+        if x:
+            return 1
+        return 0
+
+
+    def run(x):
+        return load(x)
+
+
+    def plain():
+        return 1
+
+
+    @typing.overload
+    def over(x):
+        if x:
+            pass
+
+
+    def _inner(x):
+        if x:
+            return 1
+        return 0
+"""
+
+BASE = {
+    'src/pkg/__init__.py': '',
+    'src/pkg/mod.py': MOD,
+    'src/tests/__init__.py': '',
+    'src/tests/pkg/test_mod.py': """
+        from pkg.mod import run
+
+
+        def test_run():
+            assert run(1) == 1
+    """,
+    'src/tests/test_other.py': """
+        def test_other():
+            assert 1
+    """,
+}
+
+
+def _t1(root: pathlib.Path, depth: int | None = None) -> dict[str, phaseb.Candidate]:
+    found = candidates.list_t1_candidates(root) if depth is None else candidates.list_t1_candidates(root, depth=depth)
+    return {candidate.id: candidate for candidate in found}
+
+
+def test_branchy_function_is_a_candidate_with_its_payload(project: Project) -> None:
+    root = project(BASE)
+    found = _t1(root)
+    candidate = found['src/pkg/mod.py::load']
+    assert candidate.question == 'T1'
+    assert candidate.path == 'src/pkg/mod.py'
+    assert candidate.payload['reasons'] == ['if']
+    assert candidate.payload['tests'] == [
+        {
+            'id': 'src/tests/pkg/test_mod.py::test_run',
+            'path': 'src/tests/pkg/test_mod.py',
+            'start': 4,
+            'end': 5,
+            'route': 'caller',
+            'via': 'src/pkg/mod.py::run',
+            'property': False,
+        }
+    ]
+    assert [caller['id'] for caller in candidate.payload['callers']] == ['src/pkg/mod.py::run']
+    assert candidate.payload['test_files'] == ['src/tests/pkg/test_mod.py']
+    assert 'src/pkg/mod.py::plain' not in found
+    assert 'src/pkg/mod.py::run' not in found
+
+
+def test_overload_stub_and_type_checking_def_are_not_candidates(project: Project) -> None:
+    found = _t1(project(BASE))
+    assert 'src/pkg/mod.py::over' not in found
+    assert 'src/pkg/mod.py::hidden' not in found
+
+
+def test_test_files_are_never_candidates(project: Project) -> None:
+    root = project(
+        {
+            **BASE,
+            'src/pkg/test_thing.py': 'def f(x):\n    if x:\n        pass\n',
+            'src/pkg/thing_test.py': 'def f(x):\n    if x:\n        pass\n',
+            'src/pkg/conftest.py': 'def f(x):\n    if x:\n        pass\n',
+            'src/pkg/tests/helper.py': 'def f(x):\n    if x:\n        pass\n',
+        }
+    )
+    assert {candidate.path for candidate in _t1(root).values()} == {'src/pkg/mod.py'}
+
+
+def test_private_is_the_answer_of_is_private(project: Project) -> None:
+    found = _t1(project(BASE))
+    assert found['src/pkg/mod.py::_inner'].payload['private'] is True
+    assert found['src/pkg/mod.py::load'].payload['private'] is False
+
+
+def test_no_test_tree_lists_candidates_with_no_tests(project: Project) -> None:
+    root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': MOD})
+    candidate = _t1(root)['src/pkg/mod.py::load']
+    assert candidate.payload['tests'] == []
+    assert candidate.payload['test_files'] == []
+
+
+def test_hash_is_sha256_of_source_then_test_files_nul_separated(project: Project) -> None:
+    root = project(BASE)
+    lines = (root / 'src/pkg/mod.py').read_text(encoding='utf-8').splitlines()
+    source = '\n'.join(lines[8:12])
+    test_text = (root / 'src/tests/pkg/test_mod.py').read_text(encoding='utf-8')
+    expected = hashlib.sha256('\0'.join([source, test_text]).encode('utf-8')).hexdigest()
+    assert _t1(root)['src/pkg/mod.py::load'].hash == expected
+
+
+def test_editing_a_relevant_test_file_changes_the_hash_but_an_unrelated_one_does_not(project: Project) -> None:
+    root = project(BASE)
+    before = _t1(root)['src/pkg/mod.py::load'].hash
+    (root / 'src/tests/test_other.py').write_text('def test_other():\n    assert 2\n', encoding='utf-8')
+    assert _t1(root)['src/pkg/mod.py::load'].hash == before
+    mirrored = root / 'src/tests/pkg/test_mod.py'
+    mirrored.write_text(mirrored.read_text(encoding='utf-8') + '\n\ndef test_more():\n    assert run(0) == 0\n', encoding='utf-8')
+    assert _t1(root)['src/pkg/mod.py::load'].hash != before
+
+
+def test_second_call_gives_the_same_candidates_and_hashes(project: Project) -> None:
+    root = project(BASE)
+    first = phaseb.list_candidates('T1', root)
+    assert first == phaseb.list_candidates('T1', root)
+    assert [candidate.id for candidate in first] == sorted(candidate.id for candidate in first)
+
+
+def test_depth_reaches_the_lister(project: Project) -> None:
+    root = project(BASE)
+    assert _t1(root, depth=1)['src/pkg/mod.py::load'].payload['callers']
+    assert not _t1(root, depth=0)['src/pkg/mod.py::load'].payload['callers']
+
+
+def test_t1_is_registered_with_its_brief_path() -> None:
+    assert phaseb.question_brief('T1').as_posix().endswith('claude/skills/auditme/phaseb/briefs/T1.md')

@@ -211,6 +211,7 @@ class TestIndex:
     conftests: dict[pathlib.Path, ParsedFile]
     reached: dict[str, dict[str, tuple[ast.FunctionDef | ast.AsyncFunctionDef, set[str]]]]  # test file rel -> test name -> (node, directly reached)
     by_id: dict[str, auditme.phaseb.candidates.Site]
+    sources: dict[str, ParsedFile]  # package modules by dotted name
 
     def refs(self, depth: int) -> dict[str, tuple[TestRef, ...]]:
         """Map each package function id to the tests that reach it, sorted by id."""
@@ -330,7 +331,7 @@ def build_index(root: pathlib.Path) -> TestIndex:
     for file in tests:
         chain = [(owner, fixtures_of(owner)) for owner in [file, *conftest_chain(file, tree_root_names, conftests)]]
         reached[file.rel] = {qualname: (node, direct_targets(file, node, chain)) for qualname, node in test_functions(file)}
-    return TestIndex(root, sites, direct, tests, conftests, reached, {site.id: site for site in site_list})
+    return TestIndex(root, sites, direct, tests, conftests, reached, {site.id: site for site in site_list}, parsed_sources)
 
 
 def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
