@@ -38,7 +38,32 @@ found something new and no cycle converged.
 
 ## Open
 
-None.
+### `raises-section-drift` should follow pass-through callees and `Class.method()` calls
+
+- **Raised:** 2026-11-20, by an audit whose Phase B A4 found by hand a set of
+  `Raises:` omissions the check exists to catch. Each was traced to one of the
+  two resolution gaps below; neither is a judgement call, so the question
+  should stop costing a Phase B pass once both are closed.
+- **Gap 1 - a callee with no `Raises:` section contributes nothing.** The
+  check follows a callee one level, through the callee's declared section. A
+  thin wrapper whose docstring defers to another function in prose ("see
+  `perform()` for the Raises this shares") has no section, so every domain
+  error that reaches the caller through it is invisible. Proposed: when a
+  resolved same-package callee has no `Raises:` section, follow it into its
+  own resolved callees (one further level, or to a fixed depth), rather than
+  treating it as raising nothing.
+- **Gap 2 - a classmethod or staticmethod called through its class name is
+  not resolved.** `Config.load(path)` in the same module or package resolves
+  to nothing, though `self.load(path)` would. Proposed: resolve
+  `<ClassName>.<method>(...)` where `<ClassName>` is a class the package
+  defines (same module, or imported by name or dotted path), the same way a
+  method called on `self` is.
+- **Test fixtures:** a caller of a section-less wrapper whose inner callee
+  declares `ProbeError`, with and without the caller declaring it; and a
+  caller of `Probe.load()` (a classmethod declaring `ProbeError`), with and
+  without a catching handler.
+- **Catch-up surface:** run on each project with the shared hooks before the
+  entry is deleted, as [How an entry leaves](#how-an-entry-leaves) says.
 
 ## Rejected
 
