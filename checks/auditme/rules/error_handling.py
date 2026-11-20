@@ -2531,11 +2531,15 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 if name and is_domain(name) and not caught(name, around):
                     reached[name].add('')
                 continue
-            callee = resolve_call(site, module, cls, imported, known, aliases)
+            callee = resolve_call(site, module, cls, imported, known, aliases, class_methods=True)
             if callee is None or callee == qualname:
                 continue
             callee_node = node_of.get(callee)
-            bound = isinstance(site.func, ast.Attribute) and isinstance(site.func.value, ast.Name) and site.func.value.id == 'self'
+            on_name = isinstance(site.func, ast.Attribute) and isinstance(site.func.value, ast.Name)
+            bound = on_name and (
+                site.func.value.id == 'self'
+                or (known[callee] is not None and callee_node is not None and any(ast.unparse(d) == 'classmethod' for d in callee_node.decorator_list))
+            )
             for name in declared_by[callee]:
                 if not is_domain(name) or caught(name, around):
                     continue

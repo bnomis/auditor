@@ -2105,3 +2105,86 @@ def test_class_lineage_terminates_on_a_cycle() -> None:
 
 def test_class_lineage_of_an_unknown_name_is_itself() -> None:
     assert auditme.rules.error_handling.class_lineage('Nope', {}) == {'Nope'}
+
+
+# --- raises-section-drift: Class.method() calls -----------------------------
+
+PROBE_CLASS = """import probe.errors
+
+
+class Probe:
+    {decorator}
+    def load({params}) -> int:
+        \"\"\"Load it.
+
+        Raises:
+            ParseError: bad input.
+        \"\"\"
+{body}"""
+
+PROBE_RAISES = '        raise probe.errors.ParseError(path)\n'
+PROBE_GUARDED = '        if strict:\n            raise probe.errors.ParseError(path)\n        return 0\n'
+PROBE_RUN = """
+
+def run(path: str) -> int:
+    \"\"\"Run it.
+
+    Raises:
+        FetchError: nothing to run.
+    \"\"\"
+    if not path:
+        raise probe.errors.FetchError('empty')
+{call}
+"""
+PROBE_IMPORT_CALLER = 'import probe.errors\nimport probe.conf\nfrom probe.conf import Probe\n' + PROBE_RUN
+PROBE_OMITS = [('src/probe/use.py', 'run: Raises: omits ParseError, declared by probe.conf.Probe.load')]
+PROBE_OMITS_LOCAL = [('src/probe/use.py', 'run: Raises: omits ParseError, declared by probe.use.Probe.load')]
+
+
+def probe_class(decorator: str = '@classmethod', params: str = 'cls, path: str', body: str = PROBE_RAISES) -> str:
+    return PROBE_CLASS.format(decorator=decorator, params=params, body=body)
+
+
+def class_call_drift(project: Builder, run_check: Runner, files: dict[str, str]) -> list[tuple[str, str]]:
+    root = project({'src/probe/errors.py': ERRORS, **files})
+    return sorted((hit['path'], hit['variant']) for hit in run_check(RAISES_DRIFT, root) if hit['rule'] == 'raises-section-drift')
+
+
+def test_a_class_method_call_on_a_class_in_the_same_module_is_a_hit(project: Builder, run_check: Runner) -> None:
+    caller = probe_class() + PROBE_RUN.format(call='    return Probe.load(path)')
+    assert class_call_drift(project, run_check, {'src/probe/use.py': caller}) == PROBE_OMITS_LOCAL
+
+
+def test_a_class_method_call_on_an_imported_class_is_a_hit(project: Builder, run_check: Runner) -> None:
+    files = {'src/probe/conf.py': probe_class(), 'src/probe/use.py': PROBE_IMPORT_CALLER.format(call='    return Probe.load(path)')}
+    assert class_call_drift(project, run_check, files) == PROBE_OMITS
+
+
+def test_a_handler_around_a_class_method_call_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    call = '    try:\n        return Probe.load(path)\n    except probe.errors.ParseError:\n        return 0'
+    files = {'src/probe/conf.py': probe_class(), 'src/probe/use.py': PROBE_IMPORT_CALLER.format(call=call)}
+    assert class_call_drift(project, run_check, files) == []
+
+
+def test_a_classmethod_guarded_by_an_unset_optional_argument_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    conf = probe_class(params='cls, path: str, strict: bool = False', body=PROBE_GUARDED)
+    files = {'src/probe/conf.py': conf, 'src/probe/use.py': PROBE_IMPORT_CALLER.format(call='    return Probe.load(path)')}
+    assert class_call_drift(project, run_check, files) == []
+
+
+def test_a_classmethod_with_the_guarding_argument_supplied_positionally_is_a_hit(project: Builder, run_check: Runner) -> None:
+    conf = probe_class(params='cls, strict: bool = False', body=PROBE_GUARDED)
+    files = {'src/probe/conf.py': conf, 'src/probe/use.py': PROBE_IMPORT_CALLER.format(call='    return Probe.load(True)')}
+    assert class_call_drift(project, run_check, files) == PROBE_OMITS
+
+
+def test_a_staticmethod_with_the_guarding_argument_supplied_is_a_hit(project: Builder, run_check: Runner) -> None:
+    conf = probe_class(decorator='@staticmethod', params='path: str, strict: bool = False', body=PROBE_GUARDED)
+    files = {'src/probe/conf.py': conf, 'src/probe/use.py': PROBE_IMPORT_CALLER.format(call='    return Probe.load(path, True)')}
+    assert class_call_drift(project, run_check, files) == PROBE_OMITS
+
+
+def test_a_staticmethod_guarded_by_an_unset_optional_argument_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    conf = probe_class(decorator='@staticmethod', params='path: str, strict: bool = False', body=PROBE_GUARDED)
+    files = {'src/probe/conf.py': conf, 'src/probe/use.py': PROBE_IMPORT_CALLER.format(call='    return Probe.load(path)')}
+    assert class_call_drift(project, run_check, files) == []
