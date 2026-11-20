@@ -6,7 +6,7 @@ or the brief changes. `candidates.py` holds the data model and the registry
 of listers; `PhaseBError` is defined in `errors.py` and re-exported here.
 """
 
-from auditme.phaseb import batches
+from auditme.phaseb import architecture, batches
 from auditme.phaseb.candidates import Candidate, Lister, Verdict, brief_version, list_candidates, question_batch_size, question_brief, register_question
 from auditme.phaseb.errors import PhaseBError
 from auditme.phaseb.ledger import MergeResult, dismiss_verdict, merge_verdicts, read_ledger
@@ -19,6 +19,7 @@ __all__ = [
     'PhaseBError',
     'TestRef',
     'Verdict',
+    'architecture',
     'batches',
     'build_test_map',
     'brief_version',
