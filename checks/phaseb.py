@@ -26,7 +26,6 @@ import sys
 import auditme.phaseb
 from auditme.phaseb import PhaseBError, batches
 
-DEFAULT_DEPTH = 3
 LEDGER_PARTS = ('agents', 'audit-reviews', 'ledger')
 
 
@@ -46,8 +45,8 @@ def add_depth(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--depth',
         type=int,
-        default=DEFAULT_DEPTH,
-        help=f'How far callees are followed (default {DEFAULT_DEPTH})',
+        default=None,
+        help='How far callees are followed, for questions that follow callees (default 3)',
     )
 
 

@@ -297,7 +297,6 @@ UNRESOLVED = '(unresolved)'
 IMPLEMENTED_RE = re.compile(r'^\*\*Status:\*\*\s*implemented\s*$', re.MULTILINE)
 LIST_ITEM_RE = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s')
 TABLE_ROW_RE = re.compile(r'^\s*\|')
-FENCE_LINE_RE = re.compile(r'^\s*(```|~~~)')
 
 
 def read_text(path: pathlib.Path) -> str:
@@ -319,7 +318,7 @@ def section_blocks(lines: list[str], start: int, end: int) -> list[tuple[int, in
     in_fence = False
     for number in range(start + 1, end + 1):
         line = lines[number - 1]
-        if FENCE_LINE_RE.match(line):
+        if auditme.phaseb.docrefs.FENCE_RE.match(line):
             if in_fence:
                 blocks.append((first or number, number))
                 first = None
@@ -455,7 +454,6 @@ AGENTS_DOC = 'AGENTS.md'
 HOOK_FILE = '.pre-commit-config.yaml'
 HOOK_ID_RE = re.compile(r'^\s*-\s+id:\s*[\'"]?([^\'"\s]+)')
 REQUIREMENT_NAME_RE = re.compile(r'\s*([A-Za-z0-9][A-Za-z0-9._-]*)')
-TRAILING_CALL_RE = re.compile(r'\(.*\)$')
 
 
 def agents_document(scope: pathlib.Path) -> tuple[pathlib.Path, list[str]] | None:
@@ -489,7 +487,7 @@ def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
     for section in auditme.phaseb.docrefs.read_sections(path, scope):
         text = lines[section.start - 1 : section.end]
         named = [(number, token) for number, token in section.names if auditme.phaseb.docrefs.is_path_shaped(token)]
-        if not named and not any(FENCE_LINE_RE.match(line) for line in text):
+        if not named and not any(auditme.phaseb.docrefs.FENCE_RE.match(line) for line in text):
             continue
         paths = [
             {'path': token, 'line': number, 'resolved': [target.id for target in auditme.phaseb.docrefs.resolve_path(token, path, index)]}
@@ -612,7 +610,7 @@ def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
         matched: list[dict[str, typing.Any]] = []
         unmatched: set[str] = set()
         for number, token in tokens:
-            words = TRAILING_CALL_RE.sub('', token).split()
+            words = auditme.phaseb.docrefs.TRAILING_CALL_RE.sub('', token).split()
             name = words[0] if words else token
             source = next((key for key, names in tables.items() if normalise_name(name) in names), None)
             if source is None and name in hooks:

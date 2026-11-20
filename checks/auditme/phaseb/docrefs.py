@@ -16,9 +16,9 @@ PATH_EXTENSIONS = ('.py', '.md', '.toml', '.yaml', '.yml', '.json', '.sh', '.txt
 TREE_DEPTH = 3
 
 _HEADING_RE = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
-_FENCE_RE = re.compile(r'^\s*(```|~~~)')
+FENCE_RE = re.compile(r'^\s*(```|~~~)')
 _INLINE_CODE_RE = re.compile(r'`([^`\n]+)`')
-_TRAILING_CALL_RE = re.compile(r'\(.*\)$')
+TRAILING_CALL_RE = re.compile(r'\(.*\)$')
 _IDENTIFIER_RE = re.compile(r'^[A-Za-z_]\w*(\.\w+)*$')
 _INNER_CAPITAL_RE = re.compile(r'[a-z0-9][A-Z]')
 _OPTION_RE = re.compile(r'^--[A-Za-z][\w-]*$')
@@ -37,7 +37,7 @@ class DocSection:
 
 def _code_shaped(token: str) -> str | None:
     """Return the token without a trailing call when it is a code-shaped name, else None."""
-    token = _TRAILING_CALL_RE.sub('', token.strip())
+    token = TRAILING_CALL_RE.sub('', token.strip())
     if not token or ' ' in token or '<' in token:
         return None
     if token.startswith(('/', '~')):
@@ -60,7 +60,7 @@ def backticked_tokens(lines: list[str], start: int, end: int) -> list[tuple[int,
     in_fence = False
     for number in range(start, end + 1):
         line = lines[number - 1]
-        if _FENCE_RE.match(line):
+        if FENCE_RE.match(line):
             in_fence = not in_fence
         elif not in_fence:
             found.extend((number, match.group(1).strip()) for match in _INLINE_CODE_RE.finditer(line) if match.group(1).strip())
@@ -94,7 +94,7 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
     raw: list[tuple[str, int, list[tuple[int, str]], bool]] = []  # path, start, names, under API
     in_fence = False
     for number, line in enumerate(lines, start=1):
-        if _FENCE_RE.match(line):
+        if FENCE_RE.match(line):
             in_fence = not in_fence
             continue
         heading = None if in_fence else _HEADING_RE.match(line)

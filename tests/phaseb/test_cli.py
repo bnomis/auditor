@@ -65,6 +65,14 @@ def test_candidates_prints_one_json_line_per_candidate(root: pathlib.Path) -> No
     assert {'id', 'hash', 'payload'} <= set(records[0])
 
 
+@pytest.mark.parametrize('question', ['Doc1', 'Doc2', 'Doc4', 'Doc5'])
+def test_candidates_runs_for_listers_that_take_no_depth(root: pathlib.Path, question: str) -> None:
+    subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+    subprocess.run(['git', 'add', '.'], cwd=root, check=True)
+    done = run('candidates', root, '--question', question)
+    assert done.returncode == 0, done.stderr
+
+
 def test_plan_writes_batches_and_reports_counts(root: pathlib.Path, tmp_path: pathlib.Path) -> None:
     out = tmp_path / 'run'
     done = run('plan', root, '--question', 'A4', '--out', out)
