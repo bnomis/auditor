@@ -98,3 +98,207 @@ def test_hit_on_anchor_matches_rule_path_and_line() -> None:
     assert not architecture.hit_on_anchor(hits, 'src/pkg/mod.py', [3], ('silent-broad-except',))
     assert not architecture.hit_on_anchor(hits, 'src/pkg/other.py', [4], ('silent-broad-except',))
     assert not architecture.hit_on_anchor(hits, 'src/pkg/mod.py', [4], ('other-rule',))
+
+
+# A11
+
+A11_TYPES = """
+import enum
+import typing
+
+Level = typing.Literal['low', 'high']
+
+
+class Mode(enum.Enum):
+    FAST = 'fast'
+    SLOW = 'slow'
+"""
+
+A11_CHAIN = """
+import pkg.types
+
+
+def run(mode: pkg.types.Mode) -> int:
+    if mode == pkg.types.Mode.FAST:
+        return 1
+    elif mode == pkg.types.Mode.SLOW:
+        return 2
+    return 0
+"""
+
+A11_STRING_CHAIN = """
+def run(mode):
+    if mode == 'a':
+        return 1
+    elif mode == 'b':
+        return 2
+    elif mode == 'c':
+        return 3
+    return 0
+"""
+
+A11_TWO_ARM = """
+def run(mode):
+    if mode == 'a':
+        return 1
+    else:
+        return 2
+"""
+
+
+def _a11(root: pathlib.Path) -> dict[str, phaseb.Candidate]:
+    return {candidate.id: candidate for candidate in phaseb.list_candidates('A11', root)}
+
+
+def _a11_project(project: Project, body: str) -> pathlib.Path:
+    return project({'src/pkg/__init__.py': '', 'src/pkg/types.py': A11_TYPES, 'src/pkg/mod.py': body})
+
+
+def test_a11_lists_an_enum_chain_with_annotation_and_type_source(project: Project) -> None:
+    found = _a11(_a11_project(project, A11_CHAIN))
+    assert list(found) == ['src/pkg/mod.py::run::if:mode#1']
+    payload = found['src/pkg/mod.py::run::if:mode#1'].payload
+    assert payload['subject'] == 'mode'
+    assert payload['annotation'] == 'pkg.types.Mode'
+    assert payload['type_source'] == 'src/pkg/types.py:7 Mode'
+    assert payload['source'].startswith('if mode ==')
+
+
+def test_a11_names_a_literal_alias_as_type_source(project: Project) -> None:
+    body = """
+    import pkg.types
+
+
+    def run(level: pkg.types.Level) -> int:
+        if level == 'low':
+            return 1
+        else:
+            return 2
+    """
+    payload = _a11(_a11_project(project, body))['src/pkg/mod.py::run::if:level#1'].payload
+    assert payload['annotation'] == 'pkg.types.Level'
+    assert payload['type_source'] == 'src/pkg/types.py:4 Level'
+
+
+def test_a11_unannotated_subject_has_null_annotation(project: Project) -> None:
+    payload = _a11(_a11_project(project, A11_TWO_ARM))['src/pkg/mod.py::run::if:mode#1'].payload
+    assert payload['annotation'] is None
+    assert payload['type_source'] is None
+
+
+def test_a11_lists_is_in_and_tuple_chains(project: Project) -> None:
+    body = """
+    def run(mode):
+        if mode is Mode.FAST:
+            return 1
+        elif mode in (Mode.SLOW, 'x'):
+            return 2
+        return 0
+    """
+    assert list(_a11(_a11_project(project, body))) == ['src/pkg/mod.py::run::if:mode#1']
+
+
+def test_a11_ignores_a_single_if_without_else(project: Project) -> None:
+    body = """
+    def run(mode):
+        if mode == 'a':
+            return 1
+        return 0
+    """
+    assert _a11(_a11_project(project, body)) == {}
+
+
+def test_a11_lists_the_chain_once_not_each_elif(project: Project) -> None:
+    body = """
+    def run(mode):
+        if mode == 'a':
+            return 1
+        elif mode == 'b':
+            return 2
+        else:
+            return 4
+    """
+    assert len(_a11(_a11_project(project, body))) == 1
+
+
+def test_a11_ignores_a_chain_over_two_subjects(project: Project) -> None:
+    body = """
+    def run(mode, other):
+        if mode == 'a':
+            return 1
+        elif other == 'b':
+            return 2
+        else:
+            return 3
+    """
+    assert _a11(_a11_project(project, body)) == {}
+
+
+def test_a11_lists_a_two_way_split_on_a_comparison_flag(project: Project) -> None:
+    body = """
+    def run(mode):
+        flag = mode == 'a'
+        if flag:
+            return 1
+        else:
+            return 2
+    """
+    assert list(_a11(_a11_project(project, body))) == ['src/pkg/mod.py::run::if:mode#1']
+
+
+def test_a11_ignores_a_flag_not_assigned_from_a_comparison(project: Project) -> None:
+    body = """
+    def run(flag):
+        if flag:
+            return 1
+        else:
+            return 2
+    """
+    assert _a11(_a11_project(project, body)) == {}
+
+
+def test_a11_lists_a_match_statement(project: Project) -> None:
+    body = """
+    def run(mode):
+        match mode:
+            case 'a':
+                return 1
+            case _:
+                raise ValueError(mode)
+    """
+    assert list(_a11(_a11_project(project, body))) == ['src/pkg/mod.py::run::match:mode#1']
+
+
+def test_a11_numbers_two_chains_on_one_subject_in_order(project: Project) -> None:
+    body = """
+    def run(mode):
+        if mode == 'a':
+            return 1
+        else:
+            return 2
+        if mode == 'b':
+            return 3
+        else:
+            return 4
+    """
+    assert list(_a11(_a11_project(project, body))) == ['src/pkg/mod.py::run::if:mode#1', 'src/pkg/mod.py::run::if:mode#2']
+
+
+def test_a11_drops_a_chain_the_assert_never_rule_flags(project: Project) -> None:
+    assert _a11(_a11_project(project, A11_STRING_CHAIN)) == {}
+
+
+def test_a11_drops_a_chain_whose_hit_is_accepted(project: Project) -> None:
+    accepted = A11_STRING_CHAIN.replace("if mode == 'a':", "if mode == 'a':  # auditme: accept[assert-never-missing] probe", 1)
+    assert _a11(_a11_project(project, accepted)) == {}
+
+
+def test_a11_id_survives_an_edit_above_and_hash_tracks_the_chain(project: Project) -> None:
+    key = 'src/pkg/mod.py::run::if:mode#1'
+    first = _a11(_a11_project(project, A11_TWO_ARM))[key]
+    above = _a11(_a11_project(project, 'X = 1\n\n\n' + A11_TWO_ARM.lstrip('\n')))[key]
+    assert above.hash == first.hash
+    inside = _a11(_a11_project(project, A11_TWO_ARM.replace('return 2', 'return 3')))[key]
+    assert inside.hash != first.hash
+    outside = _a11(_a11_project(project, A11_TWO_ARM.replace('def run(mode):', 'def run(mode):\n    x = 1')))[key]
+    assert outside.hash == first.hash
