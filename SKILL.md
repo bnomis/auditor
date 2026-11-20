@@ -187,13 +187,15 @@ Phase B is **not** free-form reading. It is a fixed checklist applied across eve
 
 This is the cure for failure mode 2. When 24 architecture questions are split across reviewers by file, each reviewer applies a slightly different judgment threshold to its slice of the corpus, and a different threshold to a different question, multiplying variance. With per-question fan-out, one reviewer applies one threshold to one predicate, eliminating cross-question and cross-file judgment drift.
 
-**Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The listed questions are A4, T1, T2, Doc1, Doc2, Doc4 and Doc5. For a listed question, run `checks/phaseb.py` (from the skill directory, with `<root>` the project root) in this order:
+**Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The listed questions are A1, A4, A11, A17, A19, T1, T2, Doc1, Doc2, Doc4 and Doc5. For a listed question, run `checks/phaseb.py` (from the skill directory, with `<root>` the project root) in this order:
 
 1. `phaseb.py plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json`. A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again.
 2. Spawn one reviewer per batch, each given the question's brief (`phaseb/briefs/<Q>.md`, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
 3. `phaseb.py check <dir>` exits 1 and names each batch with a problem. Send a failing batch to a fresh reviewer, up to two retries per batch. A batch still failing after that is reported in the review, never merged.
 4. `phaseb.py merge <root> --question <Q> <dir>` writes the verified results into the project's ledger.
 5. `phaseb.py report <root> --question <Q>` prints the open findings, new and carried.
+
+`--question` accepts each listed question; `--depth` applies to A4 only. A site a sweep rule for the same question reports, accepted or not, is not judged in Phase B, and is judged as new once the hit is fixed.
 
 A listed question's findings are its flagged ledger verdicts, new or carried. A carried finding is not a regression and is never marked "missed by" a review. When the operator dismisses a finding on the review page, record it with `phaseb.py dismiss <root> --question <Q> <id> --reason <text>`.
 
@@ -204,6 +206,8 @@ Every other question is sampled: mark it `(sampled)` in the review. A new site f
 **First audit after the Doc questions were listed.** It judges every Doc candidate. Its findings in unchanged code are catch-up, not regressions; this includes README findings, because Doc5's predicate now covers `README.md` as well as `docs/`. Its Convergence note names the newly listed questions.
 
 **First audit after T1 and T2 were listed.** It judges every T1 and T2 candidate as new. Its findings are coverage, not drift: a candidate with no test case, or a domain with no property test, in unchanged code is catch-up, not a regression. Its Convergence note names T1 and T2 as newly listed.
+
+**First audit after A11, A19, A1 and A17 were listed.** It judges every candidate of those questions as new. Its findings are coverage, not drift: a site in unchanged code is catch-up, not a regression. Its Convergence note names A11, A19, A1 and A17 as newly listed.
 
 Putting a question on the listed path (its lister, brief and tests) is a skill change made between audits, never during one.
 

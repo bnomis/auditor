@@ -38,7 +38,8 @@ cycle later.
 | `test_style_and_naming.py` | the naming, ordering and annotation-style predicates |
 | `test_leading_underscore_binding.py` | `leading-underscore-binding`: every binding shape, the names it leaves to other rules, and the retired regexes staying retired |
 | `test_project_hygiene.py` | ruff, the lockfile, and numbered spec cross-references |
-| `phaseb/` | the listed Phase B path: the A4, T1 and T2 listers and the Doc1, Doc2, Doc4 and Doc5 listers, the `docrefs` sections and name resolution, candidate hash, ledger read, merge and dismiss, batch planning and run checking, the command line, and the briefs |
+| `phaseb/` | the listed Phase B path: the A1, A4, A11, A17, A19, T1 and T2 listers and the Doc1, Doc2, Doc4 and Doc5 listers, the `docrefs` sections and name resolution, candidate hash, ledger read, merge and dismiss, batch planning and run checking, the command line, and the briefs |
+| `phaseb/test_architecture_candidates.py` | the A11, A19, A1 and A17 listers: positive shapes, carve-outs, sweep-hit drops, id stability and content hashes |
 | `phaseb/test_testmap.py`, `phaseb/test_t1_candidates.py`, `phaseb/test_t2_candidates.py` | the test tree index (test files, imports, direct tests, caller routes), and the T1 and T2 listers with their content hashes |
 
 Each predicate has at least one case for the shape it fires on and one for the
