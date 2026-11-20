@@ -32,6 +32,8 @@ Two consecutive audit runs on unchanged code MUST produce the same findings. The
 4. **Predicate drift.** A Phase B question's "should-have-caught" set quietly grew between cycles (e.g., A2 originally meant "missing `OSError`", later expanded to also mean "missing `ParserError`"). Cure: every predicate has a fixed enumeration encoded in this file. Expanding a predicate is a skill change, never a per-cycle adjustment.
 5. **Rule conflict.** Fixing a finding under rule X created a finding under rule Y on the same line (e.g., moving `mkdir` from a callback into `__init__` swaps `A18` for `constructor-disk-io`). Cure: see [Rule conflict resolution](#rule-conflict-resolution).
 
+The convergence rule applies in full to listed questions: a listed question's brief and lister do not change during an audit, and a carried verdict is reused only while its candidate's hash and the brief version are unchanged.
+
 Convergence is non-negotiable. "We found more this time" is the failure signal, not progress.
 
 ## Workflow
@@ -185,6 +187,20 @@ Phase B is **not** free-form reading. It is a fixed checklist applied across eve
 
 This is the cure for failure mode 2. When 24 architecture questions are split across reviewers by file, each reviewer applies a slightly different judgment threshold to its slice of the corpus, and a different threshold to a different question, multiplying variance. With per-question fan-out, one reviewer applies one threshold to one predicate, eliminating cross-question and cross-file judgment drift.
 
+**Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The question with a lister is A4. For a listed question, run `checks/phaseb.py` (from the skill directory, with `<root>` the project root) in this order:
+
+1. `phaseb.py plan <root> --question A4 --out <dir>` writes `batch-NN.jsonl` and `plan.json`. A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again.
+2. Spawn one reviewer per batch, each given the question's brief (`phaseb/briefs/A4.md`, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
+3. `phaseb.py check <dir>` exits 1 and names each batch with a problem. Send a failing batch to a fresh reviewer, up to two retries per batch. A batch still failing after that is reported in the review, never merged.
+4. `phaseb.py merge <root> --question A4 <dir>` writes the verified results into the project's ledger.
+5. `phaseb.py report <root> --question A4` prints the open findings, new and carried.
+
+A listed question's findings are its flagged ledger verdicts, new or carried. A carried finding is not a regression and is never marked "missed by" a review. When the operator dismisses a finding on the review page, record it with `phaseb.py dismiss <root> --question A4 <id> --reason <text>`.
+
+Every other question is sampled: mark it `(sampled)` in the review. A new site found by a sampled question is coverage, not drift.
+
+Putting a question on the listed path (its lister, brief and tests) is a skill change made between audits, never during one.
+
 Rules for reviewers:
 
 - Apply ONE predicate to ALL files. Do not range across questions; do not skip files.
@@ -213,6 +229,7 @@ Before writing the review file, confirm:
 - [ ] Every `accepted: false` hit appears in the review (no sampling, no silent dismissals)
 - [ ] Phase B ran with per-question fan-out covering EVERY question in EVERY category (`--category` was NOT used unless the user explicitly asked for a partial verification)
 - [ ] Every Phase B subagent returned an explicit hit list (or "no hits") - no question silently skipped
+- [ ] Every listed question has a current verdict for every candidate, or the review names each id not judged
 - [ ] Every unresolved `summary.md` finding was re-verified
 - [ ] Every incomplete task file was re-verified against source
 - [ ] No new check was added to `checks/auditme/rules/` during this audit (script-coverage delta is zero)
