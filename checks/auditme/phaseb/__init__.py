@@ -10,14 +10,17 @@ from auditme.phaseb import batches
 from auditme.phaseb.candidates import Candidate, Lister, Verdict, brief_version, list_candidates, question_batch_size, question_brief, register_question
 from auditme.phaseb.errors import PhaseBError
 from auditme.phaseb.ledger import MergeResult, dismiss_verdict, merge_verdicts, read_ledger
+from auditme.phaseb.testmap import TestRef, build_test_map
 
 __all__ = [
     'Candidate',
     'Lister',
     'MergeResult',
     'PhaseBError',
+    'TestRef',
     'Verdict',
     'batches',
+    'build_test_map',
     'brief_version',
     'dismiss_verdict',
     'list_candidates',
