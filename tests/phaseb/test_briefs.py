@@ -43,3 +43,28 @@ def test_brief_with_two_version_lines_is_refused(tmp_path: pathlib.Path) -> None
     brief.write_text('**Brief version:** 1\n\n**Brief version:** 2\n', encoding='utf-8')
     with pytest.raises(phaseb.PhaseBError):
         phaseb.brief_version(brief)
+
+
+def _question_line(question: str) -> str:
+    skill = SKILL.read_text(encoding='utf-8')
+    return next(line for line in skill.splitlines() if line.startswith(f'- **{question}.')).removeprefix('- ')
+
+
+@pytest.mark.parametrize(
+    ('question', 'keys'),
+    [('Doc1', ('stale', 'missing')), ('Doc2', ('stale', 'missing')), ('Doc4', ('drift',)), ('Doc5', ('drift',))],
+)
+def test_doc_brief_holds_question_keys_and_security_rule(question: str, keys: tuple[str, ...]) -> None:
+    brief = phaseb.question_brief(question)
+    text = brief.read_text(encoding='utf-8')
+    assert len(re.findall(r'^\*\*Brief version:\*\* 1$', text, re.MULTILINE)) == 1
+    assert phaseb.brief_version(brief) == 1
+    assert _question_line(question) in text
+    for key in keys:
+        assert f'`{key}`' in text, key
+    for phrase in ('printenv', 'reason', 'unresolved' if question in ('Doc4', 'Doc5') else 'tracked' if question == 'Doc1' else 'declared'):
+        assert phrase in text, phrase
+
+
+def test_doc5_question_covers_readme() -> None:
+    assert 'Drift between `docs/` or `README.md` and `src/`.' in _question_line('Doc5')

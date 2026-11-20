@@ -378,7 +378,7 @@ Assess by reading test files - do not run the suite.
 - **Doc2. AGENTS.md tools and libraries list** is current.
 - **Doc3. README.md and AGENTS.md** consistent.
 - **Doc4. Specs match implementation.** Drift between `agents/specs/` and `src/`.
-- **Doc5. User docs match implementation.** Drift between `docs/` and `src/`.
+- **Doc5. User docs match implementation.** Drift between `docs/` or `README.md` and `src/`.
 
 ## Review template
 
