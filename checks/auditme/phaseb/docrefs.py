@@ -49,6 +49,24 @@ def _code_shaped(token: str) -> str | None:
     return None
 
 
+def is_path_shaped(token: str) -> bool:
+    """True when a code-shaped token names a path: it holds `/` or ends in a known extension."""
+    return '/' in token or token.endswith(PATH_EXTENSIONS)
+
+
+def backticked_tokens(lines: list[str], start: int, end: int) -> list[tuple[int, str]]:
+    """Every backticked token (line, text) between lines `start` and `end`, outside fences."""
+    found: list[tuple[int, str]] = []
+    in_fence = False
+    for number in range(start, end + 1):
+        line = lines[number - 1]
+        if _FENCE_RE.match(line):
+            in_fence = not in_fence
+        elif not in_fence:
+            found.extend((number, match.group(1).strip()) for match in _INLINE_CODE_RE.finditer(line) if match.group(1).strip())
+    return found
+
+
 def _api_fence_name(line: str) -> str | None:
     """Return the name a `def` or `class` line defines, else None."""
     match = _DEF_LINE_RE.match(line)

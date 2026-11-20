@@ -201,3 +201,148 @@ def test_second_call_is_identical(root: pathlib.Path, question: str) -> None:
 def test_registered_with_brief_and_batch_size(question: str) -> None:
     assert phaseb.question_batch_size(question) == 24
     assert phaseb.question_brief(question) == candidates.A4_BRIEF.parent / f'{question}.md'
+
+
+# Doc1 and Doc2
+
+AGENTS = """
+    # Agents
+
+    ## Layout
+
+    ```text
+    src/pkg/
+    docs/
+    ```
+
+    The code is in `src/pkg/mod.py` and the old `src/gone/` tree.
+
+    ## Tools
+
+    Use `ruff` and `Requests` for checks; `mypy`, `pytest`, `hatchling`, `lintme`, `black` and `uv sync`.
+    The `numpy` module is imported and `nothing_here` is not.
+
+    ## Prose
+
+    Plain words only.
+"""
+
+PYPROJECT = """
+    [project]
+    name = "pkg"
+    dependencies = ["requests>=2"]
+
+    [project.optional-dependencies]
+    extra = ["mypy"]
+
+    [dependency-groups]
+    dev = ["pytest", {include-group = "other"}]
+
+    [build-system]
+    requires = ["hatchling"]
+"""
+
+HOOKS = """
+    repos:
+      - repo: local
+        hooks:
+          - id: lintme
+"""
+
+
+@pytest.fixture
+def agents_root(root: pathlib.Path) -> pathlib.Path:
+    write(root, 'AGENTS.md', AGENTS)
+    write(root, 'pyproject.toml', PYPROJECT)
+    write(root, '.pre-commit-config.yaml', HOOKS)
+    write(root, 'src/pkg/uses.py', 'import numpy\nfrom os import path\n')
+    subprocess.run(['git', 'add', '-A'], cwd=root, check=True, capture_output=True)
+    return root
+
+
+def test_doc1_id_and_payload(agents_root: pathlib.Path) -> None:
+    candidate = listed(agents_root, 'Doc1')['AGENTS.md::Agents > Layout']
+    assert candidate.question == 'Doc1'
+    paths = {entry['path']: entry['resolved'] for entry in candidate.payload['paths']}
+    assert paths['src/pkg/mod.py'] == ['src/pkg/mod.py']
+    assert paths['src/gone/'] == []
+    assert 'src/pkg' in candidate.payload['tree']
+    assert all(name.count('/') < 3 for name in candidate.payload['tree'])
+
+
+def test_doc1_skips_section_without_path_or_fence(agents_root: pathlib.Path) -> None:
+    ids = listed(agents_root, 'Doc1')
+    assert 'AGENTS.md::Agents > Prose' not in ids
+    assert 'AGENTS.md::Agents > Tools' not in ids
+
+
+def test_doc1_hash_follows_tracked_directories_only(agents_root: pathlib.Path) -> None:
+    key = 'AGENTS.md::Agents > Layout'
+    before = listed(agents_root, 'Doc1')[key].hash
+    write(agents_root, 'untracked/file.py', 'x = 1\n')
+    assert listed(agents_root, 'Doc1')[key].hash == before
+    subprocess.run(['git', 'add', '-A'], cwd=agents_root, check=True, capture_output=True)
+    assert listed(agents_root, 'Doc1')[key].hash != before
+
+
+def test_doc2_matches_each_inventory(agents_root: pathlib.Path) -> None:
+    candidate = listed(agents_root, 'Doc2')['AGENTS.md::Agents > Tools']
+    matched = {entry['token']: entry['source'] for entry in candidate.payload['matched']}
+    assert matched['Requests'] == 'project.dependencies'
+    assert matched['mypy'] == 'project.optional-dependencies'
+    assert matched['pytest'] == 'dependency-groups'
+    assert matched['hatchling'] == 'build-system.requires'
+    assert matched['lintme'] == 'pre-commit hook'
+    assert matched['numpy'] == 'import'
+    assert 'ruff' in candidate.payload['unmatched']
+    assert 'nothing_here' in candidate.payload['unmatched']
+
+
+def test_doc2_skips_section_without_a_token(agents_root: pathlib.Path) -> None:
+    assert 'AGENTS.md::Agents > Prose' not in listed(agents_root, 'Doc2')
+
+
+def test_doc2_hash_follows_hook_file_and_tables(agents_root: pathlib.Path) -> None:
+    key = 'AGENTS.md::Agents > Tools'
+    before = listed(agents_root, 'Doc2')[key].hash
+    write(agents_root, '.pre-commit-config.yaml', HOOKS + '      - id: other\n')
+    assert listed(agents_root, 'Doc2')[key].hash != before
+
+
+def test_missing_pyproject_and_hook_file_are_not_errors(root: pathlib.Path) -> None:
+    write(root, 'AGENTS.md', AGENTS)
+    candidate = listed(root, 'Doc2')['AGENTS.md::Agents > Tools']
+    assert [entry['token'] for entry in candidate.payload['matched']] == []
+
+
+def test_missing_agents_md_lists_nothing(root: pathlib.Path) -> None:
+    (root / 'AGENTS.md').unlink()
+    assert phaseb.list_candidates('Doc1', root) == []
+    assert phaseb.list_candidates('Doc2', root) == []
+
+
+def test_unparseable_pyproject_raises(agents_root: pathlib.Path) -> None:
+    write(agents_root, 'pyproject.toml', 'not [valid')
+    with pytest.raises(phaseb.PhaseBError):
+        phaseb.list_candidates('Doc2', agents_root)
+
+
+def test_unreadable_hook_file_raises(agents_root: pathlib.Path) -> None:
+    (agents_root / '.pre-commit-config.yaml').unlink()
+    (agents_root / '.pre-commit-config.yaml').mkdir()
+    with pytest.raises(phaseb.PhaseBError):
+        phaseb.list_candidates('Doc2', agents_root)
+
+
+@pytest.mark.parametrize('question', ['Doc1', 'Doc2'])
+def test_failing_git_ls_files_raises(tmp_path: pathlib.Path, question: str) -> None:
+    write(tmp_path, 'AGENTS.md', AGENTS)
+    with pytest.raises(phaseb.PhaseBError):
+        phaseb.list_candidates(question, tmp_path)
+
+
+@pytest.mark.parametrize('question', ['Doc1', 'Doc2'])
+def test_agents_listers_are_registered_and_stable(agents_root: pathlib.Path, question: str) -> None:
+    assert phaseb.question_batch_size(question) == 12
+    assert phaseb.question_brief(question) == candidates.A4_BRIEF.parent / f'{question}.md'
+    assert phaseb.list_candidates(question, agents_root) == phaseb.list_candidates(question, agents_root)

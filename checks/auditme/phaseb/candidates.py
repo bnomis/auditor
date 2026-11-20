@@ -5,8 +5,10 @@ import builtins
 import collections.abc
 import dataclasses
 import hashlib
+import json
 import pathlib
 import re
+import tomllib
 import typing
 
 import auditme.core
@@ -446,3 +448,190 @@ def list_doc5_candidates(scope: pathlib.Path) -> list[Candidate]:
         if (rel := path.relative_to(scope).as_posix()).startswith('docs/') or rel == 'README.md'
     ]
     return doc_candidates('Doc5', scope, documents)
+
+
+AGENTS_BATCH_SIZE = 12
+AGENTS_DOC = 'AGENTS.md'
+HOOK_FILE = '.pre-commit-config.yaml'
+HOOK_ID_RE = re.compile(r'^\s*-\s+id:\s*[\'"]?([^\'"\s]+)')
+REQUIREMENT_NAME_RE = re.compile(r'\s*([A-Za-z0-9][A-Za-z0-9._-]*)')
+TRAILING_CALL_RE = re.compile(r'\(.*\)$')
+
+
+def agents_document(scope: pathlib.Path) -> tuple[pathlib.Path, list[str]] | None:
+    """The root `AGENTS.md` and its lines, or None when the project has none."""
+    path = scope / AGENTS_DOC
+    if not path.exists():
+        return None
+    return path, read_text(path).splitlines()
+
+
+def tracked_directories(index: auditme.phaseb.docrefs.CorpusIndex) -> list[str]:
+    """The tracked directories down to the tree depth, sorted."""
+    return sorted(name for name in index.directories if name.count('/') < auditme.phaseb.docrefs.TREE_DEPTH)
+
+
+@register_question('Doc1', DOC_BRIEFS / 'Doc1.md', AGENTS_BATCH_SIZE)
+def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
+    """List each `AGENTS.md` section that names a path or holds a fence, with the tracked directory tree.
+
+    Raises:
+        PhaseBError: `AGENTS.md` cannot be read, or `git ls-files` fails.
+    """
+    document = agents_document(scope)
+    if document is None:
+        return []
+    path, lines = document
+    index = auditme.phaseb.docrefs.CorpusIndex.build(scope)
+    tree = tracked_directories(index)
+    tree_bytes = '\n'.join(tree).encode('utf-8', errors='surrogateescape')
+    found: list[Candidate] = []
+    for section in auditme.phaseb.docrefs.read_sections(path, scope):
+        text = lines[section.start - 1 : section.end]
+        named = [(number, token) for number, token in section.names if auditme.phaseb.docrefs.is_path_shaped(token)]
+        if not named and not any(FENCE_LINE_RE.match(line) for line in text):
+            continue
+        paths = [
+            {'path': token, 'line': number, 'resolved': [target.id for target in auditme.phaseb.docrefs.resolve_path(token, path, index)]}
+            for number, token in named
+        ]
+        found.append(
+            Candidate(
+                question='Doc1',
+                id=f'{section.doc}::{section.heading_path}',
+                path=section.doc,
+                start=section.start,
+                end=section.end,
+                payload={'paths': paths, 'tree': tree},
+                hash=digest(['\n'.join(text).encode('utf-8'), tree_bytes]),
+            )
+        )
+    return found
+
+
+def normalise_name(name: str) -> str:
+    """The PEP 503 form of a distribution name."""
+    return re.sub(r'[-_.]+', '-', name).lower()
+
+
+def requirement_names(requirements: object) -> set[str]:
+    """Normalised names from a list of requirement strings; non-string entries (group includes) are skipped."""
+    names: set[str] = set()
+    if isinstance(requirements, list):
+        for entry in requirements:
+            match = REQUIREMENT_NAME_RE.match(entry) if isinstance(entry, str) else None
+            if match:
+                names.add(normalise_name(match.group(1)))
+    return names
+
+
+def read_pyproject(scope: pathlib.Path) -> dict[str, typing.Any]:
+    """Parse `pyproject.toml`; empty when absent.
+
+    Raises:
+        PhaseBError: the file exists but cannot be read or parsed.
+    """
+    path = scope / 'pyproject.toml'
+    if not path.exists():
+        return {}
+    try:
+        return tomllib.loads(path.read_bytes().decode('utf-8'))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise PhaseBError(f'cannot read {path}: {error}') from error
+
+
+def declared_tables(pyproject: dict[str, typing.Any]) -> dict[str, dict[str, set[str]] | set[str]]:
+    """The four dependency tables as normalised names, keyed by their TOML location."""
+    project = pyproject.get('project', {})
+    optional = project.get('optional-dependencies', {})
+    groups = pyproject.get('dependency-groups', {})
+    return {
+        'project.dependencies': requirement_names(project.get('dependencies')),
+        'project.optional-dependencies': set().union(*(requirement_names(value) for value in optional.values())) if optional else set(),
+        'dependency-groups': set().union(*(requirement_names(value) for value in groups.values())) if groups else set(),
+        'build-system.requires': requirement_names(pyproject.get('build-system', {}).get('requires')),
+    }
+
+
+def read_hook_file(scope: pathlib.Path) -> bytes:
+    """The bytes of `.pre-commit-config.yaml`; empty when absent.
+
+    Raises:
+        PhaseBError: the file exists but cannot be read.
+    """
+    path = scope / HOOK_FILE
+    if not path.exists():
+        return b''
+    try:
+        return path.read_bytes()
+    except OSError as error:
+        raise PhaseBError(f'cannot read {path}: {error}') from error
+
+
+def imported_modules(scope: pathlib.Path) -> set[str]:
+    """The top-level module names the corpus imports; a file with a syntax error is skipped."""
+    roots = auditme.core._audit_roots(scope)
+    src_root = roots[0] if roots else scope / 'src'
+    modules: set[str] = set()
+    for path in auditme.core._corpus_py_files(scope, src_root):
+        try:
+            tree = ast.parse('\n'.join(auditme.core._source_lines(path)))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules.update(alias.name.split('.')[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                modules.add(node.module.split('.')[0])
+    return modules
+
+
+@register_question('Doc2', DOC_BRIEFS / 'Doc2.md', AGENTS_BATCH_SIZE)
+def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
+    """List each `AGENTS.md` section holding a backticked token, matched against the declared tools.
+
+    Raises:
+        PhaseBError: `AGENTS.md`, `pyproject.toml` or `.pre-commit-config.yaml` exists but cannot be read
+            or parsed, or `git ls-files` fails.
+    """
+    document = agents_document(scope)
+    if document is None:
+        return []
+    path, lines = document
+    auditme.phaseb.docrefs.tracked_files(scope)
+    tables = declared_tables(read_pyproject(scope))
+    hook_bytes = read_hook_file(scope)
+    hooks = {match.group(1) for line in hook_bytes.decode('utf-8', errors='replace').splitlines() if (match := HOOK_ID_RE.match(line))}
+    modules = imported_modules(scope)
+    canonical = json.dumps({key: sorted(value) for key, value in tables.items()}, sort_keys=True).encode('utf-8')
+    found: list[Candidate] = []
+    for section in auditme.phaseb.docrefs.read_sections(path, scope):
+        tokens = auditme.phaseb.docrefs.backticked_tokens(lines, section.start, section.end)
+        if not tokens:
+            continue
+        matched: list[dict[str, typing.Any]] = []
+        unmatched: set[str] = set()
+        for number, token in tokens:
+            words = TRAILING_CALL_RE.sub('', token).split()
+            name = words[0] if words else token
+            source = next((key for key, names in tables.items() if normalise_name(name) in names), None)
+            if source is None and name in hooks:
+                source = 'pre-commit hook'
+            if source is None and name.split('.')[0] in modules:
+                source = 'import'
+            if source is None:
+                unmatched.add(token)
+            else:
+                matched.append({'token': token, 'line': number, 'source': source})
+        found.append(
+            Candidate(
+                question='Doc2',
+                id=f'{section.doc}::{section.heading_path}',
+                path=section.doc,
+                start=section.start,
+                end=section.end,
+                payload={'matched': matched, 'unmatched': sorted(unmatched)},
+                hash=digest(['\n'.join(lines[section.start - 1 : section.end]).encode('utf-8'), canonical, hook_bytes]),
+            )
+        )
+    return found
