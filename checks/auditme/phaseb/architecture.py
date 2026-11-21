@@ -273,7 +273,7 @@ def type_source_of(annotation: str | None, aliases: dict[str, str]) -> str | Non
     return next((aliases[name] for name in sorted(names) if name in aliases), None)
 
 
-@candidates.register_question('A11', A11_BRIEF)
+@candidates.register_question('A11', A11_BRIEF, ('unexhausted',))
 def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     """Every if chain, two-way split on a comparison flag and `match` the sweep does not already report."""
     files = parse_audited_files(scope)
@@ -365,7 +365,7 @@ def handler_anchor_lines(handler: ast.ExceptHandler, function: FunctionNode | No
     return lines
 
 
-@candidates.register_question('A19', A19_BRIEF)
+@candidates.register_question('A19', A19_BRIEF, ('handler',))
 def list_a19_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     """Every broad handler and every handler logging `.exception(` that the sweep does not already report."""
     files = parse_audited_files(scope)
@@ -586,7 +586,7 @@ def a1_anchor_lines(site: CallSite) -> list[int]:
     return lines
 
 
-@candidates.register_question('A1', A1_BRIEF)
+@candidates.register_question('A1', A1_BRIEF, ('call',))
 def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     """Every external call in a package with a domain error that the sweep does not already report.
 
@@ -731,7 +731,7 @@ def entry_point_targets(scope: pathlib.Path) -> list[tuple[str, str, str]]:
     return targets
 
 
-@candidates.register_question('A17', A17_BRIEF)
+@candidates.register_question('A17', A17_BRIEF, ('surface',))
 def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     """Every `__init__.py` with an `__all__` or no exports, with who reads from it.
 

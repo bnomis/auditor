@@ -40,7 +40,7 @@ class Verdict:
     id: str
     hash: str  # the candidate hash it was judged against
     brief_version: int
-    findings: dict[str, list[str]]  # A4: {'missing': [...], 'extra': [...]}
+    findings: dict[str, list[str]]  # one list per registered kind
     reason: str
     judged: str  # ISO date
     dismissed: str | None = None  # 'YYYY-MM-DD: <reason>' once the operator dismisses it
@@ -56,18 +56,31 @@ Lister = collections.abc.Callable[[pathlib.Path], list[Candidate]]
 DEFAULT_BATCH_SIZE = 48
 
 REGISTRY: dict[str, tuple[Lister, pathlib.Path, int]] = {}
+KINDS: dict[str, tuple[str, ...]] = {}
 
 
-def register_question(question: str, brief: pathlib.Path, batch_size: int = DEFAULT_BATCH_SIZE) -> collections.abc.Callable[[Lister], Lister]:
-    """Register a candidate lister for a Phase B question, with its brief and batch size.
+def register_question(
+    question: str, brief: pathlib.Path, kinds: tuple[str, ...], batch_size: int = DEFAULT_BATCH_SIZE
+) -> collections.abc.Callable[[Lister], Lister]:
+    """Register a candidate lister for a Phase B question, with its brief, finding kinds and batch size.
 
-    The batch size is how many candidates one reviewer judges when `phaseb.py
-    plan` is not given `--batch-size`; a question whose candidates are costly
-    to judge registers a smaller one.
+    The kinds are the keys of the `findings` object in the question's result
+    line, in the order the brief names them. The batch size is how many
+    candidates one reviewer judges when `phaseb.py plan` is not given
+    `--batch-size`; a question whose candidates are costly to judge registers
+    a smaller one.
+
+    Raises:
+        PhaseBError: kinds is empty or names a kind twice.
     """
+    if not kinds:
+        raise PhaseBError(f'question {question!r} registers no finding kinds')
+    if len(set(kinds)) != len(kinds):
+        raise PhaseBError(f'question {question!r} registers a finding kind twice: {list(kinds)}')
 
     def decorate(lister: Lister) -> Lister:
         REGISTRY[question] = (lister, brief, batch_size)
+        KINDS[question] = tuple(kinds)
         return lister
 
     return decorate
@@ -92,6 +105,16 @@ def question_brief(question: str) -> pathlib.Path:
         PhaseBError: question has no registered lister.
     """
     return registered(question)[1]
+
+
+def question_kinds(question: str) -> tuple[str, ...]:
+    """Return the finding kinds registered for a question.
+
+    Raises:
+        PhaseBError: question has no registered lister.
+    """
+    registered(question)
+    return KINDS[question]
 
 
 def question_batch_size(question: str) -> int:
@@ -281,7 +304,7 @@ def root_candidates(scope: pathlib.Path, src_root: pathlib.Path, depth: int) -> 
     return found
 
 
-@register_question('A4', A4_BRIEF)
+@register_question('A4', A4_BRIEF, ('missing', 'extra'))
 def list_a4_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
     """List every function or method with a `Raises:` section under the audited roots, minus D2's stubs.
 
@@ -418,7 +441,7 @@ def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.P
     return found
 
 
-@register_question('Doc4', DOC_BRIEFS / 'Doc4.md', DOC_BATCH_SIZE)
+@register_question('Doc4', DOC_BRIEFS / 'Doc4.md', ('drift',), batch_size=DOC_BATCH_SIZE)
 def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
     """List the (section, target) pairs of every implemented spec under `agents/specs/`.
 
@@ -435,7 +458,7 @@ def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
     return doc_candidates('Doc4', scope, specs)
 
 
-@register_question('Doc5', DOC_BRIEFS / 'Doc5.md', DOC_BATCH_SIZE)
+@register_question('Doc5', DOC_BRIEFS / 'Doc5.md', ('drift',), batch_size=DOC_BATCH_SIZE)
 def list_doc5_candidates(scope: pathlib.Path) -> list[Candidate]:
     """List the (section, target) pairs of every `docs/**/*.md` and the root `README.md`.
 
@@ -470,7 +493,7 @@ def tracked_directories(index: auditme.phaseb.docrefs.CorpusIndex) -> list[str]:
     return sorted(name for name in index.directories if name.count('/') < auditme.phaseb.docrefs.TREE_DEPTH)
 
 
-@register_question('Doc1', DOC_BRIEFS / 'Doc1.md', AGENTS_BATCH_SIZE)
+@register_question('Doc1', DOC_BRIEFS / 'Doc1.md', ('stale', 'missing'), batch_size=AGENTS_BATCH_SIZE)
 def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
     """List each `AGENTS.md` section that names a path or holds a fence, with the tracked directory tree.
 
@@ -585,7 +608,7 @@ def imported_modules(scope: pathlib.Path) -> set[str]:
     return modules
 
 
-@register_question('Doc2', DOC_BRIEFS / 'Doc2.md', AGENTS_BATCH_SIZE)
+@register_question('Doc2', DOC_BRIEFS / 'Doc2.md', ('stale', 'missing'), batch_size=AGENTS_BATCH_SIZE)
 def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
     """List each `AGENTS.md` section holding a backticked token, matched against the declared tools.
 
@@ -707,7 +730,7 @@ def is_overload(node: FunctionNode) -> bool:
     return any(ast.unparse(decorator).rpartition('.')[2] == 'overload' for decorator in node.decorator_list)
 
 
-@register_question('T1', T1_BRIEF)
+@register_question('T1', T1_BRIEF, ('missing',))
 def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
     """List every function or method whose own body branches, with the tests that reach it.
 
@@ -932,7 +955,7 @@ def referenced_types(annotations: list[ast.expr], package_types: collections.abc
     return found
 
 
-@register_question('T2', T2_BRIEF)
+@register_question('T2', T2_BRIEF, ('missing',))
 def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
     """List every function `is_t2_candidate` accepts, with its types, inverse pairs and tests.
 

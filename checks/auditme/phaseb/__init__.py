@@ -7,7 +7,17 @@ of listers; `PhaseBError` is defined in `errors.py` and re-exported here.
 """
 
 from auditme.phaseb import architecture, batches
-from auditme.phaseb.candidates import Candidate, Lister, Verdict, brief_version, list_candidates, question_batch_size, question_brief, register_question
+from auditme.phaseb.candidates import (
+    Candidate,
+    Lister,
+    Verdict,
+    brief_version,
+    list_candidates,
+    question_batch_size,
+    question_brief,
+    question_kinds,
+    register_question,
+)
 from auditme.phaseb.errors import PhaseBError
 from auditme.phaseb.ledger import MergeResult, dismiss_verdict, merge_verdicts, read_ledger
 from auditme.phaseb.testmap import TestRef, build_test_map
@@ -28,6 +38,7 @@ __all__ = [
     'merge_verdicts',
     'question_batch_size',
     'question_brief',
+    'question_kinds',
     'read_ledger',
     'register_question',
 ]
