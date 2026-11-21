@@ -1,6 +1,6 @@
 # Project setup
 
-**Version:** 1.5
+**Version:** 1.6
 **Status:** implemented
 **Date:** 2026-10-31
 
@@ -68,6 +68,11 @@ design, not the project:
   first, passed. The same tree gave two answers, the disagreement 1.4 was
   written to stop. The operator chose on 2026-11-01 that the checker prefers
   the project's own ruff.
+- **The Stop hook passes silently when the installed checker is missing**
+  (amendment 1.6, found 2026-11-21 in the survey made before the checker
+  moved out of the agents repository). The hook blocked only on exit 1, so a
+  missing or dangling `~/.claude/skills/auditme` (status 2) or no `python3`
+  (status 127) turned the end-of-session audit off without a word.
 
 ## Module location
 
@@ -192,6 +197,8 @@ matches the other skills in `claude/skills/`, with
 | Sweep timeout, exception, non-JSON line, or an `auditme-check-crash` hit | exit 1 naming the cause |
 | Unaccepted hits in scope | exit 1, listing them |
 | Stop hook: project not opted in, or `stop_hook_active` already true | exit 0, no output |
+| Stop hook: installed `changed.py` missing or a dangling link (1.6) | block, naming the path and `bin/install-claude.py` |
+| Stop hook: `changed.py` exits other than 0 or 1 (1.6) | block, carrying the status and output |
 | `install-claude.py`: `~/.claude/settings.json` is not valid JSON | refuse, naming the file; nothing written |
 | `audit.py`: `<scope-root>` is not a directory (1.2) | `ERROR: <scope> is not a directory`, exit 2 |
 | `audit.py`: no package under `src/` and no extra root (1.2) | notice on stderr, exit 0 |
@@ -414,6 +421,10 @@ url."git@github-agents:bnomis/agents.git".insteadOf
 - Otherwise it runs `python3 -I ~/.claude/skills/auditme/checks/changed.py`; on
   exit 1 it prints the Claude Code block decision (`{"decision": "block",
   "reason": ...}`, built with `jq -Rs`) carrying the runner's report.
+- When `changed.py` is not a file (missing, or a dangling link) it blocks
+  without running it, with a reason naming the path and
+  `bin/install-claude.py`; on any status other than 0 and 1 it blocks with the
+  status and the output, since `changed.py` itself exits only 0 or 1 (1.6).
 
 It runs the **installed** checker, not the project's pinned one: it is the
 earliest warning, and the binding gates - the commit hook and CI - run the pinned

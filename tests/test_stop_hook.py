@@ -71,3 +71,46 @@ def test_silent_outside_a_repository(tmp_path: pathlib.Path) -> None:
 def test_silent_when_runner_passes(tmp_path: pathlib.Path) -> None:
     result = run(make_home(tmp_path, 0), make_repo(tmp_path, True), {})
     assert (result.returncode, result.stdout) == (0, '')
+
+
+def checker_path(home: pathlib.Path) -> pathlib.Path:
+    return home / '.claude' / 'skills' / 'auditme' / 'checks' / 'changed.py'
+
+
+def assert_missing_checker_block(result: subprocess.CompletedProcess[str], home: pathlib.Path) -> None:
+    assert result.returncode == 0
+    decision = json.loads(result.stdout)
+    assert decision['decision'] == 'block'
+    assert str(checker_path(home)) in decision['reason']
+    assert 'bin/install-claude.py' in decision['reason']
+
+
+def test_blocks_when_checker_missing(tmp_path: pathlib.Path) -> None:
+    home = tmp_path / 'home'
+    home.mkdir()
+    result = run(home, make_repo(tmp_path, True), {})
+    assert_missing_checker_block(result, home)
+
+
+def test_blocks_when_checker_link_dangles(tmp_path: pathlib.Path) -> None:
+    home = tmp_path / 'home'
+    checker_path(home).parent.mkdir(parents=True)
+    checker_path(home).symlink_to(tmp_path / 'gone' / 'changed.py')
+    result = run(home, make_repo(tmp_path, True), {})
+    assert_missing_checker_block(result, home)
+
+
+def test_blocks_when_checker_cannot_run(tmp_path: pathlib.Path) -> None:
+    result = run(make_home(tmp_path, 2), make_repo(tmp_path, True), {})
+    assert result.returncode == 0
+    decision = json.loads(result.stdout)
+    assert decision['decision'] == 'block'
+    assert 'exit 2' in decision['reason']
+    assert REPORT.rstrip('\n') in decision['reason']
+
+
+def test_missing_checker_passes_when_stop_hook_active(tmp_path: pathlib.Path) -> None:
+    home = tmp_path / 'home'
+    home.mkdir()
+    result = run(home, make_repo(tmp_path, True), {'stop_hook_active': True})
+    assert (result.returncode, result.stdout) == (0, '')

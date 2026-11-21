@@ -177,8 +177,19 @@ python3 -I "$HOME/.claude/skills/auditme/checks/changed.py"
 When that exits `1` it prints `{"decision": "block", "reason": "<report>"}`,
 and Claude Code keeps the turn going with the report as the reason. Since
 `changed.py` exits `1` on a failed sweep as well as on hits, a sweep that
-cannot run also blocks. The hook itself always exits `0` and writes nothing
-to disk.
+cannot run also blocks.
+
+It also blocks when the checker never ran, so a broken install cannot turn
+the audit off without a word:
+
+- when `~/.claude/skills/auditme/checks/changed.py` is missing or a dangling
+  link, it blocks without running it, naming the path; run
+  `bin/install-claude.py` in this repository to install it again;
+- when `changed.py` exits with any status other than `0` or `1` (for example
+  `127` for no `python3`), it blocks with the status and the output.
+
+As with every block, it blocks at most once in a row. The hook itself always
+exits `0` and writes nothing to disk.
 
 Requires `jq`, `git` and `python3` on `PATH`. Environment: `HOME`.
 
