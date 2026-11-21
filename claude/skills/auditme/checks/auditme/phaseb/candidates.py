@@ -148,6 +148,7 @@ def list_candidates(question: str, root: pathlib.Path, depth: int | None = None)
 
     Raises:
         PhaseBError: question has no registered lister.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     lister, _, _ = registered(question)
     found = lister(root) if depth is None else lister(root, depth)  # type: ignore[call-arg]

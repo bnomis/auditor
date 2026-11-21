@@ -126,7 +126,7 @@ every later task's Definition of Done uses.
 
 ## Task 4: Complete a Raises section and the missing annotations
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F9, F11
@@ -135,17 +135,17 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Add `RootsError` to the `Raises:` section of `list_candidates` in `claude/skills/auditme/checks/auditme/phaseb/candidates.py`
-- [ ] Annotate `**kwargs` in `core.emit` (`core.py:41`), `maybe_emit_layering` (`rules/imports_and_surfaces.py:465`) and the two nested `walk_non_nested` helpers (`rules/state_and_effects.py:377`, `:651`)
+- [x] Add `RootsError` to the `Raises:` section of `list_candidates` in `claude/skills/auditme/checks/auditme/phaseb/candidates.py`
+- [x] Annotate `**kwargs` in `core.emit` (`core.py:41`), `maybe_emit_layering` (`rules/imports_and_surfaces.py:465`) and the two nested `walk_non_nested` helpers (`rules/state_and_effects.py:377`, `:651`)
 
 **Acceptance Criteria:**
 
-- [ ] `ruff check --select ANN claude/skills/auditme/checks` reports nothing outside test files
+- [x] `ruff check --select ANN claude/skills/auditme/checks` reports nothing outside test files
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/phaseb/test_model.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/phaseb/test_model.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

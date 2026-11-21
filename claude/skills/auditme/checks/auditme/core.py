@@ -38,7 +38,7 @@ def is_test_relpath(rel: str) -> bool:
     return 'tests' in path.parts[:-1] or path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py'
 
 
-def emit(related: list[str] | None = None, **kwargs) -> None:
+def emit(related: list[str] | None = None, **kwargs: object) -> None:
     """Print one hit. `related` names the other files a cross-file hit compares
     against (repository-relative, sorted, de-duplicated); it is omitted when
     empty so every other hit serialises as before."""

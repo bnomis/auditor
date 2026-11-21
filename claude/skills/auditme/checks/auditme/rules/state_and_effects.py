@@ -374,7 +374,7 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
 
             # Walk only the direct body (and its nested statements) but not
             # nested function definitions
-            def walk_non_nested(n):
+            def walk_non_nested(n: ast.AST) -> collections.abc.Iterator[ast.AST]:
                 for sub in ast.iter_child_nodes(n):
                     if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
                         continue
@@ -648,7 +648,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
             if not (node.name.startswith('build_') or node.name.startswith('compute_')):
                 continue
 
-            def walk_non_nested(n):
+            def walk_non_nested(n: ast.AST) -> collections.abc.Iterator[ast.AST]:
                 for sub in ast.iter_child_nodes(n):
                     if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
                         continue

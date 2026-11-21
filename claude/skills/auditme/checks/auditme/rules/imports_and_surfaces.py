@@ -462,7 +462,16 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
                 maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name, rank, accepted, package_root_name)
 
 
-def maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name, rank, accepted, package_root_name):
+def maybe_emit_layering(
+    rel: str,
+    lines: list[str],
+    lineno: int,
+    importer_pkg: str,
+    module_name: str,
+    rank: dict[str, int],
+    accepted: set[tuple[str, str]],
+    package_root_name: str,
+) -> None:
     if not module_name.startswith(package_root_name + '.'):
         return
     parts = module_name.split('.')
