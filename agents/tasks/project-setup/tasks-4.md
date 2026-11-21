@@ -30,7 +30,7 @@ and the last task runs every test tree the change can reach.
 
 ## Task 1: Read the declared roots
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Implementation - Declared audit roots (1.11); Error handling (the 1.11 rows)
@@ -42,25 +42,25 @@ call site changed.
 
 **Subtasks:**
 
-- [ ] Check the starting point: `grep -rnwE 'ROOT_MODULES|RootsError|declared_roots' claude/skills/auditme/checks` finds nothing; if it does, stop the list as `blocked`, naming what exists
-- [ ] In `claude/skills/auditme/checks/auditme/core.py`: a `RootsError(Exception)`, and `declared_roots(scope) -> list[tuple[pathlib.Path, str]] | None` that reads `<scope>/pyproject.toml` with `tomllib`, returns `None` when the file or the `[tool.auditme]` table is absent, and otherwise each `(scope / path, mode)` in order, `mode` defaulting to `package`
-- [ ] Validation, each raising `RootsError` with the spec's message: `[tool.auditme]` not a table; `roots` not a list of tables; an entry with no `path`, an unknown key, or a `modules` other than `package` or `top-level`; a root that does not exist or holds no `.py` file (for a `top-level` root, no `.py` file directly in it); two `package` roots where one contains the other; a `top-level` root inside a `package` root. Invalid TOML raises `RootsError` only when the file's text contains `[tool.auditme`; otherwise `declared_roots` returns `None`
-- [ ] `ROOT_MODULES: types.MappingProxyType[pathlib.Path, str]`, empty by default, rebound (never mutated) whenever `_audit_roots()` reads declared roots
-- [ ] `_audit_roots(scope)`: the declared roots when `declared_roots` returns a list, else today's packages under `src/` then extras
-- [ ] `_all_py_files(root)`: for a root `ROOT_MODULES` marks `top-level`, the `.py` files directly in it, sorted; otherwise unchanged
-- [ ] `module_dotted(path, root)`: for a `top-level` root, the parts below the root without the root's name (`audit.py` is `audit`); otherwise unchanged
-- [ ] `corpus_py_files(scope, root)`: the files of every declared root when roots are declared; otherwise unchanged
-- [ ] New `claude/skills/auditme/tests/test_roots.py`: a declared list is returned in order and replaces `src/` and `bin/`; a `top-level` root sweeps only its own files, named by stem, and a package inside it only as its own root; a `package` root names modules after the root; no table, and no `pyproject.toml`, give today's roots; every error row raises `RootsError` with its message; invalid TOML without `[tool.auditme` gives the defaults; `corpus_py_files` spans the declared roots
+- [x] Check the starting point: `grep -rnwE 'ROOT_MODULES|RootsError|declared_roots' claude/skills/auditme/checks` finds nothing; if it does, stop the list as `blocked`, naming what exists
+- [x] In `claude/skills/auditme/checks/auditme/core.py`: a `RootsError(Exception)`, and `declared_roots(scope) -> list[tuple[pathlib.Path, str]] | None` that reads `<scope>/pyproject.toml` with `tomllib`, returns `None` when the file or the `[tool.auditme]` table is absent, and otherwise each `(scope / path, mode)` in order, `mode` defaulting to `package`
+- [x] Validation, each raising `RootsError` with the spec's message: `[tool.auditme]` not a table; `roots` not a list of tables; an entry with no `path`, an unknown key, or a `modules` other than `package` or `top-level`; a root that does not exist or holds no `.py` file (for a `top-level` root, no `.py` file directly in it); two `package` roots where one contains the other; a `top-level` root inside a `package` root. Invalid TOML raises `RootsError` only when the file's text contains `[tool.auditme`; otherwise `declared_roots` returns `None`
+- [x] `ROOT_MODULES: types.MappingProxyType[pathlib.Path, str]`, empty by default, rebound (never mutated) whenever `_audit_roots()` reads declared roots
+- [x] `_audit_roots(scope)`: the declared roots when `declared_roots` returns a list, else today's packages under `src/` then extras
+- [x] `_all_py_files(root)`: for a root `ROOT_MODULES` marks `top-level`, the `.py` files directly in it, sorted; otherwise unchanged
+- [x] `module_dotted(path, root)`: for a `top-level` root, the parts below the root without the root's name (`audit.py` is `audit`); otherwise unchanged
+- [x] `corpus_py_files(scope, root)`: the files of every declared root when roots are declared; otherwise unchanged
+- [x] New `claude/skills/auditme/tests/test_roots.py`: a declared list is returned in order and replaces `src/` and `bin/`; a `top-level` root sweeps only its own files, named by stem, and a package inside it only as its own root; a `package` root names modules after the root; no table, and no `pyproject.toml`, give today's roots; every error row raises `RootsError` with its message; invalid TOML without `[tool.auditme` gives the defaults; `corpus_py_files` spans the declared roots
 
 **Acceptance Criteria:**
 
-- [ ] Each case in `test_roots.py` passes
-- [ ] A project with no `[tool.auditme]` gets exactly the roots it got before (the existing `test_driver.py` passes unchanged)
+- [x] Each case in `test_roots.py` passes
+- [x] A project with no `[tool.auditme]` gets exactly the roots it got before (the existing `test_driver.py` passes unchanged)
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
