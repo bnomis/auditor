@@ -465,7 +465,7 @@ helpers and full import paths.
 
 ## Task 14: Accept the approved lines, reach zero, restore the gates
 
-**Status:** in-progress
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** A1-A12; the TODO item's Fix direction
@@ -477,21 +477,21 @@ on, and the backlog item is closed.
 
 - [x] Add a scoped `# auditme: accept[<rule>] <reason>` marker, with the review's reason, on each line items A1 to A12 name
 - [x] Run the sweep: if any unaccepted hit remains that no task or item covers, stop the list as `blocked`, listing each by rule and `path:line`; do not accept it
-- [ ] `.pre-commit-config.yaml`: restore `auditme-changed` to `stages: [pre-commit]` and `auditme-all` to `stages: [manual, pre-push]`, removing the pause comments
-- [ ] Move "Fix or accept this repository's audit backlog" to the end of `DONE.md`: heading and body unchanged, then `Done: <date> - agents/reviews/audit-backlog-2026-11-21.md and agents/tasks/reviews/tasks-1.md; the sweep reports no unaccepted hit, and both gates are back on.`
-- [ ] Say in the task's report that the repository is ready for its first audit (`/auditme`), and do not start it
+- [x] `.pre-commit-config.yaml`: restore `auditme-changed` to `stages: [pre-commit]` and `auditme-all` to `stages: [manual, pre-push]`, removing the pause comments
+- [x] Move "Fix or accept this repository's audit backlog" to the end of `DONE.md`: heading and body unchanged, then `Done: <date> - agents/reviews/audit-backlog-2026-11-21.md and agents/tasks/reviews/tasks-1.md; the sweep reports no unaccepted hit, and both gates are back on.`
+- [x] Say in the task's report that the repository is ready for its first audit (`/auditme`), and do not start it
 
 **Acceptance Criteria:**
 
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `.pre-commit-config.yaml` has both gates back on
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `.pre-commit-config.yaml` has both gates back on
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
-- [ ] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, with `<baseline>` the `TODO.md` of the commit that added this task list (`git show $(git log --diff-filter=A --format=%H -- agents/tasks/reviews/tasks-1.md):TODO.md`)
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, with `<baseline>` the `TODO.md` of the commit that added this task list (`git show $(git log --diff-filter=A --format=%H -- agents/tasks/reviews/tasks-1.md):TODO.md`)
 
 **Notes:**
 
