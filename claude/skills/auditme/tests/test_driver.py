@@ -102,7 +102,7 @@ def test_a_project_with_no_root_runs_only_the_project_level_checks_once(
         calls.append('project')
         auditme.core._emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
 
-    monkeypatch.setattr(auditme.registry, 'CHECKS', (per_root_check, project_level_check))
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (per_root_check,))
     monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (project_level_check,))
     root = project({'docs/index.md': '# Notes\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
@@ -120,7 +120,7 @@ def test_a_crashing_project_level_check_with_no_root_is_reported(
     def exploding_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         raise RuntimeError('predicate is broken')
 
-    monkeypatch.setattr(auditme.registry, 'CHECKS', (exploding_check,))
+    monkeypatch.setattr(auditme.registry, 'CHECKS', ())
     monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (exploding_check,))
     root = project({'docs/index.md': '# Notes\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
@@ -130,11 +130,31 @@ def test_a_crashing_project_level_check_with_no_root_is_reported(
     assert [(record['rule'], record['variant']) for record in records] == [('auditme-check-crash', 'exploding_check')]
 
 
-def test_the_project_level_checks_are_registered_checks_in_registry_order() -> None:
-    """PROJECT_CHECKS is a subset of CHECKS, so a project with a root still runs each."""
-    positions = [auditme.registry.CHECKS.index(check) for check in auditme.registry.PROJECT_CHECKS]
-    assert positions == sorted(positions)
+def test_the_project_level_checks_are_not_per_root_checks() -> None:
+    """A per-root pass would repeat a check that reads only the project."""
     assert {check.__name__ for check in auditme.registry.PROJECT_CHECKS} == {'check_lockfile', 'check_ruff_version'}
+    assert not set(auditme.registry.PROJECT_CHECKS) & set(auditme.registry.CHECKS)
+
+
+def test_with_three_roots_each_project_level_check_runs_once(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def per_root_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        calls.append(f'root:{src_root.name}')
+
+    def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        calls.append('project')
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (per_root_check,))
+    monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (project_level_check,))
+    root = project({'src/a/m.py': 'x = 1\n', 'src/b/m.py': 'x = 1\n', 'src/c/m.py': 'x = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    assert calls == ['project', 'root:a', 'root:b', 'root:c']
 
 
 def test_a_project_with_no_python_gets_its_ruff_pin_checked(

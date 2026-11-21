@@ -43,7 +43,7 @@ def defined_check_names() -> set[str]:
 
 
 def registered_check_names() -> list[str]:
-    return [check.__name__ for check in auditme.registry.CHECKS]
+    return [check.__name__ for check in (*auditme.registry.CHECKS, *auditme.registry.PROJECT_CHECKS)]
 
 
 def test_every_defined_check_is_registered() -> None:

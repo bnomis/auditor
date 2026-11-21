@@ -333,11 +333,13 @@ never audited.
 
 **Project-level checks without a root (1.8).** `auditme.registry` names the
 checks that read only the project, never the root they are handed, as
-`PROJECT_CHECKS`: `check_lockfile` and `check_ruff_version`. Each is also in
-`CHECKS`, in the same order, so a project with a root runs them as before
-and its output is unchanged. With no root, the driver runs `PROJECT_CHECKS`
-alone, once, passing the scope as the unused root, with the same crash
-isolation as a pass. The checks that read `AGENTS.md` and the spec-drift
+`PROJECT_CHECKS`: `check_lockfile` and `check_ruff_version`. Neither is in
+`CHECKS`: the driver runs `PROJECT_CHECKS` once, before the per-root passes,
+passing the scope as the unused root, with the same crash isolation as a
+pass, whether or not the project has a root. (Amended 2026-11-21: they were
+also in `CHECKS` and so ran once per root; they now run once, and their hits
+come before the per-root passes' hits, so emission order changed.)
+The checks that read `AGENTS.md` and the spec-drift
 check are not among them: they judge or accept Python definitions and hits,
 so with no Python they have nothing to compare.
 

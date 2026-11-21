@@ -78,6 +78,7 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     if not pyproject.exists() or not uvlock.exists():
         return
     try:
+        # auditme: accept[subprocess-without-memoisation] a PROJECT_CHECKS entry: the driver runs it once per sweep
         result = subprocess.run(['uv', 'lock', '--check'], capture_output=True, text=True, cwd=scope)
         # A user-level `exclude-newer` that the lock was not made with re-resolves
         # it on this machine only; CI, without that config, sees no drift. Only
@@ -188,6 +189,7 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         return
     try:
         ruff, label = ruff_executable(scope)
+        # auditme: accept[subprocess-without-memoisation] a PROJECT_CHECKS entry: the driver runs it once per sweep
         result = subprocess.run([ruff, '--version'], capture_output=True, text=True, cwd=scope)
     except FileNotFoundError:
         return

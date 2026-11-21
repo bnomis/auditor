@@ -128,7 +128,6 @@ CHECKS = (
     check_reexport_in_non_init,
     check_dataclass_optional_always_set,
     check_dead_local_init,
-    check_lockfile,
     check_duplicated_word,
     check_missing_raises_section,
     check_subprocess_without_memoisation,
@@ -149,13 +148,12 @@ CHECKS = (
     check_from_import,
     check_typing_deprecated_alias,
     check_raises_section_drift,
-    check_ruff_version,
 )
 
 # The checks that read only the project, never the root they are handed. The
-# driver runs these alone, once, when a project has no root to audit, so a
-# project with no Python still has its lockfile and ruff pin checked. Each is
-# also in CHECKS, in the same order.
+# driver runs these once, before the per-root passes, whether or not the
+# project has a root, so a project with no Python still has its lockfile and
+# ruff pin checked. None is in CHECKS: a per-root pass would repeat it.
 PROJECT_CHECKS = (
     check_lockfile,
     check_ruff_version,

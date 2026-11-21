@@ -182,8 +182,6 @@ def main() -> int:
         roots = default_roots
         if not roots:
             print('audit.py: no package under src/ and no extra root; running the project-level checks only', file=sys.stderr)
-            # These read only the project, so the scope stands in for the root
-            # they ignore.
             for check in auditme.registry.PROJECT_CHECKS:
                 run_check(check, scope, scope)
             return 0
@@ -192,6 +190,11 @@ def main() -> int:
         if not root.exists():
             print(f'ERROR: {root} not found', file=sys.stderr)
             return 2
+
+    # These read only the project, so the scope stands in for the root they
+    # ignore. They run once, not once per root.
+    for check in auditme.registry.PROJECT_CHECKS:
+        run_check(check, scope, scope)
 
     # One pass per root, rather than one pass over src/ itself. src_root.name
     # is the package's dotted root: six checks build module names as

@@ -259,7 +259,7 @@ misreads, and `in-function-import` labels declared-root modules first-party.
 
 ## Task 8: P1 - project-level checks run once
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** P1
@@ -269,19 +269,19 @@ sweep in every project, not once per root.
 
 **Subtasks:**
 
-- [ ] `auditme.registry`: remove both from `CHECKS`; `audit.py` runs `PROJECT_CHECKS` once, before the per-root passes, whether or not there is a root (the no-root path stays as it is)
-- [ ] Update amendment 1.8's sentence in `agents/specs/project-setup/spec.md` ("Each is also in `CHECKS`") with a dated note that they now run once and that hit order changed
-- [ ] Tests in `test_driver.py`: with three roots each project-level check runs once; the no-root case is unchanged
-- [ ] Run the sweep and record the count in the commit body
+- [x] `auditme.registry`: remove both from `CHECKS`; `audit.py` runs `PROJECT_CHECKS` once, before the per-root passes, whether or not there is a root (the no-root path stays as it is)
+- [x] Update amendment 1.8's sentence in `agents/specs/project-setup/spec.md` ("Each is also in `CHECKS`") with a dated note that they now run once and that hit order changed
+- [x] Tests in `test_driver.py`: with three roots each project-level check runs once; the no-root case is unchanged
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] `subprocess-without-memoisation` no longer fires on `check_lockfile` and `check_ruff_version`
+- [x] `subprocess-without-memoisation` no longer fires on `check_lockfile` and `check_ruff_version`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_project_hygiene.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_project_hygiene.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
