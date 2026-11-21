@@ -38,6 +38,68 @@ found something new and no cycle converged.
 
 ## Open
 
+### The Phase B test index reads tests only from `src/tests/` and `tests/`
+
+- **Raised:** 2026-11-21, by this repository's own first full audit (review-1).
+- **What happens:** `TEST_TREES = ('src/tests', 'tests')` in
+  `checks/auditme/phaseb/testmap.py` fixes where the T1 and T2 listers look
+  for tests. A project whose tests sit elsewhere, and are declared as an audit
+  root in `[tool.auditme]`, gets an empty test map: every T1 and T2 candidate
+  carries empty `tests` and `test_files`, so the reviewers either judge from
+  test files the lister never named or rule each candidate untested. In that
+  audit every candidate of the first T1 batch had both lists empty, though the
+  tests under the declared root import those modules.
+- **Asked for:** read test files from every audit root as well as the default
+  trees (a file is a test by `is_test_relpath`, as the sweep already decides),
+  so a declared test root reaches the index; leave the defaults for a project
+  that declares nothing.
+
+### Settle the thresholds review-1's reviewers left open
+
+- **Raised:** 2026-11-21, by this repository's own first full audit (review-1, decision D1).
+- **What happens:** each brief tells its reviewer to report, not decide, a
+  threshold it does not settle, and the reviewers of that audit reported
+  these, so each is judged case by case and can be judged differently in
+  another batch:
+  - A1: whether a handler that catches only `OSError` covers a
+    `subprocess.run(..., check=False)` call with no timeout, which can raise
+    nothing else; and whether a function that turns a read failure into a
+    problem it returns to its caller, by design, translates it.
+  - A4: whether an error reaches a caller through a call dispatched by a
+    registry lookup (`REGISTRY[question](...)`), as it does through a
+    `functools.singledispatch` generic.
+  - T1: whether a test that runs a script by path as a subprocess counts as
+    a caller test for a `script` candidate (the brief names only `runpy` and
+    `spec_from_file_location`); whether a call made inside a `conftest.py`
+    fixture is the test's own call; and whether passing a function as a
+    callable argument to the code under test covers it.
+  - Doc4: whether a spec's header `**Date:**` dates its sections; whether an
+    implemented spec's account of its own change (its briefs at "version 1",
+    its list of listed questions) drifts once later changes move on; whether
+    a statement that work is part of a `TODO.md` item drifts once the item
+    moves to `DONE.md`; whether a present-tense sentence in a bullet that
+    starts "found <date>" is dated; and whether a table recording one
+    change's version bumps is a dated record.
+  - Doc5: whether a parenthetical list or a list of exit conditions claims
+    to be complete, and whether a broad "any existing file" claim drifts
+    when the code asks about named files only.
+- **Asked for:** settle each in its brief, bumping the brief's version, so
+  every reviewer applies the same threshold.
+
+### A9 should not read a registered check's `check_` name as a purity promise
+
+- **Raised:** 2026-11-21, by this repository's own first full audit (review-1, decision D3).
+- **What happens:** A9 lists `check_` among the pure prefixes. In the
+  checker's registry (`checks/auditme/registry.py`) `check_` is the naming
+  convention for a check, and every check reads the tree and prints hits, so
+  that audit's A9 reported every registered check (68 sites), all dismissed
+  for that one reason. Any project whose `check_*` functions validate by
+  reading meets the same conflict.
+- **Asked for:** a refinement (a narrowing): a function registered as a
+  check, by the project's registry or a decorator that registers it, is not
+  read as pure-named. The refinement names the positive evidence (the
+  registration), not the prefix alone.
+
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.
