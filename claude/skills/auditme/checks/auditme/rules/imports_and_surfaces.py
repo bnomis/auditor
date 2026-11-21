@@ -1,27 +1,26 @@
 """Checks on import graphs and package public surfaces."""
 
 import ast
+import collections
 import collections.abc
 import pathlib
 import re
-from collections import defaultdict
 
 import auditme.core
-from auditme.core import _accept_reason, _accepted_lazy_imports, _all_py_files, _emit, _relpath, _source_lines, _type_checking_linenos
 
 IMPORT_ERROR_NAMES = frozenset({'ImportError', 'ModuleNotFoundError'})
 
 
 def check_def_class_in_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name != '__init__.py':
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         for idx, raw in enumerate(lines, 1):
             if re.match(r'^(def |class )', raw):
-                accept = _accept_reason(lines, idx, rule='def-class-in-init')
-                _emit(
+                accept = auditme.core.accept_reason(lines, idx, rule='def-class-in-init')
+                auditme.core.emit(
                     rule='def-class-in-init',
                     variant='top-level def or class in __init__.py',
                     path=rel,
@@ -135,17 +134,17 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
     (`[tool.auditme]`, either mode) is first-party, not only the importer's own
     package, so an import between two declared roots is labelled as one.
     """
-    accepted_pairs = _accepted_lazy_imports(scope)
-    for path in _all_py_files(src_root):
+    accepted_pairs = auditme.core.accepted_lazy_imports(scope)
+    for path in auditme.core.all_py_files(src_root):
         if path.name == '__init__.py':
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
-        type_checking_linenos = _type_checking_linenos(tree)
+        type_checking_linenos = auditme.core.type_checking_linenos(tree)
         importerror_linenos: set[int] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Try):
@@ -176,14 +175,14 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                     imported_names = [n.name for n in inner.names]
                 else:
                     imported_names = [inner.module or '']
-                accept = _accept_reason(lines, inner.lineno, rule='in-function-import')
+                accept = auditme.core.accept_reason(lines, inner.lineno, rule='in-function-import')
                 for imported in imported_names:
                     pair_accepted = any(importer_module.startswith(a) and imported.startswith(b) for (a, b) in accepted_pairs)
                     if pair_accepted:
                         accept = accept or f'AGENTS.md accepted ({importer_module} -> {imported})'
                     top = imported.split('.')[0]
                     variant = 'stdlib' if top in _STDLIB else ('first-party' if top in first_party else 'third-party')
-                    _emit(
+                    auditme.core.emit(
                         rule='in-function-import',
                         variant=variant,
                         path=rel,
@@ -195,9 +194,9 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
 
 
 def check_unused_submodule_imports(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -218,8 +217,8 @@ def check_unused_submodule_imports(scope: pathlib.Path, src_root: pathlib.Path) 
                 root_name = alias.name.split('.')[0]
                 if re.search(rf'\b{re.escape(root_name)}\.', remainder):
                     continue
-                accept = _accept_reason(lines, node.lineno, rule='unused-submodule-import')
-                _emit(
+                accept = auditme.core.accept_reason(lines, node.lineno, rule='unused-submodule-import')
+                auditme.core.emit(
                     rule='unused-submodule-import',
                     variant='import X.Y.Z never referenced',
                     path=rel,
@@ -284,9 +283,9 @@ def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """
     if not _project_bans_as_imports(scope):
         return
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -308,8 +307,8 @@ def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 else:
                     variant = 'from M import X as Y'
                     statement = f'from {"." * node.level}{node.module or ""} import {alias.name} as {alias.asname}'
-                accept = _accept_reason(lines, node.lineno, rule='as-import')
-                _emit(
+                accept = auditme.core.accept_reason(lines, node.lineno, rule='as-import')
+                auditme.core.emit(
                     rule='as-import',
                     variant=variant,
                     path=rel,
@@ -344,11 +343,11 @@ def check_from_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     its AGENTS.md - a gate there would silence the check on every project the
     rule governs.
     """
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name == '__init__.py':
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -360,8 +359,8 @@ def check_from_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 continue
             module = f'{"." * node.level}{node.module or ""}'
             names = ', '.join(alias.name for alias in node.names)
-            accept = _accept_reason(lines, node.lineno, getattr(node, 'end_lineno', None), rule='from-import')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, getattr(node, 'end_lineno', None), rule='from-import')
+            auditme.core.emit(
                 rule='from-import',
                 variant='from X import Y outside an __init__.py',
                 path=rel,
@@ -433,8 +432,8 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
     rank = {pkg: i for i, pkg in enumerate(layer_order)}
     package_root_name = src_root.name  # e.g. 'pkg'
 
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
         # importer's package is the first component under src_root
         rel_parts = path.relative_to(src_root).parts
         if len(rel_parts) < 2:
@@ -442,12 +441,12 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
         importer_pkg = rel_parts[0]
         if importer_pkg not in rank:
             continue
-        lines = _source_lines(path)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
-        tc_linenos = _type_checking_linenos(tree)
+        tc_linenos = auditme.core.type_checking_linenos(tree)
         for node in ast.walk(tree):
             module_name = None
             if isinstance(node, ast.Import):
@@ -478,8 +477,8 @@ def _maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name, rank, ac
         return  # downward or equal; fine
     if (importer_pkg, imported_pkg) in accepted:
         return
-    accept = _accept_reason(lines, lineno, rule='layering-violation')
-    _emit(
+    accept = auditme.core.accept_reason(lines, lineno, rule='layering-violation')
+    auditme.core.emit(
         rule='layering-violation',
         variant=f'{importer_pkg} imports {imported_pkg} (upward)',
         path=rel,
@@ -501,9 +500,9 @@ def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     positional and keyword arguments (`table.get(name, name)` computes), and
     a function with any decorator is skipped, since a decorator registers it
     for something else (a fixture, a command, a route)."""
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -536,8 +535,8 @@ def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             # skip self.<method>(args) - that's typical delegation, not a shim
             if call_src.startswith('self.'):
                 continue
-            accept = _accept_reason(lines, node.lineno, rule='passthrough-shim')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='passthrough-shim')
+            auditme.core.emit(
                 rule='passthrough-shim',
                 variant=f'{node.name} is a pass-through wrapper for {call_src}',
                 path=rel,
@@ -560,7 +559,7 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
     separate comment-only line. Any line containing
     ``# auditme: accept <reason>`` accepts the file."""
     init_files: dict[pathlib.Path, int] = {}
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name != '__init__.py':
             continue
         # Skip the top-level package init (parent is src_root itself)
@@ -589,20 +588,20 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
     for path, count in init_files.items():
         if count != 0:
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         # File-level finding: scan every line for an `# auditme: accept`
-        # marker. The standard line-bracketed `_accept_reason` only checks
+        # marker. The standard line-bracketed `accept_reason` only checks
         # the hit line and its predecessor, but a docstring-only
         # `__init__.py` cannot host an inline comment on the docstring
         # line itself - the marker has to land on a comment-only line
         # somewhere in the file.
         accept: str | None = None
         for ln in range(1, len(lines) + 1):
-            accept = _accept_reason(lines, ln, rule='empty-init-while-siblings-export')
+            accept = auditme.core.accept_reason(lines, ln, rule='empty-init-while-siblings-export')
             if accept:
                 break
-        _emit(
+        auditme.core.emit(
             rule='empty-init-while-siblings-export',
             variant=f'{path.parent.name}/__init__.py exports 0 symbols; siblings export up to {sibling_max}',
             path=rel,
@@ -624,16 +623,16 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     """
     package_root_name = src_root.name
     # canonical_home: dict[symbol_name -> set[canonical_module_dotted_path]]
-    canonical_home: dict[str, set[str]] = defaultdict(set)
+    canonical_home: dict[str, set[str]] = collections.defaultdict(set)
     # shims: dict[shim_module_dotted_path -> set[(symbol, canonical_module)]]
-    shims: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    shims: dict[str, set[tuple[str, str]]] = collections.defaultdict(set)
 
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        rel = _relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         # mod path like 'pkg.models.settings'
         rel_parts = path.relative_to(src_root).parts
         if rel_parts[-1] == '__init__.py':
@@ -663,8 +662,8 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     # Now walk all imports project-wide; for each symbol with an established
     # canonical home AND a known shim, find any consumer that reads the
     # symbol via the shim's module path.
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -677,7 +676,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
             consumer_mod = package_root_name + '.' + '.'.join(rel_parts)[:-3]
         if consumer_mod in shims:
             continue
-        lines = _source_lines(path)
+        lines = auditme.core.source_lines(path)
         for node in ast.walk(tree):
             # Pattern 1: `from <shim_mod> import X` where X has a canonical home elsewhere
             if isinstance(node, ast.ImportFrom) and node.module:
@@ -685,8 +684,8 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
                     for alias in node.names:
                         for sym, canonical_mod in shims[node.module]:
                             if alias.name == sym and canonical_mod != node.module:
-                                accept = _accept_reason(lines, node.lineno, rule='migration-shim-consumer')
-                                _emit(
+                                accept = auditme.core.accept_reason(lines, node.lineno, rule='migration-shim-consumer')
+                                auditme.core.emit(
                                     rule='migration-shim-consumer',
                                     variant=f'imports `{sym}` via shim `{node.module}`; canonical home is `{canonical_mod}`',
                                     path=rel,
@@ -706,8 +705,8 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
                     for sym, canonical_mod in shims[parent_mod]:
                         if attr == sym and canonical_mod != parent_mod:
                             line_no = getattr(node, 'lineno', 1)
-                            accept = _accept_reason(lines, line_no, rule='migration-shim-consumer')
-                            _emit(
+                            accept = auditme.core.accept_reason(lines, line_no, rule='migration-shim-consumer')
+                            auditme.core.emit(
                                 rule='migration-shim-consumer',
                                 variant=f'reads `{sym}` from shim `{parent_mod}`; canonical home is `{canonical_mod}`',
                                 path=rel,
@@ -724,15 +723,15 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
     mid-tree re-export shims fragment the public surface and create
     migration-shim-style consumer drift.
     """
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name == '__init__.py':
             continue
-        rel = _relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        lines = _source_lines(path)
+        lines = auditme.core.source_lines(path)
         for node in tree.body:
             if not isinstance(node, ast.Assign):
                 continue
@@ -749,8 +748,8 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 continue
             # The RHS must be a module path (Attribute of Attribute or Name)
             rhs_src = ast.unparse(node.value)
-            accept = _accept_reason(lines, node.lineno, rule='reexport-in-non-init')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='reexport-in-non-init')
+            auditme.core.emit(
                 rule='reexport-in-non-init',
                 variant=f'`{tgt.id} = {rhs_src}` at module scope in non-__init__.py file',
                 path=rel,
@@ -807,9 +806,9 @@ def check_annotated_all_assignment(scope: pathlib.Path, src_root: pathlib.Path) 
     """
     if not _project_has_all_guard(scope):
         return
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -819,8 +818,8 @@ def check_annotated_all_assignment(scope: pathlib.Path, src_root: pathlib.Path) 
                 continue
             if not isinstance(node.target, ast.Name) or node.target.id != '__all__':
                 continue
-            accept = _accept_reason(lines, node.lineno, rule='annotated-all-assignment')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='annotated-all-assignment')
+            auditme.core.emit(
                 rule='annotated-all-assignment',
                 variant='__all__ is an AnnAssign; a guard matching ast.Assign skips this module',
                 path=rel,

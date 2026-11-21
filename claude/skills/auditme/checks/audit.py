@@ -88,7 +88,6 @@ import sys
 
 import auditme.core
 import auditme.registry
-from auditme.core import _emit
 
 DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditme.core.EXTRA_ROOT_NAMES)
 
@@ -98,7 +97,7 @@ def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None
     try:
         check(scope, root)
     except Exception as exc:
-        _emit(
+        auditme.core.emit(
             rule='auditme-check-crash',
             variant=check.__name__,
             path=None,
@@ -154,7 +153,7 @@ def main() -> int:
     if not args.package:
         # Read first: an invalid declaration must exit before anything is emitted.
         try:
-            default_roots = auditme.core._audit_roots(scope)
+            default_roots = auditme.core.audit_roots(scope)
         except auditme.core.RootsError as exc:
             # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
             print(f'ERROR: {auditme.core.describe_error(exc)}', file=sys.stderr)
@@ -164,8 +163,8 @@ def main() -> int:
         # it. The driver reports it, not a registered check: a check runs once
         # per root, and a project holding only src/a.py has none.
         for path in auditme.core.loose_src_modules(scope):
-            reason = auditme.core._accept_reason(auditme.core._source_lines(path), 1, rule='src-loose-module')
-            _emit(
+            reason = auditme.core.accept_reason(auditme.core.source_lines(path), 1, rule='src-loose-module')
+            auditme.core.emit(
                 rule='src-loose-module',
                 variant='module directly under src/, outside any package',
                 path=path.relative_to(scope).as_posix(),

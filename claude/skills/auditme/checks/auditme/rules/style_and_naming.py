@@ -1,11 +1,11 @@
 """Checks on naming, ordering and annotation style."""
 
 import ast
+import collections
 import pathlib
 import re
-from collections import defaultdict
 
-from auditme.core import BARE_GENERIC_NAMES, _accept_reason, _all_py_files, _emit, _relpath, _source_lines, is_dunder_all_assignment
+import auditme.core
 
 # Public stdlib API spelt with a leading underscore, so not private access:
 # `os._exit` (https://docs.python.org/3/library/os.html#os._exit) and the
@@ -114,9 +114,9 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         ('leading-underscore-self', 'self._attr', re.compile(r'\bself\._[a-zA-Z]')),
         ('leading-underscore-attribute-access', 'obj._attr in code or docstring', re.compile(r'[a-zA-Z_][\w]*\._[a-zA-Z]')),
     ]
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         is_init = path.name == '__init__.py'
         format_lines = literal_format_lines(lines)
         code_lines = mask_string_literals(lines)
@@ -133,8 +133,8 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                     continue
                 if rule == 'leading-underscore-attribute-access' and is_stdlib_public_access_only(code_lines[idx - 1]):
                     continue
-                accept = _accept_reason(lines, idx, rule=rule)
-                _emit(
+                accept = auditme.core.accept_reason(lines, idx, rule=rule)
+                auditme.core.emit(
                     rule=rule,
                     variant=variant,
                     path=rel,
@@ -173,9 +173,9 @@ def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> Non
     but do NOT flag strftime directives. Heuristic: if the literal contains
     any strftime token (e.g. `%Y`, `%m`), treat it as a strftime call site."""
     suspect_re = re.compile(r'%[sdrfg]|%\d+[sdrfg]')
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         for idx, raw in enumerate(lines, 1):
             stripped = raw.strip()
             if not stripped or stripped.startswith('#'):
@@ -187,8 +187,8 @@ def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     continue
                 if any(tok in s for tok in _STRFTIME_TOKENS):
                     continue
-                accept = _accept_reason(lines, idx, rule='legacy-formatting-percent')
-                _emit(
+                accept = auditme.core.accept_reason(lines, idx, rule='legacy-formatting-percent')
+                auditme.core.emit(
                     rule='legacy-formatting-percent',
                     variant='%-style C-printf formatting in Python string',
                     path=rel,
@@ -243,9 +243,9 @@ def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) 
     key=ruff_dunder_all_key)`, the order ruff's RUF022 writes. Any other name
     keeps the plain `sorted()` test.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -276,10 +276,10 @@ def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) 
             actual = [m.value for m in members]
             if actual == sorted(actual):
                 continue
-            if is_dunder_all_assignment(node) and actual == sorted(actual, key=ruff_dunder_all_key):
+            if auditme.core.is_dunder_all_assignment(node) and actual == sorted(actual, key=ruff_dunder_all_key):
                 continue
-            accept = _accept_reason(lines, node.lineno, rule='non-alphabetical-literal')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='non-alphabetical-literal')
+            auditme.core.emit(
                 rule='non-alphabetical-literal',
                 variant='string members not alphabetically sorted',
                 path=rel,
@@ -300,9 +300,9 @@ def check_non_alphabetical_dict_keys(scope: pathlib.Path, src_root: pathlib.Path
     scorer, error-code to message, etc.) should be alphabetised unless
     the order carries semantic meaning.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -321,8 +321,8 @@ def check_non_alphabetical_dict_keys(scope: pathlib.Path, src_root: pathlib.Path
             actual = [k.value for k in keys]
             if actual == sorted(actual):
                 continue
-            accept = _accept_reason(lines, node.lineno, rule='non-alphabetical-dict-keys')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='non-alphabetical-dict-keys')
+            auditme.core.emit(
                 rule='non-alphabetical-dict-keys',
                 variant='dict with string keys not alphabetically sorted',
                 path=rel,
@@ -345,8 +345,8 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
       - class / module-level AnnAssign targets
       - local AnnAssign targets inside function bodies
     """
-    for path in _all_py_files(src_root):
-        _check_bare_parametric_annotation_in_file(_relpath(path, scope), _source_lines(path))
+    for path in auditme.core.all_py_files(src_root):
+        _check_bare_parametric_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path))
 
 
 def _check_bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> None:
@@ -365,13 +365,13 @@ def _check_bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> Non
             if isinstance(node, ast.Subscript):
                 # parametric; if slice is `dict` itself that's fine too, stop
                 return
-            if isinstance(node, ast.Name) and node.id in BARE_GENERIC_NAMES:
+            if isinstance(node, ast.Name) and node.id in auditme.core.BARE_GENERIC_NAMES:
                 lineno = getattr(node, 'lineno', None)
                 if lineno is None or lineno in reported:
                     return
                 reported.add(lineno)
-                accept = _accept_reason(lines, lineno, rule='bare-parametric-annotation')
-                _emit(
+                accept = auditme.core.accept_reason(lines, lineno, rule='bare-parametric-annotation')
+                auditme.core.emit(
                     rule='bare-parametric-annotation',
                     variant=f'{ctx} uses bare `{node.id}` without element type',
                     path=rel,
@@ -406,9 +406,9 @@ def _check_bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> Non
 
 def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     dup_re = re.compile(r'\b([a-z]{2,})\s+\1\b', re.IGNORECASE)
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         for idx, raw in enumerate(lines, 1):
             m = dup_re.search(raw)
             if not m:
@@ -419,8 +419,8 @@ def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             s = raw.strip()
             if not (s.startswith('#') or '"""' in raw or "'''" in raw or '"' in raw or "'" in raw):
                 continue
-            accept = _accept_reason(lines, idx, rule='duplicated-word')
-            _emit(
+            accept = auditme.core.accept_reason(lines, idx, rule='duplicated-word')
+            auditme.core.emit(
                 rule='duplicated-word',
                 variant=f'duplicated word {word!r}',
                 path=rel,
@@ -461,8 +461,8 @@ def check_bare_nonbuiltin_generic_annotation(scope: pathlib.Path, src_root: path
     Builtin generics (`dict`/`list`/`tuple`/`set`/`frozenset`) are
     handled by `check_bare_parametric_annotation` and skipped here.
     """
-    for path in _all_py_files(src_root):
-        _check_bare_nonbuiltin_generic_annotation_in_file(_relpath(path, scope), _source_lines(path))
+    for path in auditme.core.all_py_files(src_root):
+        _check_bare_nonbuiltin_generic_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path))
 
 
 def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]) -> None:
@@ -499,8 +499,8 @@ def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]
         if lineno is None or lineno in reported:
             return
         reported.add(lineno)
-        accept = _accept_reason(lines, lineno, rule='bare-nonbuiltin-generic-annotation')
-        _emit(
+        accept = auditme.core.accept_reason(lines, lineno, rule='bare-nonbuiltin-generic-annotation')
+        auditme.core.emit(
             rule='bare-nonbuiltin-generic-annotation',
             variant=f'bare `{full}` annotation without type parameter',
             path=rel,
@@ -524,7 +524,7 @@ def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]
 def _collect_name_loads(scope: ast.AST) -> dict[str, list[int]]:
     """Return a map of Name.id -> [lineno, ...] for every Load within
     `scope` (not descending into nested function or class definitions)."""
-    result: dict[str, list[int]] = defaultdict(list)
+    result: dict[str, list[int]] = collections.defaultdict(list)
 
     def walk(n: ast.AST) -> None:
         for sub in ast.iter_child_nodes(n):
@@ -570,9 +570,9 @@ def check_underscore_unpack_target_read(scope: pathlib.Path, src_root: pathlib.P
       - `_foo` appears as `ast.Name(ctx=Load)` somewhere later in the
         same function (or module scope if at module level).
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -601,8 +601,8 @@ def check_underscore_unpack_target_read(scope: pathlib.Path, src_root: pathlib.P
                         reads_after = [ln for ln in loads.get(name, []) if ln > lineno]
                         if not reads_after:
                             continue
-                        accept = _accept_reason(lines, lineno, rule='underscore-unpack-target-read')
-                        _emit(
+                        accept = auditme.core.accept_reason(lines, lineno, rule='underscore-unpack-target-read')
+                        auditme.core.emit(
                             rule='underscore-unpack-target-read',
                             variant=f'`{name}` unpacked but read at line {reads_after[0]}',
                             path=rel,
@@ -623,9 +623,9 @@ def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.
       - The same name appears as `ast.Name(ctx=Load)` within the loop's
         body statements (not nested function defs).
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -647,8 +647,8 @@ def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.
             for name, lineno in underscore_targets:
                 if name not in body_loads:
                     continue
-                accept = _accept_reason(lines, lineno, rule='underscore-forloop-target-read')
-                _emit(
+                accept = auditme.core.accept_reason(lines, lineno, rule='underscore-forloop-target-read')
+                auditme.core.emit(
                     rule='underscore-forloop-target-read',
                     variant=f'for-loop target `{name}` read inside body',
                     path=rel,
@@ -718,9 +718,9 @@ def check_leading_underscore_nested_def_class(scope: pathlib.Path, src_root: pat
     instances which had been invisible across many audit cycles while the
     rule reported almost none.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -745,8 +745,8 @@ def check_leading_underscore_nested_def_class(scope: pathlib.Path, src_root: pat
             if name in module_level_names:
                 continue
             lineno = node.lineno
-            accept = _accept_reason(lines, lineno, rule='leading-underscore-def-class')
-            _emit(
+            accept = auditme.core.accept_reason(lines, lineno, rule='leading-underscore-def-class')
+            auditme.core.emit(
                 rule='leading-underscore-def-class',
                 variant=f'{kind} {name} nested inside a function body',
                 path=rel,
@@ -829,16 +829,16 @@ def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path
     Raised as a request by an audit (shipped 2026-10-05) whose S2 found
     many such sites across its test modules.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
         for name, lineno, kind in sorted(_leading_underscore_bindings(tree), key=lambda item: (item[1], item[0])):
-            accept = _accept_reason(lines, lineno, rule='leading-underscore-binding')
-            _emit(
+            accept = auditme.core.accept_reason(lines, lineno, rule='leading-underscore-binding')
+            auditme.core.emit(
                 rule='leading-underscore-binding',
                 variant=f'{kind} `{name}`',
                 path=rel,
@@ -911,9 +911,9 @@ def check_typing_deprecated_alias(scope: pathlib.Path, src_root: pathlib.Path) -
     `typing.Protocol`, `typing.TypeVar`.
     """
     rule = 'typing-deprecated-alias'
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -926,8 +926,8 @@ def check_typing_deprecated_alias(scope: pathlib.Path, src_root: pathlib.Path) -
             elif isinstance(node, ast.ImportFrom) and node.module == 'typing' and node.level == 0:
                 found.update((node.lineno, alias.name) for alias in node.names if alias.name in _TYPING_DEPRECATED_ALIASES)
         for lineno, name in sorted(found):
-            accept = _accept_reason(lines, lineno, rule=rule)
-            _emit(
+            accept = auditme.core.accept_reason(lines, lineno, rule=rule)
+            auditme.core.emit(
                 rule=rule,
                 variant=f'typing.{name} -> {_TYPING_DEPRECATED_ALIASES[name]}',
                 path=rel,

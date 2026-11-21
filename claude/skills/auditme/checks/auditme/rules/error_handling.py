@@ -1,25 +1,14 @@
 """Checks on exception handling, error translation and failure reporting."""
 
 import ast
+import collections
 import collections.abc
 import contextlib
 import pathlib
 import re
 import typing
-from collections import defaultdict
 
-from auditme.core import (
-    _accept_reason,
-    _all_py_files,
-    _emit,
-    _relpath,
-    _source_lines,
-    _walk_within_scope,
-    call_bindings,
-    module_dotted,
-    reexport_aliases,
-    resolve_call,
-)
+import auditme.core
 
 BARE_HANDLER_MARK = '*bare*'
 ERRORS_MODULE_NAMES = frozenset({'__init__.py', 'errors.py'})
@@ -43,9 +32,9 @@ def is_broad_handler(handler: ast.ExceptHandler) -> bool:
 
 
 def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -60,8 +49,8 @@ def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> No
             has_raise = any(isinstance(c, ast.Raise) for c in ast.walk(node))
             if has_log or has_raise:
                 continue
-            accept = _accept_reason(lines, node.lineno, rule='silent-broad-except')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='silent-broad-except')
+            auditme.core.emit(
                 rule='silent-broad-except',
                 variant='no logger and no raise in body',
                 path=rel,
@@ -113,9 +102,9 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
     patterns are skipped without emitting a hit. See
     ``_is_categorical_class_name_expr``.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -144,8 +133,8 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                                 break
                             seen_linenos.add(key)
                             end_ln = stmt_end.get(inner.lineno)
-                            accept = _accept_reason(lines, inner.lineno, end_ln, rule='except-interpolation')
-                            _emit(
+                            accept = auditme.core.accept_reason(lines, inner.lineno, end_ln, rule='except-interpolation')
+                            auditme.core.emit(
                                 rule='except-interpolation',
                                 variant='f-string interpolates caught exception',
                                 path=rel,
@@ -167,8 +156,8 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                                     continue
                                 seen_linenos.add(key)
                                 end_ln = stmt_end.get(inner.lineno)
-                                accept = _accept_reason(lines, inner.lineno, end_ln, rule='except-interpolation')
-                                _emit(
+                                accept = auditme.core.accept_reason(lines, inner.lineno, end_ln, rule='except-interpolation')
+                                auditme.core.emit(
                                     rule='except-interpolation',
                                     variant='logger positional arg is caught exception',
                                     path=rel,
@@ -189,9 +178,9 @@ def check_broad_except_wrong_level(scope: pathlib.Path, src_root: pathlib.Path) 
     `warning` and by `logger-exception-graceful-degradation` at `exception`.
     SKILL.md's "Conflicts with no winner" rules on it: remove or narrow the
     handler rather than change its level."""
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -205,8 +194,8 @@ def check_broad_except_wrong_level(scope: pathlib.Path, src_root: pathlib.Path) 
             wrong_level = re.search(r'\b(logger|loguru\.logger|logging)\.(warning|error|info|debug)\(', body_src)
             if not wrong_level:
                 continue
-            accept = _accept_reason(lines, node.lineno, rule='broad-except-wrong-level')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='broad-except-wrong-level')
+            auditme.core.emit(
                 rule='broad-except-wrong-level',
                 variant='broad except logs at warning/error/info/debug instead of exception',
                 path=rel,
@@ -223,9 +212,9 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
     A common architecture smell: half the invariants raise PipelineError,
     half raise stdlib RuntimeError - callers cannot establish a clean
     catch envelope."""
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -233,7 +222,7 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            raised_types: dict[str, list[int]] = defaultdict(list)
+            raised_types: dict[str, list[int]] = collections.defaultdict(list)
             for inner in ast.walk(node):
                 if isinstance(inner, ast.Raise) and isinstance(inner.exc, ast.Call):
                     fn = inner.exc.func
@@ -257,9 +246,9 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
                 continue
             # Emit ONE finding per function, listing every raise site
             sample_line = sorted(min(v) for v in raised_types.values())[0]
-            accept = _accept_reason(lines, sample_line, rule='mixed-raise-types')
+            accept = auditme.core.accept_reason(lines, sample_line, rule='mixed-raise-types')
             evidence = f'{node.name}: raises {sorted(raised_types.keys())}'
-            _emit(
+            auditme.core.emit(
                 rule='mixed-raise-types',
                 variant=f'{node.name} mixes stdlib ({sorted(mixed_with_stdlib)}) with project errors ({sorted(project_excs)})',
                 path=rel,
@@ -288,12 +277,12 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     # function_index key is full dotted path (e.g. 'pkg.registry.runs.setup_experiment')
     package_root_name = src_root.name
 
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        rel = _relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         rel_parts = path.relative_to(src_root).parts
         if rel_parts[-1] == '__init__.py':
             mod = package_root_name + '.' + '.'.join(rel_parts[:-1]) if len(rel_parts) > 1 else package_root_name
@@ -309,15 +298,15 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     # Second pass: for every call to a known function, check the surrounding
     # context. If every call site in the project is inside a `try: ...
     # except <something>:` block AND the function itself has no try, flag.
-    call_sites: dict[str, list[tuple[str, int, bool]]] = defaultdict(list)
+    call_sites: dict[str, list[tuple[str, int, bool]]] = collections.defaultdict(list)
     # key: callee full dotted path; value: list of (caller_path, lineno, is_wrapped)
 
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        rel = _relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         # Track which nodes are inside a try block
         try_descendants: set[int] = set()
         for node in ast.walk(tree):
@@ -374,9 +363,9 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
         if not all(is_wrapped for (_, _, is_wrapped) in sites):
             continue
         # Every call site is wrapped; the function itself has no try.
-        accept = _accept_reason(_source_lines(scope / callee_path), callee_line, rule='asymmetric-exception-translation')
+        accept = auditme.core.accept_reason(auditme.core.source_lines(scope / callee_path), callee_line, rule='asymmetric-exception-translation')
         sites_summary = '; '.join(f'{p}:{n}' for (p, n, _) in sites[:5])
-        _emit(
+        auditme.core.emit(
             related=[p for (p, _, _) in sites],
             rule='asymmetric-exception-translation',
             variant=f'{callee} has no own try/except; all {len(sites)} callers wrap it',
@@ -407,11 +396,11 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
     `RegistryError(Exception)` without making them share a hierarchy.
     Call sites that catch `RegistryError` never catch `SignatureError`.
     """
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name != 'errors.py':
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -451,8 +440,8 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
         # At least two sibling roots. Emit one finding per class whose
         # sibling is not caught together by any call site.
         # Build set of classes actually used in except clauses anywhere in the tree.
-        caught_elsewhere: dict[str, set[str]] = defaultdict(set)
-        for src in _all_py_files(src_root):
+        caught_elsewhere: dict[str, set[str]] = collections.defaultdict(set)
+        for src in auditme.core.all_py_files(src_root):
             try:
                 other_tree = ast.parse(src.read_text(encoding='utf-8'))
             except SyntaxError, UnicodeDecodeError:
@@ -465,7 +454,7 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
                 type_src = ast.unparse(sub.type)
                 for caught in re.findall(r'[a-zA-Z_.][a-zA-Z0-9_.]*', type_src):
                     tail = caught.split('.')[-1]
-                    caught_elsewhere[tail].add(_relpath(src, scope))
+                    caught_elsewhere[tail].add(auditme.core.relpath(src, scope))
         # Find the two classes most likely to belong together: if a class C
         # is caught at site S and a sibling D in the same file is never
         # caught together at S, D leaks.
@@ -474,8 +463,8 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
             continue
         # Emit one finding per file naming all co-defined siblings.
         first_name, first_line, _ = rooted_at_stdlib[0]
-        accept = _accept_reason(lines, first_line, rule='sibling-errors-no-common-base')
-        _emit(
+        accept = auditme.core.accept_reason(lines, first_line, rule='sibling-errors-no-common-base')
+        auditme.core.emit(
             rule='sibling-errors-no-common-base',
             variant=f'{len(sibling_names)} Error classes co-defined with no shared parent: {sorted(sibling_names)}',
             path=rel,
@@ -505,8 +494,8 @@ def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathli
     for path in sorted(cli_dir.rglob('*.py')):
         if path.name == '__init__.py':
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -554,9 +543,9 @@ def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathli
         if has_try:
             continue
         full = scope / rel
-        lines = _source_lines(full)
-        accept = _accept_reason(lines, lineno, rule='cli-entry-missing-error-envelope')
-        _emit(
+        lines = auditme.core.source_lines(full)
+        accept = auditme.core.accept_reason(lines, lineno, rule='cli-entry-missing-error-envelope')
+        auditme.core.emit(
             rule='cli-entry-missing-error-envelope',
             variant=f'{fname} has no top-level try/except',
             path=rel,
@@ -586,9 +575,9 @@ def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Pat
     again. If `RegistryError` escapes from the `with` body (not startup),
     the pipeline runs twice.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -633,8 +622,8 @@ def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Pat
                 }
                 if not overlap:
                     continue
-                accept = _accept_reason(lines, handler.lineno, rule='try-wrapping-with-block-too-broad')
-                _emit(
+                accept = auditme.core.accept_reason(lines, handler.lineno, rule='try-wrapping-with-block-too-broad')
+                auditme.core.emit(
                     rule='try-wrapping-with-block-too-broad',
                     variant=f'except handler re-invokes {sorted(overlap)!r} from the wrapped `with` body',
                     path=rel,
@@ -670,7 +659,7 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
     STDLIB_EXCS = {'ValueError', 'RuntimeError', 'KeyError'}
     # First pass: find every package with a domain error class
     package_has_domain_error: set[tuple[str, ...]] = set()
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name != 'errors.py':
             continue
         try:
@@ -687,14 +676,14 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
         return
 
     # Second pass: walk every module raising stdlib errors
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name in ERRORS_MODULE_NAMES:
             continue
         pkg = path.relative_to(src_root).parts[:-1]
         if pkg not in package_has_domain_error:
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -720,8 +709,8 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
                 exc_name = exc_call.id
             if exc_name not in STDLIB_EXCS:
                 continue
-            accept = _accept_reason(lines, node.lineno, rule='layer-has-domain-error-raises-stdlib')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='layer-has-domain-error-raises-stdlib')
+            auditme.core.emit(
                 rule='layer-has-domain-error-raises-stdlib',
                 variant=f'{pkg[-1] if pkg else "(root)"} package defines *Error classes but this module raises {exc_name}',
                 path=rel,
@@ -750,14 +739,14 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
 
     # Pass 1: for each module-level function, enumerate the *Error classes
     # it raises directly (i.e. not via re-raise of a caught exception).
-    function_raises: dict[str, set[str]] = defaultdict(set)
+    function_raises: dict[str, set[str]] = collections.defaultdict(set)
     function_path_line: dict[str, tuple[str, int]] = {}
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        rel = _relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         rel_parts = path.relative_to(src_root).parts
         if rel_parts[-1] == '__init__.py':
             continue
@@ -781,16 +770,16 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
         return
 
     # Short-name lookup
-    short_to_full: dict[str, set[str]] = defaultdict(set)
+    short_to_full: dict[str, set[str]] = collections.defaultdict(set)
     for key in function_raises:
         short = key.rsplit('.', 1)[-1]
         short_to_full[short].add(key)
 
     # Pass 2: for every call site of a function in function_raises, find
     # the enclosing try/except and the translation target if any.
-    translations: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    translations: dict[str, dict[str, set[str]]] = collections.defaultdict(lambda: collections.defaultdict(set))
     # translations[callee_full][caught_error] = set of translated target classes
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -849,9 +838,9 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
                 continue
             rel, lineno = function_path_line[callee_full]
             full_path = scope / rel
-            lines = _source_lines(full_path)
-            accept = _accept_reason(lines, lineno, rule='inconsistent-error-translation')
-            _emit(
+            lines = auditme.core.source_lines(full_path)
+            accept = auditme.core.accept_reason(lines, lineno, rule='inconsistent-error-translation')
+            auditme.core.emit(
                 rule='inconsistent-error-translation',
                 variant=f'{callee_full} raises {caught}; callers translate to {sorted(targets)}',
                 path=rel,
@@ -954,7 +943,7 @@ def package_class_parents(trees: collections.abc.Iterable[ast.Module]) -> dict[s
     package's own class tree by bare name. Modules are pooled: a class and its
     base may live in different ones. A class with no base maps to an empty set,
     so the keys are exactly the package's top-level class names."""
-    parents: dict[str, set[str]] = defaultdict(set)
+    parents: dict[str, set[str]] = collections.defaultdict(set)
     for tree in trees:
         for node in tree.body:
             if isinstance(node, ast.ClassDef):
@@ -1001,9 +990,9 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     makes no such promise, so skipping a file on a decode error is not a gap.
     A bare `raise` re-raises the original and does not translate.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1064,8 +1053,8 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 else:
                     with contextlib.suppress(Exception):
                         caught.append(ast.unparse(h.type))
-            accept = _accept_reason(lines, lineno, rule='filesystem-envelope-gap')
-            _emit(
+            accept = auditme.core.accept_reason(lines, lineno, rule='filesystem-envelope-gap')
+            auditme.core.emit(
                 rule='filesystem-envelope-gap',
                 variant=f'try block touches filesystem (download/from_pretrained/etc.) but except tuple {caught!r} omits OSError',
                 path=rel,
@@ -1085,7 +1074,7 @@ def enveloped_functions(tree: ast.Module) -> set[str]:
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        for sub in _walk_within_scope(node):
+        for sub in auditme.core.walk_within_scope(node):
             if not isinstance(sub, ast.Try):
                 continue
             for handler in sub.handlers:
@@ -1153,7 +1142,7 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
     }
     # First pass: find every package with a domain error class
     package_has_domain_error: set[tuple[str, ...]] = set()
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name != 'errors.py':
             continue
         try:
@@ -1170,8 +1159,8 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
 
     # For each package with a domain error, collect the names exported
     # from its `__init__.py` (via __all__ or re-exports).
-    package_exports: dict[tuple[str, ...], set[str]] = defaultdict(set)
-    for path in _all_py_files(src_root):
+    package_exports: dict[tuple[str, ...], set[str]] = collections.defaultdict(set)
+    for path in auditme.core.all_py_files(src_root):
         if path.name != '__init__.py':
             continue
         pkg = path.relative_to(src_root).parts[:-1]
@@ -1193,14 +1182,14 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
                 for alias in node.names:
                     package_exports[pkg].add(alias.asname or alias.name)
 
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if path.name in ERRORS_MODULE_NAMES:
             continue
         pkg = path.relative_to(src_root).parts[:-1]
         if pkg not in package_has_domain_error:
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1240,8 +1229,8 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
                     continue
                 if inner.lineno in try_linenos:
                     continue
-                accept = _accept_reason(lines, inner.lineno, rule='filesystem-op-without-envelope')
-                _emit(
+                accept = auditme.core.accept_reason(lines, inner.lineno, rule='filesystem-op-without-envelope')
+                auditme.core.emit(
                     rule='filesystem-op-without-envelope',
                     variant=f'{func.name} calls `{short}` with no surrounding try/except in the function body',
                     path=rel,
@@ -1297,9 +1286,9 @@ def check_logger_exception_graceful_degradation(
                 best = (start, ann)
         return best[1] if best else None
 
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1351,8 +1340,8 @@ def check_logger_exception_graceful_degradation(
             ret_ann = _enclosing_return_annotation(tree, lineno)
             if ret_ann is not None and ret_ann.strip() == 'int':
                 continue
-            accept = _accept_reason(lines, lineno, rule='logger-exception-graceful-degradation')
-            _emit(
+            accept = auditme.core.accept_reason(lines, lineno, rule='logger-exception-graceful-degradation')
+            auditme.core.emit(
                 rule='logger-exception-graceful-degradation',
                 variant=('except handler calls logger.exception then returns a constant default; use logger.warning or logger.debug instead'),
                 path=rel,
@@ -1413,9 +1402,9 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
         r'([A-Za-z_][\w.]*Error)',
         re.MULTILINE,
     )
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1445,8 +1434,8 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
             if actual & declared:
                 continue  # intersection non-empty => at least one documented match
             # Every actual raise is not in declared list => mismatch
-            accept = _accept_reason(lines, node.lineno, rule='docstring-raises-mismatch')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='docstring-raises-mismatch')
+            auditme.core.emit(
                 rule='docstring-raises-mismatch',
                 variant=f'{node.name} docstring declares `Raises: {sorted(declared)}` but body raises {sorted(actual)}',
                 path=rel,
@@ -1547,8 +1536,8 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
         re.MULTILINE,
     )
     parsed: list[tuple[pathlib.Path, list[str], ast.Module]] = []
-    for path in _all_py_files(src_root):
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        lines = auditme.core.source_lines(path)
         try:
             parsed.append((path, lines, ast.parse('\n'.join(lines))))
         except SyntaxError:
@@ -1557,7 +1546,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
     for path, lines, tree in parsed:
         if path.name == '__init__.py' or path.name == 'errors.py':
             continue
-        rel = _relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -1594,8 +1583,8 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
                 break
             if not found_project_raise:
                 continue
-            accept = _accept_reason(lines, node.lineno, rule='missing-raises-section')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='missing-raises-section')
+            auditme.core.emit(
                 rule='missing-raises-section',
                 variant=f'{node.name} raises a project *Error but docstring lacks a Raises: section',
                 path=rel,
@@ -1620,9 +1609,9 @@ def check_bare_except_in_module_with_narrow_errors(scope: pathlib.Path, src_root
         is referenced as an `ast.Name`.
       - Flag the bare-except sites, not the narrow ones.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1653,8 +1642,8 @@ def check_bare_except_in_module_with_narrow_errors(scope: pathlib.Path, src_root
         if not (narrow_errors_tuple_seen and bare_handlers):
             continue
         for handler in bare_handlers:
-            accept = _accept_reason(lines, handler.lineno, rule='bare-except-in-module-with-narrow-errors')
-            _emit(
+            accept = auditme.core.accept_reason(lines, handler.lineno, rule='bare-except-in-module-with-narrow-errors')
+            auditme.core.emit(
                 rule='bare-except-in-module-with-narrow-errors',
                 variant='bare except Exception in module that elsewhere uses *_ERRORS tuple',
                 path=rel,
@@ -1710,7 +1699,7 @@ def _records_visible_failure(stmts: list[ast.stmt]) -> bool:
     however error-shaped its name.
     """
     for stmt in stmts:
-        for child in [stmt, *_walk_within_scope(stmt)]:
+        for child in [stmt, *auditme.core.walk_within_scope(stmt)]:
             if isinstance(child, ast.Raise):
                 return True
             if isinstance(child, ast.keyword) and child.arg and _FAILURE_WORD_RE.search(child.arg):
@@ -1769,12 +1758,12 @@ def check_failure_as_absence(scope: pathlib.Path, src_root: pathlib.Path) -> Non
     Both remain Phase B's job. This check owns the direct shapes, where a
     verdict needs no judgement.
     """
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         parts = set(path.parts)
         if 'tests' in parts or not (parts & EXTERNAL_ADAPTER_DIRS):
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1791,14 +1780,16 @@ def check_failure_as_absence(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                 continue
             if _records_visible_failure(body):
                 continue
-            for child in [*body, *(c for stmt in body for c in _walk_within_scope(stmt))]:
+            for child in [*body, *(c for stmt in body for c in auditme.core.walk_within_scope(stmt))]:
                 if not isinstance(child, ast.Return):
                     continue
                 label = _clean_absence_return(child)
                 if label is None:
                     continue
-                accept = _accept_reason(lines, child.lineno, rule='failure-as-absence') or _accept_reason(lines, node.lineno, rule='failure-as-absence')
-                _emit(
+                accept = auditme.core.accept_reason(lines, child.lineno, rule='failure-as-absence') or auditme.core.accept_reason(
+                    lines, node.lineno, rule='failure-as-absence'
+                )
+                auditme.core.emit(
                     rule='failure-as-absence',
                     variant=f'{variant} ({label})',
                     path=rel,
@@ -1851,7 +1842,7 @@ def toml_returning_functions(tree: ast.Module) -> set[str]:
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        values = [sub.value for sub in _walk_within_scope(node) if isinstance(sub, ast.Return)]
+        values = [sub.value for sub in auditme.core.walk_within_scope(node) if isinstance(sub, ast.Return)]
         if any(value is not None and is_tomllib_call(value) for value in values) and all(
             value is not None and (is_tomllib_call(value) or isinstance(value, ast.Dict)) for value in values
         ):
@@ -1878,7 +1869,7 @@ def receiver_is_toml_mapping(receiver: ast.expr, scope_node: ast.AST, tree: ast.
         return True
     if not isinstance(receiver, ast.Name):
         return False
-    for stmt in _walk_within_scope(scope_node):
+    for stmt in auditme.core.walk_within_scope(scope_node):
         if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:
             target = stmt.targets[0]
             if isinstance(target, ast.Name) and target.id == receiver.id and is_toml_source(stmt.value, toml_functions):
@@ -1902,7 +1893,7 @@ def receiver_is_toml_mapping(receiver: ast.expr, scope_node: ast.AST, tree: ast.
 def _name_scopes(tree: ast.AST) -> collections.abc.Iterable[ast.AST]:
     """The module and every function and class body, searched separately.
 
-    `_walk_within_scope` prunes at each of these, so a name assigned in one
+    `walk_within_scope` prunes at each of these, so a name assigned in one
     scope is never matched against a use in another, and no node is visited
     twice.
     """
@@ -1925,7 +1916,7 @@ def _name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
     predicate free of flow analysis, at the cost of missing a guard that runs
     too late - a shape Phase B owns.
     """
-    for node in [scope_node, *_walk_within_scope(scope_node)]:
+    for node in [scope_node, *auditme.core.walk_within_scope(scope_node)]:
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'isinstance':
             if node.args and isinstance(node.args[0], ast.Name) and node.args[0].id == name:
                 return True
@@ -1955,7 +1946,7 @@ def _none_hostile_use(scope_node: ast.AST, name: str, assign: ast.Assign) -> str
     question was settled" signal.
     """
     within_assign = {id(n) for n in ast.walk(assign)}
-    for node in _walk_within_scope(scope_node):
+    for node in auditme.core.walk_within_scope(scope_node):
         # `ast.comprehension` carries no lineno; treat it as on the assignment's
         # line so a comprehension over the name is not filtered out as "before".
         if id(node) in within_assign or getattr(node, 'lineno', assign.lineno) < assign.lineno:
@@ -2002,18 +1993,18 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
         but is rare enough that including it would only widen the predicate.
       - Subscripting the result (`x['k']`); see `_none_hostile_use`.
     """
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         if 'tests' in set(path.parts) or path.name.startswith('conftest'):
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
         toml_functions = toml_returning_functions(tree)
         for scope_node in _name_scopes(tree):
-            for stmt in _walk_within_scope(scope_node):
+            for stmt in auditme.core.walk_within_scope(scope_node):
                 if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
                     continue
                 target = stmt.targets[0]
@@ -2029,8 +2020,8 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
                 use = _none_hostile_use(scope_node, target.id, stmt)
                 if use is None:
                     continue
-                accept = _accept_reason(lines, stmt.lineno, rule='get-container-default-then-method-call')
-                _emit(
+                accept = auditme.core.accept_reason(lines, stmt.lineno, rule='get-container-default-then-method-call')
+                auditme.core.emit(
                     rule='get-container-default-then-method-call',
                     variant=f'default {default} does not fire for an explicit null, then {use}',
                     path=rel,
@@ -2107,8 +2098,8 @@ def translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
     Two definitions sharing a short name contribute a union, so a wide envelope
     elsewhere in the package can only ever silence a hit, never invent one.
     """
-    envelopes: dict[str, set[str]] = defaultdict(set)
-    for path in _all_py_files(src_root):
+    envelopes: dict[str, set[str]] = collections.defaultdict(set)
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -2154,7 +2145,7 @@ def _guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> collect
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue
         yield stmt
-        yield from _walk_within_scope(stmt)
+        yield from auditme.core.walk_within_scope(stmt)
 
 
 def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
@@ -2225,9 +2216,9 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     envelopes = translator_envelopes(src_root)
     if not envelopes:
         return
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -2292,8 +2283,8 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             if not gaps:
                 continue
             lineno, callee, missing, site_sources, site_caught = min(gaps, key=lambda gap: gap[0])
-            accept = _accept_reason(lines, lineno, rule='translator-envelope-gap')
-            _emit(
+            accept = auditme.core.accept_reason(lines, lineno, rule='translator-envelope-gap')
+            auditme.core.emit(
                 rule='translator-envelope-gap',
                 variant=(
                     f'{func.name} calls `{callee}` under {", ".join(site_sources)}, whose except tuple {sorted(site_caught - {BARE_HANDLER_MARK})!r} omits {missing!r}'
@@ -2318,7 +2309,8 @@ def _handler_passes_on(handler: ast.ExceptHandler) -> bool:
     """
     bound = handler.name
     return any(
-        isinstance(node, ast.Raise) and (node.exc is None or (isinstance(node.exc, ast.Name) and node.exc.id == bound)) for node in _walk_within_scope(handler)
+        isinstance(node, ast.Raise) and (node.exc is None or (isinstance(node.exc, ast.Name) and node.exc.id == bound))
+        for node in auditme.core.walk_within_scope(handler)
     )
 
 
@@ -2554,13 +2546,13 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     an extra declaration is reported only if it still never reaches the caller.
     """
     modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
-    for path in _all_py_files(src_root):
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
-        modules[module_dotted(path, src_root)] = (path, tree, lines)
+        modules[auditme.core.module_dotted(path, src_root)] = (path, tree, lines)
 
     parents = package_class_parents(tree for _, tree, _ in modules.values())
     package_classes = set(parents)
@@ -2582,8 +2574,8 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         path_of[qualname] = modules[module][0]
 
     known = {qualname: cls for _, qualname, cls, _ in functions}
-    bindings_of = {module: call_bindings(tree, module, path.name == '__init__.py') for module, (path, tree, _) in modules.items()}
-    aliases = reexport_aliases(bindings_of, known)
+    bindings_of = {module: auditme.core.call_bindings(tree, module, path.name == '__init__.py') for module, (path, tree, _) in modules.items()}
+    aliases = auditme.core.reexport_aliases(bindings_of, known)
 
     def ancestors(name: str) -> set[str]:
         return class_lineage(name, parents) - {name}
@@ -2619,7 +2611,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         A chain lists the functions it passes through, outermost first, and ends with
         the function whose section declares the error, or with `''` after the function that raises it.
         """
-        found: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+        found: dict[str, set[tuple[str, ...]]] = collections.defaultdict(set)
         on_path = (*chain, qualname)
         module = module_of[qualname]
         for site, around in nested_call_sites(node_of[qualname]):
@@ -2630,7 +2622,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 continue
             if hop >= SECTIONLESS_DEPTH:
                 continue
-            callee = resolve_call(site, module, known[qualname], bindings_of[module], known, aliases, class_methods=True)
+            callee = auditme.core.resolve_call(site, module, known[qualname], bindings_of[module], known, aliases, class_methods=True)
             if callee is None or callee in on_path:
                 continue
             if 'Raises:' in (ast.get_docstring(node_of[callee]) or ''):
@@ -2661,14 +2653,14 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         path, tree, lines = modules[module]
         imported = bindings_of[module]
 
-        reached: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+        reached: dict[str, set[tuple[str, ...]]] = collections.defaultdict(set)
         for site, around in nested_call_sites(node):
             if isinstance(site, ast.Raise):
                 name = _raised_name(site)
                 if name and is_domain(name) and not caught(name, around):
                     reached[name].add(RAISED_HERE)
                 continue
-            callee = resolve_call(site, module, cls, imported, known, aliases, class_methods=True)
+            callee = auditme.core.resolve_call(site, module, cls, imported, known, aliases, class_methods=True)
             if callee is None or callee == qualname:
                 continue
             if 'Raises:' in (ast.get_docstring(node_of[callee]) or ''):
@@ -2679,16 +2671,16 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 if not caught(name, around):
                     reached[name].update(chains)
 
-        rel = _relpath(path, scope)
-        accept = _accept_reason(lines, node.lineno, rule='raises-section-drift')
+        rel = auditme.core.relpath(path, scope)
+        accept = auditme.core.accept_reason(lines, node.lineno, rule='raises-section-drift')
         evidence = lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''
         for name in sorted(reached):
             if name in declared or ancestors(name) & declared:
                 continue
             chains = reached[name]
             on_chains = {function for chain in chains for function in chain if function}
-            _emit(
-                related=sorted({_relpath(path_of[function], scope) for function in on_chains if path_of[function] != path}),
+            auditme.core.emit(
+                related=sorted({auditme.core.relpath(path_of[function], scope) for function in on_chains if path_of[function] != path}),
                 rule='raises-section-drift',
                 variant=f'{node.name}: Raises: omits {name}, {describe(min(chains, key=lambda chain: (len(chain), chain)))}',
                 path=rel,
@@ -2704,7 +2696,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
             lineage = {name} | ancestors(name)
             if not any(_level_catches(level, lineage) for level in levels):
                 continue
-            _emit(
+            auditme.core.emit(
                 rule='raises-section-drift',
                 variant=f'{node.name}: Raises: declares {name}, which never reaches the caller',
                 path=rel,

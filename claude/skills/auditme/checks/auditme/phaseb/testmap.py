@@ -14,7 +14,7 @@ import typing
 
 import auditme.core
 import auditme.phaseb.candidates
-from auditme.phaseb.errors import PhaseBError
+import auditme.phaseb.errors
 
 TEST_TREES = ('src/tests', 'tests')
 
@@ -54,11 +54,11 @@ def parse_file(path: pathlib.Path, base: pathlib.Path, root: pathlib.Path) -> Pa
         text = path.read_text(encoding='utf-8')
         tree = ast.parse(text)
     except (OSError, UnicodeDecodeError, SyntaxError) as error:
-        raise PhaseBError(f'cannot parse {path}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot parse {path}') from error
     module = auditme.core.module_dotted(path, base)
     return ParsedFile(
         path=path,
-        rel=auditme.core._relpath(path, root),
+        rel=auditme.core.relpath(path, root),
         module=module,
         tree=tree,
         lines=text.splitlines(),
@@ -85,8 +85,8 @@ def source_sites(root: pathlib.Path) -> tuple[list[auditme.phaseb.candidates.Sit
     """
     sites: list[auditme.phaseb.candidates.Site] = []
     parsed: dict[str, ParsedFile] = {}
-    for src_root in auditme.core._audit_roots(root):
-        for path in auditme.core._all_py_files(src_root):
+    for src_root in auditme.core.audit_roots(root):
+        for path in auditme.core.all_py_files(src_root):
             if is_test_path(path, root):
                 continue
             file = parse_file(path, src_root, root)
@@ -275,7 +275,7 @@ class TestIndex:
         stem = f'test_{source.stem}.py'
         candidates = {(*parts[:-1], stem), (*parts[1:-1], stem)}
         return sorted(
-            auditme.core._relpath(path, self.root)
+            auditme.core.relpath(path, self.root)
             for tree_root in test_tree_roots(self.root)
             for names in candidates
             for path in [tree_root.joinpath(*names)]

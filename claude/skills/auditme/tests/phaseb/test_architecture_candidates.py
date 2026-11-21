@@ -51,12 +51,12 @@ def test_capture_hits_includes_accepted_hits(project: Project) -> None:
 
 def test_capture_hits_restores_emitted_and_prints_nothing(project: Project, capsys: pytest.CaptureFixture[str]) -> None:
     root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': SILENT})
-    auditme.core._EMITTED.clear()
-    auditme.core._EMITTED.add('earlier')
+    auditme.core.EMITTED.clear()
+    auditme.core.EMITTED.add('earlier')
     architecture.capture_hits(root, [auditme.rules.error_handling.check_silent_broad_except])
-    assert {'earlier'} == auditme.core._EMITTED
+    assert {'earlier'} == auditme.core.EMITTED
     assert capsys.readouterr().out == ''
-    auditme.core._EMITTED.clear()
+    auditme.core.EMITTED.clear()
 
 
 def test_capture_hits_names_a_check_that_raises(project: Project) -> None:

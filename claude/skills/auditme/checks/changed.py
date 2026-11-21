@@ -32,7 +32,6 @@ AUDIT_SCRIPT = HERE / 'audit.py'
 SWEEP_TIMEOUT = 600
 BASE_CANDIDATES = ('@{upstream}', 'origin/main', 'main')
 CRASH_RULE = 'auditme-check-crash'
-SPEC_SKIP_PARTS = auditme.rules.project_hygiene._SPEC_SKIP_PARTS
 ACCEPT_HELP = 'Fix each hit, or accept one with a comment on its line or the line above:\n    # auditme: accept[<rule>] <reason>'
 # Hits no accept marker can accept: each comes from a tool, and is cleared there.
 RULE_HELP = {
@@ -116,7 +115,7 @@ def reportable(path: str) -> bool:
         return True
     if pure.suffix == '.md':
         dirs = pure.parts[:-1]
-        return not (SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs))
+        return not (auditme.rules.project_hygiene.SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs))
     return False
 
 

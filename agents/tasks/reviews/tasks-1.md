@@ -366,7 +366,7 @@ and the raise sites stop interpolating it.
 
 ## Task 11: Cross-module renames and full import paths in code
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** large
 **Source Reference:** "The plan the coding standards settle", Renames
@@ -376,25 +376,26 @@ underscore, and the checker's code imports by full path.
 
 **Subtasks:**
 
-- [ ] Rename, everywhere they are used (code and tests): `_emit`, `_accept_reason`, `_relpath`, `_all_py_files`, `_source_lines`, `_audit_roots`, `_walk_within_scope`, `_type_checking_linenos`, `_accepted_lazy_imports`, `_EMITTED`, `_SIDE_EFFECT_CALL_NAMES` (core) and `_spec_markdown_files`, `_SPEC_SKIP_PARTS`, `_CLASS_LINE_RE`, `_DEF_LINE_RE` (`project_hygiene`); a name that would collide gets a new one
-- [ ] Convert the code's `from auditme.core import ...` and the other code `from` imports to `import auditme.core` and qualified names, one module at a time
-- [ ] Grep for each old name afterwards, in code, tests, docs and SKILL.md: none remains
-- [ ] Run the sweep and record the count in the commit body
+- [x] Rename, everywhere they are used (code and tests): `_emit`, `_accept_reason`, `_relpath`, `_all_py_files`, `_source_lines`, `_audit_roots`, `_walk_within_scope`, `_type_checking_linenos`, `_accepted_lazy_imports`, `_EMITTED`, `_SIDE_EFFECT_CALL_NAMES` (core) and `_spec_markdown_files`, `_SPEC_SKIP_PARTS`, `_CLASS_LINE_RE`, `_DEF_LINE_RE` (`project_hygiene`); a name that would collide gets a new one
+- [x] Convert the code's `from auditme.core import ...` and the other code `from` imports to `import auditme.core` and qualified names, one module at a time
+- [x] Grep for each old name afterwards, in code, tests, docs and SKILL.md: none remains
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] No old name is left anywhere in the repository
-- [ ] No `from-import` hit remains in code
+- [x] No old name is left anywhere in the repository
+- [x] No `from-import` hit remains in code
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 10
 - About 530 references; commit per module if that keeps each diff readable
+- Done 2026-11-21: the old names remain only in `DONE.md`, the earlier task lists under `agents/tasks/` and the review, which record the work as it was. The three `from auditme.phaseb.candidates` imports in `architecture.py`, `batches.py` and `ledger.py` carry accept markers: the package init imports those modules before `auditme.phaseb` is bound on `auditme`, so a qualified path fails at import. `EMITTED` carries one too (process-lifetime state the tests clear); `SIDE_EFFECT_CALL_NAMES` became a frozenset; `changed.py` uses `SPEC_SKIP_PARTS` through its module instead of an alias.
 
 ---
 

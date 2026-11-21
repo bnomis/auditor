@@ -1,12 +1,11 @@
 """Checks that compare code across files for repeated structure."""
 
 import ast
+import collections
 import pathlib
 import re
-from collections import defaultdict
 
 import auditme.core
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, _walk_within_scope
 
 SET_CALL_NAMES = frozenset({'frozenset', 'set'})
 SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
@@ -41,9 +40,9 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
     shared data, and are not counted. A multi-member literal in test set-up
     still counts, and so does any literal in source.
     """
-    bucket: dict[tuple, set[tuple[str, int, str]]] = defaultdict(set)
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
+    bucket: dict[tuple, set[tuple[str, int, str]]] = collections.defaultdict(set)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -94,9 +93,9 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
         # dedup via the set.
         for rel, lineno, evidence in sorted(hits):
             full = scope / rel
-            full_lines = _source_lines(full)
-            accept = _accept_reason(full_lines, lineno, rule='literal-duplication')
-            _emit(
+            full_lines = auditme.core.source_lines(full)
+            accept = auditme.core.accept_reason(full_lines, lineno, rule='literal-duplication')
+            auditme.core.emit(
                 related=[h[0] for h in hits],
                 rule='literal-duplication',
                 variant=f'identical {key[0]} literal across {len(hits)} locations',
@@ -109,9 +108,9 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
 
 
 def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    bodies: dict[str, list[tuple[str, int, str]]] = defaultdict(list)
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
+    bodies: dict[str, list[tuple[str, int, str]]] = collections.defaultdict(list)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -131,10 +130,10 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
             continue
         for rel, lineno, fname in hits:
             full = scope / rel
-            full_lines = _source_lines(full)
-            accept = _accept_reason(full_lines, lineno, rule='paired-sibling-helpers')
+            full_lines = auditme.core.source_lines(full)
+            accept = auditme.core.accept_reason(full_lines, lineno, rule='paired-sibling-helpers')
             peers = sorted(set(h[2] for h in hits) - {fname})
-            _emit(
+            auditme.core.emit(
                 related=sorted(files),
                 rule='paired-sibling-helpers',
                 variant=f'{len(hits)} functions share a body across files',
@@ -182,9 +181,9 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
         'emit',
         'dump',
     }
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -194,7 +193,7 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 continue
             # For each method, collect calls of the shape f(..., self.<attr>, ...)
             # keyed by (callee_dotted, frozenset(self.<attr> args))
-            calls_per_key: dict[tuple[str, tuple[str, ...]], list[tuple[str, int]]] = defaultdict(list)
+            calls_per_key: dict[tuple[str, tuple[str, ...]], list[tuple[str, int]]] = collections.defaultdict(list)
             for member in cls.body:
                 if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     continue
@@ -237,8 +236,8 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 if not (looks_like_sink or target_is_path_or_dir):
                     continue
                 _, first_line = sites[0]
-                accept = _accept_reason(lines, first_line, rule='duplicate-side-effect-per-target')
-                _emit(
+                accept = auditme.core.accept_reason(lines, first_line, rule='duplicate-side-effect-per-target')
+                auditme.core.emit(
                     rule='duplicate-side-effect-per-target',
                     variant=f'{cls.name}.{{{", ".join(sorted(method_names))}}} all call {callee}({", ".join(self_args)})',
                     path=rel,
@@ -318,9 +317,9 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
         return tuple(positional), tuple(sorted(kwargs))
 
     # First pass: index every project function's sink calls with their signatures.
-    function_sinks: dict[str, dict[str, list[tuple[tuple[str, ...], tuple[str, ...]]]]] = defaultdict(lambda: defaultdict(list))
+    function_sinks: dict[str, dict[str, list[tuple[tuple[str, ...], tuple[str, ...]]]]] = collections.defaultdict(lambda: collections.defaultdict(list))
     # function_sinks[func_key][sink_callee] = list of (positional_tails, kwarg_keys)
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -333,7 +332,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             key = f'{mod}.{node.name}'
-            for inner in _walk_within_scope(node):
+            for inner in auditme.core.walk_within_scope(node):
                 if not isinstance(inner, ast.Call):
                     continue
                 callee = ast.unparse(inner.func)
@@ -346,7 +345,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
         return
 
     # Build lookup: short_name -> set of full keys
-    short_to_full: dict[str, set[str]] = defaultdict(set)
+    short_to_full: dict[str, set[str]] = collections.defaultdict(set)
     for key in function_sinks:
         short = key.rsplit('.', 1)[-1]
         short_to_full[short].add(key)
@@ -369,13 +368,13 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
     # Second pass: walk each function. For each direct sink call, look for
     # a later helper call whose target (any full key matching its short name)
     # makes the SAME sink call with the SAME signature.
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         rel_parts = path.relative_to(src_root).parts
         module = '' if rel_parts[-1] == '__init__.py' else package_root_name + '.' + '.'.join(rel_parts)[:-3]
         for node in ast.walk(tree):
@@ -384,7 +383,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
             own_key = f'{module}.{node.name}'
             direct_sinks: list[tuple[int, str, tuple[tuple[str, ...], tuple[str, ...]]]] = []
             helper_calls: list[tuple[int, str, list[str]]] = []
-            for inner in _walk_within_scope(node):
+            for inner in auditme.core.walk_within_scope(node):
                 if not isinstance(inner, ast.Call):
                     continue
                 callee = ast.unparse(inner.func)
@@ -418,8 +417,8 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                                 continue
                             if sink_sig not in sigs:
                                 continue
-                            accept = _accept_reason(lines, sink_line, rule='redundant-sink-caller-plus-callee')
-                            _emit(
+                            accept = auditme.core.accept_reason(lines, sink_line, rule='redundant-sink-caller-plus-callee')
+                            auditme.core.emit(
                                 rule='redundant-sink-caller-plus-callee',
                                 variant=f'{node.name} calls {sink_callee}(...) then {helper_callee} which re-calls {inner_callee} with the same args',
                                 path=rel,
@@ -518,12 +517,12 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
     """
     # Build per-function signature
     signatures: list[tuple[str, int, str, tuple[str, ...]]] = []
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        rel = _relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -598,7 +597,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
         return out
 
     # Count how many distinct functions each call-name appears in
-    call_fanout: dict[str, int] = defaultdict(int)
+    call_fanout: dict[str, int] = collections.defaultdict(int)
     for _, _, _, seq in signatures:
         for c in set(seq):
             call_fanout[c] += 1
@@ -648,8 +647,8 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
                 continue
             reported.add(pair_key)
             full_a = scope / rel_a
-            accept = _accept_reason(_source_lines(full_a), line_a, rule='duplicate-call-sequence')
-            _emit(
+            accept = auditme.core.accept_reason(auditme.core.source_lines(full_a), line_a, rule='duplicate-call-sequence')
+            auditme.core.emit(
                 related=[rel_b],
                 rule='duplicate-call-sequence',
                 variant=f'{fname_a} shares {len(lcs)} calls in order with {rel_b}:{fname_b}',
@@ -678,8 +677,8 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
       - Same LHS name appears in >= 2 distinct files.
     """
     # name -> list of (path, lineno, literal)
-    sites: dict[str, list[tuple[pathlib.Path, int, str]]] = defaultdict(list)
-    for path in _all_py_files(src_root):
+    sites: dict[str, list[tuple[pathlib.Path, int, str]]] = collections.defaultdict(list)
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -717,11 +716,11 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
         if len(distinct_paths) < 2:
             continue
         for path, lineno, _ in locations:
-            rel = _relpath(path, scope)
-            lines = _source_lines(path)
-            accept = _accept_reason(lines, lineno, rule='recompile-duplication')
-            other_paths = sorted({_relpath(p, scope) for p, _, _ in locations if p != path})
-            _emit(
+            rel = auditme.core.relpath(path, scope)
+            lines = auditme.core.source_lines(path)
+            accept = auditme.core.accept_reason(lines, lineno, rule='recompile-duplication')
+            other_paths = sorted({auditme.core.relpath(p, scope) for p, _, _ in locations if p != path})
+            auditme.core.emit(
                 related=other_paths,
                 rule='recompile-duplication',
                 variant=(f'constant `{name} = re.compile(...)` also defined in {other_paths!r}; canonicalise to one home'),

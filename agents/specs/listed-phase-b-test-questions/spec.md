@@ -59,9 +59,9 @@ The checker is not under `src/`; this repository keeps it with its skill.
 `claude/skills/auditme/checks/auditme/core.py` gains `is_private` (see
 API), which the architecture-questions spec reuses.
 
-Reused, not copied: `_audit_roots` and `module_dotted` (`core.py`), the
-shared resolver, `_walk_within_scope` (`rules/error_handling.py`) and
-`_SIDE_EFFECT_CALL_NAMES` (`rules/state_and_effects.py`). A helper `phaseb/`
+Reused, not copied: `audit_roots` and `module_dotted` (`core.py`), the
+shared resolver, `walk_within_scope` (`rules/error_handling.py`) and
+`SIDE_EFFECT_CALL_NAMES` (`rules/state_and_effects.py`). A helper `phaseb/`
 uses from a rule module moves to `core.py`, the rule importing it from there.
 
 ## API
@@ -131,14 +131,14 @@ annotations name, as `{id, path, start, end}`), `pairs`, `tests` and
 
 ### Scope
 
-Candidates come from `_audit_roots` minus the test tree: a path with a
+Candidates come from `audit_roots` minus the test tree: a path with a
 `tests` part, `test_*.py`, `*_test.py` and `conftest.py` are never
 candidates. The test tree is every `test_*.py` and `*_test.py` under
 `src/tests/` (the layout of `claude/rules/python/testing.md`) and `tests/`.
 
 ### T1 candidates
 
-A function or method whose own body (by `_walk_within_scope`: a nested def
+A function or method whose own body (by `walk_within_scope`: a nested def
 does not count for its parent) holds at least one of: `if`, an `ast.If`
 (an `elif` too; a conditional expression, comprehension filter or `assert`
 is not); `try`, an `ast.Try` or `ast.TryStar` with an `except` handler
@@ -162,7 +162,7 @@ A positive rule. All of:
    whose fields are themselves such types, and `list`, `tuple`, `dict`,
    `set`, `frozenset`, `Sequence`, `Mapping`, `Iterable`, `|` or `Optional`
    over them;
-3. no call in its own body whose short name is in `_SIDE_EFFECT_CALL_NAMES`
+3. no call in its own body whose short name is in `SIDE_EFFECT_CALL_NAMES`
    or is `open`, `print`, `input`, `now`, `time`, a `random` or `subprocess`
    function; no `global` or `nonlocal`; no assignment to an attribute or
    subscript of a parameter;

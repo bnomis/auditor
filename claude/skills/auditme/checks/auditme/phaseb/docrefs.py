@@ -8,8 +8,8 @@ import re
 import subprocess
 
 import auditme.core
-from auditme.phaseb.errors import PhaseBError
-from auditme.rules.project_hygiene import _CLASS_LINE_RE, _DEF_LINE_RE
+import auditme.phaseb.errors
+import auditme.rules.project_hygiene
 
 # Changed only by a skill change with a brief version bump.
 PATH_EXTENSIONS = ('.json', '.lock', '.md', '.py', '.sh', '.toml', '.txt', '.yaml', '.yml')
@@ -69,10 +69,10 @@ def backticked_tokens(lines: list[str], start: int, end: int) -> list[tuple[int,
 
 def _api_fence_name(line: str) -> str | None:
     """Return the name a `def` or `class` line defines, else None."""
-    match = _DEF_LINE_RE.match(line)
+    match = auditme.rules.project_hygiene.DEF_LINE_RE.match(line)
     if match:
         return match.group(1)
-    if _CLASS_LINE_RE.match(line):
+    if auditme.rules.project_hygiene.CLASS_LINE_RE.match(line):
         return re.split(r'[(:]', line.strip().split(None, 1)[1])[0].strip()
     return None
 
@@ -86,7 +86,7 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
     try:
         text = path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read {path}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read {path}') from error
     doc = path.relative_to(root).as_posix()
     lines = text.splitlines()
     stack: list[tuple[int, str]] = []  # (level, title) of the enclosing headings
@@ -179,17 +179,17 @@ class CorpusIndex:
         """
         files = tracked_files(scope)
         directories = frozenset(parent.as_posix() for name in files for parent in pathlib.PurePosixPath(name).parents if parent.as_posix() != '.')
-        roots = auditme.core._audit_roots(scope)
+        roots = auditme.core.audit_roots(scope)
         src_root = roots[0] if roots else scope / 'src'
         definitions = auditme.core.corpus_definitions(scope, src_root, classes=True)
         index = cls(scope, files, directories, definitions, {}, {}, {}, {}, {})
         from_bindings: dict[str, dict[str, str]] = {}
         for path in auditme.core.corpus_py_files(scope, src_root):
             try:
-                tree = ast.parse('\n'.join(auditme.core._source_lines(path)))
+                tree = ast.parse('\n'.join(auditme.core.source_lines(path)))
             except SyntaxError:
                 continue
-            rel = auditme.core._relpath(path, scope)
+            rel = auditme.core.relpath(path, scope)
             root = next((r for r in roots if path.is_relative_to(r)), None)
             module = auditme.core.module_dotted(path, root) if root else None
             if module:
@@ -282,7 +282,7 @@ def tracked_files(scope: pathlib.Path) -> frozenset[str]:
         # git from PATH, fixed arguments: the same tool the user runs against the audited project.
         result = subprocess.run(['git', 'ls-files', '-z'], cwd=scope, capture_output=True, check=True)  # noqa: S603, S607
     except (OSError, subprocess.CalledProcessError) as error:
-        raise PhaseBError(f'git ls-files failed in {scope}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'git ls-files failed in {scope}') from error
     return frozenset(name for name in result.stdout.decode('utf-8', errors='surrogateescape').split('\0') if name)
 
 
@@ -295,7 +295,7 @@ def file_target(index: CorpusIndex, rel: str) -> DocTarget:
     try:
         lines = (index.scope / rel).read_bytes().count(b'\n') + 1
     except OSError as error:
-        raise PhaseBError(f'cannot read {rel}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read {rel}') from error
     return DocTarget('file', rel, rel, 1, lines)
 
 

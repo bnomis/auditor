@@ -48,18 +48,18 @@ def test_caches_and_build_artefacts_are_not_packages(project: Builder) -> None:
 def test_a_script_root_outside_src_is_audited_as_its_own_pass(project: Builder) -> None:
     """`bin/` is not under `src/`, so package discovery alone never sees it."""
     root = project({'src/probe/mod.py': 'x = 1\n', 'bin/report.py': 'y = 1\n'})
-    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe', 'bin']
+    assert [path.name for path in auditme.core.audit_roots(root)] == ['probe', 'bin']
 
 
 def test_a_script_root_holding_no_python_is_not_a_pass(project: Builder) -> None:
     """A `bin/` of shell wrappers is not an empty audit; it is no audit."""
     root = project({'src/probe/mod.py': 'x = 1\n', 'bin/activate.sh': 'echo hello\n'})
-    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe']
+    assert [path.name for path in auditme.core.audit_roots(root)] == ['probe']
 
 
 def test_a_project_with_no_script_root_is_swept_unchanged(project: Builder) -> None:
     root = project({'src/probe/mod.py': 'x = 1\n'})
-    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe']
+    assert [path.name for path in auditme.core.audit_roots(root)] == ['probe']
 
 
 def test_a_project_with_only_bin_is_swept_over_bin(
@@ -100,7 +100,7 @@ def test_a_project_with_no_root_runs_only_the_project_level_checks_once(
 
     def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         calls.append('project')
-        auditme.core._emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
+        auditme.core.emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (per_root_check,))
     monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (project_level_check,))
@@ -273,7 +273,7 @@ def test_a_crashing_check_is_reported_and_the_sweep_continues(
         raise RuntimeError('predicate is broken')
 
     def working_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-        auditme.core._emit(rule='probe', variant='v', path='src/probe/mod.py', line=1, evidence='x', accepted=False, accepted_reason=None)
+        auditme.core.emit(rule='probe', variant='v', path='src/probe/mod.py', line=1, evidence='x', accepted=False, accepted_reason=None)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (exploding_check, working_check))
     root = project({'src/probe/mod.py': 'x = 1\n'})
@@ -295,7 +295,7 @@ def test_a_project_level_hit_is_reported_once_per_project_not_once_per_package(
     """Checks that read AGENTS.md or the lockfile see the project once per package."""
 
     def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-        auditme.core._emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
+        auditme.core.emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (project_level_check,))
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n'})
@@ -547,8 +547,8 @@ def test_a_top_level_root_names_its_files_by_path(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     def hitting_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-        for path in auditme.core._all_py_files(src_root):
-            auditme.core._emit(rule='probe', variant='v', path=path.relative_to(scope).as_posix(), line=1, evidence='e', accepted=False, accepted_reason=None)
+        for path in auditme.core.all_py_files(src_root):
+            auditme.core.emit(rule='probe', variant='v', path=path.relative_to(scope).as_posix(), line=1, evidence='e', accepted=False, accepted_reason=None)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (hitting_check,))
     root = project({'pyproject.toml': DECLARED, 'tools/run.py': 'x = 1\n', 'tools/sub/m.py': 'y = 1\n'})

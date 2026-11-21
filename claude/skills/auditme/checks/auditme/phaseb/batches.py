@@ -14,8 +14,12 @@ import json
 import pathlib
 import typing
 
-from auditme.phaseb.candidates import Candidate, Verdict, question_kinds
-from auditme.phaseb.errors import PhaseBError
+import auditme.phaseb.errors
+from auditme.phaseb.candidates import (
+    Candidate,
+    Verdict,
+    question_kinds,
+)  # auditme: accept[from-import] the package init imports this module while `auditme.phaseb` is not yet bound on `auditme`, so a qualified path fails at import
 
 PLAN_NAME = 'plan.json'
 
@@ -67,7 +71,7 @@ def plan_batches(
         PhaseBError: size is not a positive number.
     """
     if size < 1:
-        raise PhaseBError(f'batch size must be at least 1, not {size}')
+        raise auditme.phaseb.errors.PhaseBError(f'batch size must be at least 1, not {size}')
     needed = []
     for candidate in sorted(candidates, key=lambda item: item.id):
         verdict = ledger.get(candidate.id)
@@ -96,7 +100,7 @@ def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: 
             batch_path(run_dir, number).write_text(body, encoding='utf-8')
         (run_dir / PLAN_NAME).write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
     except OSError as error:
-        raise PhaseBError(f'cannot write plan in {run_dir}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot write plan in {run_dir}') from error
 
 
 def read_plan(run_dir: pathlib.Path) -> Plan:
@@ -109,9 +113,9 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
     try:
         document = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read plan {path}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read plan {path}') from error
     except json.JSONDecodeError as error:
-        raise PhaseBError(f'{path}: not valid JSON') from error
+        raise auditme.phaseb.errors.PhaseBError(f'{path}: not valid JSON') from error
     try:
         planned = document['batches']
         valid = (
@@ -122,9 +126,9 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
             and all(isinstance(batch, list) and all(isinstance(item, str) for item in batch) for batch in planned)
         )
     except (KeyError, TypeError) as error:
-        raise PhaseBError(f'{path}: not a valid plan') from error
+        raise auditme.phaseb.errors.PhaseBError(f'{path}: not a valid plan') from error
     if not valid:
-        raise PhaseBError(f'{path}: not a valid plan')
+        raise auditme.phaseb.errors.PhaseBError(f'{path}: not a valid plan')
     return Plan(document['question'], document['brief'], document['brief_version'], planned)
 
 
@@ -221,7 +225,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
     plan = read_plan(run_dir)
     problems = check_run(run_dir).problems
     if problems:
-        raise PhaseBError(f'run in {run_dir} has problems in batches {sorted(problems)}; run check and retry them')
+        raise auditme.phaseb.errors.PhaseBError(f'run in {run_dir} has problems in batches {sorted(problems)}; run check and retry them')
     kinds = question_kinds(plan.question)
     by_id = {candidate.id: candidate for candidate in candidates}
     stamp = today or datetime.date.today().isoformat()
@@ -231,7 +235,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
         for record in records:
             candidate = by_id.get(str(record['id']))
             if candidate is None:
-                raise PhaseBError(f'planned id {record["id"]} is no longer a candidate; plan again')
+                raise auditme.phaseb.errors.PhaseBError(f'planned id {record["id"]} is no longer a candidate; plan again')
             verdicts.append(
                 Verdict(
                     question=plan.question,

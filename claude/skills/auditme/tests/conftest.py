@@ -42,14 +42,14 @@ def make_candidate(candidate_id: str) -> auditme.phaseb.Candidate:
 def clean_emitted() -> collections.abc.Iterator[None]:
     """Clear the checker's duplicate suppressor around every test.
 
-    `auditme.core._EMITTED` is process-lifetime module state: the driver relies
+    `auditme.core.EMITTED` is process-lifetime module state: the driver relies
     on it to report a project-level hit once rather than once per package. In a
     test process it would also swallow the second test that produced an
     identical hit, making assertions depend on test order.
     """
-    auditme.core._EMITTED.clear()
+    auditme.core.EMITTED.clear()
     yield
-    auditme.core._EMITTED.clear()
+    auditme.core.EMITTED.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -102,7 +102,7 @@ def run_check() -> collections.abc.Callable[..., list[dict]]:
         package: str = 'probe',
         src_root: str | None = None,
     ) -> list[dict]:
-        auditme.core._EMITTED.clear()
+        auditme.core.EMITTED.clear()
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
             check(root, (root / src_root) if src_root else (root / 'src' / package))

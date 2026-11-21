@@ -123,13 +123,13 @@ proposed spec describes code not yet written. Doc5 lists `docs/**/*.md` and
 the root `README.md` (decision 3 below), since the shared user-guides rule
 lets a small project keep its guide there; Doc3 still compares `README.md`
 with `AGENTS.md`. Doc1 and Doc2 list the root
-`AGENTS.md`. Discovery reuses `_spec_markdown_files`. A code-shaped name is
+`AGENTS.md`. Discovery reuses `spec_markdown_files`. A code-shaped name is
 a backticked token with no space and no `<`, after dropping a trailing
 `(...)`, that is path-shaped (holds `/`, or ends in `.py`, `.md`, `.toml`,
 `.yaml`, `.yml`, `.json`, `.sh`, `.txt` or `.lock`, not starting `/` or
 `~`), option-shaped (`--name`), or an identifier holding `_`, `.` or an
 inner capital. A `def` or `class` line in a fence under an `API` heading
-counts too (`_DEF_LINE_RE`, `_CLASS_LINE_RE`).
+counts too (`DEF_LINE_RE`, `CLASS_LINE_RE`).
 
 ### Resolution
 

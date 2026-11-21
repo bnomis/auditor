@@ -13,10 +13,10 @@ import typing
 
 import auditme.core
 import auditme.phaseb.docrefs
+import auditme.phaseb.errors
 import auditme.phaseb.testmap
 import auditme.rules.error_handling
 import auditme.rules.project_hygiene
-from auditme.phaseb.errors import PhaseBError
 
 
 @dataclasses.dataclass(frozen=True)
@@ -68,7 +68,7 @@ def read_test_files(scope: pathlib.Path, names: collections.abc.Iterable[str]) -
     try:
         return [(scope / name).read_bytes() for name in names]
     except OSError as error:
-        raise PhaseBError(f'cannot read test file under {scope}: {error}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read test file under {scope}: {error}') from error
 
 
 def register_question(
@@ -86,9 +86,9 @@ def register_question(
         PhaseBError: kinds is empty or names a kind twice.
     """
     if not kinds:
-        raise PhaseBError(f'question {question!r} registers no finding kinds')
+        raise auditme.phaseb.errors.PhaseBError(f'question {question!r} registers no finding kinds')
     if len(set(kinds)) != len(kinds):
-        raise PhaseBError(f'question {question!r} registers a finding kind twice: {list(kinds)}')
+        raise auditme.phaseb.errors.PhaseBError(f'question {question!r} registers a finding kind twice: {list(kinds)}')
 
     def decorate(lister: Lister) -> Lister:
         REGISTRY[question] = (lister, brief, batch_size)
@@ -107,7 +107,7 @@ def registered(question: str) -> tuple[Lister, pathlib.Path, int]:
     try:
         return REGISTRY[question]
     except KeyError:
-        raise PhaseBError(f'no Phase B lister is registered for question {question!r}; known: {sorted(REGISTRY)}') from None
+        raise auditme.phaseb.errors.PhaseBError(f'no Phase B lister is registered for question {question!r}; known: {sorted(REGISTRY)}') from None
 
 
 def question_brief(question: str) -> pathlib.Path:
@@ -164,10 +164,10 @@ def brief_version(brief: pathlib.Path) -> int:
     try:
         text = brief.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read brief {brief}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read brief {brief}') from error
     found = BRIEF_VERSION_LINE.findall(text)
     if len(found) != 1 or int(found[0]) < 1:
-        raise PhaseBError(f'brief {brief} must have exactly one `**Brief version:** N` line with N a positive integer')
+        raise auditme.phaseb.errors.PhaseBError(f'brief {brief} must have exactly one `**Brief version:** N` line with N a positive integer')
     return int(found[0])
 
 
@@ -236,8 +236,8 @@ def root_sites(scope: pathlib.Path, src_root: pathlib.Path) -> tuple[list[Site],
     sites: list[Site] = []
     trees: dict[str, ast.Module] = {}
     is_package: dict[str, bool] = {}
-    for path in auditme.core._all_py_files(src_root):
-        lines = auditme.core._source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -245,7 +245,7 @@ def root_sites(scope: pathlib.Path, src_root: pathlib.Path) -> tuple[list[Site],
         module = auditme.core.module_dotted(path, src_root)
         trees[module] = tree
         is_package[module] = path.name == '__init__.py'
-        rel = auditme.core._relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 sites.append(Site(module, f'{module}.{node.name}', None, node, rel, lines))
@@ -327,7 +327,7 @@ def list_a4_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     Raises:
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
-    return [candidate for src_root in auditme.core._audit_roots(scope) for candidate in root_candidates(scope, src_root, depth)]
+    return [candidate for src_root in auditme.core.audit_roots(scope) for candidate in root_candidates(scope, src_root, depth)]
 
 
 DOC_BATCH_SIZE = 24
@@ -347,7 +347,7 @@ def read_text(path: pathlib.Path) -> str:
     try:
         return path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read {path}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read {path}') from error
 
 
 def section_blocks(lines: list[str], start: int, end: int) -> list[tuple[int, int]]:
@@ -399,7 +399,7 @@ def target_bytes(target: auditme.phaseb.docrefs.DocTarget, index: auditme.phaseb
     try:
         data = (index.scope / target.path).read_bytes()
     except OSError as error:
-        raise PhaseBError(f'cannot read {target.path}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read {target.path}') from error
     if target.kind == 'file':
         return data
     return b'\n'.join(data.splitlines()[target.start - 1 : target.end])
@@ -472,7 +472,7 @@ def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
     """
     specs = [
         path
-        for path in auditme.rules.project_hygiene._spec_markdown_files(scope)
+        for path in auditme.rules.project_hygiene.spec_markdown_files(scope)
         if path.relative_to(scope).as_posix().startswith('agents/specs/') and IMPLEMENTED_RE.search(read_text(path))
     ]
     return doc_candidates('Doc4', scope, specs)
@@ -488,7 +488,7 @@ def list_doc5_candidates(scope: pathlib.Path) -> list[Candidate]:
     """
     documents = [
         path
-        for path in auditme.rules.project_hygiene._spec_markdown_files(scope)
+        for path in auditme.rules.project_hygiene.spec_markdown_files(scope)
         if (rel := path.relative_to(scope).as_posix()).startswith('docs/') or rel == 'README.md'
     ]
     return doc_candidates('Doc5', scope, documents)
@@ -581,7 +581,7 @@ def read_pyproject(scope: pathlib.Path) -> dict[str, typing.Any]:
     try:
         return tomllib.loads(path.read_bytes().decode('utf-8'))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-        raise PhaseBError(f'cannot read {path}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read {path}') from error
 
 
 def declared_tables(pyproject: dict[str, typing.Any]) -> dict[str, dict[str, set[str]] | set[str]]:
@@ -609,17 +609,17 @@ def read_hook_file(scope: pathlib.Path) -> bytes:
     try:
         return path.read_bytes()
     except OSError as error:
-        raise PhaseBError(f'cannot read {path}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read {path}') from error
 
 
 def imported_modules(scope: pathlib.Path) -> set[str]:
     """The top-level module names the corpus imports; a file with a syntax error is skipped."""
-    roots = auditme.core._audit_roots(scope)
+    roots = auditme.core.audit_roots(scope)
     src_root = roots[0] if roots else scope / 'src'
     modules: set[str] = set()
     for path in auditme.core.corpus_py_files(scope, src_root):
         try:
-            tree = ast.parse('\n'.join(auditme.core._source_lines(path)))
+            tree = ast.parse('\n'.join(auditme.core.source_lines(path)))
         except SyntaxError:
             continue
         for node in ast.walk(tree):
@@ -692,7 +692,7 @@ def _self_attribute(node: ast.AST) -> str | None:
 def _tested_attributes(method: FunctionNode) -> set[str]:
     """The `self.<attr>` names method tests in an `if`, a `match` subject or a comparison."""
     tested: set[str] = set()
-    for node in auditme.core._walk_within_scope(method):
+    for node in auditme.core.walk_within_scope(method):
         if isinstance(node, ast.If):
             expressions: list[ast.AST] = [node.test]
         elif isinstance(node, ast.Match):
@@ -712,7 +712,7 @@ def _tested_attributes(method: FunctionNode) -> set[str]:
 def _assigned_attributes(node: FunctionNode) -> set[str]:
     """The `self.<attr>` names node assigns in its own body."""
     assigned: set[str] = set()
-    for inner in auditme.core._walk_within_scope(node):
+    for inner in auditme.core.walk_within_scope(node):
         targets: list[ast.expr] = []
         if isinstance(inner, ast.Assign):
             targets = inner.targets
@@ -728,7 +728,7 @@ def _assigned_attributes(node: FunctionNode) -> set[str]:
 
 def t1_reasons(node: ast.FunctionDef | ast.AsyncFunctionDef, cls: ast.ClassDef | None) -> list[str]:
     """Why node is a T1 candidate: any of 'if', 'try', 'match', 'state'; empty if not."""
-    own = list(auditme.core._walk_within_scope(node))
+    own = list(auditme.core.walk_within_scope(node))
     reasons: list[str] = []
     if any(isinstance(inner, ast.If) for inner in own):
         reasons.append('if')
@@ -769,7 +769,7 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     """
     index = auditme.phaseb.testmap.build_index(scope)
     refs = index.refs(depth)
-    hidden = {module: auditme.core._type_checking_linenos(file.tree) for module, file in index.sources.items()}
+    hidden = {module: auditme.core.type_checking_linenos(file.tree) for module, file in index.sources.items()}
     classes = {(module, node.name): node for module, file in index.sources.items() for node in file.tree.body if isinstance(node, ast.ClassDef)}
     found: list[Candidate] = []
     for site in index.sites.values():
@@ -911,8 +911,8 @@ def is_t2_candidate(node: ast.FunctionDef, package_types: collections.abc.Mappin
     if not all(is_well_defined_type(annotation, package_types, set()) for annotation in [*annotations, returns] if annotation is not None):
         return False
     names = {parameter.arg for parameter in parameters}
-    effects = auditme.core._SIDE_EFFECT_CALL_NAMES | T2_EXTRA_CALL_NAMES
-    own = list(auditme.core._walk_within_scope(node))
+    effects = auditme.core.SIDE_EFFECT_CALL_NAMES | T2_EXTRA_CALL_NAMES
+    own = list(auditme.core.walk_within_scope(node))
     for inner in own:
         if isinstance(inner, (ast.Yield, ast.YieldFrom, ast.Global, ast.Nonlocal, ast.Await)):
             return False
@@ -992,7 +992,7 @@ def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     """
     index = auditme.phaseb.testmap.build_index(scope)
     refs = index.refs(depth)
-    hidden = {module: auditme.core._type_checking_linenos(file.tree) for module, file in index.sources.items()}
+    hidden = {module: auditme.core.type_checking_linenos(file.tree) for module, file in index.sources.items()}
     class_sites: dict[str, tuple[auditme.phaseb.testmap.ParsedFile, ast.ClassDef]] = {}
     for module in sorted(index.sources):
         file = index.sources[module]
