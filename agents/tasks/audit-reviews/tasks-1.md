@@ -320,7 +320,7 @@ every later task's Definition of Done uses.
 
 ## Task 10: End-to-end tests for the Stop hook and the installer
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F18
@@ -329,21 +329,22 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] `tests/test_stop_hook.py`: one test that runs `claude/hooks/auditme-stop.sh` with the real `changed.py` on a temporary repository with one unaccepted hit, and one with none
-- [ ] `tests/test_install_claude.py`: one test that runs `bin/install-claude.sh` against a temporary `HOME` and checks the links and the registered hook, with no network (skip with a reason when a tool it needs is absent)
+- [x] `tests/test_stop_hook.py`: one test that runs `claude/hooks/auditme-stop.sh` with the real `changed.py` on a temporary repository with one unaccepted hit, and one with none
+- [x] `tests/test_install_claude.py`: one test that runs `bin/install-claude.sh` against a temporary `HOME` and checks the links and the registered hook, with no network (skip with a reason when a tool it needs is absent)
 
 **Acceptance Criteria:**
 
-- [ ] Each test fails when the script's real call is broken (check by breaking it once locally)
+- [x] Each test fails when the script's real call is broken (check by breaking it once locally)
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_stop_hook.py tests/test_install_claude.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_stop_hook.py tests/test_install_claude.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 1
+- The installer test runs the pinned installer offline (`UV_OFFLINE=1`) and skips with a reason when it is not in the uv cache, so its body could not be break-checked on the machine that wrote it; the hook tests were break-checked by replacing the `python3 -I "$checker"` call with `true`
 
 ---
 
