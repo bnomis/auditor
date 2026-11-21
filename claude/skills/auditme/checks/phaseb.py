@@ -23,6 +23,7 @@ import json
 import pathlib
 import sys
 
+import auditme.core
 import auditme.phaseb
 from auditme.phaseb import PhaseBError, batches
 
@@ -187,6 +188,9 @@ def main() -> int:
         return COMMANDS[args.command](args)
     except PhaseBError as error:
         print(f'phaseb.py: {error}', file=sys.stderr)
+        return 2
+    except auditme.core.RootsError as error:
+        print(f'ERROR: {error}', file=sys.stderr)
         return 2
 
 

@@ -443,3 +443,97 @@ def test_the_shipped_entry_point_emits_parseable_jsonl(project: Builder) -> None
     assert 'annotated-all-assignment' in rules
     # The script root reaches the output, rather than being a pass nobody runs.
     assert [record['path'] for record in records if (record['path'] or '').startswith('bin/')], result.stdout
+
+
+DECLARED = '[tool.auditme]\nroots = [{ path = "tools", modules = "top-level" }]\n'
+
+
+@pytest.fixture(autouse=True)
+def restore_driver_globals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`main()` rebinds these for `--extra-root`; give each test the defaults."""
+    monkeypatch.setattr(auditme.core, 'EXTRA_ROOT_NAMES', auditme.core.EXTRA_ROOT_NAMES)
+    monkeypatch.setattr(auditme.core, 'DECLARATION_IGNORED', False)
+    monkeypatch.setattr(auditme.core, 'ROOT_MODULES', auditme.core.ROOT_MODULES)
+
+
+def test_a_declared_list_is_swept_and_src_is_not(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    seen: list[str] = []
+
+    def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        seen.append(src_root.name)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (recording_check,))
+    root = project({'pyproject.toml': DECLARED, 'tools/run.py': 'x = 1\n', 'src/probe/mod.py': 'y = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    assert seen == ['tools']
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize(
+    ('pyproject', 'message'),
+    [
+        ('[tool.auditme]\nroots = [{ modules = "package" }]\n', 'has no path'),
+        ('[tool.auditme]\nroots = [{ path = "tools", modules = "flat" }]\n', 'modules must be'),
+        ('[tool.auditme]\nroots = [{ path = "absent" }]\n', 'declared root absent not found'),
+        ('[tool.auditme]\nroots = [{ path = "tools" }, { path = "tools/sub" }]\n', 'overlap'),
+        ('[tool.auditme\n', 'pyproject.toml:'),
+    ],
+)
+def test_an_invalid_declaration_exits_2_with_nothing_on_stdout(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    pyproject: str,
+    message: str,
+) -> None:
+    root = project({'pyproject.toml': pyproject, 'tools/run.py': 'x = 1\n', 'tools/sub/m.py': 'y = 1\n', 'src/a.py': 'z = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 2
+    out = capsys.readouterr()
+    assert out.out == ''
+    assert out.err.startswith('ERROR: ')
+    assert message in out.err
+
+
+def test_the_extra_root_flag_overrides_the_declaration(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    seen: list[str] = []
+
+    def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        seen.append(src_root.name)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (recording_check,))
+    root = project({'pyproject.toml': DECLARED, 'tools/run.py': 'x = 1\n', 'scripts/tidy.py': 'y = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--extra-root', 'scripts'])
+
+    assert audit.main() == 0
+    assert seen == ['scripts']
+    capsys.readouterr()
+
+
+def test_a_top_level_root_names_its_files_by_path(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def hitting_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        for path in auditme.core._all_py_files(src_root):
+            auditme.core._emit(rule='probe', variant='v', path=path.relative_to(scope).as_posix(), line=1, evidence='e', accepted=False, accepted_reason=None)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (hitting_check,))
+    root = project({'pyproject.toml': DECLARED, 'tools/run.py': 'x = 1\n', 'tools/sub/m.py': 'y = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    paths = [json.loads(line)['path'] for line in capsys.readouterr().out.splitlines()]
+    assert paths == ['tools/run.py']

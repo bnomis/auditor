@@ -5,6 +5,8 @@ import collections.abc
 import json
 import pathlib
 import re
+import tomllib
+import types
 from collections import defaultdict
 
 # An accept marker may name the single rule it answers for:
@@ -93,8 +95,14 @@ def _type_checking_linenos(tree: ast.AST) -> set[int]:
     return result
 
 
+def _py_files(root: pathlib.Path, mode: str) -> list[pathlib.Path]:
+    if mode == TOP_LEVEL:
+        return sorted(p for p in root.glob('*.py') if p.is_file())
+    return sorted(p for p in root.rglob('*.py'))
+
+
 def _all_py_files(src_root: pathlib.Path) -> list[pathlib.Path]:
-    return sorted(p for p in src_root.rglob('*.py'))
+    return _py_files(src_root, ROOT_MODULES.get(src_root, PACKAGE))
 
 
 def module_dotted(path: pathlib.Path, src_root: pathlib.Path) -> str:
@@ -102,6 +110,8 @@ def module_dotted(path: pathlib.Path, src_root: pathlib.Path) -> str:
     parts = path.relative_to(src_root).with_suffix('').parts
     if parts and parts[-1] == '__init__':
         parts = parts[:-1]
+    if ROOT_MODULES.get(src_root) == TOP_LEVEL:
+        return '.'.join(parts)
     return '.'.join((src_root.name,) + parts)
 
 
@@ -144,6 +154,82 @@ _LITERAL_DISPATCH_TYPE_NAMES = frozenset({'str'})  # extensible via helper below
 # actually swept rather than the default one. It is a tuple, and rebound rather
 # than mutated, so a check cannot change what a later check sees.
 EXTRA_ROOT_NAMES: tuple[str, ...] = ('bin',)
+
+
+PACKAGE = 'package'
+TOP_LEVEL = 'top-level'
+
+# The mode of each declared root, rebound (never mutated) whenever
+# `_audit_roots` reads `[tool.auditme]`. A root absent from it is a package root.
+ROOT_MODULES: types.MappingProxyType[pathlib.Path, str] = types.MappingProxyType({})
+
+
+# Set by the driver's `--extra-root`: the command line replaces the declaration
+# for one run, so `declared_roots` reports none, valid or not.
+DECLARATION_IGNORED = False
+
+
+class RootsError(Exception):
+    """`[tool.auditme]` in `pyproject.toml` is invalid; the message is the error text."""
+
+
+def _inside(inner: pathlib.Path, outer: pathlib.Path) -> bool:
+    return inner == outer or outer in inner.parents
+
+
+def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None:
+    """The roots `[tool.auditme]` declares, in order, or None when none are declared.
+
+    None when `pyproject.toml` or the table is absent. Raises `RootsError` for an
+    invalid declaration. Invalid TOML is an error only when the text mentions
+    `[tool.auditme`; otherwise the defaults apply.
+    """
+    pyproject = scope / 'pyproject.toml'
+    if DECLARATION_IGNORED or not pyproject.is_file():
+        return None
+    text = pyproject.read_text(encoding='utf-8')
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        if '[tool.auditme' in text:
+            raise RootsError(f'pyproject.toml: {exc}') from exc
+        return None
+    tool = data.get('tool', {})
+    table = tool.get('auditme') if isinstance(tool, dict) else None
+    if table is None:
+        return None
+    where = 'pyproject.toml [tool.auditme]'
+    if not isinstance(table, dict):
+        raise RootsError(f'{where}: must be a table')
+    unknown_table_keys = sorted(set(table) - {'roots'})
+    if unknown_table_keys:
+        raise RootsError(f'{where}: unknown key {unknown_table_keys[0]!r}')
+    entries = table.get('roots', [])
+    if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
+        raise RootsError(f'{where}: roots must be a list of tables')
+    roots: list[tuple[pathlib.Path, str]] = []
+    for entry in entries:
+        unknown = sorted(set(entry) - {'path', 'modules'})
+        if unknown:
+            raise RootsError(f'{where}: unknown key {unknown[0]!r} in a roots entry')
+        path = entry.get('path')
+        if not isinstance(path, str) or not path:
+            raise RootsError(f'{where}: a roots entry has no path')
+        mode = entry.get('modules', PACKAGE)
+        if mode not in (PACKAGE, TOP_LEVEL):
+            raise RootsError(f"{where}: modules must be 'package' or 'top-level', not {mode!r}")
+        root = scope / path
+        if not root.is_dir():
+            raise RootsError(f'declared root {path} not found')
+        if not _py_files(root, mode):
+            raise RootsError(f'declared root {path} holds no .py file')
+        roots.append((root, mode))
+    for i, (a, a_mode) in enumerate(roots):
+        for b, b_mode in roots[i + 1 :]:
+            nested = (a_mode == PACKAGE and (_inside(b, a) and b_mode in (PACKAGE, TOP_LEVEL))) or (b_mode == PACKAGE and _inside(a, b))
+            if nested:
+                raise RootsError(f'declared roots {a.relative_to(scope)} and {b.relative_to(scope)} overlap')
+    return roots
 
 
 def _packages_under(src: pathlib.Path) -> list[pathlib.Path]:
@@ -205,6 +291,12 @@ def _audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
     extras. Asking that question of a single root answers about a fragment
     while reading like an answer about the whole.
     """
+    global ROOT_MODULES
+    declared = declared_roots(scope)
+    if declared is not None:
+        ROOT_MODULES = types.MappingProxyType({root: mode for root, mode in declared})
+        return [root for root, _ in declared]
+    ROOT_MODULES = types.MappingProxyType({})
     return _packages_under(scope / 'src') + _extra_roots(scope)
 
 
@@ -334,6 +426,9 @@ def corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib
     nor an extra root, which only happens when a check is called directly
     rather than by the driver.
     """
+    declared = declared_roots(scope)
+    if declared is not None:
+        return sorted(path for root, mode in declared for path in _py_files(root, mode))
     roots = _extra_roots(scope)
     src = scope / 'src'
     if src.is_dir():

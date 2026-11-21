@@ -100,13 +100,44 @@ nothing.
 |---|---|
 | `scope` | Project root. |
 | `--package PACKAGE` | Audit only `src/PACKAGE`. Drops the extra roots and the loose-module check. For re-checking one package; a normal audit passes neither option. |
-| `--extra-root DIR` | Audit `DIR` (relative to `scope`) as its own pass. Repeatable. Replaces the default extra root, `bin/`; each named directory must exist. |
+| `--extra-root DIR` | Audit `DIR` (relative to `scope`) as its own pass, as a `package` root. Repeatable. Replaces the default extra root, `bin/`, and replaces any roots declared in `[tool.auditme]` for that run; each named directory must exist. |
 
 Without options it audits every package under `src/`, each in its own pass,
 then `bin/` when it exists and holds `.py` files. A `.py` file directly in
 `src/` is reported as `src-loose-module`. A project with neither, such as one
 with no Python, still gets the project-level checks, once: the lockfile
 (`lockfile-drift`) and the ruff pin (`ruff-version-drift`).
+
+### Declared roots
+
+A project whose Python is not under `src/<package>/` and `bin/` declares its
+roots in `pyproject.toml`:
+
+```toml
+[tool.auditme]
+roots = [
+    { path = "tools/mypkg" },
+    { path = "tools", modules = "top-level" },
+]
+```
+
+| Key | Meaning |
+|---|---|
+| `path` | Required. A directory relative to `scope` that holds at least one `.py` file. |
+| `modules` | `"package"` (the default) or `"top-level"`. |
+
+A `package` root is swept recursively and its modules are named after the root
+(`tools/mypkg/core.py` is `mypkg.core`). A `top-level` root is a directory on
+`sys.path`: only the `.py` files directly in it are swept, each named by its
+stem, and its subdirectories are left to their own roots, so a package inside
+it is declared as a `package` root of its own.
+
+The declared list replaces the default roots, in the order given: a project
+that also has `src/` packages lists them. With no `[tool.auditme]` table, or
+no `pyproject.toml`, the defaults apply. `--extra-root` replaces the declared
+list for one run. No two `package` roots may nest, and no `top-level` root may
+sit inside a `package` root. The hooks and the Phase B listers read the same
+list.
 
 Each output line carries `rule`, `variant`, `path`, `line`, `evidence`,
 `accepted` and `accepted_reason`; a hit from a rule that compares several
@@ -117,7 +148,25 @@ hit, and the sweep continues.
 | Exit | Meaning |
 |---|---|
 | `0` | Sweep completed, whatever it found; also when there is no root to audit (a notice goes to stderr and only the project-level checks run) |
-| `2` | `scope`, a named `--extra-root` or the `--package` directory does not exist; or an argument error |
+| `2` | `scope`, a named `--extra-root` or the `--package` directory does not exist; an argument error; or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
+
+The declaration errors, each exit `2`:
+
+| Message | Cause |
+|---|---|
+| `pyproject.toml: <parse error>` | `pyproject.toml` is not valid TOML and mentions `[tool.auditme` |
+| `pyproject.toml [tool.auditme]: must be a table` | `[tool.auditme]` is not a table |
+| `pyproject.toml [tool.auditme]: unknown key '<key>'` | a key other than `roots` |
+| `pyproject.toml [tool.auditme]: roots must be a list of tables` | `roots` is not a list of tables |
+| `pyproject.toml [tool.auditme]: unknown key '<key>' in a roots entry` | an entry has a key other than `path` or `modules` |
+| `pyproject.toml [tool.auditme]: a roots entry has no path` | an entry lacks `path` |
+| `pyproject.toml [tool.auditme]: modules must be 'package' or 'top-level', not '<value>'` | an invalid `modules` |
+| `declared root <path> not found` | the directory does not exist |
+| `declared root <path> holds no .py file` | no `.py` file (for `top-level`, none directly in it) |
+| `declared roots <a> and <b> overlap` | two roots would sweep a file twice |
+
+The hooks treat any of these as a sweep that cannot run, and `phaseb.py`
+exits `2` with the same message.
 
 The exit status does not reflect hits: callers read stdout.
 

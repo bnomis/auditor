@@ -90,6 +90,11 @@ reports a partial scope as a complete one. Until 2026-08-14 the default was
 audit cycles while the sweep looked clean. The same default would have picked
 `__pycache__` on a project that had one.
 
+A project whose Python is not under `src/` and `bin/` declares its roots in
+`[tool.auditme]` in `pyproject.toml` (`roots = [{ path = "...", modules =
+"package" | "top-level" }]`). The declared list replaces the defaults, and
+`--extra-root` replaces it for one run. See `docs/reference/cli.md`.
+
 An **extra root** is auditable Python that is not a package under `src/`.
 `bin/` is the default one, used whenever it exists and holds `.py` files, and
 `--extra-root <dir>` (repeatable, relative to the project root) replaces that

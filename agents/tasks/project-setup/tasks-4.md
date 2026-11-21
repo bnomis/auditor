@@ -30,7 +30,7 @@ and the last task runs every test tree the change can reach.
 
 ## Task 1: Read the declared roots
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Implementation - Declared audit roots (1.11); Error handling (the 1.11 rows)
@@ -42,25 +42,25 @@ call site changed.
 
 **Subtasks:**
 
-- [ ] Check the starting point: `grep -rnwE 'ROOT_MODULES|RootsError|declared_roots' claude/skills/auditme/checks` finds nothing; if it does, stop the list as `blocked`, naming what exists
-- [ ] In `claude/skills/auditme/checks/auditme/core.py`: a `RootsError(Exception)`, and `declared_roots(scope) -> list[tuple[pathlib.Path, str]] | None` that reads `<scope>/pyproject.toml` with `tomllib`, returns `None` when the file or the `[tool.auditme]` table is absent, and otherwise each `(scope / path, mode)` in order, `mode` defaulting to `package`
-- [ ] Validation, each raising `RootsError` with the spec's message: `[tool.auditme]` not a table; `roots` not a list of tables; an entry with no `path`, an unknown key, or a `modules` other than `package` or `top-level`; a root that does not exist or holds no `.py` file (for a `top-level` root, no `.py` file directly in it); two `package` roots where one contains the other; a `top-level` root inside a `package` root. Invalid TOML raises `RootsError` only when the file's text contains `[tool.auditme`; otherwise `declared_roots` returns `None`
-- [ ] `ROOT_MODULES: types.MappingProxyType[pathlib.Path, str]`, empty by default, rebound (never mutated) whenever `_audit_roots()` reads declared roots
-- [ ] `_audit_roots(scope)`: the declared roots when `declared_roots` returns a list, else today's packages under `src/` then extras
-- [ ] `_all_py_files(root)`: for a root `ROOT_MODULES` marks `top-level`, the `.py` files directly in it, sorted; otherwise unchanged
-- [ ] `module_dotted(path, root)`: for a `top-level` root, the parts below the root without the root's name (`audit.py` is `audit`); otherwise unchanged
-- [ ] `corpus_py_files(scope, root)`: the files of every declared root when roots are declared; otherwise unchanged
-- [ ] New `claude/skills/auditme/tests/test_roots.py`: a declared list is returned in order and replaces `src/` and `bin/`; a `top-level` root sweeps only its own files, named by stem, and a package inside it only as its own root; a `package` root names modules after the root; no table, and no `pyproject.toml`, give today's roots; every error row raises `RootsError` with its message; invalid TOML without `[tool.auditme` gives the defaults; `corpus_py_files` spans the declared roots
+- [x] Check the starting point: `grep -rnwE 'ROOT_MODULES|RootsError|declared_roots' claude/skills/auditme/checks` finds nothing; if it does, stop the list as `blocked`, naming what exists
+- [x] In `claude/skills/auditme/checks/auditme/core.py`: a `RootsError(Exception)`, and `declared_roots(scope) -> list[tuple[pathlib.Path, str]] | None` that reads `<scope>/pyproject.toml` with `tomllib`, returns `None` when the file or the `[tool.auditme]` table is absent, and otherwise each `(scope / path, mode)` in order, `mode` defaulting to `package`
+- [x] Validation, each raising `RootsError` with the spec's message: `[tool.auditme]` not a table; `roots` not a list of tables; an entry with no `path`, an unknown key, or a `modules` other than `package` or `top-level`; a root that does not exist or holds no `.py` file (for a `top-level` root, no `.py` file directly in it); two `package` roots where one contains the other; a `top-level` root inside a `package` root. Invalid TOML raises `RootsError` only when the file's text contains `[tool.auditme`; otherwise `declared_roots` returns `None`
+- [x] `ROOT_MODULES: types.MappingProxyType[pathlib.Path, str]`, empty by default, rebound (never mutated) whenever `_audit_roots()` reads declared roots
+- [x] `_audit_roots(scope)`: the declared roots when `declared_roots` returns a list, else today's packages under `src/` then extras
+- [x] `_all_py_files(root)`: for a root `ROOT_MODULES` marks `top-level`, the `.py` files directly in it, sorted; otherwise unchanged
+- [x] `module_dotted(path, root)`: for a `top-level` root, the parts below the root without the root's name (`audit.py` is `audit`); otherwise unchanged
+- [x] `corpus_py_files(scope, root)`: the files of every declared root when roots are declared; otherwise unchanged
+- [x] New `claude/skills/auditme/tests/test_roots.py`: a declared list is returned in order and replaces `src/` and `bin/`; a `top-level` root sweeps only its own files, named by stem, and a package inside it only as its own root; a `package` root names modules after the root; no table, and no `pyproject.toml`, give today's roots; every error row raises `RootsError` with its message; invalid TOML without `[tool.auditme` gives the defaults; `corpus_py_files` spans the declared roots
 
 **Acceptance Criteria:**
 
-- [ ] Each case in `test_roots.py` passes
-- [ ] A project with no `[tool.auditme]` gets exactly the roots it got before (the existing `test_driver.py` passes unchanged)
+- [x] Each case in `test_roots.py` passes
+- [x] A project with no `[tool.auditme]` gets exactly the roots it got before (the existing `test_driver.py` passes unchanged)
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -72,7 +72,7 @@ call site changed.
 
 ## Task 2: The driver's errors and `--extra-root`
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation - Declared audit roots (1.11); Error handling (the 1.11 rows)
@@ -82,20 +82,20 @@ call site changed.
 
 **Subtasks:**
 
-- [ ] In `main()` of `claude/skills/auditme/checks/audit.py`: catch `RootsError` from reading the roots, print `ERROR: <message>` on stderr, return 2
-- [ ] With `--extra-root`, sweep only the named roots, each as a `package` root, ignoring `[tool.auditme]`; `--package` unchanged
-- [ ] The no-root notice and the project-level-only pass (1.8) apply when no root is declared and none is found; a declared list is never empty after validation
-- [ ] Tests in `claude/skills/auditme/tests/test_driver.py`: a project with `[tool.auditme]` sweeps its declared roots and not `src/`; each `RootsError` exits 2 with `ERROR: ` and nothing on stdout; `--extra-root` overrides the declaration; a `top-level` root's hits name its files by their paths
+- [x] In `main()` of `claude/skills/auditme/checks/audit.py`: catch `RootsError` from reading the roots, print `ERROR: <message>` on stderr, return 2
+- [x] With `--extra-root`, sweep only the named roots, each as a `package` root, ignoring `[tool.auditme]`; `--package` unchanged
+- [x] The no-root notice and the project-level-only pass (1.8) apply when no root is declared and none is found; a declared list is never empty after validation
+- [x] Tests in `claude/skills/auditme/tests/test_driver.py`: a project with `[tool.auditme]` sweeps its declared roots and not `src/`; each `RootsError` exits 2 with `ERROR: ` and nothing on stdout; `--extra-root` overrides the declaration; a `top-level` root's hits name its files by their paths
 
 **Acceptance Criteria:**
 
-- [ ] Each case above passes
-- [ ] A project without `[tool.auditme]` gets the same output as before
+- [x] Each case above passes
+- [x] A project without `[tool.auditme]` gets the same output as before
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_roots.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_roots.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -105,7 +105,7 @@ call site changed.
 
 ## Task 3: The hooks and Phase B follow the declaration
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation - Declared audit roots (1.11) (every consumer reads `_audit_roots()`)
@@ -116,19 +116,19 @@ sweep does.
 
 **Subtasks:**
 
-- [ ] `claude/skills/auditme/tests/test_changed.py`: on a fixture whose Python lives only in a declared root, `changed.py --all` reports an unaccepted hit there and exits 1; a malformed `[tool.auditme]` makes the sweep fail (exit 1, naming the `audit.py` error)
-- [ ] `claude/skills/auditme/tests/phaseb/` (the test module for `plan`): on the same fixture, `phaseb.py plan` lists a candidate from the declared root for A4
-- [ ] `phaseb.py`: if `plan` (or any subcommand that reads roots) meets a `RootsError`, print `ERROR: <message>` on stderr and exit 2; add a test
-- [ ] Change code only where a test shows a consumer not following `_audit_roots()`
+- [x] `claude/skills/auditme/tests/test_changed.py`: on a fixture whose Python lives only in a declared root, `changed.py --all` reports an unaccepted hit there and exits 1; a malformed `[tool.auditme]` makes the sweep fail (exit 1, naming the `audit.py` error)
+- [x] `claude/skills/auditme/tests/phaseb/` (the test module for `plan`): on the same fixture, `phaseb.py plan` lists a candidate from the declared root for A4
+- [x] `phaseb.py`: if `plan` (or any subcommand that reads roots) meets a `RootsError`, print `ERROR: <message>` on stderr and exit 2; add a test
+- [x] Change code only where a test shows a consumer not following `_audit_roots()`
 
 **Acceptance Criteria:**
 
-- [ ] Each case above passes
+- [x] Each case above passes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_changed.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_changed.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -139,7 +139,7 @@ sweep does.
 
 ## Task 4: Document the declared roots
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Documentation (amendment 1.11)
@@ -150,20 +150,20 @@ audit and the hooks cover my code.
 
 **Subtasks:**
 
-- [ ] `docs/setup.md`, "What you get": a project whose Python lives elsewhere declares its roots in `[tool.auditme]`, with the spec's example, and undeclared directories are not swept
-- [ ] `docs/reference/cli.md`, the `audit.py` section: the table, both `modules` values, that the list replaces the defaults, how `--extra-root` overrides it, and the new exit-2 errors in its exit table
-- [ ] `claude/skills/auditme/SKILL.md`: name `[tool.auditme]` beside the description of roots in the mechanical sweep
-- [ ] `uv run --group docs mkdocs build --strict`
+- [x] `docs/setup.md`, "What you get": a project whose Python lives elsewhere declares its roots in `[tool.auditme]`, with the spec's example, and undeclared directories are not swept
+- [x] `docs/reference/cli.md`, the `audit.py` section: the table, both `modules` values, that the list replaces the defaults, how `--extra-root` overrides it, and the new exit-2 errors in its exit table
+- [x] `claude/skills/auditme/SKILL.md`: name `[tool.auditme]` beside the description of roots in the mechanical sweep
+- [x] `uv run --group docs mkdocs build --strict`
 
 **Acceptance Criteria:**
 
-- [ ] Every error the spec's 1.11 rows name appears in `docs/reference/cli.md`
-- [ ] The docs build passes
+- [x] Every error the spec's 1.11 rows name appears in `docs/reference/cli.md`
+- [x] The docs build passes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
@@ -173,7 +173,7 @@ audit and the hooks cover my code.
 
 ## Task 5: Whole-branch checks
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Testing (1.11)
@@ -183,19 +183,19 @@ starts from a `main` that holds the mechanism.
 
 **Subtasks:**
 
-- [ ] Hoist anything the new code duplicates: grep `claude/skills/auditme/checks` for each constant and one-line helper Task 1 added, and import rather than copy
-- [ ] Confirm the spec's 1.11 Testing bullet is covered by `test_roots.py`, `test_driver.py`, `test_changed.py` and the Phase B tests
-- [ ] Leave the spec's `**Status:**` and the `TODO.md` item alone: `tasks-5.md` closes both
+- [x] Hoist anything the new code duplicates: grep `claude/skills/auditme/checks` for each constant and one-line helper Task 1 added, and import rather than copy
+- [x] Confirm the spec's 1.11 Testing bullet is covered by `test_roots.py`, `test_driver.py`, `test_changed.py` and the Phase B tests
+- [x] Leave the spec's `**Status:**` and the `TODO.md` item alone: `tasks-5.md` closes both
 
 **Acceptance Criteria:**
 
-- [ ] Every check below passes
+- [x] Every check below passes
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
 
 **Notes:**
 

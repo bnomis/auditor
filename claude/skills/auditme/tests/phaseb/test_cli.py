@@ -274,3 +274,24 @@ def test_every_registered_question_round_trips_plan_check_and_merge(project: Pro
     assert merged.returncode == 0, merged.stderr
     ledger = root / 'agents' / 'audit-reviews' / 'ledger' / f'{question}.jsonl'
     assert len(ledger.read_text(encoding='utf-8').splitlines()) == len(ids)
+
+
+def test_candidates_follow_the_declared_roots(project: Project) -> None:
+    declared = project(
+        {
+            'pyproject.toml': '[[tool.auditme.roots]]\npath = "lib/pkg"\n',
+            'lib/pkg/__init__.py': '',
+            'lib/pkg/mod.py': MOD,
+        },
+    )
+    done = run('candidates', declared, '--question', 'A4')
+    assert done.returncode == 0, done.stderr
+    assert [json.loads(line)['id'] for line in done.stdout.splitlines()] == ['lib/pkg/mod.py::first', 'lib/pkg/mod.py::second']
+
+
+def test_plan_reports_a_malformed_declaration_and_exits_2(project: Project, tmp_path: pathlib.Path) -> None:
+    broken = project({'pyproject.toml': '[tool.auditme]\nroots = "lib"\n', 'lib/a.py': 'A = 1\n'})
+    done = run('plan', broken, '--question', 'A4', '--out', tmp_path / 'run')
+    assert done.returncode == 2
+    assert done.stderr.startswith('ERROR: ')
+    assert done.stdout == ''
