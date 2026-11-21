@@ -163,6 +163,10 @@ def main() -> int:
         print(f'ERROR: {scope} is not a directory', file=sys.stderr)
         return 2
 
+    if args.package and (pathlib.Path(args.package).name != args.package or args.package in ('.', '..')):
+        print(f'ERROR: --package {args.package} is not a directory name directly under src/', file=sys.stderr)
+        return 2
+
     if args.extra_root is not None:
         # A root named on the command line is not silently dropped when it is
         # missing: an unnoticed typo would reinstate exactly the empty pass
@@ -170,6 +174,9 @@ def main() -> int:
         auditme.core.EXTRA_ROOT_NAMES = tuple(args.extra_root)
         auditme.core.DECLARATION_IGNORED = True
         for name in args.extra_root:
+            if not auditme.core.path_inside((scope / name).resolve(), scope):
+                print(f'ERROR: --extra-root {name} is outside {scope}', file=sys.stderr)
+                return 2
             if not (scope / name).is_dir():
                 print(f'ERROR: {scope / name} is not a directory', file=sys.stderr)
                 return 2

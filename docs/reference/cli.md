@@ -99,8 +99,8 @@ nothing.
 | Option | Effect |
 |---|---|
 | `scope` | Project root. |
-| `--package PACKAGE` | Audit only `src/PACKAGE`. Drops the extra roots and the loose-module check. For re-checking one package; a normal audit passes neither option. |
-| `--extra-root DIR` | Audit `DIR` (relative to `scope`) as its own pass, as a `package` root. Repeatable. Replaces the default extra root, `bin/`, and replaces any roots declared in `[tool.auditme]` for that run; each named directory must exist. |
+| `--package PACKAGE` | Audit only `src/PACKAGE`, which must be a directory name directly under `src/` (a path or `..` exits 2). Drops the extra roots and the loose-module check. For re-checking one package; a normal audit passes neither option. |
+| `--extra-root DIR` | Audit `DIR` (relative to `scope`) as its own pass, as a `package` root. Repeatable. Replaces the default extra root, `bin/`, and replaces any roots declared in `[tool.auditme]` for that run; each named directory must exist and resolve inside `scope` (one outside exits 2). |
 
 Without options it audits every package under `src/`, each in its own pass,
 then `bin/` when it exists and holds `.py` files. A `.py` file directly in
@@ -135,7 +135,7 @@ it is declared as a `package` root of its own.
 The declared list replaces the default roots, in the order given: a project
 that also has `src/` packages lists them. With no `[tool.auditme]` table, or
 no `pyproject.toml`, the defaults apply. `--extra-root` replaces the declared
-list for one run. No two `package` roots may nest, and no `top-level` root may
+list for one run. A declared root that resolves outside the project is an invalid declaration. No two `package` roots may nest, and no `top-level` root may
 sit inside a `package` root. The hooks and the Phase B listers read the same
 list.
 
@@ -164,9 +164,12 @@ The declaration errors, each exit `2`:
 | `declared root <path> not found` | the directory does not exist |
 | `declared root <path> holds no .py file` | no `.py` file (for `top-level`, none directly in it) |
 | `declared roots <a> and <b> overlap` | two roots would sweep a file twice |
+| `declared root <path> is outside the project` | the path resolves outside `scope`, as an absolute path or `..` does |
 
 The hooks treat any of these as a sweep that cannot run, and `phaseb.py`
 exits `2` with the same message.
+
+`phaseb.py` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path.
 
 `phaseb.py plan` records the callee depth it listed at (`--depth`, default 3)
 in `plan.json`. `phaseb.py merge` exits `2`, naming both depths and writing

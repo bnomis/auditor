@@ -225,6 +225,14 @@ def test_unknown_question_exits_2_with_the_message_on_stderr(root: pathlib.Path)
     assert done.stdout == ''
 
 
+@pytest.mark.parametrize('command', ['candidates', 'plan', 'merge', 'report', 'dismiss'])
+def test_an_unregistered_question_is_refused_on_every_subcommand(root: pathlib.Path, command: str) -> None:
+    done = run(command, root, '--question', '../../x')
+    assert done.returncode == 2
+    assert 'not a registered question' in done.stderr
+    assert not (root / 'agents').exists()
+
+
 # registered batch size
 
 

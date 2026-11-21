@@ -279,6 +279,8 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
         if mode not in (PACKAGE, TOP_LEVEL):
             raise RootsError(f"{where}: modules must be 'package' or 'top-level', not {mode!r}")
         root = scope / path
+        if not path_inside(root.resolve(), scope.resolve()):
+            raise RootsError(f'declared root {path} is outside the project')
         if not root.is_dir():
             raise RootsError(f'declared root {path} not found')
         if not py_files(root, mode):

@@ -254,7 +254,7 @@ every later task's Definition of Done uses.
 
 ## Task 8: Contain arguments and declared roots
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F17
@@ -263,20 +263,20 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] `phaseb.py`: reject a `--question` that is not a registered question, on every subcommand that takes one
-- [ ] `audit.py`: require `--package` to name a directory directly under `src/` and `--extra-root` to resolve inside the project, exiting 2 with a message as other argument errors do
-- [ ] `core.declared_roots`: refuse a root that resolves outside the project with a `RootsError`
-- [ ] Tests for each refusal, and one that an absolute declared root gives `RootsError`
-- [ ] Update `docs/reference/cli.md` for the new refusals
+- [x] `phaseb.py`: reject a `--question` that is not a registered question, on every subcommand that takes one
+- [x] `audit.py`: require `--package` to name a directory directly under `src/` and `--extra-root` to resolve inside the project, exiting 2 with a message as other argument errors do
+- [x] `core.declared_roots`: refuse a root that resolves outside the project with a `RootsError`
+- [x] Tests for each refusal, and one that an absolute declared root gives `RootsError`
+- [x] Update `docs/reference/cli.md` for the new refusals
 
 **Acceptance Criteria:**
 
-- [ ] No argument or declared root can make the checker read or write outside the project and the ledger directory
+- [x] No argument or declared root can make the checker read or write outside the project and the ledger directory
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

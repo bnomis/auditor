@@ -34,10 +34,22 @@ def ledger_path(root: pathlib.Path, question: str) -> pathlib.Path:
     return root.joinpath(*LEDGER_PARTS, f'{question}.jsonl')
 
 
+def registered_question(value: str) -> str:
+    """Return `value` if a lister is registered for it, so it can build a ledger path.
+
+    Raises:
+        argparse.ArgumentTypeError: no lister is registered for the question.
+    """
+    if value not in auditme.phaseb.candidates.REGISTRY:
+        raise argparse.ArgumentTypeError(f'not a registered question: {value!r}; known: {sorted(auditme.phaseb.candidates.REGISTRY)}')
+    return value
+
+
 def add_question(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--question',
         required=True,
+        type=registered_question,
         help='The Phase B question, e.g. A4',
     )
 

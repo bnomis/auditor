@@ -391,6 +391,26 @@ def test_a_named_extra_root_that_does_not_exist_is_an_error(project: Builder, mo
     assert audit.main() == 2
 
 
+@pytest.mark.parametrize('extra', ['../outside', '/elsewhere'])
+def test_an_extra_root_outside_the_project_is_an_error(
+    project: Builder, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], extra: str
+) -> None:
+    root = project({'src/probe/mod.py': 'x = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--extra-root', extra])
+    assert audit.main() == 2
+    assert 'is outside' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('package', ['../x', 'a/b', '..', '.', '/elsewhere'])
+def test_a_package_that_is_not_a_directory_under_src_is_an_error(
+    project: Builder, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], package: str
+) -> None:
+    root = project({'src/probe/mod.py': 'x = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--package', package])
+    assert audit.main() == 2
+    assert 'directly under src/' in capsys.readouterr().err
+
+
 def test_the_package_flag_drops_the_script_root_too(
     project: Builder,
     monkeypatch: pytest.MonkeyPatch,

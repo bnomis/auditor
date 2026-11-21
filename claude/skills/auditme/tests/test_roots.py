@@ -87,6 +87,13 @@ def test_invalid_declarations_raise_roots_error(project: Builder, table: str, me
         auditme.core.audit_roots(root)
 
 
+@pytest.mark.parametrize('path', ['../elsewhere', '/elsewhere'])
+def test_a_declared_root_outside_the_project_raises_roots_error(project: Builder, path: str) -> None:
+    root = declare(project, f'[tool.auditme]\nroots = [{{ path = "{path}" }}]\n')
+    with pytest.raises(auditme.core.RootsError, match='is outside the project'):
+        auditme.core.audit_roots(root)
+
+
 def test_a_top_level_root_with_only_subdirectory_files_holds_no_py_file(project: Builder) -> None:
     root = declare(project, '[tool.auditme]\nroots = [{ path = "src", modules = "top-level" }]\n')
     with pytest.raises(auditme.core.RootsError, match=r'holds no \.py file'):
