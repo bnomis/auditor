@@ -119,23 +119,39 @@ def test_missing_checker_passes_when_stop_hook_active(tmp_path: pathlib.Path) ->
 OWN_REPORT = 'claude/skills/auditme/checks/auditme/core.py:9  own-rule\n'
 
 
-def add_own_checker(repo: pathlib.Path, exit_code: int) -> None:
-    checks = repo / 'claude' / 'skills' / 'auditme' / 'checks'
-    checks.mkdir(parents=True)
-    (checks / 'changed.py').write_text(f"import sys\nprint({OWN_REPORT!r}, end='')\nsys.exit({exit_code})\n")
+def write_checker(path: pathlib.Path, report: str, exit_code: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"import sys\nprint({report!r}, end='')\nsys.exit({exit_code})\n")
 
 
-def test_auditor_checkout_runs_its_own_checker(tmp_path: pathlib.Path) -> None:
+def own_checker(repo: pathlib.Path) -> pathlib.Path:
+    return repo / 'claude' / 'skills' / 'auditme' / 'checks' / 'changed.py'
+
+
+def git(repo: pathlib.Path, *args: str) -> None:
+    subprocess.run(
+        ['git', '-C', str(repo), '-c', 'core.hooksPath=/dev/null', '-c', 'user.name=t', '-c', 'user.email=t@t', *args], check=True, capture_output=True
+    )
+
+
+def test_other_repository_checker_is_never_run(tmp_path: pathlib.Path) -> None:
     repo = make_repo(tmp_path, True)
-    add_own_checker(repo, 1)
+    write_checker(own_checker(repo), OWN_REPORT, 1)
     result = run(make_home(tmp_path, 0), repo, {})
-    decision = json.loads(result.stdout)
+    assert (result.returncode, result.stdout) == (0, '')
+
+
+def test_worktree_of_installed_repository_runs_its_own_checker(tmp_path: pathlib.Path) -> None:
+    repo = make_repo(tmp_path, True)
+    write_checker(own_checker(repo), REPORT, 0)
+    git(repo, 'add', '-A')
+    git(repo, 'commit', '-q', '-m', 'init')
+    home = tmp_path / 'home'
+    checker_path(home).parent.mkdir(parents=True)
+    checker_path(home).symlink_to(own_checker(repo))
+    worktree = tmp_path / 'worktree'
+    git(repo, 'worktree', 'add', '-q', str(worktree))
+    write_checker(own_checker(worktree), OWN_REPORT, 1)
+    decision = json.loads(run(home, worktree, {}).stdout)
     assert decision['decision'] == 'block'
     assert decision['reason'] == OWN_REPORT.rstrip('\n')
-
-
-def test_auditor_checkout_passes_when_its_own_checker_passes(tmp_path: pathlib.Path) -> None:
-    repo = make_repo(tmp_path, True)
-    add_own_checker(repo, 0)
-    result = run(make_home(tmp_path, 1), repo, {})
-    assert (result.returncode, result.stdout) == (0, '')

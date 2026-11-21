@@ -122,7 +122,10 @@ design, not the project:
   links into the main checkout, so after the branch changed the checker the
   hook kept blocking every turn with hits the branch's own checker no longer
   reported, until the branch merged. In this repository the checker is the
-  project's own code, so a checkout that holds it runs it.
+  project's own code, so a worktree of the repository the installed checker
+  links into runs its own. Trust comes from the shared git directory, not from
+  the files a repository holds: a global hook that ran any repository's
+  `changed.py` would run untrusted code at the end of every turn.
 
 ## Module location
 
@@ -544,8 +547,11 @@ url."git@github-auditor:bnomis/auditor.git".insteadOf
 - It exits 0 when the payload's `stop_hook_active` is true, so it blocks at most
   once per turn.
 - Otherwise it runs `python3 -I ~/.claude/skills/auditme/checks/changed.py`,
-  or, when the repository root holds `claude/skills/auditme/checks/changed.py`
-  (a checkout or worktree of this repository), that file instead (1.12); on
+  or, when the repository shares its git directory
+  (`git rev-parse --git-common-dir`) with the checkout the installed
+  `changed.py` resolves into - that checkout or one of its worktrees - and
+  holds `claude/skills/auditme/checks/changed.py`, that file instead (1.12).
+  Any other repository's copy is never run; on
   exit 1 it prints the Claude Code block decision (`{"decision": "block",
   "reason": ...}`, built with `jq -Rs`) carrying the runner's report.
 - When `changed.py` is not a file (missing, or a dangling link) it blocks
@@ -665,9 +671,9 @@ is and linking to `docs/setup.md`.
   hook `--append` and its own arguments through; the commit is a full hash.
 - The Stop hook: a shell test running it with a stub payload in an opted-in and a
   non-opted-in repository.
-- 1.12, `tests/test_stop_hook.py`: a repository holding its own
-  `claude/skills/auditme/checks/changed.py` blocks with that checker's report
-  when it exits 1, and passes when it exits 0, whatever the installed one does.
+- 1.12, `tests/test_stop_hook.py`: a worktree of the repository the installed
+  checker links into blocks with its own checker's report; another repository
+  holding a `claude/skills/auditme/checks/changed.py` never has it run.
 - 1.2, `test_driver.py`: `test_a_missing_src_directory_is_an_error` and
   `test_an_empty_src_directory_is_an_error` are replaced by cases for: a project
   with only `bin/` is swept over `bin/` and exits 0; an empty project exits 0

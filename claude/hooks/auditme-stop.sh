@@ -19,11 +19,21 @@ block() {
 }
 
 # The installed checker, not the project's pinned one: this is the early warning.
-# A checkout of the auditor repository (or a worktree of it) runs its own
-# checker instead, so a branch that changes the checker is judged by that branch.
 checker="$HOME/.claude/skills/auditme/checks/changed.py"
-if [ -f "$root/claude/skills/auditme/checks/changed.py" ]; then
-    checker="$root/claude/skills/auditme/checks/changed.py"
+
+# A worktree of the very repository the installed checker links into runs its
+# own checker instead, so a branch that changes the checker is judged by that
+# branch. Trust comes from the shared git directory, never from the files a
+# repository holds: any other repository's changed.py is never run.
+git_dir() {
+    git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null
+}
+own="$root/claude/skills/auditme/checks/changed.py"
+if [ -f "$own" ] && installed=$(realpath "$checker" 2>/dev/null); then
+    trusted=$(git_dir "$(dirname "$installed")")
+    if [ -n "$trusted" ] && [ "$trusted" = "$(git_dir "$root")" ]; then
+        checker=$own
+    fi
 fi
 # -f follows a link, so a dangling one counts as missing.
 if [ ! -f "$checker" ]; then

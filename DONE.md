@@ -714,4 +714,4 @@ Fix direction: small. When the project root holds its own
 it), the hook runs that one instead; other projects keep the installed
 checker. Add a test to `tests/test_stop_hook.py` for both cases.
 
-Done: 2026-11-21 - `claude/hooks/auditme-stop.sh` runs the repository root's own `claude/skills/auditme/checks/changed.py` when there is one; tests in `tests/test_stop_hook.py`; amendment 1.12 of `agents/specs/project-setup/spec.md`; `docs/setup.md`.
+Done: 2026-11-21 - `claude/hooks/auditme-stop.sh` runs a worktree's own `claude/skills/auditme/checks/changed.py` when it shares its git directory with the checkout the installed checker links into, and never another repository's copy; tests in `tests/test_stop_hook.py`; amendment 1.12 of `agents/specs/project-setup/spec.md`; `docs/setup.md`.
