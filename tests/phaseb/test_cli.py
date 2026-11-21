@@ -6,6 +6,8 @@ import pathlib
 import subprocess
 import sys
 
+import auditme.phaseb
+import auditme.phaseb.candidates
 import pytest
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[2] / 'checks' / 'phaseb.py'
@@ -226,3 +228,49 @@ def test_candidates_lists_t1(project: Project) -> None:
     assert done.returncode == 0, done.stderr
     records = [json.loads(line) for line in done.stdout.splitlines()]
     assert [record['id'] for record in records] == ['src/pkg/mod.py::load']
+
+
+EVERY_QUESTION_FILES = {
+    'src/pkg/__init__.py': '',
+    'src/pkg/base.py': 'class ProbeError(Exception):\n    pass\n',
+    'src/pkg/types.py': 'import enum\n\n\nclass Mode(enum.Enum):\n    FAST = 1\n    SLOW = 2\n',
+    'src/pkg/mod.py': (
+        'import pkg.types\n\n\n'
+        'def first_step(mode: pkg.types.Mode, path: str) -> int:\n'
+        '    """Do it.\n\n    Raises:\n        ProbeError: always.\n    """\n'
+        '    if mode == pkg.types.Mode.FAST:\n        return 1\n'
+        '    elif mode == pkg.types.Mode.SLOW:\n        return 2\n'
+        '    try:\n        open(path).read()\n    except Exception as error:\n'
+        '        print(error)\n        raise\n    return 0\n'
+    ),
+    'src/pkg/pure.py': 'def clamp_it(x: int) -> int:\n    if x > 3:\n        return 3\n    return x\n',
+    'src/pkg/sub/__init__.py': "from .base import Probe\n\n__all__ = ['Probe']\n",
+    'src/pkg/sub/base.py': 'class Probe:\n    pass\n',
+    'src/pkg/user.py': 'import pkg.sub\n\n\ndef use():\n    return pkg.sub.Probe\n',
+    'src/tests/__init__.py': '',
+    'agents/specs/probe/spec.md': '# Probe\n\n**Status:** implemented\n\n## Run\n\nThe `first_step` function runs.\n',
+    'docs/guide.md': '# Guide\n\n## Usage\n\nCall `first_step` to start.\n',
+    'AGENTS.md': '# Agents\n\n## Layout\n\nCode is in `src/pkg/mod.py`; use `ruff` and `pytest`.\n',
+    'pyproject.toml': '[project]\nname = "pkg"\ndependencies = []\n',
+}
+
+
+@pytest.mark.parametrize('question', sorted(auditme.phaseb.candidates.REGISTRY))
+def test_every_registered_question_round_trips_plan_check_and_merge(project: Project, tmp_path_factory: pytest.TempPathFactory, question: str) -> None:
+    root = project(EVERY_QUESTION_FILES)
+    subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+    subprocess.run(['git', 'add', '-A'], cwd=root, check=True)
+    out = tmp_path_factory.mktemp('run')
+    planned = run('plan', root, '--question', question, '--out', out)
+    assert planned.returncode == 0, planned.stderr
+    batches = json.loads((out / 'plan.json').read_text(encoding='utf-8'))['batches']
+    ids = [item for batch in batches for item in batch]
+    assert ids, f'the fixture project gives {question} no candidate'
+    findings: dict[str, list[str]] = {kind: [] for kind in auditme.phaseb.question_kinds(question)}
+    lines = [json.dumps({'id': item, 'findings': findings, 'reason': 'ok'}) for item in ids]
+    (out / 'result-01.jsonl').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    assert run('check', out).returncode == 0
+    merged = run('merge', root, '--question', question, out)
+    assert merged.returncode == 0, merged.stderr
+    ledger = root / 'agents' / 'audit-reviews' / 'ledger' / f'{question}.jsonl'
+    assert len(ledger.read_text(encoding='utf-8').splitlines()) == len(ids)
