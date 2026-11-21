@@ -463,3 +463,16 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
                 accepted_reason=accept,
             )
             index = last_index + 1
+
+
+__all__ = [
+    'CLASS_LINE_RE',
+    'DEF_LINE_RE',
+    'SPEC_SKIP_PARTS',
+    'check_lockfile',
+    'check_phase_section_doc_reference',
+    'check_ruff',
+    'check_ruff_version',
+    'check_spec_api_signature_drift',
+    'spec_markdown_files',
+]

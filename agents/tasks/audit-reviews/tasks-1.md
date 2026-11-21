@@ -286,7 +286,7 @@ every later task's Definition of Done uses.
 
 ## Task 9: Declare each checker module's surface
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** F4, F10, D4
@@ -295,20 +295,20 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Give `core.py` and each module under `rules/` an `__all__` naming what other modules and test files use (grep every root for `<module>.<name>` and `from <module> import`)
-- [ ] `phaseb/__init__.py`: drop `Candidate`, `Lister`, `MergeResult`, `TestRef`, `Verdict`, `architecture`, `build_test_map`, `question_kinds` and `register_question` from `__all__`, keep the `architecture` import for its registration, and import those names in tests from their submodules
-- [ ] Run the T1 lister (`python3 claude/skills/auditme/checks/phaseb.py plan . --question T1 --out <scratch>`) and check, for each of the 68 T1 ids flagged in `agents/audit-reviews/ledger/T1.jsonl`, that it is now `private: true` or has a direct test; write a direct test for each that is neither
-- [ ] Note in the commit body that the next audit re-judges T1 and A1 under the new privacy
+- [x] Give `core.py` and each module under `rules/` an `__all__` naming what other modules and test files use (grep every root for `<module>.<name>` and `from <module> import`)
+- [x] `phaseb/__init__.py`: drop `Candidate`, `Lister`, `MergeResult`, `TestRef`, `Verdict`, `architecture`, `build_test_map`, `question_kinds` and `register_question` from `__all__`, keep the `architecture` import for its registration, and import those names in tests from their submodules
+- [x] Run the T1 lister (`python3 claude/skills/auditme/checks/phaseb.py plan . --question T1 --out <scratch>`) and check, for each of the 68 T1 ids flagged in `agents/audit-reviews/ledger/T1.jsonl`, that it is now `private: true` or has a direct test; write a direct test for each that is neither
+- [x] Note in the commit body that the next audit re-judges T1 and A1 under the new privacy
 
 **Acceptance Criteria:**
 
-- [ ] Every one of the 68 flagged T1 ids is private by the `all` rule or has a direct test
-- [ ] No name in a package `__init__.py`'s `__all__` lacks a non-test consumer
+- [x] Every one of the 68 flagged T1 ids is private by the `all` rule or has a direct test
+- [x] No name in a package `__init__.py`'s `__all__` lacks a non-test consumer
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (every test of `core.py` and the rule modules, which the whole directory imports)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (every test of `core.py` and the rule modules, which the whole directory imports)
 
 **Notes:**
 

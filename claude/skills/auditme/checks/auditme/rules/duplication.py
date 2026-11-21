@@ -727,3 +727,13 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+
+__all__ = [
+    'check_duplicate_call_sequence',
+    'check_duplicate_side_effect_per_target',
+    'check_literal_duplication',
+    'check_paired_sibling_helpers',
+    'check_recompile_duplication',
+    'check_redundant_sink_caller_plus_callee',
+]

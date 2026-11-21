@@ -2468,3 +2468,39 @@ def test_is_broad_handler_true(clause: str) -> None:
 @pytest.mark.parametrize('clause', ['except ValueError', 'except (ValueError, OSError)'])
 def test_is_broad_handler_false(clause: str) -> None:
     assert not auditme.rules.error_handling.is_broad_handler(handler(clause))
+
+
+def test_callable_short_name_reduces_each_invocation_form_to_its_bare_name() -> None:
+    for source in ('translate', 'translate()', "translate('x')", 'errors.translate', "errors.translate('x')"):
+        node = ast.parse(source, mode='eval').body
+        assert auditme.rules.error_handling.callable_short_name(node) == 'translate'
+    assert auditme.rules.error_handling.callable_short_name(ast.parse('fns[0]', mode='eval').body) is None
+
+
+def test_raises_section_names_reads_each_entry_and_stops_at_the_section_end() -> None:
+    doc = 'Summary.\n\nRaises:\n    ParseError: bad input.\n        Continuation line.\n    - store.WriteError: disk full.\n\nReturns:\n    LaterError is not an entry.\n'
+    assert auditme.rules.error_handling.raises_section_names(doc) == {'ParseError', 'WriteError'}
+    assert auditme.rules.error_handling.raises_section_names('No section here.') == set()
+
+
+def test_translator_envelopes_map_a_translating_function_to_what_it_catches(project: Builder) -> None:
+    root = project(
+        {
+            'src/pkg/__init__.py': '',
+            'src/pkg/errors.py': (
+                'def translate(fn):\n'
+                '    try:\n'
+                '        return fn()\n'
+                '    except OSError:\n'
+                '        raise PkgError("io")\n'
+                '\n'
+                'def probe():\n'
+                '    try:\n'
+                '        import extra\n'
+                '    except ImportError:\n'
+                '        extra = None\n'
+            ),
+        }
+    )
+    envelopes = auditme.rules.error_handling.translator_envelopes(root / 'src')
+    assert envelopes == {'translate': frozenset({'OSError'})}

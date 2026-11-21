@@ -347,3 +347,73 @@ def test_describe_error_appends_the_chained_cause() -> None:
 
 def test_describe_error_is_the_bare_message_without_a_cause() -> None:
     assert auditme.core.describe_error(auditme.core.RootsError('plain')) == 'plain'
+
+
+def test_from_import_bindings_resolve_absolute_and_relative_imports() -> None:
+    tree = ast.parse('from a.b import c\nfrom .d import e as f\nfrom ..g import h\nfrom . import i\nimport j\n')
+    assert auditme.core.from_import_bindings(tree, 'pkg.sub.mod', False) == {
+        'c': 'a.b.c',
+        'f': 'pkg.sub.d.e',
+        'h': 'pkg.g.h',
+        'i': 'pkg.sub.i',
+    }
+
+
+def test_from_import_bindings_resolve_a_package_init_against_itself() -> None:
+    tree = ast.parse('from .base import Foo\n')
+    assert auditme.core.from_import_bindings(tree, 'pkg.sub', True) == {'Foo': 'pkg.sub.base.Foo'}
+
+
+def test_call_bindings_add_aliased_plain_imports() -> None:
+    tree = ast.parse('from a import b\nimport c.d as e\nimport f.g\n')
+    assert auditme.core.call_bindings(tree, 'pkg.mod', False) == {'b': 'a.b', 'e': 'c.d'}
+
+
+def test_reexport_aliases_follow_a_re_export_of_a_re_export() -> None:
+    from_bindings = {
+        'pkg': {'run': 'pkg.base.run'},
+        'top': {'run': 'pkg.run'},
+        'other': {'unrelated': 'elsewhere.thing'},
+    }
+    assert auditme.core.reexport_aliases(from_bindings, {'pkg.base.run'}) == {
+        'pkg.run': 'pkg.base.run',
+        'top.run': 'pkg.base.run',
+    }
+
+
+def parse_call(source: str) -> ast.Call:
+    node = ast.parse(source, mode='eval').body
+    assert isinstance(node, ast.Call)
+    return node
+
+
+def test_resolve_call_reaches_a_same_module_name_an_import_and_an_alias() -> None:
+    known: dict[str, str | None] = {'pkg.mod.local': None, 'pkg.other.func': None, 'pkg.mod.Cls.method': 'Cls'}
+    imported = {'func': 'pkg.other.func', 'other': 'pkg.other'}
+    aliases = {'pkg.reexport.func': 'pkg.other.func'}
+    assert auditme.core.resolve_call(parse_call('local()'), 'pkg.mod', None, imported, known, aliases) == 'pkg.mod.local'
+    assert auditme.core.resolve_call(parse_call('func()'), 'pkg.mod', None, imported, known, aliases) == 'pkg.other.func'
+    assert auditme.core.resolve_call(parse_call('other.func()'), 'pkg.mod', None, imported, known, aliases) == 'pkg.other.func'
+    assert auditme.core.resolve_call(parse_call('pkg.reexport.func()'), 'pkg.mod', None, imported, known, aliases) == 'pkg.other.func'
+    assert auditme.core.resolve_call(parse_call('self.method()'), 'pkg.mod', 'Cls', imported, known, aliases) == 'pkg.mod.Cls.method'
+    assert auditme.core.resolve_call(parse_call('unknown()'), 'pkg.mod', None, imported, known, aliases) is None
+
+
+def test_resolve_call_resolves_a_class_method_only_when_asked() -> None:
+    known: dict[str, str | None] = {'pkg.mod.Cls.build': 'Cls'}
+    call = parse_call('Cls.build()')
+    assert auditme.core.resolve_call(call, 'pkg.mod', None, {}, known, {}) is None
+    assert auditme.core.resolve_call(call, 'pkg.mod', None, {}, known, {}, class_methods=True) == 'pkg.mod.Cls.build'
+
+
+def test_reads_by_module_and_name_counts_both_import_spellings(project: Builder) -> None:
+    root = project(
+        {
+            'src/pkg/__init__.py': '',
+            'src/pkg/a.py': 'from pkg.b import NAME\n',
+            'src/pkg/c.py': 'import pkg.b\n\nvalue = pkg.b.OTHER\n',
+        }
+    )
+    reads = auditme.core.reads_by_module_and_name(root, root / 'src')
+    assert [(path.name, line) for path, line in reads[('pkg.b', 'NAME')]] == [('a.py', 1)]
+    assert [(path.name, line) for path, line in reads[('pkg.b', 'OTHER')]] == [('c.py', 3)]

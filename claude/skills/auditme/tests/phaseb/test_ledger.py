@@ -6,6 +6,7 @@ import os
 import typing
 
 import auditme.phaseb
+import auditme.phaseb.candidates
 import auditme.phaseb.ledger
 import conftest
 import pytest
@@ -14,7 +15,7 @@ if typing.TYPE_CHECKING:
     import pathlib
 
 
-def make_ledger_verdict(candidate_id: str = 'src/pkg/mod.py::probe', **overrides) -> auditme.phaseb.Verdict:
+def make_ledger_verdict(candidate_id: str = 'src/pkg/mod.py::probe', **overrides) -> auditme.phaseb.candidates.Verdict:
     fields = {
         'question': 'Q1',
         'id': candidate_id,
@@ -25,10 +26,10 @@ def make_ledger_verdict(candidate_id: str = 'src/pkg/mod.py::probe', **overrides
         'judged': '2026-01-01',
     }
     fields.update(overrides)
-    return auditme.phaseb.Verdict(**fields)
+    return auditme.phaseb.candidates.Verdict(**fields)
 
 
-def write_verdicts(path: pathlib.Path, verdicts: list[auditme.phaseb.Verdict]) -> None:
+def write_verdicts(path: pathlib.Path, verdicts: list[auditme.phaseb.candidates.Verdict]) -> None:
     path.write_text(''.join(json.dumps(dataclasses.asdict(verdict)) + '\n' for verdict in verdicts), encoding='utf-8')
 
 

@@ -1353,3 +1353,23 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+
+__all__ = [
+    'check_assert_never_missing',
+    'check_build_name_has_side_effect',
+    'check_callback_hotpath_io',
+    'check_constructor_disk_io',
+    'check_dataclass_optional_always_set',
+    'check_dead_local_init',
+    'check_mutable_members_in_immutable_wrapper',
+    'check_mutable_module_level_exported',
+    'check_mutable_store_without_copy',
+    'check_parameter_mutation',
+    'check_pure_name_has_side_effect',
+    'check_return_value_shadows_instance_attr',
+    'check_silent_self_mutation',
+    'check_subprocess_without_memoisation',
+    'extract_string_eq_var',
+    'if_chain',
+]

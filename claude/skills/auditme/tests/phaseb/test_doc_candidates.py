@@ -97,7 +97,7 @@ def root(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
-def listed(root: pathlib.Path, question: str) -> dict[str, auditme.phaseb.Candidate]:
+def listed(root: pathlib.Path, question: str) -> dict[str, auditme.phaseb.candidates.Candidate]:
     return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates(question, root)}
 
 

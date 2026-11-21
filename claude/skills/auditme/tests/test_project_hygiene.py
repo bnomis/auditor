@@ -451,3 +451,12 @@ def test_a_file_level_marker_excuses_the_whole_module(project: Builder, run_chec
         }
     )
     assert run_check(PHASE_SECTION, root) == []
+
+
+def test_spec_markdown_files_skip_records_and_hidden_directories(tmp_path: pathlib.Path) -> None:
+    for relative in ('README.md', 'docs/spec.md', 'tasks/list.md', 'audit-reviews/review.md', '.claude/worktrees/w/spec.md', 'docs/.hidden/x.md'):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('# x\n', encoding='utf-8')
+    found = auditme.rules.project_hygiene.spec_markdown_files(tmp_path)
+    assert [path.relative_to(tmp_path).as_posix() for path in found] == ['README.md', 'docs/spec.md']

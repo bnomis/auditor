@@ -303,7 +303,7 @@ def test_every_registered_question_round_trips_plan_check_and_merge(project: Pro
     batches = json.loads((out / 'plan.json').read_text(encoding='utf-8'))['batches']
     ids = [item for batch in batches for item in batch]
     assert ids, f'the fixture project gives {question} no candidate'
-    findings: dict[str, list[str]] = {kind: [] for kind in auditme.phaseb.question_kinds(question)}
+    findings: dict[str, list[str]] = {kind: [] for kind in auditme.phaseb.candidates.question_kinds(question)}
     lines = [json.dumps({'id': item, 'findings': findings, 'reason': 'ok'}) for item in ids]
     (out / 'result-01.jsonl').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     assert run('check', out).returncode == 0

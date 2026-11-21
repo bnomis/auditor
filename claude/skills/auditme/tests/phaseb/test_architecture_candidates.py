@@ -7,6 +7,7 @@ import pathlib
 import auditme.core
 import auditme.phaseb
 import auditme.phaseb.architecture
+import auditme.phaseb.candidates
 import auditme.rules.error_handling
 import auditme.rules.imports_and_surfaces
 import pytest
@@ -147,7 +148,7 @@ def run(mode):
 """
 
 
-def run_a11(root: pathlib.Path) -> dict[str, auditme.phaseb.Candidate]:
+def run_a11(root: pathlib.Path) -> dict[str, auditme.phaseb.candidates.Candidate]:
     return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates('A11', root)}
 
 
@@ -361,7 +362,7 @@ def load(logger, path):
 """
 
 
-def run_a19(root: pathlib.Path) -> dict[str, auditme.phaseb.Candidate]:
+def run_a19(root: pathlib.Path) -> dict[str, auditme.phaseb.candidates.Candidate]:
     return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates('A19', root)}
 
 
@@ -587,7 +588,7 @@ def unrelated():
 """
 
 
-def run_a1(root: pathlib.Path) -> dict[str, auditme.phaseb.Candidate]:
+def run_a1(root: pathlib.Path) -> dict[str, auditme.phaseb.candidates.Candidate]:
     return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates('A1', root)}
 
 
@@ -749,7 +750,7 @@ A17_READER = 'import pkg.sub\n\n\ndef use():\n    return pkg.sub.Probe\n'
 A17_KEY = 'src/pkg/sub/__init__.py'
 
 
-def run_a17(root: pathlib.Path) -> dict[str, auditme.phaseb.Candidate]:
+def run_a17(root: pathlib.Path) -> dict[str, auditme.phaseb.candidates.Candidate]:
     return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates('A17', root)}
 
 

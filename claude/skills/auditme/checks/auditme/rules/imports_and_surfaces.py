@@ -835,3 +835,18 @@ def check_annotated_all_assignment(scope: pathlib.Path, src_root: pathlib.Path) 
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+
+__all__ = [
+    'check_annotated_all_assignment',
+    'check_as_import',
+    'check_def_class_in_init',
+    'check_empty_init_with_exporting_siblings',
+    'check_from_import',
+    'check_in_function_imports',
+    'check_layering_violations',
+    'check_migration_shim_consumers',
+    'check_passthrough_shim',
+    'check_reexport_in_non_init',
+    'check_unused_submodule_imports',
+]

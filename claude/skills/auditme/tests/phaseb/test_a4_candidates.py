@@ -57,7 +57,7 @@ MOD = '''
 '''
 
 
-def list_a4_candidates(root: pathlib.Path, depth: int | None = None) -> dict[str, auditme.phaseb.Candidate]:
+def list_a4_candidates(root: pathlib.Path, depth: int | None = None) -> dict[str, auditme.phaseb.candidates.Candidate]:
     found = auditme.phaseb.candidates.list_a4_candidates(root) if depth is None else auditme.phaseb.candidates.list_a4_candidates(root, depth=depth)
     return {candidate.id: candidate for candidate in found}
 

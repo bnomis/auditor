@@ -284,7 +284,7 @@ BASE = {
 }
 
 
-def run_t2(root: pathlib.Path) -> dict[str, auditme.phaseb.Candidate]:
+def run_t2(root: pathlib.Path) -> dict[str, auditme.phaseb.candidates.Candidate]:
     return {candidate.id: candidate for candidate in auditme.phaseb.candidates.list_t2_candidates(root)}
 
 
