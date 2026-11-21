@@ -8,7 +8,7 @@ at the end of a session (`claude/hooks/auditme-stop.sh`) and the
 
 ## Installing
 
-`bin/install-claude.py` links `claude/skills/auditme`,
+`bin/install-claude.sh` links `claude/skills/auditme`,
 `claude/skills/auditme-project-setup` and `claude/hooks/auditme-stop.sh` into
 `~/.claude` and registers the Stop hook in `~/.claude/settings.json`. The
 shared rules and the other skills come from the agents repository's own

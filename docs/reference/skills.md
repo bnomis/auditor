@@ -1,7 +1,7 @@
 # Skills
 
 Each skill is a directory under `claude/skills/<name>/` holding a `SKILL.md`
-and any scripts or templates it uses. `bin/install-claude.py` links
+and any scripts or templates it uses. `bin/install-claude.sh` links
 `claude/skills/` into `~/.claude/skills/`, so each skill is available in every
 project as `~/.claude/skills/<name>/`. The other shared skills are in the
 agents repository (`bnomis/agents`, <https://bnomis.github.io/agents/>).

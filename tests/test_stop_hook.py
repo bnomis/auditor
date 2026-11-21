@@ -82,7 +82,7 @@ def assert_missing_checker_block(result: subprocess.CompletedProcess[str], home:
     decision = json.loads(result.stdout)
     assert decision['decision'] == 'block'
     assert str(checker_path(home)) in decision['reason']
-    assert 'bin/install-claude.py' in decision['reason']
+    assert 'bin/install-claude.sh' in decision['reason']
 
 
 def test_blocks_when_checker_missing(tmp_path: pathlib.Path) -> None:

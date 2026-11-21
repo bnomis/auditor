@@ -10,7 +10,7 @@ checker enforces, and every other shared skill, live in the agents repository
 
 ```shell
 git clone git@github.com:bnomis/auditor.git ~/src/auditor
-~/src/auditor/bin/install-claude.py
+~/src/auditor/bin/install-claude.sh
 ```
 
 The installer links the `/auditme` and `/auditme-project-setup` skills and the Stop hook into `~/.claude/`,
@@ -34,7 +34,7 @@ and registers the Stop hook. A project then opts in to the checker with `/auditm
 | `claude/skills/auditme/` | The `/auditme` skill: the sweep, then the interpretive review. See [Skills](reference/skills.md). |
 | `claude/skills/auditme-project-setup/` | The `/auditme-project-setup` skill and its templates. See [Skills](reference/skills.md). |
 | `claude/hooks/` | The Claude Code Stop hook that runs the checker before a turn ends. |
-| `bin/install-claude.py` | The installer. See [Command line and hooks](reference/cli.md). |
+| `bin/install-claude.sh` | The installer: runs the shared `install-in-claude` at a pinned commit. See [Command line and hooks](reference/cli.md). |
 | `.pre-commit-hooks.yaml` | The hooks other projects pin. |
 
 ## Where to start

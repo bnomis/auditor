@@ -1,6 +1,6 @@
 # Project setup
 
-**Version:** 1.9
+**Version:** 1.10
 **Status:** implemented
 **Date:** 2026-10-31
 
@@ -94,6 +94,15 @@ design, not the project:
   spec keeps its own name and path, since it covers the hooks, the Stop hook
   and the guide as well as the skill. Dated task lists and `DONE.md` keep the
   old name: they are records.
+- **The installer is shared** (amendment 1.10, decided by the operator on
+  2026-11-21). `bin/install-claude.py` was one of several copies of the same
+  script, each hard-coding its project's settings. It is replaced by
+  `bin/install-claude.sh`, which runs the shared installer `install-in-claude`
+  (`git@github.com:bnomis/install-in-claude.git`) at a pinned commit with
+  `uvx`, passing this repository's `claude/` and the Stop hook as arguments.
+  The installer's own behaviour - linking, the `.orig` copies, the
+  dangling-link report, the settings merge - is specified and tested there;
+  what this spec keeps is the arguments.
 
 ## Module location
 
@@ -104,10 +113,10 @@ design, not the project:
 | `claude/skills/auditme/checks/auditme/rules/*.py` | Each cross-file rule passes `related` |
 | `.pre-commit-hooks.yaml` | At the repository root (new): publishes `auditme-changed` and `auditme-all` |
 | `claude/hooks/auditme-stop.sh` | The Stop hook (new) |
-| `bin/install-claude.py` | Also registers the Stop hook in `~/.claude/settings.json` |
+| `bin/install-claude.sh` | Runs the shared installer, which also registers the Stop hook in `~/.claude/settings.json` (1.10; was `bin/install-claude.py`) |
 | `claude/skills/auditme-project-setup/SKILL.md` | The skill (new), with `templates/` beside it |
 | `docs/setup.md` | The user guide (new); `README.md` gains an overview linking to it |
-| `claude/skills/auditme/tests/test_changed.py`, `tests/test_install_claude.py` | Tests (new) |
+| `claude/skills/auditme/tests/test_changed.py`, `tests/test_install_claude.py` | Tests (new); 1.10: `test_install_claude.py` tests the wrapper's arguments |
 | `claude/skills/auditme/checks/audit.py` | 1.2: drops the `src/` guards, emits `src-loose-module` |
 | `claude/skills/auditme/checks/auditme/core.py` | 1.2: `loose_src_modules()` (new) |
 | `claude/skills/auditme/tests/test_driver.py` | 1.2: the no-`src/` cases replace the two error tests |
@@ -219,9 +228,9 @@ matches the other skills in `claude/skills/`, with
 | Sweep timeout, exception, non-JSON line, or an `auditme-check-crash` hit | exit 1 naming the cause |
 | Unaccepted hits in scope | exit 1, listing them |
 | Stop hook: project not opted in, or `stop_hook_active` already true | exit 0, no output |
-| Stop hook: installed `changed.py` missing or a dangling link (1.6) | block, naming the path and `bin/install-claude.py` |
+| Stop hook: installed `changed.py` missing or a dangling link (1.6) | block, naming the path and `bin/install-claude.sh` |
 | Stop hook: `changed.py` exits other than 0 or 1 (1.6) | block, carrying the status and output |
-| `install-claude.py`: `~/.claude/settings.json` is not valid JSON | refuse, naming the file; nothing written |
+| `install-claude.sh`: `~/.claude/settings.json` is not valid JSON | the shared installer refuses, naming the file, exit 1; nothing linked or written (1.10) |
 | `audit.py`: `<scope-root>` is not a directory (1.2) | `ERROR: <scope> is not a directory`, exit 2 |
 | `audit.py`: no package under `src/` and no extra root (1.2, 1.8) | notice on stderr, the project-level checks run once, exit 0 |
 | `audit.py`: a `.py` file directly in `src/` (1.2) | one unaccepted `src-loose-module` hit per file |
@@ -438,11 +447,16 @@ url."git@github-auditor:bnomis/auditor.git".insteadOf
 `claude/hooks/auditme-stop.sh`, registered once. Decided with the operator
 2026-10-31: **global, opt-in by project**.
 
-- `bin/install-claude.py` adds a `Stop` entry running the hook to
-  `~/.claude/settings.json`, merging into what is there: it parses the file,
-  adds the entry only if no `Stop` hook already runs this script, writes the
-  result atomically, and keeps the original as `settings.json.orig` the first
-  time. Running it twice changes nothing.
+- `bin/install-claude.sh` adds a `Stop` entry running the hook to
+  `~/.claude/settings.json`, merging into what is there: it runs the shared
+  installer with
+  `--append 'hooks.Stop[auditme-stop.sh]={"hooks":[{"type":"command","command":"bash \"$HOME/.claude/hooks/auditme-stop.sh\""}]}'`,
+  which adds the entry only if no `Stop` entry's JSON already names
+  `auditme-stop.sh`, writes the result atomically, and keeps the original as
+  `settings.json.orig` the first time. Running it twice changes nothing (1.10).
+  The wrapper pins the installer's commit in `INSTALL_IN_CLAUDE_REV` and passes
+  its own arguments through, so `bin/install-claude.sh --dry-run` shows the
+  plan.
 - The hook exits 0 at once unless the working directory is in a git repository
   whose `.pre-commit-config.yaml` lists `id: auditme-changed`.
 - It exits 0 when the payload's `stop_hook_active` is true, so it blocks at most
@@ -452,7 +466,7 @@ url."git@github-auditor:bnomis/auditor.git".insteadOf
   "reason": ...}`, built with `jq -Rs`) carrying the runner's report.
 - When `changed.py` is not a file (missing, or a dangling link) it blocks
   without running it, with a reason naming the path and
-  `bin/install-claude.py`; on any status other than 0 and 1 it blocks with the
+  `bin/install-claude.sh`; on any status other than 0 and 1 it blocks with the
   status and the output, since `changed.py` itself exits only 0 or 1 (1.6).
 
 It runs the **installed** checker, not the project's pinned one: it is the
@@ -511,7 +525,7 @@ conversation or the project that motivated it, in this order:
 2. **A new machine** - prerequisites (`git`, `gh` authenticated, an SSH key on
    GitHub with access to this repository, `uv`, `pre-commit` via `uv tool
    install pre-commit`, Python meeting `requires-python`, `jq`); clone this
-   repository; run `bin/install-claude.py`; check it (`ls ~/.claude/skills`,
+   repository; run `bin/install-claude.sh` (it needs `uv`); check it (`ls ~/.claude/skills`,
    the `Stop` entry in `~/.claude/settings.json`).
 3. **A new user** - being given read access to this repository; their own SSH
    key; that rules and skills are shared and project specifics go in the
@@ -555,8 +569,9 @@ is and linking to `docs/setup.md`.
   each exit 1; nothing reportable changed skips the sweep.
 - Each cross-file rule's test asserts its hits' `related`; `test_registry.py`
   asserts the set of rules that emit `related` equals the list above.
-- `test_install_claude.py`: the Stop entry is added once, an existing
-  `settings.json` keeps every other key, an invalid file is refused.
+- `test_install_claude.py` (1.10): the wrapper, run with a stub `uvx` on
+  `PATH`, passes the pinned commit, this repository's `claude/`, the Stop
+  hook `--append` and its own arguments through; the commit is a full hash.
 - The Stop hook: a shell test running it with a stub payload in an opted-in and a
   non-opted-in repository.
 - 1.2, `test_driver.py`: `test_a_missing_src_directory_is_an_error` and

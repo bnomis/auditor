@@ -86,10 +86,13 @@ Install:
 ```shell
 git clone git@github.com:bnomis/auditor.git <directory>
 cd <directory>
-bin/install-claude.py
+bin/install-claude.sh
 ```
 
-`<directory>` is wherever you keep your source. The installer links
+`<directory>` is wherever you keep your source. The script runs the shared
+installer, `install-in-claude`, with `uvx` at a pinned commit, so it needs
+`uv` and SSH access to `bnomis/install-in-claude`; add `--dry-run` to see what
+it would change first. It links
 `claude/` into `~/.claude/` one level down: each directory (`hooks/`,
 `skills/`) becomes a real directory of symlinks to its entries. It renames
 any existing file in a link's place to `.orig`. In `~/.claude/settings.json`
@@ -99,7 +102,7 @@ not a valid JSON object.
 
 The shared rules, the other skills and the status line come from the agents
 repository (`bnomis/agents`), installed the same way with its own
-`bin/install-claude.py`; see its docs at <https://bnomis.github.io/agents/>.
+installer; see its docs at <https://bnomis.github.io/agents/>.
 
 Check it:
 

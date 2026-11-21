@@ -4,48 +4,59 @@ Reference for the scripts in this repository and the hooks it publishes. For
 installation see [Setup](../setup.md); for what the checker's rules report
 see [The checker](../guide/checker.md).
 
-## `bin/install-claude.py`
+## `bin/install-claude.sh`
 
 ```text
-install-claude [-h]
+bin/install-claude.sh [--dry-run] [any other install-in-claude option]
 ```
 
 Links the contents of `claude/` into `~/.claude/`, and registers the Stop
-hook. It takes no options. The shared rules, the other skills and the status
-line are installed by the agents repository's own `bin/install-claude.py`.
+hook, by running the shared installer
+[install-in-claude](https://github.com/bnomis/install-in-claude) at the commit
+pinned in the script's `INSTALL_IN_CLAUDE_REV`:
 
-On disk:
+```shell
+uvx --from "git+ssh://git@github.com/bnomis/install-in-claude.git@$INSTALL_IN_CLAUDE_REV" \
+    install-in-claude --source "$REPO/claude" \
+    --append 'hooks.Stop[auditme-stop.sh]={"hooks":[{"type":"command","command":"bash \"$HOME/.claude/hooks/auditme-stop.sh\""}]}'
+```
 
-- Creates `~/.claude/` if it is missing.
-- For each top-level entry of `claude/` (dotfiles skipped):
-    - a file becomes a symlink in `~/.claude/`;
-    - a directory (`hooks/`, `skills/`) becomes a real directory in
-      `~/.claude/`, and each entry inside it becomes a symlink, so
-      `~/.claude/skills/auditme` links to `claude/skills/auditme/`.
-- Symlinks are relative. An existing symlink at the target is replaced; an
-  existing file or directory is renamed with a `.orig` suffix (numbered when
-  that name is taken).
-- Prints any dangling symlinks found in `~/.claude/` and its immediate
-  subdirectories, with an `rm` command to remove them. It does not remove
-  them.
-- Adds a Stop hook entry running `bash "$HOME/.claude/hooks/auditme-stop.sh"`
-  to `~/.claude/settings.json`, unless a Stop hook command already names
-  `auditme-stop.sh`. Every other key and hook is kept. Before the first change
-  to an existing file it copies it to `settings.json.orig`, once; it writes
-  through a temporary file and keeps the file's mode. A missing file is
-  created.
+Its own arguments pass through: `bin/install-claude.sh --dry-run` prints what
+would change and changes nothing. It needs `uv`, and SSH access to
+`bnomis/install-in-claude` for the first run of a pinned commit; `uvx` caches
+it after that. The shared rules, the other skills and the status line are
+installed by the agents repository's own installer.
 
-The settings file is read after the symlinks are made. If it is not valid
-JSON, or not a JSON object, the installer leaves it unchanged and exits; the
-symlinks are already in place.
+What the installer does, in short (its README has the detail):
+
+- Checks every option and reads `~/.claude/settings.json` first; a settings
+  file that is not a valid JSON object stops it, exit `1`, before anything is
+  linked or written.
+- For each top-level entry of `claude/` (dotfiles skipped): a file becomes a
+  symlink in `~/.claude/`; a directory (`hooks/`, `skills/`) becomes a real
+  directory in `~/.claude/` whose entries are symlinks, so
+  `~/.claude/skills/auditme` links to `claude/skills/auditme/`. Links are
+  relative. An existing symlink is replaced; an existing file is renamed with
+  a `.orig` suffix (numbered when that name is taken).
+- Prints any dangling symlinks in `~/.claude/` and its immediate
+  subdirectories, with a quoted `rm` command to remove them. It does not
+  remove them.
+- Adds the Stop hook entry to `~/.claude/settings.json` unless a `Stop` entry
+  already names `auditme-stop.sh`. Every other key and hook is kept; the first
+  original is copied to `settings.json.orig`; the file is written atomically
+  and keeps its mode.
 
 | Exit | Meaning |
 |---|---|
-| `0` | Installed, or `--help` |
-| `1` | `settings.json` is not valid JSON or not a JSON object; the message names the file |
-| `2` | Unknown argument |
+| `0` | Installed, or nothing to do |
+| `1` | `settings.json` is not valid JSON or not a JSON object; nothing changed |
+| `2` | A bad argument; nothing changed |
 
-Environment: `HOME` (through `pathlib.Path.home()`).
+Environment: `HOME`.
+
+To upgrade the installer, set `INSTALL_IN_CLAUDE_REV` to a newer commit
+(`git ls-remote git@github.com:bnomis/install-in-claude.git refs/heads/main`,
+first field) and run `bin/install-claude.sh --dry-run` to see what it changes.
 
 ## `claude/skills/auditme/checks/audit.py`
 
@@ -186,7 +197,7 @@ the audit off without a word:
 
 - when `~/.claude/skills/auditme/checks/changed.py` is missing or a dangling
   link, it blocks without running it, naming the path; run
-  `bin/install-claude.py` in this repository to install it again;
+  `bin/install-claude.sh` in this repository to install it again;
 - when `changed.py` exits with any status other than `0` or `1` (for example
   `127` for no `python3`), it blocks with the status and the output.
 
@@ -197,7 +208,7 @@ Requires `jq`, `git` and `python3` on `PATH`. Environment: `HOME`.
 
 ### Registration
 
-`bin/install-claude.py` adds it once to `~/.claude/settings.json`:
+`bin/install-claude.sh` adds it once to `~/.claude/settings.json`:
 
 ```json
 {

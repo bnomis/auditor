@@ -9,7 +9,7 @@ flowchart LR
     home["~/.claude/<br>auditme, auditme-project-setup, Stop hook"]
     proj["project<br>.pre-commit-config.yaml"]
     ci["project CI"]
-    repo -- "bin/install-claude.py<br>(symlinks)" --> home
+    repo -- "bin/install-claude.sh<br>(symlinks)" --> home
     repo -- "rev: &lt;commit&gt;" --> proj
     proj -- "pre-commit run" --> ci
 ```
@@ -52,7 +52,7 @@ keeps working, because the agents commits it names still hold the checker; see
 
 ## The Stop hook
 
-`bin/install-claude.py` also registers `claude/hooks/auditme-stop.sh` as a Claude Code Stop hook in
+`bin/install-claude.sh` also registers `claude/hooks/auditme-stop.sh` as a Claude Code Stop hook in
 `~/.claude/settings.json`. In a project whose `.pre-commit-config.yaml` contains `id: auditme-changed`,
 it runs the checker over the changed files when Claude ends a turn, and sends the hits back once, so
 Claude fixes them before handing over. Elsewhere it does nothing.

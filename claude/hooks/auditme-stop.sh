@@ -22,7 +22,7 @@ block() {
 checker="$HOME/.claude/skills/auditme/checks/changed.py"
 # -f follows a link, so a dangling one counts as missing.
 if [ ! -f "$checker" ]; then
-    block "The auditme checker is not installed: $checker is missing or a dangling link. Run bin/install-claude.py in the auditor repository to install it."
+    block "The auditme checker is not installed: $checker is missing or a dangling link. Run bin/install-claude.sh in the auditor repository to install it."
     exit 0
 fi
 
