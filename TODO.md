@@ -35,4 +35,8 @@ hit (685 unaccepted before and after) and was made with
 `SKIP=auditme-changed`, as the operator chose; the next checker change meets
 the same block.
 
+Note 2026-11-21: `auditme-changed` is paused (`stages: [manual]` in
+`.pre-commit-config.yaml`) by `agents/tasks/reviews/tasks-1.md` until that
+list's last task restores it.
+
 Review: `agents/reviews/audit-backlog-2026-11-21.md` (answered 2026-11-21); tasks: `agents/tasks/reviews/tasks-1.md`.

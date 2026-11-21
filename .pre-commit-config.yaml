@@ -26,7 +26,9 @@ repos:
         language: script
         pass_filenames: false
         always_run: true
-        stages: [pre-commit]
+        # Paused by agents/tasks/reviews/tasks-1.md (Task 1) while the audit
+        # backlog is cleared; its last task restores [pre-commit].
+        stages: [manual]
       - id: auditme-all
         name: no unaccepted audit hits anywhere
         entry: claude/skills/auditme/checks/changed.py --all
