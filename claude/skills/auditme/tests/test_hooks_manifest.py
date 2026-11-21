@@ -33,14 +33,6 @@ EXPECTED = {
     },
 }
 
-# The names hook takes the files pre-commit passes and runs at commit-msg too,
-# so it shares none of the audit hooks' COMMON keys but `language`.
-NAMES_HOOK = {
-    'entry': 'bin/check-foreign-names.sh',
-    'language': 'script',
-    'stages': '[pre-commit, commit-msg]',
-}
-
 
 def read_manifest() -> dict[str, dict[str, str]]:
     hooks: dict[str, dict[str, str]] = {}
@@ -58,10 +50,9 @@ def read_manifest() -> dict[str, dict[str, str]]:
     return hooks
 
 
-def test_manifest_publishes_the_audit_hooks_and_the_names_hook() -> None:
+def test_manifest_publishes_the_audit_hooks() -> None:
     hooks = read_manifest()
-    assert sorted(hooks) == sorted([*EXPECTED, 'no-project-names'])
-    assert {key: hooks['no-project-names'][key] for key in NAMES_HOOK} == NAMES_HOOK
+    assert sorted(hooks) == sorted(EXPECTED)
     for hook_id, expected in EXPECTED.items():
         hook = hooks[hook_id]
         assert hook['entry'] == expected['entry']
@@ -69,7 +60,7 @@ def test_manifest_publishes_the_audit_hooks_and_the_names_hook() -> None:
         assert {key: hook[key] for key in COMMON} == COMMON
 
 
-@pytest.mark.parametrize('hook_id', sorted([*EXPECTED, 'no-project-names']))
+@pytest.mark.parametrize('hook_id', sorted(EXPECTED))
 def test_entry_script_is_executable_in_the_index(hook_id: str) -> None:
     script = shlex.split(read_manifest()[hook_id]['entry'])[0]
     assert (REPO_ROOT / script).is_file()

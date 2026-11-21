@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# The job needs no write access to the repository.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      # The checker needs Python 3.14 (pyproject.toml's requires-python).
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv tool install pre-commit
+      - run: uv sync
+      # The checker runs `ruff` from PATH: use the project's locked one.
+      - run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - run: uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/project-setup/tests tests -q -p no:cacheprovider
+      # The commit-time checks, over the whole tree. The names hook is skipped:
+      # its list of names is kept on the operator's machine, not in CI, and
+      # its repository is private.
+      - run: pre-commit run --all-files
+        env:
+          SKIP: no-project-names
+
+      # The whole-tree audit. The audit hooks are local to this repository,
+      # so no deploy key is needed.
+      - name: Audit the whole tree
+        run: pre-commit run auditme-all --hook-stage manual --all-files

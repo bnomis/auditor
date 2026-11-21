@@ -1,0 +1,76 @@
+[project]
+name = "auditor"
+description = "The auditme audit checker, its pre-commit hooks and the /project-setup skill"
+version = "0.1.0"
+requires-python = ">=3.14.7,<3.15"
+
+[tool.ruff]
+line-length = 160
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+# B: flake8-bugbear
+# E: pycodestyle
+# F: Pyflakes
+# I: isort
+# ICN: import convention
+# S: bandit
+# SIM: flake8-simplify
+# TID: tidy imports
+# UP: pyupgrade
+select = [
+    "B",
+    "E",
+    "F",
+    "I",
+    "ICN",
+    "S",
+    "SIM",
+    "NPY201",
+    "TID",
+    # "UP",
+]
+# ignore
+# E501 (line length violations)
+# E722 Do not use bare `except`
+# ICN001 import numpy, pandas ok
+# SIM108 Use ternary operator
+# SIM102 collapsible-if
+# S110 try/except/pass
+# S112 try/except/continue: the auditme checker skips files and nodes it
+#      cannot parse or unparse rather than aborting the whole audit.
+# S311 random
+ignore = ["E501", "E722", 'ICN001', 'SIM108', 'SIM102', 'S110', 'S112', 'S311']
+
+[tool.ruff.lint.per-file-ignores]
+# S101 assert: pytest reports failures through bare asserts.
+# S603/S607 subprocess: the driver test runs the shipped entry point as a
+# subprocess and the hygiene test probes for `ruff` on PATH exactly as the
+# checker does. Both are the behaviour under test.
+"claude/skills/auditme/tests/*" = ["S101", "S603", "S607"]
+"claude/skills/project-setup/tests/*" = ["S101"]
+# The root-level tests run shipped scripts (the Stop hook, the installer) as
+# subprocesses from PATH; that is the behaviour under test.
+"tests/*" = ["S101", "S603", "S607"]
+# S603/S607 subprocess: the hygiene checks run `ruff` and `uv` from PATH, the
+# same tools the user runs, against the audited project.
+"claude/skills/auditme/checks/auditme/rules/project_hygiene.py" = [
+    "S603",
+    "S607",
+]
+# S603/S607 subprocess: the changed-files runner runs `git` from PATH and the
+# sibling `audit.py` with the running interpreter; both are its whole job.
+"claude/skills/auditme/checks/changed.py" = ["S603", "S607"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.uv]
+exclude-newer = "14 days"
+prerelease = "disallow"
+
+[dependency-groups]
+dev = ["ruff>=0.17.2"]
+docs = ["mkdocs>=1.6.1", "mkdocs-material>=9.7.7"]

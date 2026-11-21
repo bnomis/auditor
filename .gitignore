@@ -1,0 +1,15 @@
+__pycache__/
+.build/
+.claude/worktrees/
+.DS_Store
+.env
+.envrc
+.hypothesis/
+.idea/
+.venv/
+.vscode/
+*.log
+*.pyc
+**/*.egg-info/
+logs/
+site/
