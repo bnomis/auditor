@@ -81,5 +81,5 @@ exclude-newer = "14 days"
 prerelease = "disallow"
 
 [dependency-groups]
-dev = ["ruff>=0.17.2"]
+dev = ["ruff==0.17.4"]
 docs = ["mkdocs>=1.6.1", "mkdocs-material>=9.7.7"]
