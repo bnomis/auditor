@@ -543,3 +543,21 @@ alias and rewrite), 470-472 (deploy-key steps), 173 (`git-conventions.md`)
 and 489 (`rule-scope.md`).
 
 Done: 2026-11-21 - amendment 1.7 of `agents/specs/project-setup/spec.md`: the hook block, upgrade command, `AUDITOR_DEPLOY_KEY` secret, `github-auditor` alias and deploy-key steps now match `claude/skills/project-setup/templates/`, and the two cited rules are named as the agents repository's.
+
+## A project with no audit root skips the project-level checks
+
+Found on 2026-10-31 in `agents/specs/project-setup/spec.md`, amendment 1.2,
+which records it as a known limit not fixed there. When a project has no
+package under `src/` and no extra root, `audit.py` runs no pass, so the
+per-root project-level checks (the lockfile, `AGENTS.md`, spec drift) never
+run, and a project with no Python passes them without being checked.
+
+Cause: the project-level checks run inside the per-root loop in `main()` of
+`claude/skills/auditme/checks/audit.py`, once per root with duplicates
+suppressed. With no root, they never run.
+
+Fix direction: deferred until a project without Python adopts the guards.
+Then run the project-level checks once when no root exists, which changes the
+driver's contract, so it goes through the spec first.
+
+Done: 2026-11-21 - brought forward from its deferral at the operator's request. `PROJECT_CHECKS` in `claude/skills/auditme/checks/auditme/registry.py` (`check_lockfile`, `check_ruff_version`) runs once in `main()` of `claude/skills/auditme/checks/audit.py` when there is no root; tests in `claude/skills/auditme/tests/test_driver.py`; amendment 1.8 of `agents/specs/project-setup/spec.md`; `docs/reference/cli.md` and `docs/setup.md`. Checked on a test project with no Python, which now reports `lockfile-drift` and `ruff-version-drift`.

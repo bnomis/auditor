@@ -84,7 +84,80 @@ def test_an_empty_project_gives_a_notice_and_exit_0(
     assert audit.main() == 0
     captured = capsys.readouterr()
     assert captured.out == ''
-    assert 'audit.py: no package under src/ and no extra root; nothing to audit' in captured.err
+    assert 'audit.py: no package under src/ and no extra root; running the project-level checks only' in captured.err
+
+
+def test_a_project_with_no_root_runs_only_the_project_level_checks_once(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A project with no Python still has a lockfile and a ruff pin to check."""
+    calls: list[str] = []
+
+    def per_root_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        calls.append('per_root')
+
+    def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        calls.append('project')
+        auditme.core._emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (per_root_check, project_level_check))
+    monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (project_level_check,))
+    root = project({'docs/index.md': '# Notes\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    assert calls == ['project']
+    assert [json.loads(line)['rule'] for line in capsys.readouterr().out.splitlines()] == ['lockfile-drift']
+
+
+def test_a_crashing_project_level_check_with_no_root_is_reported(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def exploding_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        raise RuntimeError('predicate is broken')
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (exploding_check,))
+    monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (exploding_check,))
+    root = project({'docs/index.md': '# Notes\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [(record['rule'], record['variant']) for record in records] == [('auditme-check-crash', 'exploding_check')]
+
+
+def test_the_project_level_checks_are_registered_checks_in_registry_order() -> None:
+    """PROJECT_CHECKS is a subset of CHECKS, so a project with a root still runs each."""
+    positions = [auditme.registry.CHECKS.index(check) for check in auditme.registry.PROJECT_CHECKS]
+    assert positions == sorted(positions)
+    assert {check.__name__ for check in auditme.registry.PROJECT_CHECKS} == {'check_lockfile', 'check_ruff_version'}
+
+
+def test_a_project_with_no_python_gets_its_ruff_pin_checked(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """End to end through the real registry: no root, a ruff pin the project's ruff does not match."""
+    root = project(
+        {
+            '.pre-commit-config.yaml': 'repos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: v0.17.3\n    hooks:\n      - id: ruff\n',
+            'docs/index.md': '# Notes\n',
+        }
+    )
+    script = root / '.venv' / 'bin' / 'ruff'
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/bin/sh\necho 'ruff 0.17.1'\n")
+    script.chmod(0o755)
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [(record['rule'], record['evidence']) for record in records] == [('ruff-version-drift', '.venv/bin/ruff is 0.17.1; the hook pins v0.17.3')]
 
 
 def loose_hits(
@@ -116,7 +189,7 @@ def test_a_loose_src_module_is_reported_and_the_notice_still_prints(
             'accepted_reason': None,
         }
     ]
-    assert 'nothing to audit' in err
+    assert 'running the project-level checks only' in err
 
 
 def test_a_loose_src_module_is_reported_beside_a_package(

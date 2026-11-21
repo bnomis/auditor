@@ -65,7 +65,9 @@ nothing.
 
 Without options it audits every package under `src/`, each in its own pass,
 then `bin/` when it exists and holds `.py` files. A `.py` file directly in
-`src/` is reported as `src-loose-module`.
+`src/` is reported as `src-loose-module`. A project with neither, such as one
+with no Python, still gets the project-level checks, once: the lockfile
+(`lockfile-drift`) and the ruff pin (`ruff-version-drift`).
 
 Each output line carries `rule`, `variant`, `path`, `line`, `evidence`,
 `accepted` and `accepted_reason`; a hit from a rule that compares several
@@ -75,7 +77,7 @@ hit, and the sweep continues.
 
 | Exit | Meaning |
 |---|---|
-| `0` | Sweep completed, whatever it found; also when there is nothing to audit (a notice goes to stderr) |
+| `0` | Sweep completed, whatever it found; also when there is no root to audit (a notice goes to stderr and only the project-level checks run) |
 | `2` | `scope`, a named `--extra-root` or the `--package` directory does not exist; or an argument error |
 
 The exit status does not reflect hits: callers read stdout.

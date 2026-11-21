@@ -11,7 +11,8 @@ Usage:
 
 <scope-root> is the project directory (agents/, docs/, and usually src/).
 src/ is optional: the sweep passes over the packages under it, if any, then
-the extra roots, and a project with neither is reported and exits 0.
+the extra roots. A project with neither is reported on stderr and gets the
+project-level checks alone (auditme.registry.PROJECT_CHECKS), once.
 A .py file directly in src/ belongs to no root, so the driver reports it as a
 src-loose-module hit (accepted by a line-1 marker) rather than skip it unseen.
 <package-name> restricts the run to one package under src/. It defaults to
@@ -75,6 +76,7 @@ required finding.
 """
 
 import argparse
+import collections.abc
 import pathlib
 import sys
 
@@ -83,6 +85,22 @@ import auditme.registry
 from auditme.core import _emit
 
 DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditme.core.EXTRA_ROOT_NAMES)
+
+
+def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None], scope: pathlib.Path, root: pathlib.Path) -> None:
+    """Run one check, reporting a crash as a hit so the sweep continues."""
+    try:
+        check(scope, root)
+    except Exception as exc:
+        _emit(
+            rule='auditme-check-crash',
+            variant=check.__name__,
+            path=None,
+            line=None,
+            evidence=f'{type(exc).__name__}: {exc}',
+            accepted=False,
+            accepted_reason=None,
+        )
 
 
 def main() -> int:
@@ -148,7 +166,11 @@ def main() -> int:
     else:
         roots = auditme.core._audit_roots(scope)
         if not roots:
-            print('audit.py: no package under src/ and no extra root; nothing to audit', file=sys.stderr)
+            print('audit.py: no package under src/ and no extra root; running the project-level checks only', file=sys.stderr)
+            # These read only the project, so the scope stands in for the root
+            # they ignore.
+            for check in auditme.registry.PROJECT_CHECKS:
+                run_check(check, scope, scope)
             return 0
 
     for root in roots:
@@ -164,18 +186,7 @@ def main() -> int:
     # written without the src. prefix. Running per root keeps each name right.
     for src_root in roots:
         for check in auditme.registry.CHECKS:
-            try:
-                check(scope, src_root)
-            except Exception as exc:
-                _emit(
-                    rule='auditme-check-crash',
-                    variant=check.__name__,
-                    path=None,
-                    line=None,
-                    evidence=f'{type(exc).__name__}: {exc}',
-                    accepted=False,
-                    accepted_reason=None,
-                )
+            run_check(check, scope, src_root)
     return 0
 
 

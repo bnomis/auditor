@@ -1,6 +1,6 @@
 # Project setup
 
-**Version:** 1.7
+**Version:** 1.8
 **Status:** implemented
 **Date:** 2026-10-31
 
@@ -81,6 +81,11 @@ design, not the project:
   deploy-key steps. 1.7 matches them to the templates. The rules it cites
   (`git-conventions.md`, `rule-scope.md`) stay in the agents repository and
   are named as its.
+- **A project with no audit root skipped the project-level checks**
+  (amendment 1.8, found 2026-10-31 as the known limit of 1.2, fixed
+  2026-11-21 at the operator's request). With no package under `src/` and no
+  extra root, the driver ran no pass, so the lockfile and ruff-pin checks
+  never ran and a project with no Python passed them unchecked.
 
 ## Module location
 
@@ -210,7 +215,7 @@ matches the other skills in `claude/skills/`, with
 | Stop hook: `changed.py` exits other than 0 or 1 (1.6) | block, carrying the status and output |
 | `install-claude.py`: `~/.claude/settings.json` is not valid JSON | refuse, naming the file; nothing written |
 | `audit.py`: `<scope-root>` is not a directory (1.2) | `ERROR: <scope> is not a directory`, exit 2 |
-| `audit.py`: no package under `src/` and no extra root (1.2) | notice on stderr, exit 0 |
+| `audit.py`: no package under `src/` and no extra root (1.2, 1.8) | notice on stderr, the project-level checks run once, exit 0 |
 | `audit.py`: a `.py` file directly in `src/` (1.2) | one unaccepted `src-loose-module` hit per file |
 | `audit.py --package <name>` naming a missing package | unchanged: `ERROR: <root> not found`, exit 2 |
 | `ruff-version-drift`: no `.pre-commit-config.yaml`, or no `ruff-pre-commit` repo in it (1.4) | no hit |
@@ -270,8 +275,9 @@ hit exits 1 naming the cause. The timeout is 600 seconds.
 2. The `no package under src` guard is removed. `_audit_roots()` already
    returns `[]` for a missing `src/`, so a project with only `bin/` is swept
    over `bin/`. With no root at all, the driver prints
-   `audit.py: no package under src/ and no extra root; nothing to audit` on
-   stderr and exits 0.
+   `audit.py: no package under src/ and no extra root; running the
+   project-level checks only` on stderr, runs the project-level checks once
+   (1.8, below), and exits 0.
 3. **Loose modules.** Before the first pass, and only when `--package` is
    not given, the driver emits one hit per path from `loose_src_modules()`:
    `rule='src-loose-module'`, `variant='module directly under src/, outside
@@ -291,9 +297,15 @@ it is unchanged byte for byte. The one existing layout whose output changes is
 a package plus a loose `src/*.py`, which today passes with the loose file
 never audited.
 
-Known limit, not fixed here: with no root, the per-root project-level checks
-(the lockfile, `AGENTS.md`, spec drift) do not run, so a project with no
-Python passes vacuously.
+**Project-level checks without a root (1.8).** `auditme.registry` names the
+checks that read only the project, never the root they are handed, as
+`PROJECT_CHECKS`: `check_lockfile` and `check_ruff_version`. Each is also in
+`CHECKS`, in the same order, so a project with a root runs them as before
+and its output is unchanged. With no root, the driver runs `PROJECT_CHECKS`
+alone, once, passing the scope as the unused root, with the same crash
+isolation as a pass. The checks that read `AGENTS.md` and the spec-drift
+check are not among them: they judge or accept Python definitions and hits,
+so with no Python they have nothing to compare.
 
 ### The ruff version check (1.4)
 

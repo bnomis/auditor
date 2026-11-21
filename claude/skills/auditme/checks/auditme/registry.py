@@ -151,3 +151,12 @@ CHECKS = (
     check_raises_section_drift,
     check_ruff_version,
 )
+
+# The checks that read only the project, never the root they are handed. The
+# driver runs these alone, once, when a project has no root to audit, so a
+# project with no Python still has its lockfile and ruff pin checked. Each is
+# also in CHECKS, in the same order.
+PROJECT_CHECKS = (
+    check_lockfile,
+    check_ruff_version,
+)
