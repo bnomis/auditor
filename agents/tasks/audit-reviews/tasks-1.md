@@ -411,7 +411,7 @@ every later task's Definition of Done uses.
 
 ## Task 13: Cut repeated work in the sweep, then run the whole-tree checks
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** medium
 **Source Reference:** F15
@@ -420,25 +420,25 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Time `python3 claude/skills/auditme/checks/audit.py .` on this repository three times and record the median with the commit in the commit body
-- [ ] Add a per-run parse cache in `core.py` (path to text and tree), cleared at the start of each `audit.py` run, and use it from `source_lines` and the shared reader of Task 6
-- [ ] Build the corpus-wide indexes in `rules/state_and_effects.py` and `rules/project_hygiene.py` once per run, not once per root
-- [ ] Memoise `audit_roots` and `all_names` for the life of one listing
-- [ ] Run the length-ratio test before the LCS in `rules/duplication.py:611`
-- [ ] Build the reverse call graph once in `phaseb/testmap.py`
-- [ ] Time the sweep again and record both medians; confirm the JSONL output is byte-identical before and after (`diff`)
+- [x] Time `python3 claude/skills/auditme/checks/audit.py .` on this repository three times and record the median with the commit in the commit body
+- [x] Add a per-run parse cache in `core.py` (path to text and tree), cleared at the start of each `audit.py` run, and use it from `source_lines` and the shared reader of Task 6
+- [x] Build the corpus-wide indexes in `rules/state_and_effects.py` and `rules/project_hygiene.py` once per run, not once per root
+- [x] Memoise `audit_roots` and `all_names` for the life of one listing (`all_names` rides the parse cache; `audit_roots` is left unmemoised because it sets `ROOT_MODULES` on each call and is cheap)
+- [x] Run the length-ratio test before the LCS in `rules/duplication.py:611`
+- [x] Build the reverse call graph once in `phaseb/testmap.py`
+- [x] Time the sweep again and record both medians; confirm the JSONL output is byte-identical before and after (`diff`)
 
 **Acceptance Criteria:**
 
-- [ ] The sweep's output is unchanged, byte for byte
-- [ ] The commit body records the run time before and after
+- [x] The sweep's output is unchanged, byte for byte
+- [x] The commit body records the run time before and after
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (every module this list changed is `core.py` or reaches it, so every test file imports a changed module)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (every module this list changed is `core.py` or reaches it, so every test file imports a changed module)
 
 **Notes:**
 

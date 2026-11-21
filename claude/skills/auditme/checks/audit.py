@@ -158,6 +158,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    auditme.core.clear_source_cache()
     scope = args.scope.resolve()
     if not scope.is_dir():
         print(f'ERROR: {scope} is not a directory', file=sys.stderr)

@@ -38,7 +38,6 @@ Each group is described in full, with every site, in [review-1](review-1.md#phas
 | F12 type-only imports outside `TYPE_CHECKING` | S4 | low | review-1 |
 | F13 `merge` can hash at a different depth from the plan | A5 | medium | review-1 |
 | F14 construction duplicated or completed late | A8, A13, A15 | low | review-1 |
-| F15 repeated reads, parses and quadratic scans | A14, P1, P3 | low | review-1 |
 | F17 arguments and declared roots not contained | Sec2, Sec4 | low | review-1 |
 | F18 Stop hook and installer lack an end-to-end test | T3 | low | review-1 |
 | F19 `pytest` not declared | D1 | low | review-1 |
@@ -50,7 +49,7 @@ Dismissed on review-1's page (2026-11-21): F2, the 68 A9 `check_*` sites (the re
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
-| (none yet) | | | |
+| F15 repeated reads, parses and quadratic scans | low | review-1 | Task 13 of the review-1 task list (a per-run parse cache, shared corpus indexes, the length test before the LCS, one reverse call graph) |
 
 ## Recurring patterns
 

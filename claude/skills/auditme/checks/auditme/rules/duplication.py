@@ -621,6 +621,11 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
             # smell worth reporting. The two unused locals it left behind are
             # removed rather than wired up.
 
+            # The LCS is no longer than the shorter sequence, so a pair whose
+            # lengths differ too much cannot cover 70% of both: skip the LCS.
+            shorter, longer = sorted((len(seq_a), len(seq_b)))
+            if shorter < 6 or shorter / max(longer, 1) < 0.7:
+                continue
             # Only interesting if LCS is long enough
             lcs = longest_common_subsequence(seq_a, seq_b)
             if len(lcs) < 6:

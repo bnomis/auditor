@@ -8,6 +8,7 @@ import pathlib
 import re
 import tomllib
 import types
+import typing
 
 # An accept marker may name the single rule it answers for:
 #     # auditme: accept[failure-as-absence] the caller reads batch.error
@@ -70,30 +71,88 @@ def describe_error(error: BaseException) -> str:
     return f'{error} ({cause})'
 
 
+SOURCE_CACHE: dict[
+    tuple[pathlib.Path, int, int], tuple[str | None, ast.Module | None]
+] = {}  # auditme: accept[mutable-module-level-exported] per-run parse cache the driver clears and the tests reset
+
+
+INDEX_CACHE: dict[tuple[object, ...], object] = {}  # auditme: accept[mutable-module-level-exported] per-run index cache the driver clears and the tests reset
+
+
+def clear_source_cache() -> None:
+    """Forget every cached text, tree and corpus index; the driver calls it at the start of a run."""
+    SOURCE_CACHE.clear()
+    INDEX_CACHE.clear()
+
+
+def corpus_index[T](kind: str, scope: pathlib.Path, src_root: pathlib.Path, build: collections.abc.Callable[[], T]) -> T:
+    """The corpus-wide index `kind`, built once per run and shared by every root's pass.
+
+    A corpus-wide question has the same answer on every pass, so `build` runs
+    again only when a file of the corpus has changed or the set of files has.
+    The result is shared, so a caller must not modify it."""
+    signature: list[tuple[pathlib.Path, int, int]] = []
+    for path in corpus_py_files(scope, src_root):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        signature.append((path, stat.st_mtime_ns, stat.st_size))
+    key = (kind, scope, tuple(signature))
+    if key not in INDEX_CACHE:
+        INDEX_CACHE[key] = build()
+    return typing.cast('T', INDEX_CACHE[key])
+
+
+def cached_source(path: pathlib.Path) -> tuple[str | None, ast.Module | None]:
+    """The text and the syntax tree of `path`, each None when it cannot be had.
+
+    Each file is read and parsed once per run, whichever check asks first. The
+    key holds the file's modification time and size, so a file rewritten
+    during the run is read afresh. An unreadable file is recorded in
+    `UNREADABLE` on every call, because the driver drains that record after
+    each check."""
+    try:
+        stat = path.stat()
+        key = (path, stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        key = None
+    if key is not None and key in SOURCE_CACHE:
+        cached = SOURCE_CACHE[key]
+        if cached[0] is None:
+            UNREADABLE[path] = f'cannot read {path.name}'
+        return cached
+    try:
+        text: str | None = path.read_text(encoding='utf-8')
+    except OSError, UnicodeDecodeError:
+        UNREADABLE[path] = f'cannot read {path.name}'
+        text = None
+    tree: ast.Module | None = None
+    if text is not None:
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            tree = None
+    if key is not None:
+        SOURCE_CACHE[key] = (text, tree)
+    return text, tree
+
+
 def read_source(path: pathlib.Path) -> str | None:
     """The text of `path`, or None when it cannot be read.
 
     An unreadable file (gone, denied, not UTF-8) is recorded in `UNREADABLE` so
     the driver reports it by name."""
-    try:
-        return path.read_text(encoding='utf-8')
-    except OSError, UnicodeDecodeError:
-        UNREADABLE[path] = f'cannot read {path.name}'
-        return None
+    return cached_source(path)[0]
 
 
 def parse_source(path: pathlib.Path) -> ast.Module | None:
     """The syntax tree of `path`, or None when it cannot be read or parsed.
 
     A file that does not parse is skipped without a record, as before; one that
-    cannot be read is recorded by `read_source`."""
-    text = read_source(path)
-    if text is None:
-        return None
-    try:
-        return ast.parse(text)
-    except SyntaxError:
-        return None
+    cannot be read is recorded by `read_source`. The tree is shared between
+    checks, so a caller must not modify it."""
+    return cached_source(path)[1]
 
 
 def source_lines(path: pathlib.Path) -> list[str]:
@@ -560,6 +619,11 @@ def reads_by_module_and_name(
     The corpus is every root the sweep reads, not the one being swept: a
     reader in a sibling package, or in a script under `bin/`, is a reader.
     """
+    return corpus_index('reads', scope, src_root, lambda: build_reads(scope, src_root))
+
+
+def build_reads(scope: pathlib.Path, src_root: pathlib.Path) -> dict[tuple[str, str], list[tuple[pathlib.Path, int]]]:
+    """The index `reads_by_module_and_name` shares: one scan of the corpus."""
     reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = collections.defaultdict(list)
     for path in corpus_py_files(scope, src_root):
         tree = parse_source(path)
@@ -605,11 +669,15 @@ def corpus_definitions(
     Phase B listers set it: they resolve names a document mentions, which may
     be a class or a method. A file with a syntax error is skipped.
     """
+    return corpus_index(f'definitions-{classes}', scope, src_root, lambda: build_definitions(scope, src_root, classes))
+
+
+def build_definitions(scope: pathlib.Path, src_root: pathlib.Path, classes: bool) -> dict[str, list[tuple[ast.AST, pathlib.Path]]]:
+    """The index `corpus_definitions` shares: one scan of the corpus."""
     out: dict[str, list[tuple[ast.AST, pathlib.Path]]] = {}
     for path in corpus_py_files(scope, src_root):
-        try:
-            tree = ast.parse('\n'.join(source_lines(path)))
-        except SyntaxError:
+        tree = parse_source(path)
+        if tree is None:
             continue
         for node in ast.iter_child_nodes(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -798,7 +866,9 @@ __all__ = [
     'all_py_files',
     'audit_roots',
     'call_bindings',
+    'clear_source_cache',
     'corpus_definitions',
+    'corpus_index',
     'corpus_py_files',
     'declared_roots',
     'describe_error',

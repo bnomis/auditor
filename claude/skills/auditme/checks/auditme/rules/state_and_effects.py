@@ -977,6 +977,11 @@ def dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dic
     resolves no imports, so the alternative is to call a frozen class mutable
     on the strength of a same-named class somewhere else in the tree.
     """
+    return auditme.core.corpus_index('frozen', scope, src_root, lambda: build_frozen_by_name(scope, src_root))
+
+
+def build_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, bool]:
+    """The index `dataclass_frozen_by_name` shares: one scan of the corpus."""
     frozen_by_name: dict[str, bool] = {}
     for path in auditme.core.corpus_py_files(scope, src_root):
         tree = auditme.core.parse_source(path)

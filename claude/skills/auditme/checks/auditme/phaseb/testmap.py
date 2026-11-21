@@ -8,6 +8,7 @@ match without an import is never evidence.
 
 import ast
 import dataclasses
+import functools
 import pathlib
 import typing
 
@@ -230,14 +231,19 @@ class TestIndex:
                             found.setdefault(self.sites[target].id, {}).setdefault(test_id, dataclasses.replace(base, route='caller', via=self.sites[via].id))
         return {function_id: tuple(sorted(refs.values(), key=lambda ref: ref.id)) for function_id, refs in found.items()}
 
-    def caller_sites(self, function_id: str, depth: int) -> list[auditme.phaseb.candidates.Site]:
-        """The package functions that reach a function within `depth` calls, sorted by id."""
-        target = self.by_id[function_id].qualname
+    @functools.cached_property
+    def reverse(self) -> dict[str, list[str]]:
+        """Each qualname's direct callers, built on first use and shared by every query."""
         reverse: dict[str, list[str]] = {}
         for name, callees in self.direct.items():
             for callee in callees:
                 reverse.setdefault(callee, []).append(name)
-        found = reach(reverse, [target], depth)
+        return reverse
+
+    def caller_sites(self, function_id: str, depth: int) -> list[auditme.phaseb.candidates.Site]:
+        """The package functions that reach a function within `depth` calls, sorted by id."""
+        target = self.by_id[function_id].qualname
+        found = reach(self.reverse, [target], depth)
         return sorted((self.sites[name] for name in found if name != target), key=lambda site: site.id)
 
     def callers(self, function_id: str, depth: int) -> list[dict[str, str | int]]:
