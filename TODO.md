@@ -43,3 +43,5 @@ published hooks, so it goes through the project-setup spec
 (`agents/specs/project-setup/spec.md`) first. Then land fixes or accept
 markers for the catch-up surface before the first real audit of this
 repository.
+
+Spec: `agents/specs/project-setup/spec.md`, amendment 1.11; tasks: `agents/tasks/project-setup/tasks-4.md`, then `agents/tasks/project-setup/tasks-5.md`.
