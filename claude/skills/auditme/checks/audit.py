@@ -29,7 +29,13 @@ the default one, and the same failure had a second instance there: enumerating
 packages *under src/* gave a project whose scripts live in bin/ zero rows for
 them - accepted or otherwise - while three consecutive summaries recorded
 "bin/ remains at zero unaccepted hits" as though it were a measurement.
---extra-root replaces that default set; each root named must exist.
+--extra-root replaces that default set; each root named must exist. It also
+replaces the roots a project declares in [tool.auditme] in pyproject.toml, for
+that run, so a malformed declaration does not stop it.
+
+A project that declares [tool.auditme] roots gets exactly those roots, in
+order, instead of src/ packages and the default extras. An invalid declaration
+is reported as "ERROR: <message>" on stderr, with exit 2 and nothing on stdout.
 
 Each root gets its own pass rather than one pass over src/, because
 src_root.name is the package's dotted root - six checks build module names as
@@ -137,12 +143,21 @@ def main() -> int:
         # missing: an unnoticed typo would reinstate exactly the empty pass
         # this flag exists to end.
         auditme.core.EXTRA_ROOT_NAMES = tuple(args.extra_root)
+        auditme.core.DECLARATION_IGNORED = True
         for name in args.extra_root:
             if not (scope / name).is_dir():
                 print(f'ERROR: {scope / name} is not a directory', file=sys.stderr)
                 return 2
 
+    default_roots: list[pathlib.Path] = []
     if not args.package:
+        # Read first: an invalid declaration must exit before anything is emitted.
+        try:
+            default_roots = auditme.core._audit_roots(scope)
+        except auditme.core.RootsError as exc:
+            print(f'ERROR: {exc}', file=sys.stderr)
+            return 2
+
         # A module directly in src/ belongs to no root, so no pass would read
         # it. The driver reports it, not a registered check: a check runs once
         # per root, and a project holding only src/a.py has none.
@@ -164,7 +179,7 @@ def main() -> int:
         # a normal audit passes neither flag.
         roots = [scope / 'src' / args.package]
     else:
-        roots = auditme.core._audit_roots(scope)
+        roots = default_roots
         if not roots:
             print('audit.py: no package under src/ and no extra root; running the project-level checks only', file=sys.stderr)
             # These read only the project, so the scope stands in for the root

@@ -164,6 +164,11 @@ TOP_LEVEL = 'top-level'
 ROOT_MODULES: types.MappingProxyType[pathlib.Path, str] = types.MappingProxyType({})
 
 
+# Set by the driver's `--extra-root`: the command line replaces the declaration
+# for one run, so `declared_roots` reports none, valid or not.
+DECLARATION_IGNORED = False
+
+
 class RootsError(Exception):
     """`[tool.auditme]` in `pyproject.toml` is invalid; the message is the error text."""
 
@@ -180,7 +185,7 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
     `[tool.auditme`; otherwise the defaults apply.
     """
     pyproject = scope / 'pyproject.toml'
-    if not pyproject.is_file():
+    if DECLARATION_IGNORED or not pyproject.is_file():
         return None
     text = pyproject.read_text(encoding='utf-8')
     try:

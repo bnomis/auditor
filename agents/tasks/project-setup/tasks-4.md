@@ -72,7 +72,7 @@ call site changed.
 
 ## Task 2: The driver's errors and `--extra-root`
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation - Declared audit roots (1.11); Error handling (the 1.11 rows)
@@ -82,20 +82,20 @@ call site changed.
 
 **Subtasks:**
 
-- [ ] In `main()` of `claude/skills/auditme/checks/audit.py`: catch `RootsError` from reading the roots, print `ERROR: <message>` on stderr, return 2
-- [ ] With `--extra-root`, sweep only the named roots, each as a `package` root, ignoring `[tool.auditme]`; `--package` unchanged
-- [ ] The no-root notice and the project-level-only pass (1.8) apply when no root is declared and none is found; a declared list is never empty after validation
-- [ ] Tests in `claude/skills/auditme/tests/test_driver.py`: a project with `[tool.auditme]` sweeps its declared roots and not `src/`; each `RootsError` exits 2 with `ERROR: ` and nothing on stdout; `--extra-root` overrides the declaration; a `top-level` root's hits name its files by their paths
+- [x] In `main()` of `claude/skills/auditme/checks/audit.py`: catch `RootsError` from reading the roots, print `ERROR: <message>` on stderr, return 2
+- [x] With `--extra-root`, sweep only the named roots, each as a `package` root, ignoring `[tool.auditme]`; `--package` unchanged
+- [x] The no-root notice and the project-level-only pass (1.8) apply when no root is declared and none is found; a declared list is never empty after validation
+- [x] Tests in `claude/skills/auditme/tests/test_driver.py`: a project with `[tool.auditme]` sweeps its declared roots and not `src/`; each `RootsError` exits 2 with `ERROR: ` and nothing on stdout; `--extra-root` overrides the declaration; a `top-level` root's hits name its files by their paths
 
 **Acceptance Criteria:**
 
-- [ ] Each case above passes
-- [ ] A project without `[tool.auditme]` gets the same output as before
+- [x] Each case above passes
+- [x] A project without `[tool.auditme]` gets the same output as before
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_roots.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_roots.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
