@@ -154,11 +154,11 @@ def test_emit_writes_one_json_object_per_line(capsys: pytest.CaptureFixture[str]
 
 # corpus definitions
 
-_DEFINITIONS_SOURCE = 'def run() -> None:\n    pass\n\n\nclass Probe:\n    def load(self) -> None:\n        pass\n'
+DEFINITIONS_SOURCE = 'def run() -> None:\n    pass\n\n\nclass Probe:\n    def load(self) -> None:\n        pass\n'
 
 
 def test_corpus_definitions_default_keys_module_level_functions_only(project: Builder) -> None:
-    root = project({'src/pkg/mod.py': _DEFINITIONS_SOURCE})
+    root = project({'src/pkg/mod.py': DEFINITIONS_SOURCE})
     found = auditme.core.corpus_definitions(root, root / 'src' / 'pkg')
     assert list(found) == ['run']
     node, path = found['run'][0]
@@ -167,12 +167,12 @@ def test_corpus_definitions_default_keys_module_level_functions_only(project: Bu
 
 
 def test_corpus_definitions_skips_a_file_with_a_syntax_error(project: Builder) -> None:
-    root = project({'src/pkg/good.py': _DEFINITIONS_SOURCE, 'src/pkg/bad.py': 'def broken(:\n'})
+    root = project({'src/pkg/good.py': DEFINITIONS_SOURCE, 'src/pkg/bad.py': 'def broken(:\n'})
     assert list(auditme.core.corpus_definitions(root, root / 'src' / 'pkg')) == ['run']
 
 
 def test_corpus_definitions_with_classes_adds_classes_and_methods(project: Builder) -> None:
-    root = project({'src/pkg/mod.py': _DEFINITIONS_SOURCE})
+    root = project({'src/pkg/mod.py': DEFINITIONS_SOURCE})
     found = auditme.core.corpus_definitions(root, root / 'src' / 'pkg', classes=True)
     assert sorted(found) == ['Probe', 'load', 'run']
     assert isinstance(found['Probe'][0][0], ast.ClassDef)
@@ -188,7 +188,7 @@ def test_corpus_definitions_keeps_a_name_defined_in_two_modules_twice(project: B
 
 # scope walk
 
-_SCOPE_SOURCE = (
+SCOPE_SOURCE = (
     'def outer():\n'
     '    if a:\n'
     '        pass\n'
@@ -203,13 +203,13 @@ _SCOPE_SOURCE = (
 
 
 def test_walk_within_scope_yields_an_if_in_the_body() -> None:
-    func = ast.parse(_SCOPE_SOURCE).body[0]
+    func = ast.parse(SCOPE_SOURCE).body[0]
     tests = [ast.unparse(n.test) for n in auditme.core.walk_within_scope(func) if isinstance(n, ast.If)]
     assert tests == ['a']
 
 
 def test_walk_within_scope_does_not_enter_nested_scopes() -> None:
-    func = ast.parse(_SCOPE_SOURCE).body[0]
+    func = ast.parse(SCOPE_SOURCE).body[0]
     nodes = list(auditme.core.walk_within_scope(func))
     assert not any(isinstance(n, ast.IfExp) for n in nodes)
     assert any(isinstance(n, ast.FunctionDef) and n.name == 'inner' for n in nodes)
@@ -217,33 +217,33 @@ def test_walk_within_scope_does_not_enter_nested_scopes() -> None:
 
 # is_private
 
-_INIT_ALL = "__all__ = ['load', 'Probe']\n"
-_NO_ALL = 'def load() -> None:\n    pass\n'
+INIT_ALL = "__all__ = ['load', 'Probe']\n"
+NO_ALL = 'def load() -> None:\n    pass\n'
 
 
 def test_is_private_a_name_in_the_package_all_is_public(project: Builder) -> None:
-    root = project({'src/pkg/__init__.py': _INIT_ALL, 'src/pkg/mod.py': _NO_ALL})
+    root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
     assert not auditme.core.is_private('load', 'pkg.mod', root)
 
 
 def test_is_private_a_name_left_out_of_the_package_all_is_private(project: Builder) -> None:
-    root = project({'src/pkg/__init__.py': _INIT_ALL, 'src/pkg/mod.py': _NO_ALL})
+    root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
     assert auditme.core.is_private('helper', 'pkg.mod', root)
 
 
 def test_is_private_a_name_in_its_modules_own_all_is_public(project: Builder) -> None:
-    root = project({'src/pkg/__init__.py': _INIT_ALL, 'src/pkg/mod.py': "__all__ = ['helper']\n"})
+    root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': "__all__ = ['helper']\n"})
     assert not auditme.core.is_private('helper', 'pkg.mod', root)
 
 
 def test_is_private_a_method_follows_its_class(project: Builder) -> None:
-    root = project({'src/pkg/__init__.py': _INIT_ALL, 'src/pkg/mod.py': _NO_ALL})
+    root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
     assert not auditme.core.is_private('Probe.load', 'pkg.mod', root)
     assert auditme.core.is_private('Other.load', 'pkg.mod', root)
 
 
 def test_is_private_without_an_all_only_an_underscore_makes_private(project: Builder) -> None:
-    root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': _NO_ALL, 'src/pkg/_mod.py': _NO_ALL})
+    root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': NO_ALL, 'src/pkg/_mod.py': NO_ALL})
     assert not auditme.core.is_private('load', 'pkg.mod', root)
     assert auditme.core.is_private('_load', 'pkg.mod', root)
     assert auditme.core.is_private('load', 'pkg._mod', root)
@@ -251,12 +251,12 @@ def test_is_private_without_an_all_only_an_underscore_makes_private(project: Bui
 
 
 def test_is_private_an_underscore_name_in_an_all_is_public(project: Builder) -> None:
-    root = project({'src/pkg/__init__.py': "__all__ = ['_load']\n", 'src/pkg/mod.py': _NO_ALL})
+    root = project({'src/pkg/__init__.py': "__all__ = ['_load']\n", 'src/pkg/mod.py': NO_ALL})
     assert not auditme.core.is_private('_load', 'pkg.mod', root)
 
 
 def test_is_private_reads_an_annotated_all(project: Builder) -> None:
-    root = project({'src/pkg/__init__.py': "__all__: list[str] = ['load']\n", 'src/pkg/mod.py': _NO_ALL})
+    root = project({'src/pkg/__init__.py': "__all__: list[str] = ['load']\n", 'src/pkg/mod.py': NO_ALL})
     assert not auditme.core.is_private('load', 'pkg.mod', root)
     assert auditme.core.is_private('other', 'pkg.mod', root)
 

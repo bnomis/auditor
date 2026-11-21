@@ -1077,14 +1077,14 @@ def test_an_undocumented_function_is_out_of_scope(project: Builder, run_check: R
 CAUGHT_ERRORS = 'class ProbeError(Exception):\n    pass\n\n\nclass ParseError(ProbeError):\n    pass\n\n\nclass FetchError(ProbeError):\n    pass\n'
 
 
-def _caught_module(body: str) -> dict[str, str]:
+def make_caught_module(body: str) -> dict[str, str]:
     return {'src/probe/errors.py': CAUGHT_ERRORS, 'src/probe/mod.py': 'import probe.errors\n\n\n' + body}
 
 
 @pytest.mark.parametrize('handler', ['except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except Exception:', 'except:'])
 def test_a_raise_caught_by_a_handler_around_it_is_not_a_hit(project: Builder, run_check: Runner, handler: str) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             f'def load(label: str) -> int:\n    """Load the thing."""\n    try:\n        raise probe.errors.ParseError(label)\n    {handler}\n        return 0\n'
         )
     )
@@ -1094,7 +1094,7 @@ def test_a_raise_caught_by_a_handler_around_it_is_not_a_hit(project: Builder, ru
 @pytest.mark.parametrize('handler', ['except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except Exception:', 'except:'])
 def test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit(project: Builder, run_check: Runner, handler: str) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             'def load(label: str) -> int:\n'
             '    """Load the thing."""\n'
             '    def inner() -> int:\n'
@@ -1110,7 +1110,7 @@ def test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit(project: Build
 
 def test_a_nested_raise_never_called_in_the_subject_is_not_the_subjects_hit(project: Builder, run_check: Runner) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             'def load(label: str):\n    """Load the thing."""\n    def inner() -> int:\n        raise probe.errors.ParseError(label)\n    return inner\n'
         )
     )
@@ -1119,7 +1119,7 @@ def test_a_nested_raise_never_called_in_the_subject_is_not_the_subjects_hit(proj
 
 def test_a_documented_nested_def_is_still_its_own_subject(project: Builder, run_check: Runner) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             'def load(label: str):\n'
             '    """Load the thing."""\n'
             '    def inner() -> int:\n'
@@ -1138,14 +1138,14 @@ def test_a_documented_nested_def_is_still_its_own_subject(project: Builder, run_
 )
 def test_a_raise_a_handler_does_not_stop_is_still_a_hit(project: Builder, run_check: Runner, handler: str) -> None:
     root = project(
-        _caught_module(f'def load(label: str) -> int:\n    """Load the thing."""\n    try:\n        raise probe.errors.ParseError(label)\n    {handler}\n')
+        make_caught_module(f'def load(label: str) -> int:\n    """Load the thing."""\n    try:\n        raise probe.errors.ParseError(label)\n    {handler}\n')
     )
     assert [hit['rule'] for hit in run_check(MISSING_RAISES, root)] == ['missing-raises-section']
 
 
 def test_a_nested_raise_called_outside_any_try_is_still_a_hit(project: Builder, run_check: Runner) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             'def load(label: str) -> int:\n'
             '    """Load the thing."""\n'
             '    def inner() -> int:\n'

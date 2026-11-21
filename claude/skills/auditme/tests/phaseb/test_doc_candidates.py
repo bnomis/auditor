@@ -3,10 +3,10 @@
 import pathlib
 import textwrap
 
+import auditme.phaseb
+import auditme.phaseb.candidates
 import conftest
 import pytest
-from auditme import phaseb
-from auditme.phaseb import candidates
 
 MOD = """
     def run_it():
@@ -92,8 +92,8 @@ def root(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
-def listed(root: pathlib.Path, question: str) -> dict[str, phaseb.Candidate]:
-    return {candidate.id: candidate for candidate in phaseb.list_candidates(question, root)}
+def listed(root: pathlib.Path, question: str) -> dict[str, auditme.phaseb.Candidate]:
+    return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates(question, root)}
 
 
 def test_proposed_spec_is_not_listed_for_doc4(root: pathlib.Path) -> None:
@@ -182,25 +182,25 @@ def test_unresolved_hash_follows_the_section_text_and_tokens(root: pathlib.Path)
 
 def test_unreadable_document_raises(root: pathlib.Path) -> None:
     (root / 'docs' / 'bad.md').write_bytes(b'\xff\xfe\x00bad')
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates('Doc5', root)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates('Doc5', root)
 
 
 def test_unreadable_spec_raises(root: pathlib.Path) -> None:
     (root / 'agents' / 'specs' / 'bad.md').write_bytes(b'\xff\xfe\x00bad')
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates('Doc4', root)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates('Doc4', root)
 
 
 @pytest.mark.parametrize('question', ['Doc4', 'Doc5'])
 def test_second_call_is_identical(root: pathlib.Path, question: str) -> None:
-    assert phaseb.list_candidates(question, root) == phaseb.list_candidates(question, root)
+    assert auditme.phaseb.list_candidates(question, root) == auditme.phaseb.list_candidates(question, root)
 
 
 @pytest.mark.parametrize('question', ['Doc4', 'Doc5'])
 def test_registered_with_brief_and_batch_size(question: str) -> None:
-    assert phaseb.question_batch_size(question) == 24
-    assert phaseb.question_brief(question) == candidates.A4_BRIEF.parent / f'{question}.md'
+    assert auditme.phaseb.question_batch_size(question) == 24
+    assert auditme.phaseb.question_brief(question) == auditme.phaseb.candidates.A4_BRIEF.parent / f'{question}.md'
 
 
 # Doc1 and Doc2
@@ -317,32 +317,32 @@ def test_missing_pyproject_and_hook_file_are_not_errors(root: pathlib.Path) -> N
 
 def test_missing_agents_md_lists_nothing(root: pathlib.Path) -> None:
     (root / 'AGENTS.md').unlink()
-    assert phaseb.list_candidates('Doc1', root) == []
-    assert phaseb.list_candidates('Doc2', root) == []
+    assert auditme.phaseb.list_candidates('Doc1', root) == []
+    assert auditme.phaseb.list_candidates('Doc2', root) == []
 
 
 def test_unparseable_pyproject_raises(agents_root: pathlib.Path) -> None:
     write(agents_root, 'pyproject.toml', 'not [valid')
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates('Doc2', agents_root)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates('Doc2', agents_root)
 
 
 def test_unreadable_hook_file_raises(agents_root: pathlib.Path) -> None:
     (agents_root / '.pre-commit-config.yaml').unlink()
     (agents_root / '.pre-commit-config.yaml').mkdir()
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates('Doc2', agents_root)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates('Doc2', agents_root)
 
 
 @pytest.mark.parametrize('question', ['Doc1', 'Doc2'])
 def test_failing_git_ls_files_raises(tmp_path: pathlib.Path, question: str) -> None:
     write(tmp_path, 'AGENTS.md', AGENTS)
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates(question, tmp_path)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates(question, tmp_path)
 
 
 @pytest.mark.parametrize('question', ['Doc1', 'Doc2'])
 def test_agents_listers_are_registered_and_stable(agents_root: pathlib.Path, question: str) -> None:
-    assert phaseb.question_batch_size(question) == 12
-    assert phaseb.question_brief(question) == candidates.A4_BRIEF.parent / f'{question}.md'
-    assert phaseb.list_candidates(question, agents_root) == phaseb.list_candidates(question, agents_root)
+    assert auditme.phaseb.question_batch_size(question) == 12
+    assert auditme.phaseb.question_brief(question) == auditme.phaseb.candidates.A4_BRIEF.parent / f'{question}.md'
+    assert auditme.phaseb.list_candidates(question, agents_root) == auditme.phaseb.list_candidates(question, agents_root)

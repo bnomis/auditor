@@ -431,7 +431,7 @@ is left in the checker's code.
 
 ## Task 13: Test helpers and test imports
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** "The plan the coding standards settle", Renames
@@ -441,24 +441,25 @@ helpers and full import paths.
 
 **Subtasks:**
 
-- [ ] Rename the test helpers and constants (about 43), giving a colliding name a new one (`_candidate`, `_line`, `_read`, `_verdict`, `_git` -> `make_candidate` and the like)
-- [ ] Convert the test `from` imports (`from auditme import phaseb` and the rest) to full paths, updating their references
-- [ ] Drop the test's `_map` pass-through and call `testmap.build_test_map` directly
-- [ ] Revisit the five accept markers in `test_core.py` for `leading-underscore-attribute-access`: remove each one the renames made unnecessary
-- [ ] Run the sweep and record the count in the commit body
+- [x] Rename the test helpers and constants (about 43), giving a colliding name a new one (`_candidate`, `_line`, `_read`, `_verdict`, `_git` -> `make_candidate` and the like)
+- [x] Convert the test `from` imports (`from auditme import phaseb` and the rest) to full paths, updating their references
+- [x] Drop the test's `_map` pass-through and call `testmap.build_test_map` directly
+- [x] Revisit the five accept markers in `test_core.py` for `leading-underscore-attribute-access`: remove each one the renames made unnecessary
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] No `leading-underscore-*`, `from-import` or `passthrough-shim` hit remains in the tests
+- [x] No `leading-underscore-*`, `from-import` or `passthrough-shim` hit remains in the tests
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 12
+- Done 2026-11-21: `test_core.py` holds no `leading-underscore-attribute-access` accept markers any more (earlier renames removed them), so none was left to revisit. `build_test_map` has no default depth, so the tests pass 3, the shim's default.
 
 ---
 
