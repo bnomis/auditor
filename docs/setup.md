@@ -93,14 +93,14 @@ bin/install-claude.sh
 installer, `install-in-claude`, with `uvx` at a pinned commit, so it needs
 `uv` and SSH access to `bnomis/install-in-claude`; add `--dry-run` to see what
 it would change first. It links
-`claude/` into `~/.claude/` one level down: each directory (`hooks/`,
+`claude/` into `~/.claude/` one level down: each directory (`hooks/`, `rules/`,
 `skills/`) becomes a real directory of symlinks to its entries. It renames
 any existing file in a link's place to `.orig`. In `~/.claude/settings.json`
 it adds the Stop hook once. It keeps every other setting, and saves the
 original as `settings.json.orig`. It refuses to touch a settings file that is
 not a valid JSON object.
 
-The shared rules, the other skills and the status line come from the agents
+The other shared rules and skills, and the status line, come from the agents
 repository (`bnomis/agents`), installed the same way with its own
 installer; see its docs at <https://bnomis.github.io/agents/>.
 

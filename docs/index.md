@@ -4,8 +4,8 @@
 
 `auditme`, a static checker that projects pin as pre-commit hooks so the rules a script can check
 are enforced on every commit, push and CI run, together with the Claude Code Stop hook that runs it
-before a turn ends and the `/auditme-project-setup` skill that adopts the hooks in a project. The rules the
-checker enforces, and every other shared skill, live in the agents repository
+before a turn ends, the `/auditme-project-setup` skill that adopts the hooks in a project, and the
+Python rules the checker enforces. The other shared rules and skills live in the agents repository
 ([`bnomis/agents`](https://bnomis.github.io/agents/)).
 
 ```shell
@@ -13,8 +13,8 @@ git clone git@github.com:bnomis/auditor.git ~/src/auditor
 ~/src/auditor/bin/install-claude.sh
 ```
 
-The installer links the `/auditme` and `/auditme-project-setup` skills and the Stop hook into `~/.claude/`,
-and registers the Stop hook. A project then opts in to the checker with `/auditme-project-setup new` or
+The installer links the `/auditme` and `/auditme-project-setup` skills, the rules in
+`claude/rules/auditme/` and the Stop hook into `~/.claude/`, and registers the Stop hook. A project then opts in to the checker with `/auditme-project-setup new` or
 `/auditme-project-setup adopt`, which pins the hooks in its `.pre-commit-config.yaml`:
 
 ```yaml
@@ -33,6 +33,7 @@ and registers the Stop hook. A project then opts in to the checker with `/auditm
 | `claude/skills/auditme/checks/` | The checker: a standard-library-only sweep over `src/` and `bin/`. See [The audit checker](guide/checker.md). |
 | `claude/skills/auditme/` | The `/auditme` skill: the sweep, then the interpretive review. See [Skills](reference/skills.md). |
 | `claude/skills/auditme-project-setup/` | The `/auditme-project-setup` skill and its templates. See [Skills](reference/skills.md). |
+| `claude/rules/auditme/` | The Python rules the checker enforces: coding standards, imports, dependencies. See [Rules](reference/rules.md). |
 | `claude/hooks/` | The Claude Code Stop hook that runs the checker before a turn ends. |
 | `bin/install-claude.sh` | The installer: runs the shared `install-in-claude` at a pinned commit. See [Command line and hooks](reference/cli.md). |
 | `bin/check-foreign-names.sh` | The `no-project-names` check, which keeps project names out of repositories used across projects. See [Command line and hooks](reference/cli.md). |

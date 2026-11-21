@@ -52,5 +52,6 @@ nav:
   - User guide:
       - The audit checker: guide/checker.md
   - Reference:
+      - Rules: reference/rules.md
       - Skills: reference/skills.md
       - Command line and hooks: reference/cli.md
