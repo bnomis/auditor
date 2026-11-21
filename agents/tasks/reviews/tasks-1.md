@@ -496,3 +496,10 @@ on, and the backlog item is closed.
 **Notes:**
 
 - Depends on Tasks 2 to 13
+- Blocked 2026-11-21: the sweep still reports 22 unaccepted hits that no task or item covers (not accepted, per the subtask). By rule and `path:line`:
+  - `leading-underscore-attribute-access` `claude/skills/auditme/checks/auditme/rules/state_and_effects.py:1029`
+  - `except-interpolation` `claude/skills/auditme/checks/auditme/phaseb/candidates.py:72`
+  - `non-alphabetical-literal` `claude/skills/auditme/checks/auditme/rules/duplication.py:11`, `claude/skills/auditme/checks/auditme/rules/project_hygiene.py:75`
+  - `mutable-module-level-exported` `claude/skills/auditme/checks/auditme/phaseb/candidates.py:60` (`KINDS`)
+  - `recompile-duplication` `claude/skills/auditme/checks/auditme/phaseb/docrefs.py:19`, `claude/skills/auditme/checks/auditme/rules/project_hygiene.py:272` (`FENCE_RE`)
+  - `literal-duplication` in tests: `tests/phaseb/test_briefs.py:57,58,69,78`, `tests/phaseb/test_model.py:107,140,141`, `tests/phaseb/test_doc_candidates.py:195,200,337,344`, `tests/test_driver.py:501`, `tests/test_roots.py:72`, `tests/test_error_handling.py:1084,1094` (all under `claude/skills/auditme/`)
