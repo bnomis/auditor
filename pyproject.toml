@@ -67,6 +67,15 @@ ignore = ["E501", "E722", 'ICN001', 'SIM108', 'SIM102', 'S110', 'S112', 'S311']
 [tool.ruff.lint.isort]
 combine-as-imports = true
 
+[tool.auditme]
+roots = [
+    { path = "claude/skills/auditme/checks/auditme" },
+    { path = "claude/skills/auditme/checks", modules = "top-level" },
+    { path = "claude/skills/auditme/tests" },
+    { path = "claude/skills/auditme-project-setup/tests" },
+    { path = "tests" },
+]
+
 [tool.uv]
 exclude-newer = "14 days"
 prerelease = "disallow"
