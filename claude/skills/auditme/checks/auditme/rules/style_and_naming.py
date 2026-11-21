@@ -23,7 +23,70 @@ def is_stdlib_public_access_only(line: str) -> bool:
     )
 
 
+# The line-pattern rules that read code, not prose: a plain string literal
+# (a fixture's source, a regex) is data to them. A docstring is still read.
+CODE_ONLY_RULES = frozenset(
+    {
+        'aliased-imports',
+        'legacy-typing',
+        'leading-underscore-attribute-access',
+        'leading-underscore-const-lower',
+        'leading-underscore-const-upper',
+        'leading-underscore-def-class',
+        'leading-underscore-self',
+        'relative-import-nonpackage',
+    }
+)
+
+
+def docstring_nodes(tree: ast.AST) -> set[int]:
+    """Return the `id` of every `ast.Constant` that sits in a docstring position."""
+    found: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) or not node.body:
+            continue
+        first = node.body[0]
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+            found.add(id(first.value))
+    return found
+
+
+def mask_string_literals(lines: list[str]) -> list[str]:
+    """Return `lines` with the text of every non-docstring string literal blanked.
+
+    Each blanked character becomes a space, so columns are kept. A file that
+    does not parse is returned unchanged.
+    """
+    try:
+        tree = ast.parse('\n'.join(lines))
+    except SyntaxError:
+        return lines
+    docstrings = docstring_nodes(tree)
+    masked = list(lines)
+
+    def char_column(line: str, byte_column: int) -> int:
+        return len(line.encode()[:byte_column].decode(errors='ignore'))
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Constant) or not isinstance(node.value, str) or id(node) in docstrings:
+            continue
+        end_lineno = node.end_lineno or node.lineno
+        end_col = node.end_col_offset or 0
+        for lineno in range(node.lineno, end_lineno + 1):
+            line = masked[lineno - 1]
+            start = char_column(lines[lineno - 1], node.col_offset) if lineno == node.lineno else 0
+            stop = char_column(lines[lineno - 1], end_col) if lineno == end_lineno else len(line)
+            masked[lineno - 1] = line[:start] + ' ' * (stop - start) + line[stop:]
+    return masked
+
+
 def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag source lines that match a text pattern.
+
+    Refinement (2026-11-21): the rules in `CODE_ONLY_RULES` read each line with
+    its non-docstring string literals blanked, so fixture source or a regex
+    held in a plain string is not read as code. A docstring is still read.
+    """
     patterns: list[tuple[str, str, re.Pattern]] = [
         ('wildcard-imports', 'from X import *', re.compile(r'^from [\w.]+ import \*')),
         ('future-annotations', 'from __future__', re.compile(r'^from __future__ ')),
@@ -56,6 +119,7 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         lines = _source_lines(path)
         is_init = path.name == '__init__.py'
         format_lines = literal_format_lines(lines)
+        code_lines = mask_string_literals(lines)
         for idx, raw in enumerate(lines, 1):
             stripped = raw.strip()
             if not stripped or stripped.startswith('#'):
@@ -65,9 +129,9 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                     continue
                 if rule == 'legacy-formatting-format' and idx not in format_lines:
                     continue
-                if not pat.search(raw):
+                if not pat.search(code_lines[idx - 1] if rule in CODE_ONLY_RULES else raw):
                     continue
-                if rule == 'leading-underscore-attribute-access' and is_stdlib_public_access_only(raw):
+                if rule == 'leading-underscore-attribute-access' and is_stdlib_public_access_only(code_lines[idx - 1]):
                     continue
                 accept = _accept_reason(lines, idx, rule=rule)
                 _emit(

@@ -54,6 +54,46 @@ def test_each_text_pattern_fires(source: str, rule: str, project: Builder, run_c
     assert rule in rules_found(run_check(TEXT_PATTERNS, root))
 
 
+CODE_ONLY_FIXTURE_TEXT = {
+    'aliased-imports': 'import numpy as np',
+    'legacy-typing': 'value: Optional[int] = None',
+    'leading-underscore-attribute-access': 'return obj._attr',
+    'leading-underscore-const-lower': '_cache = {}',
+    'leading-underscore-const-upper': '_CACHE = {}',
+    'leading-underscore-def-class': 'def _helper(): pass',
+    'leading-underscore-self': 'self._value = 1',
+    'relative-import-nonpackage': 'from .base import Thing',
+}
+
+
+@pytest.mark.parametrize('rule', sorted(CODE_ONLY_FIXTURE_TEXT))
+def test_pattern_in_plain_string_literal_does_not_fire(rule: str, project: Builder, run_check: Runner) -> None:
+    """A fixture's source held in a plain string is data, not code (refinement 2026-11-21)."""
+    text = CODE_ONLY_FIXTURE_TEXT[rule]
+    source = f'SINGLE = {text!r}\nMULTI = """\n{text}\n"""\n'
+    root = project({'src/probe/mod.py': source})
+    assert rule not in rules_found(run_check(TEXT_PATTERNS, root))
+
+
+@pytest.mark.parametrize('rule', sorted(CODE_ONLY_FIXTURE_TEXT))
+def test_pattern_as_code_after_string_literal_still_fires(rule: str, project: Builder, run_check: Runner) -> None:
+    text = CODE_ONLY_FIXTURE_TEXT[rule]
+    source = f'NAME = "x"\n{text}\n'
+    root = project({'src/probe/mod.py': source})
+    assert rule in rules_found(run_check(TEXT_PATTERNS, root))
+
+
+def test_pattern_in_docstring_still_fires(project: Builder, run_check: Runner) -> None:
+    source = 'def f() -> None:\n    """Run:\n\n        self._value = 1\n    """\n'
+    root = project({'src/probe/mod.py': source})
+    assert 'leading-underscore-self' in rules_found(run_check(TEXT_PATTERNS, root))
+
+
+def test_pattern_after_a_string_on_the_same_line_still_fires(project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': 'x = "a"; y = obj._attr\n'})
+    assert 'leading-underscore-attribute-access' in rules_found(run_check(TEXT_PATTERNS, root))
+
+
 def test_a_commented_out_line_is_not_a_text_pattern_hit(project: Builder, run_check: Runner) -> None:
     """A pattern inside a comment is discussion, not code."""
     root = project({'src/probe/mod.py': '# from os import *\n# import logging\n'})

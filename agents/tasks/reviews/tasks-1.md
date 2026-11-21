@@ -125,7 +125,7 @@ including `RootsError` from `_audit_roots` (added 2026-11-21).
 
 ## Task 4: R1 - line-pattern rules skip non-docstring string literals
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Source Reference:** R1
@@ -136,19 +136,19 @@ literal (fixture source, a regex) as code.
 
 **Subtasks:**
 
-- [ ] In the rules that match source lines, skip lines that sit inside a string literal that is not a docstring (found with `ast`: the line ranges of every `ast.Constant` string not in a docstring position); docstrings are still read
-- [ ] Tests in each rule's test module: a fixture string holding the pattern does not fire; the same text as code still fires; a docstring mention still fires
-- [ ] Document the refinement in each rule's docstring and under SKILL.md's documented refinements, dated
-- [ ] Run the sweep and record the count in the commit body
+- [x] In the rules that match source lines, skip lines that sit inside a string literal that is not a docstring (found with `ast`: the line ranges of every `ast.Constant` string not in a docstring position); docstrings are still read
+- [x] Tests in each rule's test module: a fixture string holding the pattern does not fire; the same text as code still fires; a docstring mention still fires
+- [x] Document the refinement in each rule's docstring and under SKILL.md's documented refinements, dated
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] The fixture-string hits the review counted (about 21) are gone; the three docstring mentions remain for Task 14
+- [x] The fixture-string hits the review counted (about 21) are gone; the three docstring mentions remain for Task 14
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_style_and_naming.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_leading_underscore_binding.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_style_and_naming.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_leading_underscore_binding.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
