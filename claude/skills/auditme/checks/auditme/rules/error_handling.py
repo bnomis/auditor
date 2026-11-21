@@ -1016,6 +1016,12 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     `except READ_ERRORS:` with `READ_ERRORS = (OSError, ValueError)` is
     covered. Any other name - another module's, a call's result, a nested
     constant - keeps the name test. See `module_tuple_constants`.
+
+    Refinement (2026-11-21): a `try` is flagged only when one of its handlers
+    raises (`raise X`, with an exception), because the rationale is a wrapper
+    that promises to translate. A handler that returns, continues or logs
+    makes no such promise, so skipping a file on a decode error is not a gap.
+    A bare `raise` re-raises the original and does not translate.
     """
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -1069,6 +1075,8 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                     break
             if covers_os:
                 continue
+            if not any(isinstance(sub, ast.Raise) and sub.exc is not None for handler in node.handlers for sub in ast.walk(handler)):
+                continue
             # Emit a finding at the first handler's line so the reviewer
             # sees the narrow catch.
             first_handler = node.handlers[0] if node.handlers else None
@@ -1091,6 +1099,28 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+
+OS_ERROR_NAMES = frozenset({'BaseException', 'Exception', 'IOError', 'OSError'})
+
+
+def enveloped_functions(tree: ast.Module) -> set[str]:
+    """Names of module-level functions with a `try` whose handler covers `OSError`."""
+    names: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for sub in _walk_within_scope(node):
+            if not isinstance(sub, ast.Try):
+                continue
+            for handler in sub.handlers:
+                if handler.type is None:
+                    names.add(node.name)
+                    continue
+                elements = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+                if any(isinstance(element, (ast.Name, ast.Attribute)) and ast.unparse(element).rsplit('.', 1)[-1] in OS_ERROR_NAMES for element in elements):
+                    names.add(node.name)
+    return names
 
 
 def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -1119,6 +1149,12 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
     the except tuple is too narrow. This check catches the case where
     no try exists at all AND the function is part of the package's
     public error contract.
+
+    Refinement (2026-11-21): a call to a function defined in the same module
+    whose own body wraps a call in a `try` with a handler for `OSError` (or
+    `IOError`, `Exception`, `BaseException`, or a bare `except`) is not a
+    filesystem primitive: the helper holds the envelope. A method call
+    (`x.read_text()`) is never resolved this way, only a bare name.
     """
     # Drop `replace`, `rename`, `copy`, `remove` - too noisy due to
     # str.replace, dataclasses.replace, list.copy, list.remove etc.
@@ -1195,6 +1231,7 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
         except SyntaxError:
             continue
         exports = package_exports.get(pkg, set())
+        enveloped = enveloped_functions(tree)
         for func in ast.walk(tree):
             if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -1223,6 +1260,8 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
                 elif isinstance(inner.func, ast.Attribute):
                     short = inner.func.attr
                 if short not in STDLIB_WRITE_CALLS:
+                    continue
+                if isinstance(inner.func, ast.Name) and short in enveloped:
                     continue
                 if inner.lineno in try_linenos:
                     continue
@@ -1822,6 +1861,75 @@ def _empty_container_default(node: ast.Call) -> str | None:
     return None
 
 
+# The `load` and `loads` entry points of `json` and `tomllib`.
+LOADER_CALLS = frozenset({'load', 'loads'})
+
+
+def is_tomllib_call(node: ast.AST) -> bool:
+    """True for a `tomllib.load(...)` or `tomllib.loads(...)` call."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in LOADER_CALLS
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == 'tomllib'
+    )
+
+
+def toml_returning_functions(tree: ast.Module) -> set[str]:
+    """Names of module-level functions that return a `tomllib` call and nothing else but a dict literal."""
+    names: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        values = [sub.value for sub in _walk_within_scope(node) if isinstance(sub, ast.Return)]
+        if any(value is not None and is_tomllib_call(value) for value in values) and all(
+            value is not None and (is_tomllib_call(value) or isinstance(value, ast.Dict)) for value in values
+        ):
+            names.add(node.name)
+    return names
+
+
+def is_toml_source(node: ast.AST, toml_functions: set[str]) -> bool:
+    """A `tomllib` call, or a call to a same-module function that returns one."""
+    if is_tomllib_call(node):
+        return True
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in toml_functions
+
+
+def receiver_is_toml_mapping(receiver: ast.expr, scope_node: ast.AST, tree: ast.Module, toml_functions: set[str]) -> bool:
+    """Whether the mapping `.get` is called on comes from `tomllib`.
+
+    TOML has no null, so an explicit null cannot arrive in such a mapping. The
+    receiver counts when it is a `tomllib` call (or a same-module function
+    returning one), a name the scope assigns from one, or a parameter of a
+    module-level function that every same-module call passes one.
+    """
+    if is_toml_source(receiver, toml_functions):
+        return True
+    if not isinstance(receiver, ast.Name):
+        return False
+    for stmt in _walk_within_scope(scope_node):
+        if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:
+            target = stmt.targets[0]
+            if isinstance(target, ast.Name) and target.id == receiver.id and is_toml_source(stmt.value, toml_functions):
+                return True
+    if isinstance(scope_node, (ast.FunctionDef, ast.AsyncFunctionDef)) and scope_node in tree.body:
+        params = [arg.arg for arg in scope_node.args.args]
+        if receiver.id not in params:
+            return False
+        index = params.index(receiver.id)
+        passed: list[ast.expr] = []
+        for call in ast.walk(tree):
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == scope_node.name:
+                if index < len(call.args):
+                    passed.append(call.args[index])
+                else:
+                    passed.extend(kw.value for kw in call.keywords if kw.arg == receiver.id)
+        return bool(passed) and all(is_toml_source(arg, toml_functions) for arg in passed)
+    return False
+
+
 def _name_scopes(tree: ast.AST) -> Iterable[ast.AST]:
     """The module and every function and class body, searched separately.
 
@@ -1912,6 +2020,13 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
     Scope: non-test source only. In a test the payload is a fixture the author
     wrote, so an explicit null cannot arrive unannounced.
 
+    Refinement (2026-11-21): a mapping produced by `tomllib.load` or
+    `tomllib.loads` is skipped, because TOML has no null. The receiver counts
+    when it is such a call, a call to a same-module function that returns one
+    (and otherwise only a dict literal, such as `{}` for an absent file), a name the scope assigns from either, or a parameter of a
+    module-level function that every same-module call passes one. See
+    `receiver_is_toml_mapping`.
+
     Deliberately NOT detected - non-goals, not oversights:
       - A scalar default (`0`, `''`). Nothing is called on the result.
       - A non-empty container default. `d.get(k, {'a': 1})` fails the same way,
@@ -1927,6 +2042,7 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
+        toml_functions = toml_returning_functions(tree)
         for scope_node in _name_scopes(tree):
             for stmt in _walk_within_scope(scope_node):
                 if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
@@ -1936,6 +2052,8 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
                     continue
                 default = _empty_container_default(stmt.value)
                 if default is None:
+                    continue
+                if isinstance(stmt.value.func, ast.Attribute) and receiver_is_toml_mapping(stmt.value.func.value, scope_node, tree, toml_functions):
                     continue
                 if _name_is_reguarded(scope_node, target.id):
                     continue
@@ -2093,7 +2211,7 @@ def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
             receiver = ast.unparse(node.func.value).rsplit('.', 1)[-1]
         except Exception:
             receiver = ''
-        if receiver == 'json' and short in {'load', 'loads'}:
+        if receiver == 'json' and short in LOADER_CALLS:
             branches.append(('json.JSONDecodeError', frozenset({'JSONDecodeError', 'ValueError'})))
         if receiver in {'pandas', 'pd'} and short.startswith('read_'):
             branches.append(('pandas.errors.ParserError', frozenset({'ParserError'})))

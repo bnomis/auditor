@@ -678,6 +678,46 @@ def test_a_try_block_that_touches_no_filesystem_is_out_of_scope(project: Builder
     assert run_check(FS_ENVELOPE_GAP, root) == []
 
 
+def test_a_handler_that_skips_the_file_is_not_a_gap(project: Builder, run_check: Runner) -> None:
+    """A handler that continues, returns or logs promises no translation."""
+    root = project(
+        {
+            'src/probe/mod.py': """
+            import pathlib
+
+
+            def scan(paths: list[pathlib.Path]) -> list[str]:
+                found = []
+                for path in paths:
+                    try:
+                        found.append(path.read_text())
+                    except UnicodeDecodeError:
+                        continue
+                return found
+            """
+        }
+    )
+    assert run_check(FS_ENVELOPE_GAP, root) == []
+
+
+def test_a_bare_reraise_is_not_a_translation(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/mod.py': """
+            import pathlib
+
+
+            def save(path: pathlib.Path, text: str) -> None:
+                try:
+                    path.write_text(text)
+                except ValueError:
+                    raise
+            """
+        }
+    )
+    assert run_check(FS_ENVELOPE_GAP, root) == []
+
+
 # --------------------------------------------------------------------------
 # check_filesystem_op_without_envelope
 # --------------------------------------------------------------------------
@@ -741,6 +781,62 @@ def test_an_internal_helper_may_let_oserror_propagate(project: Builder, run_chec
         }
     )
     assert run_check(FS_NO_ENVELOPE, root) == []
+
+
+def test_a_call_to_a_same_module_helper_that_wraps_oserror_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    """The helper holds the envelope, so the caller's `read_text(path)` is not a primitive."""
+    root = project(
+        {
+            'src/probe/store/errors.py': 'class StoreError(Exception):\n    pass\n',
+            'src/probe/store/reader.py': """
+            import pathlib
+
+            import probe.store.errors
+
+
+            def read_text(path: pathlib.Path) -> str:
+                try:
+                    return path.read_text(encoding='utf-8')
+                except OSError as exc:
+                    raise probe.store.errors.StoreError('cannot read') from exc
+
+
+            def load(path: pathlib.Path) -> str:
+                \"\"\"Read the file.
+
+                Raises:
+                    StoreError: on failure.
+                \"\"\"
+                return read_text(path)
+            """,
+        }
+    )
+    assert run_check(FS_NO_ENVELOPE, root) == []
+
+
+def test_a_same_module_helper_without_an_oserror_handler_is_still_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/store/errors.py': 'class StoreError(Exception):\n    pass\n',
+            'src/probe/store/reader.py': """
+            import pathlib
+
+
+            def read_text(path: pathlib.Path) -> str:
+                return path.read_text(encoding='utf-8')
+
+
+            def load(path: pathlib.Path) -> str:
+                \"\"\"Read the file.
+
+                Raises:
+                    StoreError: on failure.
+                \"\"\"
+                return read_text(path)
+            """,
+        }
+    )
+    assert [hit['rule'] for hit in run_check(FS_NO_ENVELOPE, root)] == ['filesystem-op-without-envelope']
 
 
 # --------------------------------------------------------------------------

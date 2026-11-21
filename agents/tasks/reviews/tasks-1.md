@@ -191,7 +191,7 @@ an `assert` or a `pytest.param` is not counted as a duplicate.
 
 ## Task 6: R3, R4, R6 - envelope and `tomllib` carve-outs
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** R3, R4, R6
@@ -201,21 +201,21 @@ excludes.
 
 **Subtasks:**
 
-- [ ] R3: `filesystem-envelope-gap` fires only where the handler raises a project error (translates); a handler that returns, continues or logs does not
-- [ ] R4: `filesystem-op-without-envelope` accepts a call to a function in the same module whose own body wraps the operation in a handler for `OSError`
-- [ ] R6: `get-container-default-then-method-call` skips a mapping produced by `tomllib.load` or `tomllib.loads`
-- [ ] Tests for each: the carve-out does not fire; the original shape still fires
-- [ ] Document each in the rule's docstring and SKILL.md's documented refinements, dated
-- [ ] Run the sweep and record the count in the commit body
+- [x] R3: `filesystem-envelope-gap` fires only where the handler raises a project error (translates); a handler that returns, continues or logs does not
+- [x] R4: `filesystem-op-without-envelope` accepts a call to a function in the same module whose own body wraps the operation in a handler for `OSError`
+- [x] R6: `get-container-default-then-method-call` skips a mapping produced by `tomllib.load` or `tomllib.loads`
+- [x] Tests for each: the carve-out does not fire; the original shape still fires
+- [x] Document each in the rule's docstring and SKILL.md's documented refinements, dated
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] The 23, 1 and 2 hits the review named are gone
+- [x] The 23, 1 and 2 hits the review named are gone
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/test_get_container_default.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/test_get_container_default.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
