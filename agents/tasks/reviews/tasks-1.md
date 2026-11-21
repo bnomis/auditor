@@ -33,7 +33,7 @@ that adds hits shows.
 
 ## Task 1: Pause the commit hook for this list
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** small
 **Source Reference:** the operator's hook choice of 2026-11-21 (header)
@@ -43,6 +43,7 @@ the pause visible in the config and in `TODO.md`.
 
 **Subtasks:**
 
+- [x] The worktree has its own `.venv`, synced from `uv.lock` (`uv sync --frozen`), so the audit runs the pinned ruff (0.17.2) rather than the one on `PATH`; without it the sweep adds a `ruff-version-drift` hit that exists only in the worktree (unblocked 2026-11-21: the first run counted 686)
 - [ ] Check the starting point: `python3 claude/skills/auditme/checks/audit.py . | python3 -c "import sys,json; print(sum(1 for h in map(json.loads, sys.stdin) if not h['accepted']))"` prints 685 or fewer; if more, stop the list as `blocked`, naming the count
 - [ ] `.pre-commit-config.yaml`: set the local `auditme-changed` hook's `stages` to `[manual]`, with a comment that `agents/tasks/reviews/tasks-1.md` paused it and its last task restores `[pre-commit]`
 - [ ] `TODO.md`: add a dated note to "Fix or accept this repository's audit backlog" that `auditme-changed` is paused until this list's last task
@@ -58,6 +59,7 @@ the pause visible in the config and in `TODO.md`.
 **Notes:**
 
 - Key file: `.pre-commit-config.yaml`
+- Unblocked 2026-11-21 by the operator: the starting check counted 686 because the worktree had no `.venv`; after `uv sync --frozen` it counts 685. Every later task's sweep runs in the same worktree and uses that `.venv`.
 
 ---
 
