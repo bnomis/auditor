@@ -73,7 +73,9 @@ choose to upgrade (see [Upgrading the checker](#upgrading-the-checker)).
 The Stop hook is registered once, in `~/.claude/settings.json`, and does
 nothing in a project whose `.pre-commit-config.yaml` lacks `id: auditme-changed`.
 It runs the installed checker, not the project's pinned one, so it is an early
-warning and the pinned hook stays the authority.
+warning and the pinned hook stays the authority. In a checkout or worktree of
+the auditor repository it runs that checkout's own checker instead, so a branch
+that changes the checker is judged by its own version.
 
 ## A new machine
 

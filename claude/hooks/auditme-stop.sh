@@ -19,7 +19,12 @@ block() {
 }
 
 # The installed checker, not the project's pinned one: this is the early warning.
+# A checkout of the auditor repository (or a worktree of it) runs its own
+# checker instead, so a branch that changes the checker is judged by that branch.
 checker="$HOME/.claude/skills/auditme/checks/changed.py"
+if [ -f "$root/claude/skills/auditme/checks/changed.py" ]; then
+    checker="$root/claude/skills/auditme/checks/changed.py"
+fi
 # -f follows a link, so a dangling one counts as missing.
 if [ ! -f "$checker" ]; then
     block "The auditme checker is not installed: $checker is missing or a dangling link. Run bin/install-claude.sh in the auditor repository to install it."

@@ -114,3 +114,28 @@ def test_missing_checker_passes_when_stop_hook_active(tmp_path: pathlib.Path) ->
     home.mkdir()
     result = run(home, make_repo(tmp_path, True), {'stop_hook_active': True})
     assert (result.returncode, result.stdout) == (0, '')
+
+
+OWN_REPORT = 'claude/skills/auditme/checks/auditme/core.py:9  own-rule\n'
+
+
+def add_own_checker(repo: pathlib.Path, exit_code: int) -> None:
+    checks = repo / 'claude' / 'skills' / 'auditme' / 'checks'
+    checks.mkdir(parents=True)
+    (checks / 'changed.py').write_text(f"import sys\nprint({OWN_REPORT!r}, end='')\nsys.exit({exit_code})\n")
+
+
+def test_auditor_checkout_runs_its_own_checker(tmp_path: pathlib.Path) -> None:
+    repo = make_repo(tmp_path, True)
+    add_own_checker(repo, 1)
+    result = run(make_home(tmp_path, 0), repo, {})
+    decision = json.loads(result.stdout)
+    assert decision['decision'] == 'block'
+    assert decision['reason'] == OWN_REPORT.rstrip('\n')
+
+
+def test_auditor_checkout_passes_when_its_own_checker_passes(tmp_path: pathlib.Path) -> None:
+    repo = make_repo(tmp_path, True)
+    add_own_checker(repo, 0)
+    result = run(make_home(tmp_path, 1), repo, {})
+    assert (result.returncode, result.stdout) == (0, '')

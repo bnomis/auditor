@@ -1,6 +1,6 @@
 # Project setup
 
-**Version:** 1.11
+**Version:** 1.12
 **Status:** implemented
 **Date:** 2026-10-31
 **Review page (1.11):** https://claude.ai/artifact/XQ1bgLekKX9gPJJt9QGDFX
@@ -116,6 +116,13 @@ design, not the project:
   none. The operator chose on 2026-11-21 that a project declares its roots in
   `pyproject.toml`, that the declared list replaces the defaults, and that
   each root says how its modules are named.
+- **The Stop hook judged an auditor branch by the main checkout's checker**
+  (amendment 1.12, found 2026-11-21 during a task-list run in a worktree of
+  this repository). The hook always ran the installed `changed.py`, which
+  links into the main checkout, so after the branch changed the checker the
+  hook kept blocking every turn with hits the branch's own checker no longer
+  reported, until the branch merged. In this repository the checker is the
+  project's own code, so a checkout that holds it runs it.
 
 ## Module location
 
@@ -536,7 +543,9 @@ url."git@github-auditor:bnomis/auditor.git".insteadOf
   whose `.pre-commit-config.yaml` lists `id: auditme-changed`.
 - It exits 0 when the payload's `stop_hook_active` is true, so it blocks at most
   once per turn.
-- Otherwise it runs `python3 -I ~/.claude/skills/auditme/checks/changed.py`; on
+- Otherwise it runs `python3 -I ~/.claude/skills/auditme/checks/changed.py`,
+  or, when the repository root holds `claude/skills/auditme/checks/changed.py`
+  (a checkout or worktree of this repository), that file instead (1.12); on
   exit 1 it prints the Claude Code block decision (`{"decision": "block",
   "reason": ...}`, built with `jq -Rs`) carrying the runner's report.
 - When `changed.py` is not a file (missing, or a dangling link) it blocks
@@ -544,8 +553,8 @@ url."git@github-auditor:bnomis/auditor.git".insteadOf
   `bin/install-claude.sh`; on any status other than 0 and 1 it blocks with the
   status and the output, since `changed.py` itself exits only 0 or 1 (1.6).
 
-It runs the **installed** checker, not the project's pinned one: it is the
-earliest warning, and the binding gates - the commit hook and CI - run the pinned
+It runs the **installed** checker, not the project's pinned one (outside this
+repository, whose own checkout's checker it runs): it is the earliest warning, and the binding gates - the commit hook and CI - run the pinned
 one. A project's own `.claude/settings.json` Stop hook doing the same job is
 removed when the project adopts this one, or every turn runs the sweep twice.
 
@@ -656,6 +665,9 @@ is and linking to `docs/setup.md`.
   hook `--append` and its own arguments through; the commit is a full hash.
 - The Stop hook: a shell test running it with a stub payload in an opted-in and a
   non-opted-in repository.
+- 1.12, `tests/test_stop_hook.py`: a repository holding its own
+  `claude/skills/auditme/checks/changed.py` blocks with that checker's report
+  when it exits 1, and passes when it exits 0, whatever the installed one does.
 - 1.2, `test_driver.py`: `test_a_missing_src_directory_is_an_error` and
   `test_an_empty_src_directory_is_an_error` are replaced by cases for: a project
   with only `bin/` is swept over `bin/` and exits 0; an empty project exits 0
