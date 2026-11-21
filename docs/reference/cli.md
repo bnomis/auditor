@@ -83,8 +83,8 @@ that the list itself is never committed. It is the entry of the
 | `0` | No match; or no list file (a notice goes to stderr and nothing is checked); or the list is empty after comments and `--allow`; or no files given |
 | `1` | At least one match |
 
-Environment: `AGENTS_FOREIGN_NAMES` (path of the list), `HOME` (the default
-list is `~/.config/agents/foreign-names`).
+Environment: `AUDITOR_FOREIGN_NAMES` (path of the list), `HOME` (the default
+list is `~/.config/auditor/foreign-names`).
 
 ## `claude/skills/auditme/checks/audit.py`
 

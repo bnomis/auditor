@@ -3,8 +3,8 @@
 # must not mention (claude/rules/rule-scope.md in the agents repository). The
 # names cannot be listed here - the list would name them - so they are read
 # from a file outside the repository:
-# one name per line in $AGENTS_FOREIGN_NAMES, default
-# ~/.config/agents/foreign-names. Blank lines and lines starting with # are
+# one name per line in $AUDITOR_FOREIGN_NAMES, default
+# ~/.config/auditor/foreign-names. Blank lines and lines starting with # are
 # skipped. Matching is whole-word and ignores case.
 #
 # A repository used across projects runs the hook on itself too; its own
@@ -22,7 +22,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-list="${AGENTS_FOREIGN_NAMES:-$HOME/.config/agents/foreign-names}"
+list="${AUDITOR_FOREIGN_NAMES:-$HOME/.config/auditor/foreign-names}"
 if [ ! -f "$list" ]; then
     echo "check-foreign-names: no list at $list; nothing checked" >&2
     exit 0
