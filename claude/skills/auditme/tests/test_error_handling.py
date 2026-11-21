@@ -14,6 +14,7 @@ import pytest
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
 
+CATCHING_HANDLERS = ['except Exception:', 'except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except:']
 SILENT_BROAD = auditme.rules.error_handling.check_silent_broad_except
 INTERPOLATION = auditme.rules.error_handling.check_except_interpolation
 WRONG_LEVEL = auditme.rules.error_handling.check_broad_except_wrong_level
@@ -678,6 +679,46 @@ def test_a_try_block_that_touches_no_filesystem_is_out_of_scope(project: Builder
     assert run_check(FS_ENVELOPE_GAP, root) == []
 
 
+def test_a_handler_that_skips_the_file_is_not_a_gap(project: Builder, run_check: Runner) -> None:
+    """A handler that continues, returns or logs promises no translation."""
+    root = project(
+        {
+            'src/probe/mod.py': """
+            import pathlib
+
+
+            def scan(paths: list[pathlib.Path]) -> list[str]:
+                found = []
+                for path in paths:
+                    try:
+                        found.append(path.read_text())
+                    except UnicodeDecodeError:
+                        continue
+                return found
+            """
+        }
+    )
+    assert run_check(FS_ENVELOPE_GAP, root) == []
+
+
+def test_a_bare_reraise_is_not_a_translation(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/mod.py': """
+            import pathlib
+
+
+            def save(path: pathlib.Path, text: str) -> None:
+                try:
+                    path.write_text(text)
+                except ValueError:
+                    raise
+            """
+        }
+    )
+    assert run_check(FS_ENVELOPE_GAP, root) == []
+
+
 # --------------------------------------------------------------------------
 # check_filesystem_op_without_envelope
 # --------------------------------------------------------------------------
@@ -741,6 +782,62 @@ def test_an_internal_helper_may_let_oserror_propagate(project: Builder, run_chec
         }
     )
     assert run_check(FS_NO_ENVELOPE, root) == []
+
+
+def test_a_call_to_a_same_module_helper_that_wraps_oserror_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    """The helper holds the envelope, so the caller's `read_text(path)` is not a primitive."""
+    root = project(
+        {
+            'src/probe/store/errors.py': 'class StoreError(Exception):\n    pass\n',
+            'src/probe/store/reader.py': """
+            import pathlib
+
+            import probe.store.errors
+
+
+            def read_text(path: pathlib.Path) -> str:
+                try:
+                    return path.read_text(encoding='utf-8')
+                except OSError as exc:
+                    raise probe.store.errors.StoreError('cannot read') from exc
+
+
+            def load(path: pathlib.Path) -> str:
+                \"\"\"Read the file.
+
+                Raises:
+                    StoreError: on failure.
+                \"\"\"
+                return read_text(path)
+            """,
+        }
+    )
+    assert run_check(FS_NO_ENVELOPE, root) == []
+
+
+def test_a_same_module_helper_without_an_oserror_handler_is_still_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/store/errors.py': 'class StoreError(Exception):\n    pass\n',
+            'src/probe/store/reader.py': """
+            import pathlib
+
+
+            def read_text(path: pathlib.Path) -> str:
+                return path.read_text(encoding='utf-8')
+
+
+            def load(path: pathlib.Path) -> str:
+                \"\"\"Read the file.
+
+                Raises:
+                    StoreError: on failure.
+                \"\"\"
+                return read_text(path)
+            """,
+        }
+    )
+    assert [hit['rule'] for hit in run_check(FS_NO_ENVELOPE, root)] == ['filesystem-op-without-envelope']
 
 
 # --------------------------------------------------------------------------
@@ -981,24 +1078,24 @@ def test_an_undocumented_function_is_out_of_scope(project: Builder, run_check: R
 CAUGHT_ERRORS = 'class ProbeError(Exception):\n    pass\n\n\nclass ParseError(ProbeError):\n    pass\n\n\nclass FetchError(ProbeError):\n    pass\n'
 
 
-def _caught_module(body: str) -> dict[str, str]:
+def make_caught_module(body: str) -> dict[str, str]:
     return {'src/probe/errors.py': CAUGHT_ERRORS, 'src/probe/mod.py': 'import probe.errors\n\n\n' + body}
 
 
-@pytest.mark.parametrize('handler', ['except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except Exception:', 'except:'])
+@pytest.mark.parametrize('handler', CATCHING_HANDLERS)
 def test_a_raise_caught_by_a_handler_around_it_is_not_a_hit(project: Builder, run_check: Runner, handler: str) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             f'def load(label: str) -> int:\n    """Load the thing."""\n    try:\n        raise probe.errors.ParseError(label)\n    {handler}\n        return 0\n'
         )
     )
     assert run_check(MISSING_RAISES, root) == []
 
 
-@pytest.mark.parametrize('handler', ['except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except Exception:', 'except:'])
+@pytest.mark.parametrize('handler', CATCHING_HANDLERS)
 def test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit(project: Builder, run_check: Runner, handler: str) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             'def load(label: str) -> int:\n'
             '    """Load the thing."""\n'
             '    def inner() -> int:\n'
@@ -1014,7 +1111,7 @@ def test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit(project: Build
 
 def test_a_nested_raise_never_called_in_the_subject_is_not_the_subjects_hit(project: Builder, run_check: Runner) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             'def load(label: str):\n    """Load the thing."""\n    def inner() -> int:\n        raise probe.errors.ParseError(label)\n    return inner\n'
         )
     )
@@ -1023,7 +1120,7 @@ def test_a_nested_raise_never_called_in_the_subject_is_not_the_subjects_hit(proj
 
 def test_a_documented_nested_def_is_still_its_own_subject(project: Builder, run_check: Runner) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             'def load(label: str):\n'
             '    """Load the thing."""\n'
             '    def inner() -> int:\n'
@@ -1042,14 +1139,14 @@ def test_a_documented_nested_def_is_still_its_own_subject(project: Builder, run_
 )
 def test_a_raise_a_handler_does_not_stop_is_still_a_hit(project: Builder, run_check: Runner, handler: str) -> None:
     root = project(
-        _caught_module(f'def load(label: str) -> int:\n    """Load the thing."""\n    try:\n        raise probe.errors.ParseError(label)\n    {handler}\n')
+        make_caught_module(f'def load(label: str) -> int:\n    """Load the thing."""\n    try:\n        raise probe.errors.ParseError(label)\n    {handler}\n')
     )
     assert [hit['rule'] for hit in run_check(MISSING_RAISES, root)] == ['missing-raises-section']
 
 
 def test_a_nested_raise_called_outside_any_try_is_still_a_hit(project: Builder, run_check: Runner) -> None:
     root = project(
-        _caught_module(
+        make_caught_module(
             'def load(label: str) -> int:\n'
             '    """Load the thing."""\n'
             '    def inner() -> int:\n'

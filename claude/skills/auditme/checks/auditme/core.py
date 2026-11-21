@@ -1,13 +1,13 @@
 """Shared helpers every check uses."""
 
 import ast
+import collections
 import collections.abc
 import json
 import pathlib
 import re
 import tomllib
 import types
-from collections import defaultdict
 
 # An accept marker may name the single rule it answers for:
 #     # auditme: accept[failure-as-absence] the caller reads batch.error
@@ -24,10 +24,20 @@ ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*
 # one, and every check that reads AGENTS.md - see the same project N times and
 # would report each of their hits N times. A hit is identified by its whole
 # record, so two genuinely different hits can never collide here.
-_EMITTED: set[str] = set()
+EMITTED: set[str] = set()  # auditme: accept[mutable-module-level-exported] process-lifetime state the driver fills and the tests clear
+
+# Builtin generics that take type parameters: a bare annotation or an empty
+# constructor call of one names the type without its members.
+BARE_GENERIC_NAMES = frozenset({'dict', 'frozenset', 'list', 'set', 'tuple'})
 
 
-def _emit(related: list[str] | None = None, **kwargs) -> None:
+def is_test_relpath(rel: str) -> bool:
+    """True for a root-relative path that is a `test_*.py`, `*_test.py`, `conftest.py` or inside a `tests` directory."""
+    path = pathlib.PurePosixPath(rel)
+    return 'tests' in path.parts[:-1] or path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py'
+
+
+def emit(related: list[str] | None = None, **kwargs) -> None:
     """Print one hit. `related` names the other files a cross-file hit compares
     against (repository-relative, sorted, de-duplicated); it is omitted when
     empty so every other hit serialises as before."""
@@ -36,20 +46,31 @@ def _emit(related: list[str] | None = None, **kwargs) -> None:
         if not kwargs['related']:
             del kwargs['related']
     line = json.dumps(kwargs, sort_keys=True)
-    if line in _EMITTED:
+    if line in EMITTED:
         return
-    _EMITTED.add(line)
+    EMITTED.add(line)
     print(line)
 
 
-def _source_lines(path: pathlib.Path) -> list[str]:
+def describe_error(error: BaseException) -> str:
+    """The message of `error`, followed by its `__cause__` in brackets when set.
+
+    The command-line entry points print this once, so a raise site chains the
+    cause with `from` instead of interpolating it into its own message."""
+    cause = error.__cause__
+    if cause is None:
+        return str(error)
+    return f'{error} ({cause})'
+
+
+def source_lines(path: pathlib.Path) -> list[str]:
     try:
         return path.read_text(encoding='utf-8').splitlines()
     except UnicodeDecodeError:
         return []
 
 
-def _accept_reason(
+def accept_reason(
     lines: list[str],
     lineno: int,
     end_lineno: int | None = None,
@@ -82,7 +103,7 @@ def _accept_reason(
     return None
 
 
-def _type_checking_linenos(tree: ast.AST) -> set[int]:
+def type_checking_linenos(tree: ast.AST) -> set[int]:
     """Return line numbers inside any `if TYPE_CHECKING:` block."""
     result: set[int] = set()
     for node in ast.walk(tree):
@@ -95,14 +116,14 @@ def _type_checking_linenos(tree: ast.AST) -> set[int]:
     return result
 
 
-def _py_files(root: pathlib.Path, mode: str) -> list[pathlib.Path]:
+def py_files(root: pathlib.Path, mode: str) -> list[pathlib.Path]:
     if mode == TOP_LEVEL:
         return sorted(p for p in root.glob('*.py') if p.is_file())
     return sorted(p for p in root.rglob('*.py'))
 
 
-def _all_py_files(src_root: pathlib.Path) -> list[pathlib.Path]:
-    return _py_files(src_root, ROOT_MODULES.get(src_root, PACKAGE))
+def all_py_files(src_root: pathlib.Path) -> list[pathlib.Path]:
+    return py_files(src_root, ROOT_MODULES.get(src_root, PACKAGE))
 
 
 def module_dotted(path: pathlib.Path, src_root: pathlib.Path) -> str:
@@ -115,11 +136,11 @@ def module_dotted(path: pathlib.Path, src_root: pathlib.Path) -> str:
     return '.'.join((src_root.name,) + parts)
 
 
-def _relpath(p: pathlib.Path, root: pathlib.Path) -> str:
+def relpath(p: pathlib.Path, root: pathlib.Path) -> str:
     return str(p.relative_to(root))
 
 
-def _accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
+def accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     agents = scope / 'AGENTS.md'
     if not agents.exists():
         return set()
@@ -139,18 +160,18 @@ def _accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     return pairs
 
 
-_LITERAL_DISPATCH_TYPE_NAMES = frozenset({'str'})  # extensible via helper below
+LITERAL_DISPATCH_TYPE_NAMES = frozenset({'str'})  # extensible via helper below
 
 
 # Directories outside `src/` that hold auditable Python. A project's scripts
 # conventionally live in `bin/`, and until 2026-09-01 the sweep could not see
-# them at all: `_packages_under` enumerates packages *under `src/`*, so a
+# them at all: `packages_under` enumerates packages *under `src/`*, so a
 # project whose scripts live in `bin/` got zero rows for them - accepted or
 # otherwise - and a summary could record "`bin/` remains at zero unaccepted
 # hits" as a measurement of nothing.
 #
 # The driver rebinds this when `--extra-root` is passed, so a check asking a
-# corpus-wide question through `_audit_roots` measures the scope that was
+# corpus-wide question through `audit_roots` measures the scope that was
 # actually swept rather than the default one. It is a tuple, and rebound rather
 # than mutated, so a check cannot change what a later check sees.
 EXTRA_ROOT_NAMES: tuple[str, ...] = ('bin',)
@@ -160,7 +181,7 @@ PACKAGE = 'package'
 TOP_LEVEL = 'top-level'
 
 # The mode of each declared root, rebound (never mutated) whenever
-# `_audit_roots` reads `[tool.auditme]`. A root absent from it is a package root.
+# `audit_roots` reads `[tool.auditme]`. A root absent from it is a package root.
 ROOT_MODULES: types.MappingProxyType[pathlib.Path, str] = types.MappingProxyType({})
 
 
@@ -173,16 +194,19 @@ class RootsError(Exception):
     """`[tool.auditme]` in `pyproject.toml` is invalid; the message is the error text."""
 
 
-def _inside(inner: pathlib.Path, outer: pathlib.Path) -> bool:
+def path_inside(inner: pathlib.Path, outer: pathlib.Path) -> bool:
     return inner == outer or outer in inner.parents
 
 
 def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None:
     """The roots `[tool.auditme]` declares, in order, or None when none are declared.
 
-    None when `pyproject.toml` or the table is absent. Raises `RootsError` for an
-    invalid declaration. Invalid TOML is an error only when the text mentions
-    `[tool.auditme`; otherwise the defaults apply.
+    None when `pyproject.toml` or the table is absent. Invalid TOML is an error
+    only when the text mentions `[tool.auditme`; otherwise the defaults apply.
+
+    Raises:
+        RootsError: the declaration is invalid (bad TOML, an unknown key, a
+            wrong type, a missing, empty or overlapping root).
     """
     pyproject = scope / 'pyproject.toml'
     if DECLARATION_IGNORED or not pyproject.is_file():
@@ -192,7 +216,7 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         if '[tool.auditme' in text:
-            raise RootsError(f'pyproject.toml: {exc}') from exc
+            raise RootsError('pyproject.toml: not valid TOML') from exc
         return None
     tool = data.get('tool', {})
     table = tool.get('auditme') if isinstance(tool, dict) else None
@@ -221,18 +245,18 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
         root = scope / path
         if not root.is_dir():
             raise RootsError(f'declared root {path} not found')
-        if not _py_files(root, mode):
+        if not py_files(root, mode):
             raise RootsError(f'declared root {path} holds no .py file')
         roots.append((root, mode))
     for i, (a, a_mode) in enumerate(roots):
         for b, b_mode in roots[i + 1 :]:
-            nested = (a_mode == PACKAGE and (_inside(b, a) and b_mode in (PACKAGE, TOP_LEVEL))) or (b_mode == PACKAGE and _inside(a, b))
+            nested = (a_mode == PACKAGE and (path_inside(b, a) and b_mode in (PACKAGE, TOP_LEVEL))) or (b_mode == PACKAGE and path_inside(a, b))
             if nested:
                 raise RootsError(f'declared roots {a.relative_to(scope)} and {b.relative_to(scope)} overlap')
     return roots
 
 
-def _packages_under(src: pathlib.Path) -> list[pathlib.Path]:
+def packages_under(src: pathlib.Path) -> list[pathlib.Path]:
     """Every package directory directly under `src/`, sorted.
 
     Sorted because emission order is part of the output: `CHECKS`' order fixes
@@ -261,7 +285,7 @@ def loose_src_modules(scope: pathlib.Path) -> list[pathlib.Path]:
     return sorted(p for p in src.glob('*.py') if p.is_file())
 
 
-def _extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | None = None) -> list[pathlib.Path]:
+def extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | None = None) -> list[pathlib.Path]:
     """Every auditable root outside `src/`, in the order `names` gives them.
 
     `names` defaults to the current `EXTRA_ROOT_NAMES`, read at call time so the
@@ -281,7 +305,7 @@ def _extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | Non
     return roots
 
 
-def _audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
+def audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
     """Every root the sweep passes over: the packages under `src/`, then the extras.
 
     This is the driver's pass list, and each entry becomes one check's
@@ -297,7 +321,7 @@ def _audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
         ROOT_MODULES = types.MappingProxyType({root: mode for root, mode in declared})
         return [root for root, _ in declared]
     ROOT_MODULES = types.MappingProxyType({})
-    return _packages_under(scope / 'src') + _extra_roots(scope)
+    return packages_under(scope / 'src') + extra_roots(scope)
 
 
 # call resolver
@@ -428,14 +452,14 @@ def corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib
     """
     declared = declared_roots(scope)
     if declared is not None:
-        return sorted(path for root, mode in declared for path in _py_files(root, mode))
-    roots = _extra_roots(scope)
+        return sorted(path for root, mode in declared for path in py_files(root, mode))
+    roots = extra_roots(scope)
     src = scope / 'src'
     if src.is_dir():
         roots.insert(0, src)
     if not roots:
-        return _all_py_files(src_root)
-    return sorted(path for root in roots for path in _all_py_files(root))
+        return all_py_files(src_root)
+    return sorted(path for root in roots for path in all_py_files(root))
 
 
 def dotted_read(node: ast.Attribute) -> tuple[str, str] | None:
@@ -498,7 +522,7 @@ def reads_by_module_and_name(
     The corpus is every root the sweep reads, not the one being swept: a
     reader in a sibling package, or in a script under `bin/`, is a reader.
     """
-    reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = defaultdict(list)
+    reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = collections.defaultdict(list)
     for path in corpus_py_files(scope, src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
@@ -547,7 +571,7 @@ def corpus_definitions(
     out: dict[str, list[tuple[ast.AST, pathlib.Path]]] = {}
     for path in corpus_py_files(scope, src_root):
         try:
-            tree = ast.parse('\n'.join(_source_lines(path)))
+            tree = ast.parse('\n'.join(source_lines(path)))
         except SyntaxError:
             continue
         for node in ast.iter_child_nodes(tree):
@@ -561,24 +585,26 @@ def corpus_definitions(
     return out
 
 
-_SIDE_EFFECT_CALL_NAMES = {
-    'mkdir',
-    'rmdir',
-    'unlink',
-    'rmtree',
-    'makedirs',
-    'remove',
-    'write_text',
-    'write_bytes',
-    'touch',
-    'copytree',
-    'symlink_to',
-    'mkstemp',
-    'mkdtemp',
-}
+SIDE_EFFECT_CALL_NAMES = frozenset(
+    {
+        'copytree',
+        'makedirs',
+        'mkdir',
+        'mkdtemp',
+        'mkstemp',
+        'remove',
+        'rmdir',
+        'rmtree',
+        'symlink_to',
+        'touch',
+        'unlink',
+        'write_bytes',
+        'write_text',
+    }
+)
 
 
-def _walk_within_scope(node: ast.AST) -> collections.abc.Iterable[ast.AST]:
+def walk_within_scope(node: ast.AST) -> collections.abc.Iterable[ast.AST]:
     """Yield descendants of node without entering a nested function or class.
 
     ast.walk cannot prune, and a `return None` inside a nested helper belongs
@@ -599,7 +625,7 @@ def is_dunder_all_assignment(node: ast.Assign | ast.AnnAssign) -> bool:
     return len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == '__all__'
 
 
-def _all_names(path: pathlib.Path) -> set[str] | None:
+def all_names(path: pathlib.Path) -> set[str] | None:
     """The string members of the `__all__` in `path`, or None when it has none."""
     if not path.is_file():
         return None
@@ -627,7 +653,7 @@ def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
     """
     first, *rest = module.split('.')
     files: list[pathlib.Path] = []
-    for pkg_root in (r for r in _audit_roots(root) if r.name == first):
+    for pkg_root in (r for r in audit_roots(root) if r.name == first):
         files.append(pkg_root / '__init__.py')
         current = pkg_root
         for index, part in enumerate(rest):
@@ -635,7 +661,7 @@ def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
                 files.append(current / f'{part}.py')
             current = current / part
             files.append(current / '__init__.py')
-    found = [names for names in (_all_names(f) for f in files) if names is not None]
+    found = [names for names in (all_names(f) for f in files) if names is not None]
     if found:
         return qualname.split('.')[0] not in set().union(*found)
     segments = qualname.split('.') + module.split('.')

@@ -48,7 +48,6 @@ check_docstring_raises_mismatch
 check_reexport_in_non_init
 check_dataclass_optional_always_set
 check_dead_local_init
-check_lockfile
 check_duplicated_word
 check_missing_raises_section
 check_subprocess_without_memoisation
@@ -60,4 +59,3 @@ check_failure_as_absence
 check_phase_section_doc_reference
 check_get_container_default_then_method_call
 check_annotated_all_assignment
-check_ruff_version

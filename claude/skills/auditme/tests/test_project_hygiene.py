@@ -134,8 +134,8 @@ def test_a_resolution_timestamp_is_masked_out_of_the_evidence(
 
 
 LOCK_PROJECT = {
-    'src/probe/mod.py': 'VALUE = 1\n',
     'pyproject.toml': '[project]\nname = "probe"\n',
+    'src/probe/mod.py': 'VALUE = 1\n',
     'uv.lock': 'version = 1\n',
 }
 USER_EXCLUDE_NEWER = (
@@ -393,7 +393,7 @@ def test_check_ruff_runs_the_project_venv_ruff(project: Builder, run_check: Runn
 def test_two_roots_of_one_project_print_one_hit(project: Builder, stub_ruff: StubRuff) -> None:
     stub_ruff('ruff 0.17.1')
     root = project(hook_config())
-    auditme.core._EMITTED.clear()
+    auditme.core.EMITTED.clear()
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
         RUFF_VERSION(root, root / 'src' / 'probe')

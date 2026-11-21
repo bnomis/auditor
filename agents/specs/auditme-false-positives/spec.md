@@ -150,7 +150,7 @@ outside the guard.
 `_reach_sites(node.body)` with `nested_call_sites(node)`, so a raise or call
 in a nested def the subject calls reaches the subject under the call's
 levels. Change `_handler_passes_on` to look for a bare `raise` or
-`raise <bound>` only within the handler's own scope (`_walk_within_scope`),
+`raise <bound>` only within the handler's own scope (`walk_within_scope`),
 not inside a def or lambda defined in the handler. A bare `raise` under an
 `if` in the handler still passes the caught types on. The task starts with a
 failing test reproducing finding 2 as stated (outer declares `ParseError`;

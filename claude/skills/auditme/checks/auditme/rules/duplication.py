@@ -1,17 +1,48 @@
 """Checks that compare code across files for repeated structure."""
 
 import ast
+import collections
 import pathlib
 import re
-from collections import defaultdict
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines
+import auditme.core
+
+SET_CALL_NAMES = frozenset({'frozenset', 'set'})
+SINK_TOKENS = ('dump', 'emit', 'flush', 'log', 'persist', 'publish', 'register', 'save', 'upload', 'write')
+
+
+def is_pytest_param(node: ast.AST) -> bool:
+    """True for a call to `pytest.param`."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == 'param'
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == 'pytest'
+    )
+
+
+def test_expectation_nodes(tree: ast.AST) -> set[int]:
+    """The ids of every node inside an `assert` statement or a `pytest.param(...)` call."""
+    inside: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assert) or is_pytest_param(node):
+            inside.update(id(child) for child in ast.walk(node))
+    return inside
 
 
 def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    bucket: dict[tuple, set[tuple[str, int, str]]] = defaultdict(set)
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
+    """Flag the same string-literal collection written in two or more places.
+
+    Refinement (2026-11-21): in a test file (a `tests` directory, `test_*.py`,
+    `*_test.py` or `conftest.py`) a one-member literal and a literal inside an
+    `assert` statement or a `pytest.param(...)` call are expectations, not
+    shared data, and are not counted. A multi-member literal in test set-up
+    still counts, and so does any literal in source.
+    """
+    bucket: dict[tuple, set[tuple[str, int, str]]] = collections.defaultdict(set)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -19,11 +50,13 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
         # Find frozenset(...) / set(...) call nodes so we can skip their inner ast.Set/Tuple child
         skip_inner_nodes: set[int] = set()
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {'frozenset', 'set'}:
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in SET_CALL_NAMES:
                 if node.args and isinstance(node.args[0], (ast.Set, ast.Tuple, ast.List)):
                     skip_inner_nodes.add(id(node.args[0]))
+        in_test = auditme.core.is_test_relpath(rel)
+        expectation_nodes = test_expectation_nodes(tree) if in_test else set()
         for node in ast.walk(tree):
-            if id(node) in skip_inner_nodes:
+            if id(node) in skip_inner_nodes or id(node) in expectation_nodes:
                 continue
             members = None
             kind = None
@@ -31,11 +64,11 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
                 members = node.elts
                 kind = type(node).__name__
             elif isinstance(node, ast.Call):
-                if isinstance(node.func, ast.Name) and node.func.id in {'frozenset', 'set'}:
+                if isinstance(node.func, ast.Name) and node.func.id in SET_CALL_NAMES:
                     if node.args and isinstance(node.args[0], (ast.Set, ast.Tuple, ast.List)):
                         members = node.args[0].elts
                         kind = 'frozenset'
-            if not members:
+            if not members or (in_test and len(members) == 1):
                 continue
             consts: list[str] = []
             ok = True
@@ -60,9 +93,9 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
         # dedup via the set.
         for rel, lineno, evidence in sorted(hits):
             full = scope / rel
-            full_lines = _source_lines(full)
-            accept = _accept_reason(full_lines, lineno, rule='literal-duplication')
-            _emit(
+            full_lines = auditme.core.source_lines(full)
+            accept = auditme.core.accept_reason(full_lines, lineno, rule='literal-duplication')
+            auditme.core.emit(
                 related=[h[0] for h in hits],
                 rule='literal-duplication',
                 variant=f'identical {key[0]} literal across {len(hits)} locations',
@@ -75,9 +108,9 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
 
 
 def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    bodies: dict[str, list[tuple[str, int, str]]] = defaultdict(list)
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
+    bodies: dict[str, list[tuple[str, int, str]]] = collections.defaultdict(list)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -85,10 +118,7 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
         for node in tree.body:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            try:
-                body_src = '\n'.join(ast.unparse(b) for b in node.body if not isinstance(b, ast.Expr) or not isinstance(b.value, ast.Constant))
-            except Exception:
-                continue
+            body_src = '\n'.join(ast.unparse(b) for b in node.body if not isinstance(b, ast.Expr) or not isinstance(b.value, ast.Constant))
             if not body_src.strip() or len(body_src) < 40:
                 continue
             bodies[body_src].append((rel, node.lineno, node.name))
@@ -100,10 +130,10 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
             continue
         for rel, lineno, fname in hits:
             full = scope / rel
-            full_lines = _source_lines(full)
-            accept = _accept_reason(full_lines, lineno, rule='paired-sibling-helpers')
+            full_lines = auditme.core.source_lines(full)
+            accept = auditme.core.accept_reason(full_lines, lineno, rule='paired-sibling-helpers')
             peers = sorted(set(h[2] for h in hits) - {fname})
-            _emit(
+            auditme.core.emit(
                 related=sorted(files),
                 rule='paired-sibling-helpers',
                 variant=f'{len(hits)} functions share a body across files',
@@ -151,9 +181,9 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
         'emit',
         'dump',
     }
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -163,7 +193,7 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 continue
             # For each method, collect calls of the shape f(..., self.<attr>, ...)
             # keyed by (callee_dotted, frozenset(self.<attr> args))
-            calls_per_key: dict[tuple[str, tuple[str, ...]], list[tuple[str, int]]] = defaultdict(list)
+            calls_per_key: dict[tuple[str, tuple[str, ...]], list[tuple[str, int]]] = collections.defaultdict(list)
             for member in cls.body:
                 if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     continue
@@ -176,26 +206,17 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 for inner in ast.walk(member):
                     if not isinstance(inner, ast.Call):
                         continue
-                    try:
-                        callee = ast.unparse(inner.func)
-                    except Exception:
-                        continue
+                    callee = ast.unparse(inner.func)
                     # collect self.<attr> args
                     self_args: list[str] = []
                     for a in inner.args:
-                        try:
-                            src = ast.unparse(a)
-                        except Exception:
-                            continue
+                        src = ast.unparse(a)
                         if src.startswith('self.'):
                             self_args.append(src)
                     for kw in inner.keywords:
                         if kw.arg is None:
                             continue
-                        try:
-                            src = ast.unparse(kw.value)
-                        except Exception:
-                            continue
+                        src = ast.unparse(kw.value)
                         if src.startswith('self.'):
                             self_args.append(src)
                     if not self_args:
@@ -210,15 +231,13 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 # looks like a sink (write/flush/persist/save/emit/log/dump)
                 # or when the arg set suggests a shared target
                 callee_tail = callee.rsplit('.', 1)[-1].lower()
-                looks_like_sink = any(
-                    tok in callee_tail for tok in ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
-                )
+                looks_like_sink = any(tok in callee_tail for tok in SINK_TOKENS)
                 target_is_path_or_dir = any('dir' in a.lower() or 'path' in a.lower() or 'file' in a.lower() for a in self_args)
                 if not (looks_like_sink or target_is_path_or_dir):
                     continue
                 _, first_line = sites[0]
-                accept = _accept_reason(lines, first_line, rule='duplicate-side-effect-per-target')
-                _emit(
+                accept = auditme.core.accept_reason(lines, first_line, rule='duplicate-side-effect-per-target')
+                auditme.core.emit(
                     rule='duplicate-side-effect-per-target',
                     variant=f'{cls.name}.{{{", ".join(sorted(method_names))}}} all call {callee}({", ".join(self_args)})',
                     path=rel,
@@ -247,57 +266,60 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
         calls S(args2).
       - args1 and args2 have the same **normalised argument tails**:
         for each positional arg, the trailing name (`config`, `run_dir`)
-        matches; for each keyword arg, the keyword matches.
+        matches; for each keyword arg, the keyword and its value's trailing
+        name match.
       - S's short name contains a sink token (`flush`, `write`, `save`,
         `persist`, `emit`, `dump`, `log`, `publish`, `upload`,
         `register`).
+
+    Refinements (2026-11-21), each removing a misread:
+      - A call inside a def nested in F (or in G) belongs to the nested def,
+        not to F, and is not counted for either.
+      - A call from F to F itself (self-recursion) is not a helper call.
+      - A helper is resolved by qualified name: `pipeline.tokenize` matches
+        only a function whose module path ends `pipeline.tokenize`, and a bare
+        `tokenize` matches the same module's function, else a single
+        project-wide function of that name; an ambiguous bare name matches
+        nothing.
+      - Keyword values are compared as well as keyword names, so
+        `write(path=a)` and `write(path=b)` are different calls.
     """
     package_root_name = src_root.name
-    SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
 
-    def _arg_signature(call: ast.Call) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        """Normalise a call's arguments into (positional_tails, kwargs).
+    def role_tail(expr: ast.expr) -> str:
+        """Reduce one argument expression to its role token."""
+        tail = ast.unparse(expr)
+        if tail.startswith('self.'):
+            tail = tail[5:]
+        # If attribute access, take the last segment
+        tail = tail.rsplit('.', 1)[-1]
+        # If still contains underscores (e.g. `patched_config`,
+        # `new_run_dir`, `resolved_config`), keep a suffix that
+        # preserves the last two underscore-segments for `run_dir`
+        # style names, otherwise just the last segment.
+        parts = tail.split('_')
+        if len(parts) >= 2:
+            last_two = '_'.join(parts[-2:])
+            tail = last_two if last_two in {'run_dir', 'run_id', 'trial_id', 'split_id', 'split_name'} else parts[-1]
+        return tail
+
+    def arg_signature(call: ast.Call) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Normalise a call's arguments into (positional_tails, keyword pairs).
 
         Normalisation keeps role tokens that survive renames: `patched_config`
         and `self.config` both normalise to `config`. The last underscore-
         separated token is the "role"; common prefixes (`patched_`, `new_`,
         `effective_`, `resolved_`) drop out, so `patched_config` == `config`.
+        A keyword is kept as `name=<value tail>`.
         """
-        positional: list[str] = []
-        for a in call.args:
-            try:
-                src = ast.unparse(a)
-            except Exception:
-                continue
-            tail = src
-            if tail.startswith('self.'):
-                tail = tail[5:]
-            # If attribute access, take the last segment
-            tail = tail.rsplit('.', 1)[-1]
-            # If still contains underscores (e.g. `patched_config`,
-            # `new_run_dir`, `resolved_config`), keep a suffix that
-            # preserves the last two underscore-segments for `run_dir`
-            # style names, otherwise just the last segment.
-            parts = tail.split('_')
-            if len(parts) >= 2:
-                # keep the last two segments if they look like `run_dir`,
-                # otherwise just the last one
-                last_two = '_'.join(parts[-2:])
-                if last_two in {'run_dir', 'run_id', 'trial_id', 'split_id', 'split_name'}:
-                    tail = last_two
-                else:
-                    tail = parts[-1]
-            positional.append(tail)
-        kwargs: list[str] = []
-        for kw in call.keywords:
-            if kw.arg is not None:
-                kwargs.append(kw.arg)
+        positional = [role_tail(a) for a in call.args if role_tail(a)]
+        kwargs = [f'{kw.arg}={role_tail(kw.value)}' for kw in call.keywords if kw.arg is not None]
         return tuple(positional), tuple(sorted(kwargs))
 
     # First pass: index every project function's sink calls with their signatures.
-    function_sinks: dict[str, dict[str, list[tuple[tuple[str, ...], tuple[str, ...]]]]] = defaultdict(lambda: defaultdict(list))
+    function_sinks: dict[str, dict[str, list[tuple[tuple[str, ...], tuple[str, ...]]]]] = collections.defaultdict(lambda: collections.defaultdict(list))
     # function_sinks[func_key][sink_callee] = list of (positional_tails, kwarg_keys)
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -310,57 +332,69 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             key = f'{mod}.{node.name}'
-            for inner in ast.walk(node):
+            for inner in auditme.core.walk_within_scope(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                try:
-                    callee = ast.unparse(inner.func)
-                except Exception:
-                    continue
+                callee = ast.unparse(inner.func)
                 callee_tail = callee.rsplit('.', 1)[-1].lower()
                 tail_parts = set(re.split(r'[_\W]+', callee_tail))
                 if not any(tok in tail_parts for tok in SINK_TOKENS):
                     continue
-                function_sinks[key][callee].append(_arg_signature(inner))
+                function_sinks[key][callee].append(arg_signature(inner))
     if not function_sinks:
         return
 
     # Build lookup: short_name -> set of full keys
-    short_to_full: dict[str, set[str]] = defaultdict(set)
+    short_to_full: dict[str, set[str]] = collections.defaultdict(set)
     for key in function_sinks:
         short = key.rsplit('.', 1)[-1]
         short_to_full[short].add(key)
 
+    def resolve_helper(callee: str, module: str) -> list[str]:
+        """The project functions a call can mean, by qualified name.
+
+        A dotted callee matches keys ending in that dotted path. A bare name
+        matches the calling module's own function, else the single function of
+        that name in the project; an ambiguous bare name matches nothing.
+        """
+        short = callee.rsplit('.', 1)[-1]
+        candidates = short_to_full.get(short, set())
+        if '.' in callee:
+            return sorted(k for k in candidates if k == callee or k.endswith(f'.{callee}'))
+        if f'{module}.{callee}' in candidates:
+            return [f'{module}.{callee}']
+        return sorted(candidates) if len(candidates) == 1 else []
+
     # Second pass: walk each function. For each direct sink call, look for
     # a later helper call whose target (any full key matching its short name)
     # makes the SAME sink call with the SAME signature.
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
+        rel_parts = path.relative_to(src_root).parts
+        module = '' if rel_parts[-1] == '__init__.py' else package_root_name + '.' + '.'.join(rel_parts)[:-3]
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
+            own_key = f'{module}.{node.name}'
             direct_sinks: list[tuple[int, str, tuple[tuple[str, ...], tuple[str, ...]]]] = []
-            helper_calls: list[tuple[int, str]] = []
-            for inner in ast.walk(node):
+            helper_calls: list[tuple[int, str, list[str]]] = []
+            for inner in auditme.core.walk_within_scope(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                try:
-                    callee = ast.unparse(inner.func)
-                except Exception:
-                    continue
+                callee = ast.unparse(inner.func)
                 tail = callee.rsplit('.', 1)[-1].lower()
                 tail_parts = set(re.split(r'[_\W]+', tail))
                 if any(tok in tail_parts for tok in SINK_TOKENS):
-                    direct_sinks.append((inner.lineno, callee, _arg_signature(inner)))
+                    direct_sinks.append((inner.lineno, callee, arg_signature(inner)))
                 else:
-                    short = callee.rsplit('.', 1)[-1]
-                    if short in short_to_full:
-                        helper_calls.append((inner.lineno, callee))
+                    targets = [k for k in resolve_helper(callee, module) if k != own_key]
+                    if targets:
+                        helper_calls.append((inner.lineno, callee, targets))
             if not direct_sinks or not helper_calls:
                 continue
             reported: set[tuple[int, str]] = set()
@@ -370,23 +404,21 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                 if dedup_key in reported:
                     continue
                 found_redundant = False
-                for helper_line, helper_callee in helper_calls:
+                for helper_line, helper_callee, targets in helper_calls:
                     if helper_line <= sink_line:
                         continue  # only forward-direction redundancy
-                    short = helper_callee.rsplit('.', 1)[-1]
-                    # sorted, not set order: several modules can define a
-                    # function with the same short name, the loop breaks on the
-                    # first match, and set iteration follows string hashing -
-                    # which is randomised per process. Unsorted, the same
-                    # unchanged tree reports a different qualname between runs.
-                    for full in sorted(short_to_full.get(short, set())):
+                    # sorted by resolve_helper, not set order: several modules can
+                    # define a function with the same short name, the loop breaks
+                    # on the first match, and set iteration follows string
+                    # hashing - which is randomised per process.
+                    for full in targets:
                         for inner_callee, sigs in function_sinks.get(full, {}).items():
                             if inner_callee.rsplit('.', 1)[-1] != sink_tail:
                                 continue
                             if sink_sig not in sigs:
                                 continue
-                            accept = _accept_reason(lines, sink_line, rule='redundant-sink-caller-plus-callee')
-                            _emit(
+                            accept = auditme.core.accept_reason(lines, sink_line, rule='redundant-sink-caller-plus-callee')
+                            auditme.core.emit(
                                 rule='redundant-sink-caller-plus-callee',
                                 variant=f'{node.name} calls {sink_callee}(...) then {helper_callee} which re-calls {inner_callee} with the same args',
                                 path=rel,
@@ -409,14 +441,14 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
 # every database test performs. A sequence made mostly of these describes the
 # framework being used, not the shape of the code, so counting them makes two
 # unrelated tests that both open a connection look like copies.
-_TRIVIAL_CALLS = frozenset(
+TRIVIAL_CALLS = frozenset(
     {
         'append',
         'as_posix',
+        'close',
         'commit',
         'connect',
         'copy',
-        'close',
         'cursor',
         'debug',
         'deepcopy',
@@ -485,12 +517,12 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
     """
     # Build per-function signature
     signatures: list[tuple[str, int, str, tuple[str, ...]]] = []
-    for path in _all_py_files(src_root):
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
             continue
-        rel = _relpath(path, scope)
+        rel = auditme.core.relpath(path, scope)
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -498,10 +530,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
             for inner in ast.walk(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                try:
-                    callee = ast.unparse(inner.func)
-                except Exception:
-                    continue
+                callee = ast.unparse(inner.func)
                 # Require a dotted callee (skips bare len(), str(), dict(),
                 # and a project's own local helpers). Measured both ways on a
                 # 200-file suite: without it the sequences fill with builtins
@@ -514,7 +543,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
                 if '.' not in callee:
                     continue
                 short = callee.rsplit('.', 1)[-1]
-                if short in _TRIVIAL_CALLS:
+                if short in TRIVIAL_CALLS:
                     continue
                 if seq and seq[-1] == short:
                     continue
@@ -531,7 +560,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
     # Compute longest common subsequences pairwise; report pairs that share
     # a subsequence of length >= 5. Quadratic in function count - bounded
     # to architecturally-significant functions (we already filtered to >=5).
-    def _lcs(a: tuple[str, ...], b: tuple[str, ...]) -> list[str]:
+    def longest_common_subsequence(a: tuple[str, ...], b: tuple[str, ...]) -> list[str]:
         n, m = len(a), len(b)
         if n == 0 or m == 0:
             return []
@@ -568,7 +597,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
         return out
 
     # Count how many distinct functions each call-name appears in
-    call_fanout: dict[str, int] = defaultdict(int)
+    call_fanout: dict[str, int] = collections.defaultdict(int)
     for _, _, _, seq in signatures:
         for c in set(seq):
             call_fanout[c] += 1
@@ -595,7 +624,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
             # removed rather than wired up.
 
             # Only interesting if LCS is long enough
-            lcs = _lcs(seq_a, seq_b)
+            lcs = longest_common_subsequence(seq_a, seq_b)
             if len(lcs) < 6:
                 continue
             # Drop generic calls that appear in many functions; the LCS
@@ -618,8 +647,8 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
                 continue
             reported.add(pair_key)
             full_a = scope / rel_a
-            accept = _accept_reason(_source_lines(full_a), line_a, rule='duplicate-call-sequence')
-            _emit(
+            accept = auditme.core.accept_reason(auditme.core.source_lines(full_a), line_a, rule='duplicate-call-sequence')
+            auditme.core.emit(
                 related=[rel_b],
                 rule='duplicate-call-sequence',
                 variant=f'{fname_a} shares {len(lcs)} calls in order with {rel_b}:{fname_b}',
@@ -648,8 +677,8 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
       - Same LHS name appears in >= 2 distinct files.
     """
     # name -> list of (path, lineno, literal)
-    sites: dict[str, list[tuple[pathlib.Path, int, str]]] = defaultdict(list)
-    for path in _all_py_files(src_root):
+    sites: dict[str, list[tuple[pathlib.Path, int, str]]] = collections.defaultdict(list)
+    for path in auditme.core.all_py_files(src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -687,11 +716,11 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
         if len(distinct_paths) < 2:
             continue
         for path, lineno, _ in locations:
-            rel = _relpath(path, scope)
-            lines = _source_lines(path)
-            accept = _accept_reason(lines, lineno, rule='recompile-duplication')
-            other_paths = sorted({_relpath(p, scope) for p, _, _ in locations if p != path})
-            _emit(
+            rel = auditme.core.relpath(path, scope)
+            lines = auditme.core.source_lines(path)
+            accept = auditme.core.accept_reason(lines, lineno, rule='recompile-duplication')
+            other_paths = sorted({auditme.core.relpath(p, scope) for p, _, _ in locations if p != path})
+            auditme.core.emit(
                 related=other_paths,
                 rule='recompile-duplication',
                 variant=(f'constant `{name} = re.compile(...)` also defined in {other_paths!r}; canonicalise to one home'),

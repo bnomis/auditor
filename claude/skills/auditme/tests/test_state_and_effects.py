@@ -1023,7 +1023,7 @@ elif mode == 'c':
 
 
 def test_if_chain_returns_subject_and_tests() -> None:
-    chain = auditme.rules.state_and_effects.if_chain(first_if(THREE_ARMS), auditme.rules.state_and_effects._extract_string_eq_var)
+    chain = auditme.rules.state_and_effects.if_chain(first_if(THREE_ARMS), auditme.rules.state_and_effects.extract_string_eq_var)
     assert chain is not None
     assert chain.subject == 'mode'
     assert len(chain.tests) == 3
@@ -1033,7 +1033,7 @@ def test_if_chain_returns_subject_and_tests() -> None:
 def test_if_chain_returns_the_final_else_body() -> None:
     chain = auditme.rules.state_and_effects.if_chain(
         first_if(THREE_ARMS + 'else:\n    x = 1\n'),
-        auditme.rules.state_and_effects._extract_string_eq_var,
+        auditme.rules.state_and_effects.extract_string_eq_var,
     )
     assert chain is not None
     assert chain.orelse is not None
@@ -1042,7 +1042,7 @@ def test_if_chain_returns_the_final_else_body() -> None:
 
 def test_if_chain_rejects_a_second_subject() -> None:
     source = THREE_ARMS.replace("elif mode == 'b'", "elif other == 'b'")
-    assert auditme.rules.state_and_effects.if_chain(first_if(source), auditme.rules.state_and_effects._extract_string_eq_var) is None
+    assert auditme.rules.state_and_effects.if_chain(first_if(source), auditme.rules.state_and_effects.extract_string_eq_var) is None
 
 
 def test_if_chain_rejects_a_test_the_callable_rejects() -> None:

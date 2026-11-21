@@ -29,7 +29,7 @@ CHECKS_ROOT = AUDIT_SCRIPT.parent
 
 def test_every_package_under_src_is_discovered(project: Builder) -> None:
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n'})
-    assert [path.name for path in auditme.core._packages_under(root / 'src')] == ['probe', 'tests']
+    assert [path.name for path in auditme.core.packages_under(root / 'src')] == ['probe', 'tests']
 
 
 def test_caches_and_build_artefacts_are_not_packages(project: Builder) -> None:
@@ -42,24 +42,24 @@ def test_caches_and_build_artefacts_are_not_packages(project: Builder) -> None:
             'src/docs/notes.md': 'no python here\n',
         }
     )
-    assert [path.name for path in auditme.core._packages_under(root / 'src')] == ['probe']
+    assert [path.name for path in auditme.core.packages_under(root / 'src')] == ['probe']
 
 
 def test_a_script_root_outside_src_is_audited_as_its_own_pass(project: Builder) -> None:
     """`bin/` is not under `src/`, so package discovery alone never sees it."""
     root = project({'src/probe/mod.py': 'x = 1\n', 'bin/report.py': 'y = 1\n'})
-    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe', 'bin']
+    assert [path.name for path in auditme.core.audit_roots(root)] == ['probe', 'bin']
 
 
 def test_a_script_root_holding_no_python_is_not_a_pass(project: Builder) -> None:
     """A `bin/` of shell wrappers is not an empty audit; it is no audit."""
     root = project({'src/probe/mod.py': 'x = 1\n', 'bin/activate.sh': 'echo hello\n'})
-    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe']
+    assert [path.name for path in auditme.core.audit_roots(root)] == ['probe']
 
 
 def test_a_project_with_no_script_root_is_swept_unchanged(project: Builder) -> None:
     root = project({'src/probe/mod.py': 'x = 1\n'})
-    assert [path.name for path in auditme.core._audit_roots(root)] == ['probe']
+    assert [path.name for path in auditme.core.audit_roots(root)] == ['probe']
 
 
 def test_a_project_with_only_bin_is_swept_over_bin(
@@ -100,9 +100,9 @@ def test_a_project_with_no_root_runs_only_the_project_level_checks_once(
 
     def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         calls.append('project')
-        auditme.core._emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
+        auditme.core.emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
 
-    monkeypatch.setattr(auditme.registry, 'CHECKS', (per_root_check, project_level_check))
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (per_root_check,))
     monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (project_level_check,))
     root = project({'docs/index.md': '# Notes\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
@@ -120,7 +120,7 @@ def test_a_crashing_project_level_check_with_no_root_is_reported(
     def exploding_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         raise RuntimeError('predicate is broken')
 
-    monkeypatch.setattr(auditme.registry, 'CHECKS', (exploding_check,))
+    monkeypatch.setattr(auditme.registry, 'CHECKS', ())
     monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (exploding_check,))
     root = project({'docs/index.md': '# Notes\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
@@ -130,11 +130,31 @@ def test_a_crashing_project_level_check_with_no_root_is_reported(
     assert [(record['rule'], record['variant']) for record in records] == [('auditme-check-crash', 'exploding_check')]
 
 
-def test_the_project_level_checks_are_registered_checks_in_registry_order() -> None:
-    """PROJECT_CHECKS is a subset of CHECKS, so a project with a root still runs each."""
-    positions = [auditme.registry.CHECKS.index(check) for check in auditme.registry.PROJECT_CHECKS]
-    assert positions == sorted(positions)
+def test_the_project_level_checks_are_not_per_root_checks() -> None:
+    """A per-root pass would repeat a check that reads only the project."""
     assert {check.__name__ for check in auditme.registry.PROJECT_CHECKS} == {'check_lockfile', 'check_ruff_version'}
+    assert not set(auditme.registry.PROJECT_CHECKS) & set(auditme.registry.CHECKS)
+
+
+def test_with_three_roots_each_project_level_check_runs_once(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def per_root_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        calls.append(f'root:{src_root.name}')
+
+    def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        calls.append('project')
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (per_root_check,))
+    monkeypatch.setattr(auditme.registry, 'PROJECT_CHECKS', (project_level_check,))
+    root = project({'src/a/m.py': 'x = 1\n', 'src/b/m.py': 'x = 1\n', 'src/c/m.py': 'x = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    assert calls == ['project', 'root:a', 'root:b', 'root:c']
 
 
 def test_a_project_with_no_python_gets_its_ruff_pin_checked(
@@ -253,7 +273,7 @@ def test_a_crashing_check_is_reported_and_the_sweep_continues(
         raise RuntimeError('predicate is broken')
 
     def working_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-        auditme.core._emit(rule='probe', variant='v', path='src/probe/mod.py', line=1, evidence='x', accepted=False, accepted_reason=None)
+        auditme.core.emit(rule='probe', variant='v', path='src/probe/mod.py', line=1, evidence='x', accepted=False, accepted_reason=None)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (exploding_check, working_check))
     root = project({'src/probe/mod.py': 'x = 1\n'})
@@ -275,7 +295,7 @@ def test_a_project_level_hit_is_reported_once_per_project_not_once_per_package(
     """Checks that read AGENTS.md or the lockfile see the project once per package."""
 
     def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-        auditme.core._emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
+        auditme.core.emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (project_level_check,))
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n'})
@@ -478,7 +498,7 @@ def test_a_declared_list_is_swept_and_src_is_not(
 @pytest.mark.parametrize(
     ('pyproject', 'message'),
     [
-        ('[tool.auditme]\nroots = [{ modules = "package" }]\n', 'has no path'),
+        ('[tool.auditme]\nroots = [{ modules = "top-level" }]\n', 'has no path'),
         ('[tool.auditme]\nroots = [{ path = "tools", modules = "flat" }]\n', 'modules must be'),
         ('[tool.auditme]\nroots = [{ path = "absent" }]\n', 'declared root absent not found'),
         ('[tool.auditme]\nroots = [{ path = "tools" }, { path = "tools/sub" }]\n', 'overlap'),
@@ -527,8 +547,8 @@ def test_a_top_level_root_names_its_files_by_path(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     def hitting_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-        for path in auditme.core._all_py_files(src_root):
-            auditme.core._emit(rule='probe', variant='v', path=path.relative_to(scope).as_posix(), line=1, evidence='e', accepted=False, accepted_reason=None)
+        for path in auditme.core.all_py_files(src_root):
+            auditme.core.emit(rule='probe', variant='v', path=path.relative_to(scope).as_posix(), line=1, evidence='e', accepted=False, accepted_reason=None)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (hitting_check,))
     root = project({'pyproject.toml': DECLARED, 'tools/run.py': 'x = 1\n', 'tools/sub/m.py': 'y = 1\n'})
@@ -537,3 +557,17 @@ def test_a_top_level_root_names_its_files_by_path(
     assert audit.main() == 0
     paths = [json.loads(line)['path'] for line in capsys.readouterr().out.splitlines()]
     assert paths == ['tools/run.py']
+
+
+def test_an_invalid_declaration_prints_its_cause(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project({'pyproject.toml': '[tool.auditme\n', 'tools/run.py': 'x = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 2
+    err = capsys.readouterr().err
+    assert err.startswith('ERROR: pyproject.toml: not valid TOML (')
+    assert err.rstrip().endswith(')')

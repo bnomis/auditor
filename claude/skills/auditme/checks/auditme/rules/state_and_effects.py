@@ -7,55 +7,45 @@ import dataclasses
 import pathlib
 import re
 
-from auditme.core import (
-    _SIDE_EFFECT_CALL_NAMES,
-    _accept_reason,
-    _all_py_files,
-    _emit,
-    _relpath,
-    _source_lines,
-    corpus_py_files,
-    module_dotted,
-    reads_by_module_and_name,
-)
+import auditme.core
 
-_DISK_IO_NAMES = {
-    'open',
-    'mkdir',
-    'rmdir',
-    'unlink',
-    'rmtree',
-    'makedirs',
-    'remove',
-    'read_text',
-    'write_text',
-    'read_bytes',
-    'write_bytes',
-    'touch',
-    'iterdir',
-    'glob',
-    'rglob',
-    'exists',
-    'is_file',
-    'is_dir',
-    'stat',
+DISK_IO_NAMES = {
     'copy',
     'copytree',
+    'exists',
+    'glob',
+    'is_dir',
+    'is_file',
+    'iterdir',
+    'makedirs',
+    'mkdir',
+    'mkdtemp',
+    'mkstemp',
     'move',
+    'open',
+    'read_bytes',
+    'read_text',
+    'remove',
     'rename',
     'replace',
+    'rglob',
+    'rmdir',
+    'rmtree',
+    'stat',
     'symlink_to',
-    'mkstemp',
-    'mkdtemp',
+    'touch',
+    'unlink',
+    'write_bytes',
+    'write_text',
 }
 
 
 def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag disk I/O operations inside `__init__` methods. Constructors
     should accept already-loaded data, not perform I/O on demand."""
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -76,10 +66,10 @@ def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         fname = inner.func.id
                     elif isinstance(inner.func, ast.Attribute):
                         fname = inner.func.attr
-                    if fname not in _DISK_IO_NAMES:
+                    if fname not in DISK_IO_NAMES:
                         continue
-                    accept = _accept_reason(lines, inner.lineno, rule='constructor-disk-io')
-                    _emit(
+                    accept = auditme.core.accept_reason(lines, inner.lineno, rule='constructor-disk-io')
+                    auditme.core.emit(
                         rule='constructor-disk-io',
                         variant=f'{cls.name}.__init__ calls disk-IO `{fname}`',
                         path=rel,
@@ -113,9 +103,9 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
         'patch',
         'override',
     }
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -165,8 +155,8 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                             continue
                         if tgt.attr not in owned_attrs:
                             continue
-                        accept = _accept_reason(lines, inner.lineno, rule='silent-self-mutation')
-                        _emit(
+                        accept = auditme.core.accept_reason(lines, inner.lineno, rule='silent-self-mutation')
+                        auditme.core.emit(
                             rule='silent-self-mutation',
                             variant=f'{cls.name}.{member.name} reassigns self.{tgt.attr}',
                             path=rel,
@@ -195,9 +185,9 @@ def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: path
     `self.config`; callers must `self.config = patched_config` or the
     instance silently drifts.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -260,8 +250,8 @@ def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: path
                                             break
                                 if not has_derivation:
                                     continue
-                                accept = _accept_reason(lines, ret.lineno, rule='return-shadows-instance-attr')
-                                _emit(
+                                accept = auditme.core.accept_reason(lines, ret.lineno, rule='return-shadows-instance-attr')
+                                auditme.core.emit(
                                     rule='return-shadows-instance-attr',
                                     variant=f'{cls.name}.{member.name} returns `{rname}` which shadows self.{attr}; callers must reassign',
                                     path=rel,
@@ -290,9 +280,9 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
     # contract does not hold for overridden framework methods.
     PURE_PREFIXES = ('check_', 'validate_', 'is_', 'has_', 'get_', 'resolve_', 'parse_', 'find_', 'count_')
     MUTATION_METHODS = {'update', 'pop', 'append', 'extend', 'insert', 'remove', 'clear', 'setdefault', 'popitem'}
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -312,8 +302,8 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                     for tgt in inner.targets:
                         if isinstance(tgt, ast.Subscript) and isinstance(tgt.value, ast.Name):
                             if tgt.value.id in param_names:
-                                accept = _accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
-                                _emit(
+                                accept = auditme.core.accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
+                                auditme.core.emit(
                                     rule='parameter-mutation-in-pure-function',
                                     variant=f'{node.name} mutates parameter `{tgt.value.id}` via item assignment',
                                     path=rel,
@@ -325,8 +315,8 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                 # augmented assignment: param[k] += v
                 if isinstance(inner, ast.AugAssign):
                     if isinstance(inner.target, ast.Subscript) and isinstance(inner.target.value, ast.Name) and inner.target.value.id in param_names:
-                        accept = _accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
-                        _emit(
+                        accept = auditme.core.accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
+                        auditme.core.emit(
                             rule='parameter-mutation-in-pure-function',
                             variant=f'{node.name} mutates parameter `{inner.target.value.id}` via augmented assignment',
                             path=rel,
@@ -338,8 +328,8 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                 # method call: param.update(...), param.append(...)
                 if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Attribute):
                     if isinstance(inner.func.value, ast.Name) and inner.func.value.id in param_names and inner.func.attr in MUTATION_METHODS:
-                        accept = _accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
-                        _emit(
+                        accept = auditme.core.accept_reason(lines, inner.lineno, rule='parameter-mutation-in-pure-function')
+                        auditme.core.emit(
                             rule='parameter-mutation-in-pure-function',
                             variant=f'{node.name} mutates parameter `{inner.func.value.id}` via `.{inner.func.attr}()`',
                             path=rel,
@@ -369,9 +359,9 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
     # the prefix outright. `load_` is deliberately omitted: load_* functions
     # legitimately perform IO.
     PURE_PREFIXES = ('resolve_', 'find_', 'get_', 'check_', 'parse_', 'is_', 'has_', 'validate_', 'count_', 'allocate_')
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -399,10 +389,10 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
                     callee_short = sub.func.id
                 elif isinstance(sub.func, ast.Attribute):
                     callee_short = sub.func.attr
-                if callee_short not in _SIDE_EFFECT_CALL_NAMES:
+                if callee_short not in auditme.core.SIDE_EFFECT_CALL_NAMES:
                     continue
-                accept = _accept_reason(lines, sub.lineno, rule='pure-name-has-side-effect')
-                _emit(
+                accept = auditme.core.accept_reason(lines, sub.lineno, rule='pure-name-has-side-effect')
+                auditme.core.emit(
                     rule='pure-name-has-side-effect',
                     variant=f'{node.name} calls side-effect `{callee_short}` despite name implying a pure query',
                     path=rel,
@@ -430,9 +420,9 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
       - The parameter is not annotated as `frozenset`, `tuple`, or a
         project dataclass (which is immutable by convention).
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -451,10 +441,7 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
             for arg in init.args.args:
                 if arg.annotation is None:
                     continue
-                try:
-                    ann_src = ast.unparse(arg.annotation)
-                except Exception:
-                    continue
+                ann_src = ast.unparse(arg.annotation)
                 # top-level `dict` or `list` (allow `| None`, subscripts)
                 # but not inside tuple/frozenset/etc.
                 normalised = ann_src.split('|')[0].strip()
@@ -480,8 +467,8 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
                         continue
                     if tgt.attr != stmt.value.id:
                         continue
-                    accept = _accept_reason(lines, stmt.lineno, rule='mutable-store-without-copy')
-                    _emit(
+                    accept = auditme.core.accept_reason(lines, stmt.lineno, rule='mutable-store-without-copy')
+                    auditme.core.emit(
                         rule='mutable-store-without-copy',
                         variant=f'{cls.name}.__init__ stores dict/list parameter `{stmt.value.id}` by reference',
                         path=rel,
@@ -545,9 +532,9 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
             typing.assert_never(var)
     which lets the type-checker verify exhaustion.
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -555,7 +542,7 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
         for node in ast.walk(tree):
             if not isinstance(node, ast.If):
                 continue
-            chain = if_chain(node, _extract_string_eq_var)
+            chain = if_chain(node, extract_string_eq_var)
             if chain is None or len(chain.tests) < 3:
                 continue
             chain_var = chain.subject
@@ -577,8 +564,8 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
                         break
                 if has_assert_never:
                     continue
-            accept = _accept_reason(lines, node.lineno, rule='assert-never-missing')
-            _emit(
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='assert-never-missing')
+            auditme.core.emit(
                 rule='assert-never-missing',
                 variant=(
                     f'if/elif chain on `{chain_var}` with {chain_len} string-equality arms '
@@ -593,7 +580,7 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
             )
 
 
-def _extract_string_eq_var(test: ast.expr) -> str | None:
+def extract_string_eq_var(test: ast.expr) -> str | None:
     """Return `name` if `test` is `name == "literal"` or `"literal" == name`,
     otherwise None."""
     if not isinstance(test, ast.Compare):
@@ -618,7 +605,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
     Signal:
       - Function name starts with `build_` or `compute_`.
       - Function body contains a call whose callee short-name is in the
-        side-effect set below (extends `_SIDE_EFFECT_CALL_NAMES` with
+        side-effect set below (extends `SIDE_EFFECT_CALL_NAMES` with
         `subprocess.run`, `datetime.now`, `uuid.uuid4`, `time.time`).
       - The call is not inside a nested function.
 
@@ -629,7 +616,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
     number of accepted-via-comment sites that would dominate the output
     if bundled.
     """
-    BUILD_SIDE_EFFECTS = _SIDE_EFFECT_CALL_NAMES | {
+    BUILD_SIDE_EFFECTS = auditme.core.SIDE_EFFECT_CALL_NAMES | {
         'run',  # subprocess.run
         'check_output',
         'check_call',
@@ -648,9 +635,9 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
         'choice',
         'shuffle',
     }
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -678,8 +665,8 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
                     callee_short = sub.func.attr
                 if callee_short not in BUILD_SIDE_EFFECTS:
                     continue
-                accept = _accept_reason(lines, sub.lineno, rule='build-name-has-side-effect')
-                _emit(
+                accept = auditme.core.accept_reason(lines, sub.lineno, rule='build-name-has-side-effect')
+                auditme.core.emit(
                     rule='build-name-has-side-effect',
                     variant=f'{node.name} calls side-effect `{callee_short}` despite `build_`/`compute_` name',
                     path=rel,
@@ -691,7 +678,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
                 break
 
 
-_MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
+MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
     ast.Dict: ('dict literal', 'types.MappingProxyType(...)'),
     ast.DictComp: ('dict comprehension', 'types.MappingProxyType(...)'),
     ast.List: ('list literal', 'tuple(...)'),
@@ -704,7 +691,7 @@ _MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
 # to one states its type in the assignment as a literal does, so it is the same
 # finding; any other call (`get_defaults()`) states none and stays out. Ruled on
 # 2026-10-31 on an audit's request; see `requests.md`.
-_MUTABLE_CONSTRUCTORS: dict[str, tuple[str, str]] = {
+MUTABLE_CONSTRUCTORS: dict[str, tuple[str, str]] = {
     'dict': ('dict constructor call', 'types.MappingProxyType(...)'),
     'list': ('list constructor call', 'tuple(...)'),
     'set': ('set constructor call', 'frozenset(...)'),
@@ -717,11 +704,11 @@ def mutable_value_shape(value: ast.expr) -> tuple[str, str] | None:
     A literal or comprehension of a dict, list or set, or a call to the bare
     builtin `dict`, `list` or `set`. Pure.
     """
-    shape = _MUTABLE_VALUE_SHAPES.get(type(value))
+    shape = MUTABLE_VALUE_SHAPES.get(type(value))
     if shape is not None:
         return shape
     if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
-        return _MUTABLE_CONSTRUCTORS.get(value.func.id)
+        return MUTABLE_CONSTRUCTORS.get(value.func.id)
     return None
 
 
@@ -769,15 +756,15 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
     # plus the module dotted-import path.
     candidates: list[tuple[pathlib.Path, ast.stmt, ast.expr, str]] = []
     module_name_of: dict[pathlib.Path, str] = {}
-    for path in _all_py_files(src_root):
-        module_name_of[path] = module_dotted(path, src_root)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        module_name_of[path] = auditme.core.module_dotted(path, src_root)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
         for node in tree.body:
-            name, value = _module_level_binding(node)
+            name, value = module_level_binding(node)
             if name is None or value is None or name.startswith('_'):
                 continue
             if mutable_value_shape(value) is None:
@@ -789,20 +776,21 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
 
     # Second pass: for each candidate, check whether ANY other file reads that
     # name. See `reads_by_module_and_name` for the forms a read is written in.
-    imports_of = reads_by_module_and_name(scope, src_root)
+    imports_of = auditme.core.reads_by_module_and_name(scope, src_root)
     for path, assign_node, value, name in candidates:
         module = module_name_of[path]
+        # auditme: accept[get-container-default-then-method-call] an internal mapping that never holds `None`
         importers = imports_of.get((module, name), [])
         # Only flag if imported from a DIFFERENT file
         external_importers = [(p, ln) for p, ln in importers if p != path]
         if not external_importers:
             continue
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
-        accept = _accept_reason(lines, assign_node.lineno, rule='mutable-module-level-exported')
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
+        accept = auditme.core.accept_reason(lines, assign_node.lineno, rule='mutable-module-level-exported')
         shape, required_wrap = mutable_value_shape(value)
-        _emit(
-            related=[_relpath(p, scope) for p, _ in external_importers],
+        auditme.core.emit(
+            related=[auditme.core.relpath(p, scope) for p, _ in external_importers],
             rule='mutable-module-level-exported',
             variant=(f'{name} is a mutable {shape} read by {len(external_importers)} other file(s); wrap in {required_wrap}'),
             path=rel,
@@ -816,9 +804,9 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
 # The wrappers A20 accepts as making an exported container immutable. Every one
 # of them is shallow: it freezes the container it is given and nothing inside
 # it, which is what `check_mutable_members_in_immutable_wrapper` is for.
-_IMMUTABLE_WRAPPERS = frozenset({'MappingProxyType', 'frozenset', 'tuple'})
+IMMUTABLE_WRAPPERS = frozenset({'MappingProxyType', 'frozenset', 'tuple'})
 
-_MEMBER_CONTAINERS = (ast.Dict, ast.DictComp, ast.GeneratorExp, ast.List, ast.ListComp, ast.Set, ast.SetComp, ast.Tuple)
+MEMBER_CONTAINERS = (ast.Dict, ast.DictComp, ast.GeneratorExp, ast.List, ast.ListComp, ast.Set, ast.SetComp, ast.Tuple)
 
 
 def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -850,41 +838,42 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
     The dataclass carve-in is not an exception to that; a dataclass's
     mutability is stated by its own decorator, in this corpus, and read there.
     """
-    frozen_by_name = _dataclass_frozen_by_name(scope, src_root)
+    frozen_by_name = dataclass_frozen_by_name(scope, src_root)
     candidates: list[tuple[pathlib.Path, ast.stmt, str, str, list[tuple[int, str]]]] = []
     module_name_of: dict[pathlib.Path, str] = {}
-    for path in _all_py_files(src_root):
-        module_name_of[path] = module_dotted(path, src_root)
+    for path in auditme.core.all_py_files(src_root):
+        module_name_of[path] = auditme.core.module_dotted(path, src_root)
         try:
-            tree = ast.parse('\n'.join(_source_lines(path)))
+            tree = ast.parse('\n'.join(auditme.core.source_lines(path)))
         except SyntaxError:
             continue
         for node in tree.body:
-            name, value = _module_level_binding(node)
+            name, value = module_level_binding(node)
             if name is None or value is None or name.startswith('_'):
                 continue
-            wrapped = _wrapped_literal(value)
+            wrapped = wrapped_literal(value)
             if wrapped is None:
                 continue
             wrapper, literal = wrapped
-            hazards = _mutable_members(literal, frozen_by_name)
+            hazards = mutable_members(literal, frozen_by_name)
             if hazards:
                 candidates.append((path, node, name, wrapper, hazards))
 
     if not candidates:
         return
 
-    imports_of = reads_by_module_and_name(scope, src_root)
+    imports_of = auditme.core.reads_by_module_and_name(scope, src_root)
     for path, assign_node, name, wrapper, hazards in candidates:
+        # auditme: accept[get-container-default-then-method-call] an internal mapping that never holds `None`
         readers = imports_of.get((module_name_of[path], name), [])
         if not [(p, ln) for p, ln in readers if p != path]:
             continue
-        lines = _source_lines(path)
-        accept = _accept_reason(lines, assign_node.lineno, rule='mutable-members-in-immutable-wrapper')
-        _emit(
+        lines = auditme.core.source_lines(path)
+        accept = auditme.core.accept_reason(lines, assign_node.lineno, rule='mutable-members-in-immutable-wrapper')
+        auditme.core.emit(
             rule='mutable-members-in-immutable-wrapper',
-            variant=(f'{name} is wrapped in {wrapper}, which is shallow; still mutable through it: {_hazard_summary(hazards)}'),
-            path=_relpath(path, scope),
+            variant=(f'{name} is wrapped in {wrapper}, which is shallow; still mutable through it: {hazard_summary(hazards)}'),
+            path=auditme.core.relpath(path, scope),
             line=assign_node.lineno,
             evidence=(lines[assign_node.lineno - 1].strip()[:200] if assign_node.lineno <= len(lines) else ''),
             accepted=bool(accept),
@@ -892,7 +881,7 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
         )
 
 
-def _module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
+def module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
     """The `(name, value)` a top-level statement binds, if it binds one name."""
     if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
         return node.targets[0].id, node.value
@@ -901,7 +890,7 @@ def _module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
     return None, None
 
 
-def _wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
+def wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
     """`types.MappingProxyType({...})` -> `('MappingProxyType', <the dict>)`.
 
     Only a single literal or comprehension argument counts, for the same
@@ -916,15 +905,15 @@ def _wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
         wrapper = func.id
     else:
         return None
-    if wrapper not in _IMMUTABLE_WRAPPERS:
+    if wrapper not in IMMUTABLE_WRAPPERS:
         return None
     argument = value.args[0]
-    if not isinstance(argument, _MEMBER_CONTAINERS):
+    if not isinstance(argument, MEMBER_CONTAINERS):
         return None
     return wrapper, argument
 
 
-def _mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list[tuple[int, str]]:
+def mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list[tuple[int, str]]:
     """Every mutable member of a literal, as `(line, what it is)`, deduped.
 
     Descends through a nested tuple literal, which is immutable itself and
@@ -933,18 +922,18 @@ def _mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list
     into - it is already the hazard, and is reported as itself.
     """
     hazards: dict[str, int] = {}
-    for member in _members(literal):
+    for member in member_nodes(literal):
         if isinstance(member, ast.Tuple):
-            for line, what in _mutable_members(member, frozen_by_name):
+            for line, what in mutable_members(member, frozen_by_name):
                 hazards.setdefault(what, line)
             continue
-        what = _member_hazard(member, frozen_by_name)
+        what = member_hazard(member, frozen_by_name)
         if what is not None:
             hazards.setdefault(what, getattr(member, 'lineno', 0))
     return sorted((line, what) for what, line in hazards.items())
 
 
-def _members(literal: ast.expr) -> list[ast.expr]:
+def member_nodes(literal: ast.expr) -> list[ast.expr]:
     """The member expressions of a literal or comprehension.
 
     A comprehension has exactly one member expression, evaluated per item, so
@@ -961,9 +950,9 @@ def _members(literal: ast.expr) -> list[ast.expr]:
     return []
 
 
-def _member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | None:
+def member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | None:
     """What makes this member mutable, phrased for the variant line, or None."""
-    shape = _MUTABLE_VALUE_SHAPES.get(type(member))
+    shape = MUTABLE_VALUE_SHAPES.get(type(member))
     if shape is not None:
         return f'a {shape[0]}'
     if isinstance(member, ast.Call):
@@ -974,11 +963,11 @@ def _member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | N
     return None
 
 
-def _hazard_summary(hazards: list[tuple[int, str]]) -> str:
+def hazard_summary(hazards: list[tuple[int, str]]) -> str:
     return ', '.join(f'{what} at line {line}' for line, what in hazards)
 
 
-def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, bool]:
+def dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, bool]:
     """Every dataclass the corpus defines, mapped to whether it is frozen.
 
     A name defined more than once is frozen if any definition is: the scan
@@ -986,7 +975,7 @@ def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> di
     on the strength of a same-named class somewhere else in the tree.
     """
     frozen_by_name: dict[str, bool] = {}
-    for path in corpus_py_files(scope, src_root):
+    for path in auditme.core.corpus_py_files(scope, src_root):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8'))
         except SyntaxError, UnicodeDecodeError:
@@ -994,14 +983,14 @@ def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> di
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
-            frozen = [f for f in (_dataclass_decorator(d) for d in node.decorator_list) if f is not None]
+            frozen = [f for f in (dataclass_decorator(d) for d in node.decorator_list) if f is not None]
             if not frozen:
                 continue
             frozen_by_name[node.name] = frozen_by_name.get(node.name, False) or any(frozen)
     return frozen_by_name
 
 
-def _dataclass_decorator(decorator: ast.expr) -> bool | None:
+def dataclass_decorator(decorator: ast.expr) -> bool | None:
     """True/False if this decorator is `@dataclass`, saying whether it freezes."""
     call = decorator if isinstance(decorator, ast.Call) else None
     target = call.func if call is not None else decorator
@@ -1021,7 +1010,7 @@ def _dataclass_decorator(decorator: ast.expr) -> bool | None:
     return False
 
 
-_CALLBACK_METHOD_RE = re.compile(r'^on_(step|log|evaluate|train_\w+|batch_\w+|epoch_\w+|predict_\w+|save|init_\w+)$')
+CALLBACK_METHOD_RE = re.compile(r'^on_(step|log|evaluate|train_\w+|batch_\w+|epoch_\w+|predict_\w+|save|init_\w+)$')
 
 
 def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -1037,16 +1026,16 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
       - Method body calls `open`, `Path.open`, `.mkdir`, `.write_text`,
         `.write_bytes`.
       - The call is not inside an attribute-cache guard
-        (`if self._opened is None: ...`) - we can't verify that
+        (`if self.opened is None: ...`) - we can't verify that
         mechanically, so the check is coarse: any such call is flagged.
 
     One-time setup belongs in `__init__`; if the setup cannot move there
     (rare), add `# auditme: accept <reason>`.
     """
     HOT_IO = {'open', 'mkdir', 'write_text', 'write_bytes'}
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1063,13 +1052,13 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
             base_str = ' '.join(base_names)
             looks_like_callback = 'Callback' in base_str or 'TrainerCallback' in base_str
             # Also accept if any method in the class matches the callback pattern
-            has_callback_method = any(isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and _CALLBACK_METHOD_RE.match(m.name) for m in cls.body)
+            has_callback_method = any(isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and CALLBACK_METHOD_RE.match(m.name) for m in cls.body)
             if not (looks_like_callback or has_callback_method):
                 continue
             for method in cls.body:
                 if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     continue
-                if not _CALLBACK_METHOD_RE.match(method.name):
+                if not CALLBACK_METHOD_RE.match(method.name):
                     continue
                 for sub in ast.walk(method):
                     if not isinstance(sub, ast.Call):
@@ -1081,8 +1070,8 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         short = sub.func.attr
                     if short not in HOT_IO:
                         continue
-                    accept = _accept_reason(lines, sub.lineno, rule='callback-hotpath-io')
-                    _emit(
+                    accept = auditme.core.accept_reason(lines, sub.lineno, rule='callback-hotpath-io')
+                    auditme.core.emit(
                         rule='callback-hotpath-io',
                         variant=f'{cls.name}.{method.name} performs per-event `{short}`; move setup to __init__',
                         path=rel,
@@ -1107,9 +1096,9 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
       - `__post_init__` method assigns `self.X = <expr>` unconditionally
         (not inside an `if`/`try`/`for`).
     """
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1120,10 +1109,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
             # Is it a dataclass? Check decorators
             is_dataclass = False
             for dec in cls.decorator_list:
-                try:
-                    dec_src = ast.unparse(dec)
-                except Exception:
-                    continue
+                dec_src = ast.unparse(dec)
                 if 'dataclass' in dec_src:
                     is_dataclass = True
                     break
@@ -1136,10 +1122,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
                     continue
                 if not isinstance(item.target, ast.Name):
                     continue
-                try:
-                    ann_src = ast.unparse(item.annotation)
-                except Exception:
-                    continue
+                ann_src = ast.unparse(item.annotation)
                 if 'None' not in ann_src:
                     continue
                 # Check default is None (direct or `field(default=None)`)
@@ -1177,8 +1160,8 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
                     if isinstance(stmt.value, ast.Constant) and stmt.value.value is None:
                         continue
                     field_lineno = nullable_fields[tgt.attr]
-                    accept = _accept_reason(lines, field_lineno, rule='dataclass-optional-always-set')
-                    _emit(
+                    accept = auditme.core.accept_reason(lines, field_lineno, rule='dataclass-optional-always-set')
+                    auditme.core.emit(
                         rule='dataclass-optional-always-set',
                         variant=f'{cls.name}.{tgt.attr} typed `X | None` but __post_init__ always assigns non-None',
                         path=rel,
@@ -1191,7 +1174,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
 
 # Walk every branch arm; ensure it starts with an assignment
 # to var_name or a return, not a read.
-def _branch_overrides(branch: list, var_name: str) -> bool:
+def branch_overrides(branch: list[ast.stmt], var_name: str) -> bool:
     for s in branch:
         # Assigns var_name before reading
         if isinstance(s, (ast.Assign, ast.AnnAssign)):
@@ -1203,10 +1186,7 @@ def _branch_overrides(branch: list, var_name: str) -> bool:
         # this isn't dead init
         if isinstance(s, ast.Return):
             if s.value is not None:
-                try:
-                    rs = ast.unparse(s.value)
-                except Exception:
-                    return False
+                rs = ast.unparse(s.value)
                 # if body reads var_name in return, branch did not override;
                 # if it returned something else, the initial value was dead
                 return not re.search(rf'\b{re.escape(var_name)}\b', rs)
@@ -1214,18 +1194,18 @@ def _branch_overrides(branch: list, var_name: str) -> bool:
     return False
 
 
-def _walk_chain(stmt: ast.If, var_name: str) -> bool:
-    if not _branch_overrides(stmt.body, var_name):
+def walk_chain(stmt: ast.If, var_name: str) -> bool:
+    if not branch_overrides(stmt.body, var_name):
         return False
     orelse = stmt.orelse
     while orelse:
         if len(orelse) == 1 and isinstance(orelse[0], ast.If):
             nxt = orelse[0]
-            if not _branch_overrides(nxt.body, var_name):
+            if not branch_overrides(nxt.body, var_name):
                 return False
             orelse = nxt.orelse
         else:
-            return _branch_overrides(orelse, var_name)
+            return branch_overrides(orelse, var_name)
     return False  # no else branch => init might be read on that path
 
 
@@ -1244,10 +1224,9 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     Restricting to "initial empty-constructor assignment + exhaustive
     if/elif/else that returns" keeps the check low-FP.
     """
-    EMPTY_CONSTRUCTORS = {'dict', 'list', 'set', 'tuple', 'frozenset'}
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1281,7 +1260,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 or (
                     isinstance(value, ast.Call)
                     and isinstance(value.func, ast.Name)
-                    and value.func.id in EMPTY_CONSTRUCTORS
+                    and value.func.id in auditme.core.BARE_GENERIC_NAMES
                     and not value.args
                     and not value.keywords
                 )
@@ -1298,10 +1277,10 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             if not isinstance(if_stmt, ast.If):
                 continue
 
-            if not _walk_chain(if_stmt, var_name):
+            if not walk_chain(if_stmt, var_name):
                 continue
-            accept = _accept_reason(lines, first.lineno, rule='dead-local-init')
-            _emit(
+            accept = auditme.core.accept_reason(lines, first.lineno, rule='dead-local-init')
+            auditme.core.emit(
                 rule='dead-local-init',
                 variant=f'`{var_name} = <empty>` at top of {func.name} is unconditionally overridden in all if/elif/else branches',
                 path=rel,
@@ -1312,7 +1291,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             )
 
 
-_SUBPROCESS_CALL_RE = re.compile(r'\b(subprocess|sp)\.(run|check_output|check_call|Popen|call)\b')
+SUBPROCESS_CALL_RE = re.compile(r'\b(subprocess|sp)\.(run|check_output|check_call|Popen|call)\b')
 
 
 def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -1331,9 +1310,9 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
     """
     PURE_PREFIXES = ('get_', 'resolve_', 'compute_', 'find_', 'check_', 'parse_', 'is_', 'has_', 'validate_', 'count_')
     CACHE_DECORATORS = {'cache', 'lru_cache', 'cached', 'functools.cache', 'functools.lru_cache'}
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         try:
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
@@ -1356,17 +1335,14 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
             for inner in ast.walk(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                try:
-                    call_src = ast.unparse(inner.func)
-                except Exception:
-                    continue
-                if _SUBPROCESS_CALL_RE.search(call_src):
+                call_src = ast.unparse(inner.func)
+                if SUBPROCESS_CALL_RE.search(call_src):
                     hit_line = inner.lineno
                     break
             if hit_line is None:
                 continue
-            accept = _accept_reason(lines, hit_line, rule='subprocess-without-memoisation')
-            _emit(
+            accept = auditme.core.accept_reason(lines, hit_line, rule='subprocess-without-memoisation')
+            auditme.core.emit(
                 rule='subprocess-without-memoisation',
                 variant=f'{node.name} shells out via subprocess without @functools.cache',
                 path=rel,

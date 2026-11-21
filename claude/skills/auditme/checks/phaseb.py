@@ -25,7 +25,7 @@ import sys
 
 import auditme.core
 import auditme.phaseb
-from auditme.phaseb import PhaseBError, batches
+import auditme.phaseb.batches
 
 LEDGER_PARTS = ('agents', 'audit-reviews', 'ledger')
 
@@ -122,15 +122,15 @@ def run_plan(args: argparse.Namespace) -> int:
     found = auditme.phaseb.list_candidates(args.question, args.root, args.depth)
     ledger = auditme.phaseb.read_ledger(ledger_path(args.root, args.question))
     size = auditme.phaseb.question_batch_size(args.question) if args.batch_size is None else args.batch_size
-    planned = batches.plan_batches(found, ledger, version, size, args.rejudge)
+    planned = auditme.phaseb.batches.plan_batches(found, ledger, version, size, args.rejudge)
     count = sum(len(batch) for batch in planned)
-    batches.write_plan(args.question, brief, version, planned, args.out)
+    auditme.phaseb.batches.write_plan(args.question, brief, version, planned, args.out)
     print(f'{count} planned in {len(planned)} batches, {len(found) - count} reused (brief version {version}) in {args.out}')
     return 0
 
 
 def run_check(args: argparse.Namespace) -> int:
-    result = batches.check_run(args.run_dir)
+    result = auditme.phaseb.batches.check_run(args.run_dir)
     for number in result.retry:
         for problem in result.problems[number]:
             print(f'batch {number}: {problem}')
@@ -142,11 +142,11 @@ def run_check(args: argparse.Namespace) -> int:
 
 
 def run_merge(args: argparse.Namespace) -> int:
-    plan = batches.read_plan(args.run_dir)
+    plan = auditme.phaseb.batches.read_plan(args.run_dir)
     if plan.question != args.question:
-        raise PhaseBError(f'the run in {args.run_dir} is for question {plan.question!r}, not {args.question!r}')
+        raise auditme.phaseb.PhaseBError(f'the run in {args.run_dir} is for question {plan.question!r}, not {args.question!r}')
     found = auditme.phaseb.list_candidates(args.question, args.root, args.depth)
-    verdicts = batches.read_run_verdicts(args.run_dir, found)
+    verdicts = auditme.phaseb.batches.read_run_verdicts(args.run_dir, found)
     path = ledger_path(args.root, args.question)
     result = auditme.phaseb.merge_verdicts(path, found, verdicts)
     print(f'{result.written} written, {result.kept} kept, {result.dropped} dropped in {path}')
@@ -186,11 +186,13 @@ def main() -> int:
     args = build_parser().parse_args()
     try:
         return COMMANDS[args.command](args)
-    except PhaseBError as error:
-        print(f'phaseb.py: {error}', file=sys.stderr)
+    except auditme.phaseb.PhaseBError as error:
+        # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+        print(f'phaseb.py: {auditme.core.describe_error(error)}', file=sys.stderr)
         return 2
     except auditme.core.RootsError as error:
-        print(f'ERROR: {error}', file=sys.stderr)
+        # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+        print(f'ERROR: {auditme.core.describe_error(error)}', file=sys.stderr)
         return 2
 
 

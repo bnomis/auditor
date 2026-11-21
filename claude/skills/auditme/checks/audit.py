@@ -88,7 +88,6 @@ import sys
 
 import auditme.core
 import auditme.registry
-from auditme.core import _emit
 
 DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditme.core.EXTRA_ROOT_NAMES)
 
@@ -97,12 +96,14 @@ def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None
     """Run one check, reporting a crash as a hit so the sweep continues."""
     try:
         check(scope, root)
+    # auditme: accept[silent-broad-except] reporting a crashing check as a hit is the handler's job
     except Exception as exc:
-        _emit(
+        auditme.core.emit(
             rule='auditme-check-crash',
             variant=check.__name__,
             path=None,
             line=None,
+            # auditme: accept[except-interpolation] the crash text is the hit's evidence
             evidence=f'{type(exc).__name__}: {exc}',
             accepted=False,
             accepted_reason=None,
@@ -153,17 +154,18 @@ def main() -> int:
     if not args.package:
         # Read first: an invalid declaration must exit before anything is emitted.
         try:
-            default_roots = auditme.core._audit_roots(scope)
+            default_roots = auditme.core.audit_roots(scope)
         except auditme.core.RootsError as exc:
-            print(f'ERROR: {exc}', file=sys.stderr)
+            # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+            print(f'ERROR: {auditme.core.describe_error(exc)}', file=sys.stderr)
             return 2
 
         # A module directly in src/ belongs to no root, so no pass would read
         # it. The driver reports it, not a registered check: a check runs once
         # per root, and a project holding only src/a.py has none.
         for path in auditme.core.loose_src_modules(scope):
-            reason = auditme.core._accept_reason(auditme.core._source_lines(path), 1, rule='src-loose-module')
-            _emit(
+            reason = auditme.core.accept_reason(auditme.core.source_lines(path), 1, rule='src-loose-module')
+            auditme.core.emit(
                 rule='src-loose-module',
                 variant='module directly under src/, outside any package',
                 path=path.relative_to(scope).as_posix(),
@@ -182,8 +184,6 @@ def main() -> int:
         roots = default_roots
         if not roots:
             print('audit.py: no package under src/ and no extra root; running the project-level checks only', file=sys.stderr)
-            # These read only the project, so the scope stands in for the root
-            # they ignore.
             for check in auditme.registry.PROJECT_CHECKS:
                 run_check(check, scope, scope)
             return 0
@@ -192,6 +192,11 @@ def main() -> int:
         if not root.exists():
             print(f'ERROR: {root} not found', file=sys.stderr)
             return 2
+
+    # These read only the project, so the scope stands in for the root they
+    # ignore. They run once, not once per root.
+    for check in auditme.registry.PROJECT_CHECKS:
+        run_check(check, scope, scope)
 
     # One pass per root, rather than one pass over src/ itself. src_root.name
     # is the package's dotted root: six checks build module names as

@@ -489,3 +489,81 @@ def test_an_unparseable_file_is_skipped_rather_than_crashing(project: Builder, r
     )
     hits = run_check(CHECK, root)
     assert [hit['path'] for hit in hits] == ['src/probe/mod.py']
+
+
+def test_a_mapping_from_tomllib_is_skipped(project: Builder, run_check: Runner) -> None:
+    """TOML has no null, so the default always fires for an absent key."""
+    root = project(
+        probe(
+            """
+            import tomllib
+
+
+            def read(text: str) -> int:
+                parsed = tomllib.loads(text)
+                tool = parsed.get('tool', {})
+                return len(tool.keys())
+
+
+            def chained(text: str) -> int:
+                project = tomllib.loads(text).get('project', {})
+                return len(project.keys())
+            """
+        )
+    )
+    assert run_check(CHECK, root) == []
+
+
+def test_a_toml_function_and_its_parameter_are_followed_one_level(project: Builder, run_check: Runner) -> None:
+    root = project(
+        probe(
+            """
+            import tomllib
+
+
+            def read(text: str) -> dict:
+                if not text:
+                    return {}
+                return tomllib.loads(text)
+
+
+            def tables(pyproject: dict) -> int:
+                project = pyproject.get('project', {})
+                return len(project.keys())
+
+
+            def run(text: str) -> int:
+                return tables(read(text))
+            """
+        )
+    )
+    assert run_check(CHECK, root) == []
+
+
+def test_a_parameter_that_one_caller_fills_from_json_is_still_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        probe(
+            """
+            import json
+            import tomllib
+
+
+            def read(text: str) -> dict:
+                return tomllib.loads(text)
+
+
+            def tables(pyproject: dict) -> int:
+                project = pyproject.get('project', {})
+                return len(project.keys())
+
+
+            def from_toml(text: str) -> int:
+                return tables(read(text))
+
+
+            def from_json(text: str) -> int:
+                return tables(json.loads(text))
+            """
+        )
+    )
+    assert [hit['rule'] for hit in run_check(CHECK, root)] == [RULE]

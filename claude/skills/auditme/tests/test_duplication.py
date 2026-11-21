@@ -63,6 +63,51 @@ def test_a_literal_that_appears_once_is_not_a_hit(project: Builder, run_check: R
     assert run_check(LITERAL, root) == []
 
 
+def test_a_one_member_literal_in_a_test_file_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/a.py': "NAMES = ['alpha']\n",
+            'src/probe/test_b.py': "def test_x() -> None:\n    assert sorted(['alpha']) == ['alpha']\n    names = ['alpha']\n",
+        }
+    )
+    assert run_check(LITERAL, root) == []
+
+
+def test_a_literal_inside_an_assert_or_pytest_param_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/a.py': "NAMES = ['alpha', 'beta']\n",
+            'src/probe/test_b.py': (
+                'import pytest\n'
+                "CASES = [pytest.param(['alpha', 'beta'], id='x')]\n"
+                'def test_x() -> None:\n'
+                "    assert sorted(['beta', 'alpha']) == ['alpha', 'beta']\n"
+            ),
+        }
+    )
+    assert run_check(LITERAL, root) == []
+
+
+def test_the_same_one_member_literal_in_source_is_still_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/a.py': "NAMES = ['alpha']\n",
+            'src/probe/b.py': "LABELS = ['alpha']\n",
+        }
+    )
+    assert len(run_check(LITERAL, root)) == 2
+
+
+def test_a_repeated_multi_member_literal_in_test_set_up_is_still_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/test_a.py': "def test_a() -> None:\n    names = ['alpha', 'beta']\n",
+            'src/probe/test_b.py': "def test_b() -> None:\n    names = ['alpha', 'beta']\n",
+        }
+    )
+    assert len(run_check(LITERAL, root)) == 2
+
+
 def test_a_list_of_non_strings_is_not_compared(project: Builder, run_check: Runner) -> None:
     root = project({'src/probe/a.py': 'SIZES = [1, 2]\n', 'src/probe/b.py': 'LIMITS = [1, 2]\n'})
     assert run_check(LITERAL, root) == []
@@ -200,13 +245,6 @@ def test_methods_named_for_mutation_are_out_of_scope(project: Builder, run_check
 
 
 REDUNDANT_TREE = {
-    'src/probe/pipeline.py': """
-    import probe.writer
-
-
-    def tokenize(config: dict, run_dir: str) -> None:
-        probe.writer.flush_config(config, run_dir)
-    """,
     'src/probe/cli.py': """
     import probe.pipeline
     import probe.writer
@@ -215,6 +253,13 @@ REDUNDANT_TREE = {
     def run_evaluate(config: dict, run_dir: str) -> None:
         probe.writer.flush_config(config, run_dir)
         probe.pipeline.tokenize(config, run_dir)
+    """,
+    'src/probe/pipeline.py': """
+    import probe.writer
+
+
+    def tokenize(config: dict, run_dir: str) -> None:
+        probe.writer.flush_config(config, run_dir)
     """,
 }
 
@@ -261,6 +306,153 @@ def test_different_arguments_are_not_redundant(project: Builder, run_check: Runn
         }
     )
     assert run_check(REDUNDANT_SINK, root) == []
+
+
+def test_a_sink_call_in_a_nested_def_is_not_the_helper_s_own(project: Builder, run_check: Runner) -> None:
+    """The helper's sink call sits inside a def nested in it, which may never run."""
+    root = project(
+        {
+            **REDUNDANT_TREE,
+            'src/probe/pipeline.py': """
+            import probe.writer
+
+
+            def tokenize(config: dict, run_dir: str) -> None:
+                def later() -> None:
+                    probe.writer.flush_config(config, run_dir)
+            """,
+        }
+    )
+    assert run_check(REDUNDANT_SINK, root) == []
+
+
+def test_a_helper_call_in_a_nested_def_is_not_the_caller_s_own(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            **REDUNDANT_TREE,
+            'src/probe/cli.py': """
+            import probe.pipeline
+            import probe.writer
+
+
+            def run_evaluate(config: dict, run_dir: str) -> None:
+                probe.writer.flush_config(config, run_dir)
+
+                def later() -> None:
+                    probe.pipeline.tokenize(config, run_dir)
+            """,
+        }
+    )
+    assert run_check(REDUNDANT_SINK, root) == []
+
+
+def test_self_recursion_is_not_a_helper_call(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/cli.py': """
+            import probe.writer
+
+
+            def run_evaluate(config: dict, run_dir: str, depth: int) -> None:
+                probe.writer.flush_config(config, run_dir)
+                if depth:
+                    run_evaluate(config, run_dir, depth - 1)
+            """,
+        }
+    )
+    assert run_check(REDUNDANT_SINK, root) == []
+
+
+def test_a_helper_is_resolved_by_its_qualified_name(project: Builder, run_check: Runner) -> None:
+    """`other.tokenize` is not `probe.pipeline.tokenize`, though the short names match."""
+    root = project(
+        {
+            **REDUNDANT_TREE,
+            'src/probe/cli.py': """
+            import other
+            import probe.writer
+
+
+            def run_evaluate(config: dict, run_dir: str) -> None:
+                probe.writer.flush_config(config, run_dir)
+                other.tokenize(config, run_dir)
+            """,
+        }
+    )
+    assert run_check(REDUNDANT_SINK, root) == []
+
+
+def test_a_bare_helper_name_defined_in_two_modules_matches_neither(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            **REDUNDANT_TREE,
+            'src/probe/extra.py': """
+            import probe.writer
+
+
+            def tokenize(config: dict, run_dir: str) -> None:
+                probe.writer.flush_config(config, run_dir)
+            """,
+            'src/probe/cli.py': """
+            from probe.pipeline import tokenize
+            import probe.writer
+
+
+            def run_evaluate(config: dict, run_dir: str) -> None:
+                probe.writer.flush_config(config, run_dir)
+                tokenize(config, run_dir)
+            """,
+        }
+    )
+    assert run_check(REDUNDANT_SINK, root) == []
+
+
+def test_different_keyword_values_are_not_redundant(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/pipeline.py': """
+            import probe.writer
+
+
+            def tokenize(config: dict, run_dir: str) -> None:
+                probe.writer.flush_config(config, path=run_dir)
+            """,
+            'src/probe/cli.py': """
+            import probe.pipeline
+            import probe.writer
+
+
+            def run_evaluate(config: dict, run_dir: str, other_dir: str) -> None:
+                probe.writer.flush_config(config, path=other_dir)
+                probe.pipeline.tokenize(config, run_dir)
+            """,
+        }
+    )
+    assert run_check(REDUNDANT_SINK, root) == []
+
+
+def test_the_same_keyword_values_are_still_redundant(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/pipeline.py': """
+            import probe.writer
+
+
+            def tokenize(config: dict, run_dir: str) -> None:
+                probe.writer.flush_config(config, path=run_dir)
+            """,
+            'src/probe/cli.py': """
+            import probe.pipeline
+            import probe.writer
+
+
+            def run_evaluate(config: dict, run_dir: str) -> None:
+                probe.writer.flush_config(config, path=run_dir)
+                probe.pipeline.tokenize(config, run_dir)
+            """,
+        }
+    )
+    assert len(run_check(REDUNDANT_SINK, root)) == 1
 
 
 # --------------------------------------------------------------------------

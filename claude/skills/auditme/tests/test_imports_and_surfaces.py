@@ -2,8 +2,11 @@
 
 import collections.abc
 import pathlib
+import types
 
+import auditme.core
 import auditme.rules.imports_and_surfaces
+import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
@@ -102,6 +105,42 @@ def test_a_first_party_in_function_import_is_labelled_as_such(project: Builder, 
         }
     )
     assert [hit['variant'] for hit in run_check(IN_FUNCTION_IMPORTS, root)] == ['first-party']
+
+
+def test_a_module_under_a_declared_root_is_labelled_first_party(project: Builder, run_check: Runner, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project(
+        {
+            'src/probe/mod.py': """
+            def parse(text: str) -> object:
+                import gitutils
+                import auditme.core
+                return gitutils, auditme.core
+            """,
+            'bin/gitutils.py': 'VALUE = 1\n',
+            'lib/auditme/__init__.py': '',
+        }
+    )
+    monkeypatch.setattr(
+        auditme.core,
+        'ROOT_MODULES',
+        types.MappingProxyType({root / 'bin': auditme.core.TOP_LEVEL, root / 'lib' / 'auditme': auditme.core.PACKAGE}),
+    )
+    assert [hit['variant'] for hit in run_check(IN_FUNCTION_IMPORTS, root)] == ['first-party', 'first-party']
+
+
+def test_a_module_outside_every_declared_root_stays_third_party(project: Builder, run_check: Runner, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project(
+        {
+            'src/probe/mod.py': """
+            def parse(text: str) -> object:
+                import requests
+                return requests
+            """,
+            'bin/gitutils.py': 'VALUE = 1\n',
+        }
+    )
+    monkeypatch.setattr(auditme.core, 'ROOT_MODULES', types.MappingProxyType({root / 'bin': auditme.core.TOP_LEVEL}))
+    assert [hit['variant'] for hit in run_check(IN_FUNCTION_IMPORTS, root)] == ['third-party']
 
 
 def test_an_import_under_type_checking_is_not_a_hit(project: Builder, run_check: Runner) -> None:

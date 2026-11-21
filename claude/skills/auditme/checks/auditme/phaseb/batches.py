@@ -14,8 +14,12 @@ import json
 import pathlib
 import typing
 
-from auditme.phaseb.candidates import Candidate, Verdict, question_kinds
-from auditme.phaseb.errors import PhaseBError
+import auditme.phaseb.errors
+from auditme.phaseb.candidates import (
+    Candidate,
+    Verdict,
+    question_kinds,
+)  # auditme: accept[from-import] the package init imports this module while `auditme.phaseb` is not yet bound on `auditme`, so a qualified path fails at import
 
 PLAN_NAME = 'plan.json'
 
@@ -67,7 +71,7 @@ def plan_batches(
         PhaseBError: size is not a positive number.
     """
     if size < 1:
-        raise PhaseBError(f'batch size must be at least 1, not {size}')
+        raise auditme.phaseb.errors.PhaseBError(f'batch size must be at least 1, not {size}')
     needed = []
     for candidate in sorted(candidates, key=lambda item: item.id):
         verdict = ledger.get(candidate.id)
@@ -96,7 +100,7 @@ def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: 
             batch_path(run_dir, number).write_text(body, encoding='utf-8')
         (run_dir / PLAN_NAME).write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
     except OSError as error:
-        raise PhaseBError(f'cannot write plan in {run_dir}: {error}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot write plan in {run_dir}') from error
 
 
 def read_plan(run_dir: pathlib.Path) -> Plan:
@@ -109,9 +113,9 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
     try:
         document = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read plan {path}: {error}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read plan {path}') from error
     except json.JSONDecodeError as error:
-        raise PhaseBError(f'{path}: not valid JSON: {error}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'{path}: not valid JSON') from error
     try:
         planned = document['batches']
         valid = (
@@ -122,9 +126,9 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
             and all(isinstance(batch, list) and all(isinstance(item, str) for item in batch) for batch in planned)
         )
     except (KeyError, TypeError) as error:
-        raise PhaseBError(f'{path}: not a valid plan: {error!r}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'{path}: not a valid plan') from error
     if not valid:
-        raise PhaseBError(f'{path}: not a valid plan')
+        raise auditme.phaseb.errors.PhaseBError(f'{path}: not a valid plan')
     return Plan(document['question'], document['brief'], document['brief_version'], planned)
 
 
@@ -137,18 +141,24 @@ def parse_result(line: str, kinds: tuple[str, ...]) -> dict[str, typing.Any]:
     """
     record = json.loads(line)
     if not isinstance(record, dict):
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError('not a JSON object')
     if set(record) != {'id', 'findings', 'reason'}:
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError('keys must be exactly id, findings and reason')
     if not isinstance(record['id'], str):
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError('id must be a string')
     findings = record['findings']
     if not isinstance(findings, dict) or set(findings) != set(kinds):
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError(f'findings must have exactly the kinds {list(kinds)}')
     for kind, names in findings.items():
         if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+            # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
             raise ValueError(f'findings {kind} must be a list of strings')
     if not isinstance(record['reason'], str):
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError('reason must be a string')
     return record
 
@@ -161,6 +171,7 @@ def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple
     try:
         text = path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
+        # auditme: accept[except-interpolation] the text is a problem reported to the user, not a raised exception
         return [f'unreadable output {path.name}: {error}'], []
     problems: list[str] = []
     records: list[dict[str, typing.Any]] = []
@@ -172,6 +183,7 @@ def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple
         try:
             record = parse_result(line, kinds)
         except ValueError as error:
+            # auditme: accept[except-interpolation] the text is a problem reported to the user, not a raised exception
             problems.append(f'unparseable line {line_number} in {path.name}: {error}')
             continue
         found = str(record['id'])
@@ -219,7 +231,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
     plan = read_plan(run_dir)
     problems = check_run(run_dir).problems
     if problems:
-        raise PhaseBError(f'run in {run_dir} has problems in batches {sorted(problems)}; run check and retry them')
+        raise auditme.phaseb.errors.PhaseBError(f'run in {run_dir} has problems in batches {sorted(problems)}; run check and retry them')
     kinds = question_kinds(plan.question)
     by_id = {candidate.id: candidate for candidate in candidates}
     stamp = today or datetime.date.today().isoformat()
@@ -229,7 +241,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
         for record in records:
             candidate = by_id.get(str(record['id']))
             if candidate is None:
-                raise PhaseBError(f'planned id {record["id"]} is no longer a candidate; plan again')
+                raise auditme.phaseb.errors.PhaseBError(f'planned id {record["id"]} is no longer a candidate; plan again')
             verdicts.append(
                 Verdict(
                     question=plan.question,

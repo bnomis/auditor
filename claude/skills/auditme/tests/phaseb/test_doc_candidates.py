@@ -1,13 +1,15 @@
 """Tests for the Doc4 and Doc5 listers: documents, pairs, unresolved names and hashes."""
 
 import pathlib
-import subprocess
 import textwrap
 
+import auditme.phaseb
+import auditme.phaseb.candidates
+import conftest
 import pytest
-from auditme import phaseb
-from auditme.phaseb import candidates
 
+AGENTS_QUESTIONS = ['Doc1', 'Doc2']
+DRIFT_QUESTIONS = ['Doc4', 'Doc5']
 MOD = """
     def run_it():
         return 1
@@ -66,14 +68,14 @@ GUIDE = """
 """
 
 FILES = {
+    'AGENTS.md': '# Agents\n',
+    'README.md': '# Probe\n\n## Start\n\nRun `run_it` first.\n',
+    'agents/specs/draft/spec.md': DRAFT,
+    'agents/specs/probe/spec.md': SPEC,
+    'docs/guide.md': GUIDE,
     'src/pkg/__init__.py': '',
     'src/pkg/mod.py': MOD,
     'src/pkg/other.py': OTHER,
-    'agents/specs/probe/spec.md': SPEC,
-    'agents/specs/draft/spec.md': DRAFT,
-    'docs/guide.md': GUIDE,
-    'README.md': '# Probe\n\n## Start\n\nRun `run_it` first.\n',
-    'AGENTS.md': '# Agents\n',
 }
 
 
@@ -87,13 +89,13 @@ def write(root: pathlib.Path, name: str, text: str) -> None:
 def root(tmp_path: pathlib.Path) -> pathlib.Path:
     for name, text in FILES.items():
         write(tmp_path, name, text)
-    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True, capture_output=True)
-    subprocess.run(['git', 'add', '-A'], cwd=tmp_path, check=True, capture_output=True)
+    conftest.git(tmp_path, 'init', '-q')
+    conftest.git(tmp_path, 'add', '-A')
     return tmp_path
 
 
-def listed(root: pathlib.Path, question: str) -> dict[str, phaseb.Candidate]:
-    return {candidate.id: candidate for candidate in phaseb.list_candidates(question, root)}
+def listed(root: pathlib.Path, question: str) -> dict[str, auditme.phaseb.Candidate]:
+    return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates(question, root)}
 
 
 def test_proposed_spec_is_not_listed_for_doc4(root: pathlib.Path) -> None:
@@ -157,7 +159,7 @@ def test_undefined_name_gets_an_unresolved_candidate_until_defined(root: pathlib
     candidate = listed(root, 'Doc5')[key]
     assert candidate.payload['tokens'] == [{'name': 'missing_fn', 'line': 10, 'definitions': []}]
     write(root, 'src/pkg/more.py', 'def missing_fn():\n    return 1\n')
-    subprocess.run(['git', 'add', '-A'], cwd=root, check=True, capture_output=True)
+    conftest.git(root, 'add', '-A')
     after = listed(root, 'Doc5')
     assert key not in after
     assert 'docs/guide.md::Guide > Usage::src/pkg/more.py::missing_fn' in after
@@ -182,25 +184,25 @@ def test_unresolved_hash_follows_the_section_text_and_tokens(root: pathlib.Path)
 
 def test_unreadable_document_raises(root: pathlib.Path) -> None:
     (root / 'docs' / 'bad.md').write_bytes(b'\xff\xfe\x00bad')
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates('Doc5', root)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates('Doc5', root)
 
 
 def test_unreadable_spec_raises(root: pathlib.Path) -> None:
     (root / 'agents' / 'specs' / 'bad.md').write_bytes(b'\xff\xfe\x00bad')
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates('Doc4', root)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates('Doc4', root)
 
 
-@pytest.mark.parametrize('question', ['Doc4', 'Doc5'])
+@pytest.mark.parametrize('question', DRIFT_QUESTIONS)
 def test_second_call_is_identical(root: pathlib.Path, question: str) -> None:
-    assert phaseb.list_candidates(question, root) == phaseb.list_candidates(question, root)
+    assert auditme.phaseb.list_candidates(question, root) == auditme.phaseb.list_candidates(question, root)
 
 
-@pytest.mark.parametrize('question', ['Doc4', 'Doc5'])
+@pytest.mark.parametrize('question', DRIFT_QUESTIONS)
 def test_registered_with_brief_and_batch_size(question: str) -> None:
-    assert phaseb.question_batch_size(question) == 24
-    assert phaseb.question_brief(question) == candidates.A4_BRIEF.parent / f'{question}.md'
+    assert auditme.phaseb.question_batch_size(question) == 24
+    assert auditme.phaseb.question_brief(question) == auditme.phaseb.candidates.A4_BRIEF.parent / f'{question}.md'
 
 
 # Doc1 and Doc2
@@ -256,7 +258,7 @@ def agents_root(root: pathlib.Path) -> pathlib.Path:
     write(root, 'pyproject.toml', PYPROJECT)
     write(root, '.pre-commit-config.yaml', HOOKS)
     write(root, 'src/pkg/uses.py', 'import numpy\nfrom os import path\n')
-    subprocess.run(['git', 'add', '-A'], cwd=root, check=True, capture_output=True)
+    conftest.git(root, 'add', '-A')
     return root
 
 
@@ -281,7 +283,7 @@ def test_doc1_hash_follows_tracked_directories_only(agents_root: pathlib.Path) -
     before = listed(agents_root, 'Doc1')[key].hash
     write(agents_root, 'untracked/file.py', 'x = 1\n')
     assert listed(agents_root, 'Doc1')[key].hash == before
-    subprocess.run(['git', 'add', '-A'], cwd=agents_root, check=True, capture_output=True)
+    conftest.git(agents_root, 'add', '-A')
     assert listed(agents_root, 'Doc1')[key].hash != before
 
 
@@ -317,32 +319,32 @@ def test_missing_pyproject_and_hook_file_are_not_errors(root: pathlib.Path) -> N
 
 def test_missing_agents_md_lists_nothing(root: pathlib.Path) -> None:
     (root / 'AGENTS.md').unlink()
-    assert phaseb.list_candidates('Doc1', root) == []
-    assert phaseb.list_candidates('Doc2', root) == []
+    assert auditme.phaseb.list_candidates('Doc1', root) == []
+    assert auditme.phaseb.list_candidates('Doc2', root) == []
 
 
 def test_unparseable_pyproject_raises(agents_root: pathlib.Path) -> None:
     write(agents_root, 'pyproject.toml', 'not [valid')
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates('Doc2', agents_root)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates('Doc2', agents_root)
 
 
 def test_unreadable_hook_file_raises(agents_root: pathlib.Path) -> None:
     (agents_root / '.pre-commit-config.yaml').unlink()
     (agents_root / '.pre-commit-config.yaml').mkdir()
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates('Doc2', agents_root)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates('Doc2', agents_root)
 
 
-@pytest.mark.parametrize('question', ['Doc1', 'Doc2'])
+@pytest.mark.parametrize('question', AGENTS_QUESTIONS)
 def test_failing_git_ls_files_raises(tmp_path: pathlib.Path, question: str) -> None:
     write(tmp_path, 'AGENTS.md', AGENTS)
-    with pytest.raises(phaseb.PhaseBError):
-        phaseb.list_candidates(question, tmp_path)
+    with pytest.raises(auditme.phaseb.PhaseBError):
+        auditme.phaseb.list_candidates(question, tmp_path)
 
 
-@pytest.mark.parametrize('question', ['Doc1', 'Doc2'])
+@pytest.mark.parametrize('question', AGENTS_QUESTIONS)
 def test_agents_listers_are_registered_and_stable(agents_root: pathlib.Path, question: str) -> None:
-    assert phaseb.question_batch_size(question) == 12
-    assert phaseb.question_brief(question) == candidates.A4_BRIEF.parent / f'{question}.md'
-    assert phaseb.list_candidates(question, agents_root) == phaseb.list_candidates(question, agents_root)
+    assert auditme.phaseb.question_batch_size(question) == 12
+    assert auditme.phaseb.question_brief(question) == auditme.phaseb.candidates.A4_BRIEF.parent / f'{question}.md'
+    assert auditme.phaseb.list_candidates(question, agents_root) == auditme.phaseb.list_candidates(question, agents_root)

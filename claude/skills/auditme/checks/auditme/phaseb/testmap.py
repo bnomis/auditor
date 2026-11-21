@@ -14,7 +14,7 @@ import typing
 
 import auditme.core
 import auditme.phaseb.candidates
-from auditme.phaseb.errors import PhaseBError
+import auditme.phaseb.errors
 
 TEST_TREES = ('src/tests', 'tests')
 
@@ -54,11 +54,11 @@ def parse_file(path: pathlib.Path, base: pathlib.Path, root: pathlib.Path) -> Pa
         text = path.read_text(encoding='utf-8')
         tree = ast.parse(text)
     except (OSError, UnicodeDecodeError, SyntaxError) as error:
-        raise PhaseBError(f'cannot parse {path}: {error}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot parse {path}') from error
     module = auditme.core.module_dotted(path, base)
     return ParsedFile(
         path=path,
-        rel=auditme.core._relpath(path, root),
+        rel=auditme.core.relpath(path, root),
         module=module,
         tree=tree,
         lines=text.splitlines(),
@@ -66,15 +66,9 @@ def parse_file(path: pathlib.Path, base: pathlib.Path, root: pathlib.Path) -> Pa
     )
 
 
-def is_test_relpath(rel: str) -> bool:
-    """True for a root-relative path that is a `test_*.py`, `*_test.py`, `conftest.py` or inside a `tests` directory."""
-    path = pathlib.PurePosixPath(rel)
-    return 'tests' in path.parts[:-1] or path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py'
-
-
 def is_test_path(path: pathlib.Path, root: pathlib.Path) -> bool:
     """True for a file in a `tests` directory, a `test_*.py`, `*_test.py` or `conftest.py`."""
-    return is_test_relpath(path.relative_to(root).as_posix())
+    return auditme.core.is_test_relpath(path.relative_to(root).as_posix())
 
 
 def test_tree_roots(root: pathlib.Path) -> list[pathlib.Path]:
@@ -87,11 +81,12 @@ def source_sites(root: pathlib.Path) -> tuple[list[auditme.phaseb.candidates.Sit
 
     Raises:
         PhaseBError: an audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     sites: list[auditme.phaseb.candidates.Site] = []
     parsed: dict[str, ParsedFile] = {}
-    for src_root in auditme.core._audit_roots(root):
-        for path in auditme.core._all_py_files(src_root):
+    for src_root in auditme.core.audit_roots(root):
+        for path in auditme.core.all_py_files(src_root):
             if is_test_path(path, root):
                 continue
             file = parse_file(path, src_root, root)
@@ -280,7 +275,7 @@ class TestIndex:
         stem = f'test_{source.stem}.py'
         candidates = {(*parts[:-1], stem), (*parts[1:-1], stem)}
         return sorted(
-            auditme.core._relpath(path, self.root)
+            auditme.core.relpath(path, self.root)
             for tree_root in test_tree_roots(self.root)
             for names in candidates
             for path in [tree_root.joinpath(*names)]
@@ -297,6 +292,7 @@ def build_index(root: pathlib.Path) -> TestIndex:
 
     Raises:
         PhaseBError: a test file or audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     site_list, parsed_sources = source_sites(root)
     tests, conftests = parse_test_tree(root)
@@ -343,6 +339,7 @@ def build_index(root: pathlib.Path) -> TestIndex:
     return TestIndex(root, sites, direct, tests, conftests, reached, {site.id: site for site in site_list}, parsed_sources, aliases)
 
 
+# auditme: accept[passthrough-shim] public, documented and in `phaseb.__all__`
 def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
     """Map each package function id to the tests that reach it, sorted by id.
 
@@ -353,5 +350,6 @@ def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, .
 
     Raises:
         PhaseBError: a test file or audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     return build_index(root).refs(depth)

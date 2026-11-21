@@ -33,9 +33,7 @@ repos:
         language: script
         pass_filenames: false
         always_run: true
-        # Manual only until the backlog item in TODO.md ("Fix or accept this
-        # repository's audit backlog") is done; then pre-push returns.
-        stages: [manual]
+        stages: [manual, pre-push]
 
       # This repository serves many projects, so no file or commit message
       # names one (the agents repository's claude/rules/rule-scope.md). The

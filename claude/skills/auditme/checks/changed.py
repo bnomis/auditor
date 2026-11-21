@@ -25,13 +25,14 @@ import sys
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+import auditme.core  # noqa: E402
 import auditme.rules.project_hygiene  # noqa: E402  sys.path is set up immediately above
 
 AUDIT_SCRIPT = HERE / 'audit.py'
 SWEEP_TIMEOUT = 600
+# auditme: accept[non-alphabetical-literal] the order is the priority in which a diff base is tried
 BASE_CANDIDATES = ('@{upstream}', 'origin/main', 'main')
 CRASH_RULE = 'auditme-check-crash'
-SPEC_SKIP_PARTS = auditme.rules.project_hygiene._SPEC_SKIP_PARTS
 ACCEPT_HELP = 'Fix each hit, or accept one with a comment on its line or the line above:\n    # auditme: accept[<rule>] <reason>'
 # Hits no accept marker can accept: each comes from a tool, and is cleared there.
 RULE_HELP = {
@@ -56,7 +57,7 @@ def run_git(repo_root: pathlib.Path, *args: str) -> subprocess.CompletedProcess[
             check=False,
         )
     except OSError as exc:
-        raise ChangedError(f'cannot run git: {exc}') from exc
+        raise ChangedError('cannot run git') from exc
 
 
 def git_lines(repo_root: pathlib.Path, *args: str) -> list[str]:
@@ -67,7 +68,11 @@ def git_lines(repo_root: pathlib.Path, *args: str) -> list[str]:
 
 
 def resolve_base(repo_root: pathlib.Path) -> str | None:
-    """The first of the candidate refs that resolves, or None."""
+    """The first of the candidate refs that resolves, or None.
+
+    Raises:
+        ChangedError: `git rev-parse` fails for a reason other than the ref not resolving.
+    """
     for candidate in BASE_CANDIDATES:
         result = run_git(repo_root, 'rev-parse', '--verify', '--quiet', candidate)
         if result.returncode == 0:
@@ -111,7 +116,7 @@ def reportable(path: str) -> bool:
         return True
     if pure.suffix == '.md':
         dirs = pure.parts[:-1]
-        return not (SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs))
+        return not (auditme.rules.project_hygiene.SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs))
     return False
 
 
@@ -135,7 +140,7 @@ def sweep(repo_root: pathlib.Path) -> list[dict[str, object]]:
     except subprocess.TimeoutExpired as exc:
         raise ChangedError(f'the audit sweep timed out after {SWEEP_TIMEOUT} seconds') from exc
     except OSError as exc:
-        raise ChangedError(f'the audit sweep could not start: {exc}') from exc
+        raise ChangedError('the audit sweep could not start') from exc
     if result.returncode != 0:
         detail = (result.stderr.strip() or result.stdout.strip())[-500:]
         raise ChangedError(f'the audit sweep exited {result.returncode}: {detail}')
@@ -226,7 +231,8 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
                 return 0
         hits = [hit for hit in sweep(repo_root) if not hit.get('accepted') and in_scope(hit, scope)]
     except ChangedError as exc:
-        print(f'changed.py: {exc}')
+        # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+        print(f'changed.py: {auditme.core.describe_error(exc)}')
         return 1
     if not hits:
         return 0

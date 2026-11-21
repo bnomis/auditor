@@ -7,7 +7,7 @@ import pathlib
 import re
 import subprocess
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, corpus_definitions
+import auditme.core
 
 
 def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:
@@ -30,9 +30,10 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         ([ruff, 'format', '--check', str(src_root)], 'ruff-format'),
     ):
         try:
+            # auditme: accept[subprocess-without-memoisation] its arguments differ per root
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=scope)
         except FileNotFoundError:
-            _emit(
+            auditme.core.emit(
                 rule='ruff',
                 variant=variant,
                 path=None,
@@ -45,31 +46,35 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         if variant == 'ruff-check' and result.stdout.strip():
             try:
                 for hit in json.loads(result.stdout):
-                    _emit(
+                    auditme.core.emit(
                         rule='ruff',
                         variant=hit.get('code', 'ruff-check'),
-                        path=_relpath(pathlib.Path(hit['filename']), scope),
+                        path=auditme.core.relpath(pathlib.Path(hit['filename']), scope),
                         line=hit['location']['row'],
                         evidence=hit.get('message', ''),
                         accepted=False,
                         accepted_reason=None,
                     )
             except json.JSONDecodeError:
-                _emit(rule='ruff', variant='ruff-check-parse-error', path=None, line=None, evidence=result.stdout[:200], accepted=False, accepted_reason=None)
+                auditme.core.emit(
+                    rule='ruff', variant='ruff-check-parse-error', path=None, line=None, evidence=result.stdout[:200], accepted=False, accepted_reason=None
+                )
         elif variant == 'ruff-format' and result.returncode != 0:
             for ln in result.stdout.splitlines() + result.stderr.splitlines():
                 if 'Would reformat' in ln or ln.endswith('.py'):
-                    _emit(
+                    auditme.core.emit(
                         rule='ruff', variant='ruff-format', path=ln.split(':')[0].strip(), line=None, evidence=ln.strip(), accepted=False, accepted_reason=None
                     )
 
 
 # `uv lock --check` exits non-zero both when the lockfile is genuinely stale
 # and when it could not resolve at all. Only the first message is the drift.
-_LOCKFILE_DRIFT_MARKER = 'needs to be updated'
+LOCKFILE_DRIFT_MARKER = 'needs to be updated'
 # uv's reason for re-resolving when the user's config adds an `exclude-newer` the lock lacks.
-_USER_EXCLUDE_NEWER_MARKER = 'due to addition of global exclude newer'
-_LOCKFILE_TIMESTAMP_RE = re.compile(r'\d{4}-\d{2}-\d{2}T[\d:.]+Z?')
+USER_EXCLUDE_NEWER_MARKER = 'due to addition of global exclude newer'
+# auditme: accept[non-alphabetical-literal] a command line: the order is the argv
+UV_LOCK_CHECK = ('uv', 'lock', '--check')
+LOCKFILE_TIMESTAMP_RE = re.compile(r'\d{4}-\d{2}-\d{2}T[\d:.]+Z?')
 
 
 def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -78,15 +83,16 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     if not pyproject.exists() or not uvlock.exists():
         return
     try:
-        result = subprocess.run(['uv', 'lock', '--check'], capture_output=True, text=True, cwd=scope)
+        # auditme: accept[subprocess-without-memoisation] a PROJECT_CHECKS entry: the driver runs it once per sweep
+        result = subprocess.run(UV_LOCK_CHECK, capture_output=True, text=True, cwd=scope)
         # A user-level `exclude-newer` that the lock was not made with re-resolves
         # it on this machine only; CI, without that config, sees no drift. Only
         # when uv names that setting as the reason is the check repeated without
         # the user's config. A lock made with the setting records it and passes
         # the first run, and dropping the config for it would report drift.
-        if result.returncode != 0 and _USER_EXCLUDE_NEWER_MARKER in (result.stderr or '') + (result.stdout or ''):
+        if result.returncode != 0 and USER_EXCLUDE_NEWER_MARKER in (result.stderr or '') + (result.stdout or ''):
             env = {**os.environ, 'UV_NO_CONFIG': '1'}
-            result = subprocess.run(['uv', 'lock', '--check'], capture_output=True, text=True, cwd=scope, env=env)
+            result = subprocess.run(UV_LOCK_CHECK, capture_output=True, text=True, cwd=scope, env=env)
     except FileNotFoundError:
         return
     if result.returncode == 0:
@@ -99,21 +105,21 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     # string every time on an unchanged tree - see the convergence rules in
     # SKILL.md. Keep only the error lines, with any timestamp masked.
     error_lines = [line.strip() for line in output.splitlines() if line.strip().startswith('error:')]
-    evidence = _LOCKFILE_TIMESTAMP_RE.sub('<timestamp>', ' '.join(error_lines))[:200]
+    evidence = LOCKFILE_TIMESTAMP_RE.sub('<timestamp>', ' '.join(error_lines))[:200]
 
     # A lockfile that needs regenerating and a lockfile that could not be
     # checked are different facts: the first is drift, the second means the
     # question went unanswered. Reporting both as drift is the
     # failure-versus-absence defect, in the checker rather than in the code
     # under audit.
-    if _LOCKFILE_DRIFT_MARKER in output:
+    if LOCKFILE_DRIFT_MARKER in output:
         variant = 'uv lock --check reports the lockfile is out of date'
         evidence = evidence or 'lockfile needs updating'
     else:
         variant = 'uv lock --check could not verify the lockfile'
         evidence = evidence or 'no error detail on stderr or stdout'
 
-    _emit(
+    auditme.core.emit(
         rule='lockfile-drift',
         variant=variant,
         path='uv.lock',
@@ -124,30 +130,30 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     )
 
 
-_HOOK_REPO_RE = re.compile(r'^\s*-\s*repo:\s*(\S+)')
-_HOOK_REV_RE = re.compile(r"""^\s*rev:\s*['"]?([^'"\s#]+)['"]?\s*(#.*)?$""")
-_PLAIN_VERSION_RE = re.compile(r'^v?(\d+\.\d+\.\d+)$')
-_FROZEN_RE = re.compile(r'#\s*frozen:\s*(v?\d+\.\d+\.\d+)\s*$')
-_RUFF_VERSION_OUTPUT_RE = re.compile(r'^ruff (\d+\.\d+\.\d+)')
+HOOK_REPO_RE = re.compile(r'^\s*-\s*repo:\s*(\S+)')
+HOOK_REV_RE = re.compile(r"""^\s*rev:\s*['"]?([^'"\s#]+)['"]?\s*(#.*)?$""")
+PLAIN_VERSION_RE = re.compile(r'^v?(\d+\.\d+\.\d+)$')
+FROZEN_RE = re.compile(r'#\s*frozen:\s*(v?\d+\.\d+\.\d+)\s*$')
+RUFF_VERSION_OUTPUT_RE = re.compile(r'^ruff (\d+\.\d+\.\d+)')
 
 
-def _ruff_hook_pin(lines: list[str]) -> tuple[int, int | None, str | None] | None:
+def ruff_hook_pin(lines: list[str]) -> tuple[int, int | None, str | None] | None:
     """Return (repo line, rev line, pinned version text) for the first
     `ruff-pre-commit` repo entry, or None when the file has none. Line numbers
     are 1-based; the rev line and version are None when they cannot be read."""
     for index, text in enumerate(lines):
-        repo = _HOOK_REPO_RE.match(text)
+        repo = HOOK_REPO_RE.match(text)
         if not repo or not repo.group(1).rstrip('/').removesuffix('.git').rstrip('/').endswith('/ruff-pre-commit'):
             continue
         for rev_index in range(index + 1, len(lines)):
-            if _HOOK_REPO_RE.match(lines[rev_index]):
+            if HOOK_REPO_RE.match(lines[rev_index]):
                 break
-            rev = _HOOK_REV_RE.match(lines[rev_index])
+            rev = HOOK_REV_RE.match(lines[rev_index])
             if not rev:
                 continue
-            if _PLAIN_VERSION_RE.match(rev.group(1)):
+            if PLAIN_VERSION_RE.match(rev.group(1)):
                 return index + 1, rev_index + 1, rev.group(1)
-            frozen = _FROZEN_RE.search(rev.group(2) or '')
+            frozen = FROZEN_RE.search(rev.group(2) or '')
             return index + 1, rev_index + 1, frozen.group(1) if frozen else None
         return index + 1, None, None
     return None
@@ -165,21 +171,21 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     config = scope / '.pre-commit-config.yaml'
     if not config.exists():
         return
-    lines = _source_lines(config)
-    pin = _ruff_hook_pin(lines)
+    lines = auditme.core.source_lines(config)
+    pin = ruff_hook_pin(lines)
     if pin is None:
         return
     repo_line, rev_line, pinned = pin
     anchor = rev_line or repo_line
 
     def emit(variant: str, evidence: str) -> None:
-        _emit(
+        auditme.core.emit(
             rule='ruff-version-drift',
             variant=variant,
             path='.pre-commit-config.yaml',
             line=anchor,
             evidence=evidence,
-            accepted=(reason := _accept_reason(lines, anchor, rule='ruff-version-drift')) is not None,
+            accepted=(reason := auditme.core.accept_reason(lines, anchor, rule='ruff-version-drift')) is not None,
             accepted_reason=reason,
         )
 
@@ -188,10 +194,11 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         return
     try:
         ruff, label = ruff_executable(scope)
+        # auditme: accept[subprocess-without-memoisation] a PROJECT_CHECKS entry: the driver runs it once per sweep
         result = subprocess.run([ruff, '--version'], capture_output=True, text=True, cwd=scope)
     except FileNotFoundError:
         return
-    running = _RUFF_VERSION_OUTPUT_RE.match(result.stdout.strip())
+    running = RUFF_VERSION_OUTPUT_RE.match(result.stdout.strip())
     if not running:
         emit('ruff --version printed no version', result.stdout.strip()[:200])
         return
@@ -199,9 +206,9 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         emit('the ruff the audit runs differs from the ruff-pre-commit rev', f'{label} is {running.group(1)}; the hook pins {pinned}')
 
 
-_PHASE_REF_RE = re.compile(r'\bPhase\s+[1-9][a-z]?\b')
+PHASE_REF_RE = re.compile(r'\bPhase\s+[1-9][a-z]?\b')
 
-_SECTION_REF_RE = re.compile(r'\bSection\s+[0-9]+\.[0-9]+\b')
+SECTION_REF_RE = re.compile(r'\bSection\s+[0-9]+\.[0-9]+\b')
 
 
 def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -220,9 +227,9 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
       - Hit is not explicitly accepted via inline marker.
     """
     file_level_accept_re = re.compile(r'^\s*#\s*auditme:\s*accept\s+.*phase-section')
-    for path in _all_py_files(src_root):
-        rel = _relpath(path, scope)
-        lines = _source_lines(path)
+    for path in auditme.core.all_py_files(src_root):
+        rel = auditme.core.relpath(path, scope)
+        lines = auditme.core.source_lines(path)
         # File-level accept check: if any line is a comment-only
         # `# auditme: accept phase-section ...`, skip the file.
         if any(file_level_accept_re.search(raw) for raw in lines):
@@ -242,15 +249,15 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
                     docstring_ranges.append((const.lineno, end))
 
         for idx, raw in enumerate(lines, 1):
-            matches = list(_PHASE_REF_RE.finditer(raw)) + list(_SECTION_REF_RE.finditer(raw))
+            matches = list(PHASE_REF_RE.finditer(raw)) + list(SECTION_REF_RE.finditer(raw))
             if not matches:
                 continue
             stripped = raw.strip()
             is_comment = stripped.startswith('#')
             if not (is_comment or any(a <= idx <= b for a, b in docstring_ranges)):
                 continue
-            accept = _accept_reason(lines, idx, rule='phase-section-doc-reference')
-            _emit(
+            accept = auditme.core.accept_reason(lines, idx, rule='phase-section-doc-reference')
+            auditme.core.emit(
                 rule='phase-section-doc-reference',
                 variant=f'numeric spec cross-reference {matches[0].group(0)!r}',
                 path=rel,
@@ -261,15 +268,15 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
             )
 
 
-_API_HEADING_RE = re.compile(r'^#{2,4}\s+API\b', re.IGNORECASE)
-_ANY_HEADING_RE = re.compile(r'^#{1,6}\s+')
-_FENCE_RE = re.compile(r'^\s*```')
-_DEF_LINE_RE = re.compile(r'^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(')
-_CLASS_LINE_RE = re.compile(r'^(\s*)class\s+[A-Za-z_]\w*\s*[(:]')
-_SPEC_SKIP_PARTS = frozenset({'.git', '.venv', 'node_modules', '__pycache__', 'audit-reviews', 'tasks'})
+API_HEADING_RE = re.compile(r'^#{2,4}\s+API\b', re.IGNORECASE)
+ANY_HEADING_RE = re.compile(r'^#{1,6}\s+')
+BACKTICK_FENCE_RE = re.compile(r'^\s*```')
+DEF_LINE_RE = re.compile(r'^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(')
+CLASS_LINE_RE = re.compile(r'^(\s*)class\s+[A-Za-z_]\w*\s*[(:]')
+SPEC_SKIP_PARTS = frozenset({'.git', '.venv', '__pycache__', 'audit-reviews', 'node_modules', 'tasks'})
 
 
-def _signature_params(node: ast.AST) -> list[str] | None:
+def signature_params(node: ast.AST) -> list[str] | None:
     """Render a def's parameters as an ordered list of comparable names.
 
     A keyword-only marker is rendered as a `*` entry and a default as a
@@ -298,7 +305,7 @@ def _signature_params(node: ast.AST) -> list[str] | None:
     return out
 
 
-def _parse_spec_def(block_lines: list[str], start: int) -> tuple[ast.AST, int] | None:
+def parse_spec_def(block_lines: list[str], start: int) -> tuple[ast.AST, int] | None:
     """Parse one `def` from a spec code block, joining wrapped lines.
 
     Returns the parsed node and the index of the last line consumed, or
@@ -327,7 +334,7 @@ def _parse_spec_def(block_lines: list[str], start: int) -> tuple[ast.AST, int] |
     return module.body[0], index
 
 
-def _spec_markdown_files(scope: pathlib.Path) -> list[pathlib.Path]:
+def spec_markdown_files(scope: pathlib.Path) -> list[pathlib.Path]:
     """Markdown under scope, minus records and hidden directories.
 
     A hidden directory is skipped as a whole, not just `.git`/`.venv`: a
@@ -338,7 +345,7 @@ def _spec_markdown_files(scope: pathlib.Path) -> list[pathlib.Path]:
     out = []
     for path in scope.rglob('*.md'):
         dirs = path.relative_to(scope).parts[:-1]
-        if _SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs):
+        if SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs):
             continue
         out.append(path)
     return sorted(out)
@@ -358,7 +365,7 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
         `## API` (or `### API`) heading and precedes the next heading;
       - the same bare name resolves to exactly one module-level definition
         across the whole corpus (see `corpus_definitions`);
-      - the ordered parameter lists differ (see `_signature_params` - names,
+      - the ordered parameter lists differ (see `signature_params` - names,
         `*` placement and the presence of a default, never types).
 
     Refinements (each has a test asserting it does not fire):
@@ -388,26 +395,26 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
     instances by hand in a single pass, nearly all of them a
     parameter added by a fix whose commit did not touch the spec.
     """
-    definitions = corpus_definitions(scope, src_root)
+    definitions = auditme.core.corpus_definitions(scope, src_root)
     if not definitions:
         return
 
-    for doc in _spec_markdown_files(scope):
-        lines = _source_lines(doc)
-        rel = _relpath(doc, scope)
+    for doc in spec_markdown_files(scope):
+        lines = auditme.core.source_lines(doc)
+        rel = auditme.core.relpath(doc, scope)
         in_api_section = False
         in_fence = False
         class_indent: int | None = None
         index = 0
         while index < len(lines):
             line = lines[index]
-            if _FENCE_RE.match(line):
+            if BACKTICK_FENCE_RE.match(line):
                 in_fence = not in_fence
                 class_indent = None
                 index += 1
                 continue
-            if not in_fence and _ANY_HEADING_RE.match(line):
-                in_api_section = bool(_API_HEADING_RE.match(line))
+            if not in_fence and ANY_HEADING_RE.match(line):
+                in_api_section = bool(API_HEADING_RE.match(line))
                 index += 1
                 continue
             if not (in_fence and in_api_section):
@@ -416,19 +423,19 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
             indent = len(line) - len(line.lstrip())
             if line.strip() and class_indent is not None and indent <= class_indent:
                 class_indent = None
-            class_match = _CLASS_LINE_RE.match(line)
+            class_match = CLASS_LINE_RE.match(line)
             if class_match and class_indent is None:
                 class_indent = len(class_match.group(1))
                 index += 1
                 continue
-            match = _DEF_LINE_RE.match(line)
+            match = DEF_LINE_RE.match(line)
             if not match:
                 index += 1
                 continue
             if class_indent is not None:
                 index += 1
                 continue
-            parsed = _parse_spec_def(lines, index)
+            parsed = parse_spec_def(lines, index)
             if parsed is None:
                 index += 1
                 continue
@@ -439,19 +446,19 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
                 index = last_index + 1
                 continue
             source_node, source_path = candidates[0]
-            spec_params = _signature_params(spec_node)
-            source_params = _signature_params(source_node)
+            spec_params = signature_params(spec_node)
+            source_params = signature_params(source_node)
             if spec_params is None or source_params is None or spec_params == source_params:
                 index = last_index + 1
                 continue
-            accept = _accept_reason(lines, index + 1, end_lineno=last_index + 1, rule='spec-api-signature-drift')
-            _emit(
-                related=[_relpath(source_path, scope)],
+            accept = auditme.core.accept_reason(lines, index + 1, end_lineno=last_index + 1, rule='spec-api-signature-drift')
+            auditme.core.emit(
+                related=[auditme.core.relpath(source_path, scope)],
                 rule='spec-api-signature-drift',
                 variant=f'{name}: spec says ({", ".join(spec_params)}), source says ({", ".join(source_params)})',
                 path=rel,
                 line=index + 1,
-                evidence=f'{line.strip()[:120]} | {_relpath(source_path, scope)}:{source_node.lineno}',
+                evidence=f'{line.strip()[:120]} | {auditme.core.relpath(source_path, scope)}:{source_node.lineno}',
                 accepted=bool(accept),
                 accepted_reason=accept,
             )

@@ -13,8 +13,8 @@ MANIFEST = REPO_ROOT / '.pre-commit-hooks.yaml'
 
 NAMES_HOOK = {
     'entry': 'bin/check-foreign-names.sh',
-    'language': 'script',
     'exclude': r'^uv\.lock$',
+    'language': 'script',
     'stages': '[pre-commit, commit-msg]',
 }
 

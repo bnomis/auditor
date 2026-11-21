@@ -31,7 +31,7 @@ def make_repo(tmp_path: pathlib.Path, opted_in: bool) -> pathlib.Path:
     return repo
 
 
-def run(home: pathlib.Path, cwd: pathlib.Path, payload: dict) -> subprocess.CompletedProcess[str]:
+def run(home: pathlib.Path, cwd: pathlib.Path, payload: dict[str, object]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ['bash', str(HOOK)],
         input=json.dumps(payload),

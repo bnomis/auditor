@@ -18,11 +18,13 @@ import textwrap
 import tomllib
 
 import auditme.core
+import auditme.phaseb.errors
 import auditme.rules.error_handling
 import auditme.rules.imports_and_surfaces
 import auditme.rules.state_and_effects
-from auditme.phaseb import candidates, testmap
-from auditme.phaseb.errors import PhaseBError
+from auditme.phaseb import (
+    candidates,
+)  # auditme: accept[from-import] the package init imports this module while `auditme.phaseb` is not yet bound on `auditme`, so a qualified path fails at import
 
 Check = collections.abc.Callable[[pathlib.Path, pathlib.Path], None]
 
@@ -32,29 +34,29 @@ MODULE_QUALNAME = '<module>'
 def capture_hits(scope: pathlib.Path, checks: collections.abc.Sequence[Check]) -> set[tuple[str, str, int]]:
     """Run checks over every audit root and return each hit as (rule, path, line).
 
-    Saves and restores `_EMITTED` and captures stdout. Accepted hits are included.
+    Saves and restores `EMITTED` and captures stdout. Accepted hits are included.
 
     Raises:
         PhaseBError: a check raised; the message names the check.
     """
-    saved = set(auditme.core._EMITTED)
+    saved = set(auditme.core.EMITTED)
     hits: set[tuple[str, str, int]] = set()
     try:
         for check in checks:
-            auditme.core._EMITTED.clear()
+            auditme.core.EMITTED.clear()
             buffer = io.StringIO()
             try:
                 with contextlib.redirect_stdout(buffer):
-                    for src_root in auditme.core._audit_roots(scope):
+                    for src_root in auditme.core.audit_roots(scope):
                         check(scope, src_root)
             except Exception as error:  # a check's failure must stop the lister, whatever its type
-                raise PhaseBError(f'check {getattr(check, "__name__", check)!r} failed: {error}') from error
+                raise auditme.phaseb.errors.PhaseBError(f'check {getattr(check, "__name__", check)!r} failed') from error
             for line in buffer.getvalue().splitlines():
                 record = json.loads(line)
                 hits.add((record['rule'], record['path'], record['line']))
     finally:
-        auditme.core._EMITTED.clear()
-        auditme.core._EMITTED.update(saved)
+        auditme.core.EMITTED.clear()
+        auditme.core.EMITTED.update(saved)
     return hits
 
 
@@ -76,16 +78,17 @@ def parse_audited_files(scope: pathlib.Path) -> list[ParsedSource]:
         PhaseBError: a file does not parse; the rules skip it, but a skipped
             file would hide its candidates and let `merge` drop their ledger
             entries as vanished.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     files: list[ParsedSource] = []
-    for src_root in auditme.core._audit_roots(scope):
-        for path in auditme.core._all_py_files(src_root):
+    for src_root in auditme.core.audit_roots(scope):
+        for path in auditme.core.all_py_files(src_root):
             try:
                 text = path.read_text(encoding='utf-8')
                 tree = ast.parse(text)
             except (OSError, UnicodeDecodeError, SyntaxError) as error:
-                raise PhaseBError(f'cannot parse {path}: {error}') from error
-            files.append(ParsedSource(path, auditme.core._relpath(path, scope), auditme.core.module_dotted(path, src_root), tree, text.splitlines()))
+                raise auditme.phaseb.errors.PhaseBError(f'cannot parse {path}') from error
+            files.append(ParsedSource(path, auditme.core.relpath(path, scope), auditme.core.module_dotted(path, src_root), tree, text.splitlines()))
     return files
 
 
@@ -97,12 +100,12 @@ class SiteCounter:
     """
 
     def __init__(self) -> None:
-        self._counts: collections.Counter[str] = collections.Counter()
+        self.qualname_counts: collections.Counter[str] = collections.Counter()
 
     def next(self, qualname: str) -> int:
         """The number of the next site in this qualname."""
-        self._counts[qualname] += 1
-        return self._counts[qualname]
+        self.qualname_counts[qualname] += 1
+        return self.qualname_counts[qualname]
 
 
 def child_qualname(qualname: str, name: str) -> str:
@@ -314,14 +317,14 @@ def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
 
 A19_BRIEF = candidates.DOC_BRIEFS / 'A19.md'
-A19_RULES = ('silent-broad-except', 'broad-except-wrong-level', 'logger-exception-graceful-degradation')
+A19_RULES = ('broad-except-wrong-level', 'logger-exception-graceful-degradation', 'silent-broad-except')
 A19_CHECKS = (
     auditme.rules.error_handling.check_silent_broad_except,
     auditme.rules.error_handling.check_broad_except_wrong_level,
     auditme.rules.error_handling.check_logger_exception_graceful_degradation,
 )
-LOGGER_NAMES = frozenset({'logger', 'log', '_logger', 'LOGGER', 'logging', 'loguru.logger'})
-LOG_LEVELS = frozenset({'debug', 'info', 'warning', 'warn', 'error', 'critical', 'exception'})
+LOGGER_NAMES = frozenset({'LOGGER', '_logger', 'log', 'logger', 'logging', 'loguru.logger'})
+LOG_LEVELS = frozenset({'critical', 'debug', 'error', 'exception', 'info', 'warn', 'warning'})
 LEAVING_STATEMENTS = (ast.Return, ast.Raise, ast.Continue, ast.Break)
 
 
@@ -598,7 +601,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     hits = capture_hits(scope, A1_CHECKS)
     domain_errors = package_domain_errors(files)
     catches: dict[str, frozenset[str]] = {}
-    for src_root in auditme.core._audit_roots(scope):
+    for src_root in auditme.core.audit_roots(scope):
         for name, caught in auditme.rules.error_handling.translator_envelopes(src_root).items():
             catches[name] = catches.get(name, frozenset()) | caught
     envelope_sources: dict[str, list[str]] = collections.defaultdict(list)
@@ -615,7 +618,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     sites: dict[str, list[CallSite]] = {}
     callers_of: dict[str, list[tuple[ParsedSource, CallSite]]] = collections.defaultdict(list)
     for file in files:
-        if testmap.is_test_relpath(file.rel):
+        if auditme.core.is_test_relpath(file.rel):
             continue
         sites[file.rel] = list(call_sites(file.tree, Scope(MODULE_QUALNAME, None, False, None, None)))
         for site in sites[file.rel]:
@@ -641,7 +644,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
     found: list[candidates.Candidate] = []
     for file in files:
-        if testmap.is_test_relpath(file.rel) or file.module.partition('.')[0] not in domain_errors:
+        if auditme.core.is_test_relpath(file.rel) or file.module.partition('.')[0] not in domain_errors:
             continue
         errors = domain_errors[file.module.partition('.')[0]]
         imports = import_targets(file.tree)
@@ -713,14 +716,18 @@ def dunder_all_names(tree: ast.Module) -> list[str] | None:
 
 
 def entry_point_targets(scope: pathlib.Path) -> list[tuple[str, str, str]]:
-    """Each `[project.scripts]` and `[project.entry-points]` target of `pyproject.toml` as (module, name, text)."""
+    """Each `[project.scripts]` and `[project.entry-points]` target of `pyproject.toml` as (module, name, text).
+
+    Raises:
+        PhaseBError: `pyproject.toml` cannot be read or parsed.
+    """
     pyproject = scope / 'pyproject.toml'
     if not pyproject.is_file():
         return []
     try:
         project = tomllib.loads(pyproject.read_text(encoding='utf-8')).get('project', {})
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-        raise PhaseBError(f'cannot parse {pyproject}: {error}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot parse {pyproject}') from error
     tables = [project.get('scripts', {})]
     tables.extend(project.get('entry-points', {}).values())
     targets: list[tuple[str, str, str]] = []
@@ -741,7 +748,7 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     is not listed.
     """
     files = parse_audited_files(scope)
-    roots = auditme.core._audit_roots(scope)
+    roots = auditme.core.audit_roots(scope)
     if not roots:
         return []
     hits = capture_hits(scope, A17_CHECKS)
@@ -759,8 +766,8 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
             if names is None and read_module == module:
                 continue
             for path, line in where:
-                rel = auditme.core._relpath(path, scope)
-                if rel.startswith(f'{directory}/') or testmap.is_test_relpath(rel) or (A17_SHIM_RULE, rel, line) in hits:
+                rel = auditme.core.relpath(path, scope)
+                if rel.startswith(f'{directory}/') or auditme.core.is_test_relpath(rel) or (A17_SHIM_RULE, rel, line) in hits:
                     continue
                 text = line_cache.setdefault(path, path.read_text(encoding='utf-8').splitlines())[line - 1].strip()
                 entries.append((name, f'{rel}: {text}'))

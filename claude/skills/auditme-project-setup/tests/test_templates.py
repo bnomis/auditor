@@ -7,14 +7,14 @@ SKILL_DIR = pathlib.Path(__file__).resolve().parents[1]
 TEMPLATES = SKILL_DIR / 'templates'
 
 NAMES = [
-    'pre-commit-config.yaml',
-    'ci.yml',
-    'ci-audit-step.yml',
     'AGENTS.md',
     'CLAUDE.md',
-    'TODO.md',
     'DONE.md',
+    'TODO.md',
+    'ci-audit-step.yml',
+    'ci.yml',
     'claude/rules/README.md',
+    'pre-commit-config.yaml',
 ]
 PLACEHOLDERS = {'AUDITOR_REV', 'PROJECT_NAME', 'TEST_COMMAND'}
 ALIAS_REWRITE = 'url."git@github-auditor:bnomis/auditor.git".insteadOf "git@github.com:bnomis/auditor.git"'

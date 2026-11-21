@@ -66,7 +66,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
 def capture_hits(scope: pathlib.Path, checks: collections.abc.Sequence[Check]) -> set[tuple[str, str, int]]:
     """Run checks over every audit root and return each hit as (rule, path, line).
 
-    Saves and restores `_EMITTED` and captures stdout. Accepted hits are included.
+    Saves and restores `EMITTED` and captures stdout. Accepted hits are included.
 
     Raises:
         PhaseBError: a check raised; the message names the check.
@@ -105,7 +105,7 @@ Module-level code has the qualname `<module>`.
 ### Hoists
 
 A finder that reads the whole corpus, or serves more than one rule module,
-moves to `core.py` beside `_audit_roots`; any other becomes public in its rule
+moves to `core.py` beside `audit_roots`; any other becomes public in its rule
 module. No rule's output and no existing test changes.
 
 - `if_chain` is the chain walk inside `check_assert_never_missing`

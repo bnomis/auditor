@@ -122,7 +122,7 @@ design, not the project:
 | Path | What it is |
 |------|------------|
 | `claude/skills/auditme/checks/changed.py` | The changed-files runner (new): runs the sweep, filters by scope, exits non-zero on unaccepted hits |
-| `claude/skills/auditme/checks/auditme/core.py` | `_emit()` gains the optional `related` field |
+| `claude/skills/auditme/checks/auditme/core.py` | `emit()` gains the optional `related` field |
 | `claude/skills/auditme/checks/auditme/rules/*.py` | Each cross-file rule passes `related` |
 | `.pre-commit-hooks.yaml` | At the repository root (new): publishes `auditme-changed` and `auditme-all` |
 | `claude/hooks/auditme-stop.sh` | The Stop hook (new) |
@@ -282,7 +282,7 @@ with the gaps closed. It is stdlib-only, like the rest of the checker.
   (`SKIP=auditme-changed git commit`; with `--all`, which runs on push and in
   CI, `SKIP=auditme-all git push`, 1.3).
 
-**Cross-file hits carry `related`.** `_emit()` takes an optional
+**Cross-file hits carry `related`.** `emit()` takes an optional
 `related: list[str]` of repository-relative paths, omitted when empty so a hit
 without it is byte-identical to today's. Every rule whose predicate compares
 locations in two or more files sets it to the other locations' paths:
@@ -306,7 +306,7 @@ hit exits 1 naming the cause. The timeout is 600 seconds.
 
 1. The `src/ does not exist` guard is replaced by a check that `<scope-root>`
    is a directory, so a mistyped scope is still an error.
-2. The `no package under src` guard is removed. `_audit_roots()` already
+2. The `no package under src` guard is removed. `audit_roots()` already
    returns `[]` for a missing `src/`, so a project with only `bin/` is swept
    over `bin/`. With no root at all, the driver prints
    `audit.py: no package under src/ and no extra root; running the
@@ -317,7 +317,7 @@ hit exits 1 naming the cause. The timeout is 600 seconds.
    `rule='src-loose-module'`, `variant='module directly under src/, outside
    any package'`, `path='src/<name>.py'`, `line=1`, `evidence=<name>.py`.
    Acceptance is the usual inline marker on line 1, read with
-   `_accept_reason(lines, 1, rule='src-loose-module')`. Such a file belongs
+   `accept_reason(lines, 1, rule='src-loose-module')`. Such a file belongs
    to no root, so without this hit it would never be audited, and the Python
    rules' layout is `src/<project>/`. It is emitted by the driver, not
    registered in `CHECKS`, because a registered check runs once per root and
@@ -333,11 +333,13 @@ never audited.
 
 **Project-level checks without a root (1.8).** `auditme.registry` names the
 checks that read only the project, never the root they are handed, as
-`PROJECT_CHECKS`: `check_lockfile` and `check_ruff_version`. Each is also in
-`CHECKS`, in the same order, so a project with a root runs them as before
-and its output is unchanged. With no root, the driver runs `PROJECT_CHECKS`
-alone, once, passing the scope as the unused root, with the same crash
-isolation as a pass. The checks that read `AGENTS.md` and the spec-drift
+`PROJECT_CHECKS`: `check_lockfile` and `check_ruff_version`. Neither is in
+`CHECKS`: the driver runs `PROJECT_CHECKS` once, before the per-root passes,
+passing the scope as the unused root, with the same crash isolation as a
+pass, whether or not the project has a root. (Amended 2026-11-21: they were
+also in `CHECKS` and so ran once per root; they now run once, and their hits
+come before the per-root passes' hits, so emission order changed.)
+The checks that read `AGENTS.md` and the spec-drift
 check are not among them: they judge or accept Python definitions and hits,
 so with no Python they have nothing to compare.
 
@@ -374,14 +376,14 @@ roots = [
 - No two `package` roots may nest, and no `top-level` root may sit inside a
   `package` root, since either would sweep a file twice.
 
-Every consumer reads the roots through `_audit_roots()` in `core.py`, which
+Every consumer reads the roots through `audit_roots()` in `core.py`, which
 now reads the table, so `audit.py`, the hooks' `changed.py` (which runs
 `audit.py <repo-root>`) and the Phase B listers in `phaseb.py` all follow it
 with no new option. `corpus_py_files()` spans the declared roots too. The modes
 reach the helpers through one module-level table in `core.py`,
 `ROOT_MODULES: types.MappingProxyType[pathlib.Path, str]`, rebound (never
 mutated) when the roots are read, as the driver rebinds `EXTRA_ROOT_NAMES`
-today; `_all_py_files()` and `module_dotted()` consult it, so no check's
+today; `all_py_files()` and `module_dotted()` consult it, so no check's
 call site changes. A root absent from the table is a `package` root, which is
 every root a test builds by hand.
 
@@ -401,7 +403,7 @@ The first audit of this repository runs after that item is done.
 
 `check_ruff_version` is a project-level check like `check_lockfile`: it looks
 at the project, not the root, so it emits the same hit on every pass and
-`_emit()`'s de-duplication of identical lines leaves one. It is appended to
+`emit()`'s de-duplication of identical lines leaves one. It is appended to
 `CHECKS` (never inserted, as the auditme skill requires).
 
 1. **Find the pin** by scanning `.pre-commit-config.yaml` line by line - the
@@ -428,7 +430,7 @@ at the project, not the root, so it emits the same hit on every pass and
    ran, so it changes only when one of them does.
 
 Acceptance is the usual inline marker, read with
-`_accept_reason(lines, rev_line, rule='ruff-version-drift')`, so a YAML
+`accept_reason(lines, rev_line, rule='ruff-version-drift')`, so a YAML
 comment `# auditme: accept[ruff-version-drift] <reason>` on the `rev:` line or
 the line above it accepts the hit - for a cooldown that has not yet let the
 hook's version into the lockfile, say. The fix is to make the two equal:
