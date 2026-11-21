@@ -1,6 +1,6 @@
 # Doc1 brief
 
-**Brief version:** 1
+**Brief version:** 2
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -43,8 +43,9 @@ Write one JSON line per candidate to the result file you are given, with
 exactly these keys:
 
 - `id`: the candidate's `id`;
-- `stale`: the named paths that are stale, sorted;
-- `missing`: the tracked directories the section omits, sorted;
+- `findings`: `{"stale": [...], "missing": [...]}`, where `stale` holds
+  the named paths that are stale, sorted and `missing` holds
+  the tracked directories the section omits, sorted;
 - `reason`: one sentence on why.
 
 Every candidate in the batch gets exactly one line, including those with

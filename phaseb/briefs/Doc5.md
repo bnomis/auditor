@@ -1,6 +1,6 @@
 # Doc5 brief
 
-**Brief version:** 1
+**Brief version:** 2
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -51,8 +51,9 @@ Write one JSON line per candidate to the result file you are given, with
 exactly these keys:
 
 - `id`: the candidate's `id`;
-- `drift`: one string per drifting statement, each as `path:line` and what
-  the code does instead; an empty list when there is none;
+- `findings`: `{"drift": [...]}`, where `drift` holds one string per
+  drifting statement, each as `path:line` and what the code does instead,
+  and is an empty list when there is none;
 - `reason`: one sentence on why.
 
 Every candidate in the batch gets exactly one line, including those with an

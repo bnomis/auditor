@@ -57,8 +57,8 @@ def _question_line(question: str) -> str:
 def test_doc_brief_holds_question_keys_and_security_rule(question: str, keys: tuple[str, ...]) -> None:
     brief = phaseb.question_brief(question)
     text = brief.read_text(encoding='utf-8')
-    assert len(re.findall(r'^\*\*Brief version:\*\* 1$', text, re.MULTILINE)) == 1
-    assert phaseb.brief_version(brief) == 1
+    assert len(re.findall(r'^\*\*Brief version:\*\* 2$', text, re.MULTILINE)) == 1
+    assert phaseb.brief_version(brief) == 2
     assert _question_line(question) in text
     for key in keys:
         assert f'`{key}`' in text, key
@@ -87,3 +87,27 @@ def test_test_brief_holds_question_keys_and_security_rule(question: str, keys: t
     assert '[ -n "${VAR:-}" ]' in text
     for key in keys:
         assert key in text, key
+
+
+def _output_section(question: str) -> str:
+    text = phaseb.question_brief(question).read_text(encoding='utf-8')
+    return text[text.index('## Output') :]
+
+
+def test_every_brief_output_asks_for_findings_with_its_registered_kinds() -> None:
+    for question in phaseb.candidates.REGISTRY:
+        output = _output_section(question)
+        assert '- `findings`:' in output, question
+        for kind in phaseb.candidates.question_kinds(question):
+            assert f'`{kind}`' in output or f'"{kind}"' in output, (question, kind)
+        for line in output.splitlines():
+            if line.startswith('- `'):
+                top = line.split('`')[1]
+                assert top in ('id', 'findings', 'reason'), (question, top)
+
+
+def test_brief_versions_after_the_findings_shape() -> None:
+    expected = {'A4': 3, 'Doc1': 2, 'Doc2': 2, 'Doc4': 2, 'Doc5': 2, 'T1': 1, 'T2': 1, 'A1': 1, 'A11': 1, 'A17': 1, 'A19': 1}
+    assert set(expected) == set(phaseb.candidates.REGISTRY)
+    for question, version in expected.items():
+        assert phaseb.brief_version(phaseb.question_brief(question)) == version, question
