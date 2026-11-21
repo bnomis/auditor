@@ -34,3 +34,5 @@ commit adds any. The commit that shipped the three checker requests added no
 hit (685 unaccepted before and after) and was made with
 `SKIP=auditme-changed`, as the operator chose; the next checker change meets
 the same block.
+
+Review: `agents/reviews/audit-backlog-2026-11-21.md` (answered 2026-11-21); tasks: `agents/tasks/reviews/tasks-1.md`.

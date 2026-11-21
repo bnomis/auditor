@@ -14,3 +14,4 @@
 | [Listed Phase B test questions](../specs/listed-phase-b-test-questions/spec.md) | [tasks-1.md](listed-phase-b-test-questions/tasks-1.md) | 1 | 2026-11-20 |
 | [Listed Phase B architecture questions](../specs/listed-phase-b-architecture-questions/spec.md) | [tasks-1.md](listed-phase-b-architecture-questions/tasks-1.md) | 1 | 2026-11-20 |
 | [Repeatable Phase B](../specs/repeatable-phase-b/spec.md) | [tasks-2.md](repeatable-phase-b/tasks-2.md) | 2 | 2026-11-21 |
+| [Clearing this repository's audit backlog](../reviews/audit-backlog-2026-11-21.md) | [tasks-1.md](reviews/tasks-1.md) | 1 | 2026-11-21 |
