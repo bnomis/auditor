@@ -69,6 +69,7 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
 _LOCKFILE_DRIFT_MARKER = 'needs to be updated'
 # uv's reason for re-resolving when the user's config adds an `exclude-newer` the lock lacks.
 _USER_EXCLUDE_NEWER_MARKER = 'due to addition of global exclude newer'
+UV_LOCK_CHECK = ('uv', 'lock', '--check')
 _LOCKFILE_TIMESTAMP_RE = re.compile(r'\d{4}-\d{2}-\d{2}T[\d:.]+Z?')
 
 
@@ -79,7 +80,7 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         return
     try:
         # auditme: accept[subprocess-without-memoisation] a PROJECT_CHECKS entry: the driver runs it once per sweep
-        result = subprocess.run(['uv', 'lock', '--check'], capture_output=True, text=True, cwd=scope)
+        result = subprocess.run(UV_LOCK_CHECK, capture_output=True, text=True, cwd=scope)
         # A user-level `exclude-newer` that the lock was not made with re-resolves
         # it on this machine only; CI, without that config, sees no drift. Only
         # when uv names that setting as the reason is the check repeated without
@@ -87,7 +88,7 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         # the first run, and dropping the config for it would report drift.
         if result.returncode != 0 and _USER_EXCLUDE_NEWER_MARKER in (result.stderr or '') + (result.stdout or ''):
             env = {**os.environ, 'UV_NO_CONFIG': '1'}
-            result = subprocess.run(['uv', 'lock', '--check'], capture_output=True, text=True, cwd=scope, env=env)
+            result = subprocess.run(UV_LOCK_CHECK, capture_output=True, text=True, cwd=scope, env=env)
     except FileNotFoundError:
         return
     if result.returncode == 0:
@@ -268,7 +269,7 @@ _ANY_HEADING_RE = re.compile(r'^#{1,6}\s+')
 _FENCE_RE = re.compile(r'^\s*```')
 _DEF_LINE_RE = re.compile(r'^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(')
 _CLASS_LINE_RE = re.compile(r'^(\s*)class\s+[A-Za-z_]\w*\s*[(:]')
-_SPEC_SKIP_PARTS = frozenset({'.git', '.venv', 'node_modules', '__pycache__', 'audit-reviews', 'tasks'})
+_SPEC_SKIP_PARTS = frozenset({'.git', '.venv', '__pycache__', 'audit-reviews', 'node_modules', 'tasks'})
 
 
 def _signature_params(node: ast.AST) -> list[str] | None:

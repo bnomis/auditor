@@ -74,6 +74,18 @@ def read_ledger(path: pathlib.Path) -> dict[str, Verdict]:
     return verdicts
 
 
+def discard_temporary(temporary: str) -> None:
+    """Remove a temporary file left by a failed ledger write.
+
+    Raises:
+        PhaseBError: the file cannot be removed.
+    """
+    try:
+        pathlib.Path(temporary).unlink(missing_ok=True)
+    except OSError as error:
+        raise PhaseBError(f'cannot remove temporary file {temporary}') from error
+
+
 def write_ledger(path: pathlib.Path, verdicts: dict[str, Verdict]) -> None:
     """Write verdicts to path through a temporary file and a rename, so a failure keeps the old file.
 
@@ -93,7 +105,7 @@ def write_ledger(path: pathlib.Path, verdicts: dict[str, Verdict]) -> None:
         raise PhaseBError(f'cannot write ledger {path}') from error
     finally:
         if temporary is not None:
-            pathlib.Path(temporary).unlink(missing_ok=True)
+            discard_temporary(temporary)
 
 
 def merge_verdicts(ledger_path: pathlib.Path, candidates: list[Candidate], verdicts: list[Verdict]) -> MergeResult:

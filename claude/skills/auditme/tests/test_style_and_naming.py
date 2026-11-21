@@ -56,12 +56,12 @@ def test_each_text_pattern_fires(source: str, rule: str, project: Builder, run_c
 
 CODE_ONLY_FIXTURE_TEXT = {
     'aliased-imports': 'import numpy as np',
-    'legacy-typing': 'value: Optional[int] = None',
     'leading-underscore-attribute-access': 'return obj._attr',
     'leading-underscore-const-lower': '_cache = {}',
     'leading-underscore-const-upper': '_CACHE = {}',
     'leading-underscore-def-class': 'def _helper(): pass',
     'leading-underscore-self': 'self._value = 1',
+    'legacy-typing': 'value: Optional[int] = None',
     'relative-import-nonpackage': 'from .base import Thing',
 }
 

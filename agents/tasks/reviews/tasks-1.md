@@ -327,7 +327,7 @@ and the raise sites stop interpolating it.
 
 ## Task 10: Small mechanical fixes and dead handlers
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** "The plan the coding standards settle", small mechanical fixes and dead handlers
@@ -336,26 +336,26 @@ and the raise sites stop interpolating it.
 
 **Subtasks:**
 
-- [ ] `typing-deprecated-alias` (3): `collections.abc`
-- [ ] `bare-parametric-annotation` (2): `list[ast.stmt]`, `dict[str, object]`
-- [ ] `leading-underscore-binding` (15) and `underscore-forloop-target-read` (1): `_` for unused bindings, `module` for the read loop target
-- [ ] `non-alphabetical-literal` (16 to fix) and `non-alphabetical-dict-keys` (8): sort; split `FILESYSTEM_TOUCHING_CALLS` by its comment groups; leave `BASE_CANDIDATES` and `GIT_ENV_ARGS` for Task 14
-- [ ] `mutable-module-level-exported`: `FILESYSTEM_TOUCHING_CALLS` as a frozenset (leave `REGISTRY` for Task 14)
-- [ ] `in-function-import` (2): move to the top-level imports
-- [ ] `filesystem-op-without-envelope` (2): wrap the `read_bytes` calls at `candidates.py:758` and `:1016` in `PhaseBError`
-- [ ] `literal-duplication` in code (19): shared constants (`SINK_TOKENS`, the broad-handler names, `'*bare*'`, the `ImportError` pair, `['uv', 'lock', '--check']` and the rest); in tests (8): a conftest `git()` helper next to `GIT_ENV_ARGS`
-- [ ] `paired-sibling-helpers` (2): one shared candidate helper in conftest
-- [ ] `silent-broad-except` (36): remove the `try/except Exception` around `ast.unparse`; update the S112 comment in `pyproject.toml`
-- [ ] Run the sweep and record the count in the commit body
+- [x] `typing-deprecated-alias` (3): `collections.abc`
+- [x] `bare-parametric-annotation` (2): `list[ast.stmt]`, `dict[str, object]`
+- [x] `leading-underscore-binding` (15) and `underscore-forloop-target-read` (1): `_` for unused bindings, `module` for the read loop target
+- [x] `non-alphabetical-literal` (16 to fix) and `non-alphabetical-dict-keys` (8): sort; split `FILESYSTEM_TOUCHING_CALLS` by its comment groups; leave `BASE_CANDIDATES` and `GIT_ENV_ARGS` for Task 14
+- [x] `mutable-module-level-exported`: `FILESYSTEM_TOUCHING_CALLS` as a frozenset (leave `REGISTRY` for Task 14)
+- [x] `in-function-import` (2): move to the top-level imports
+- [x] `filesystem-op-without-envelope` (2): wrap the `read_bytes` calls at `candidates.py:758` and `:1016` in `PhaseBError`
+- [x] `literal-duplication` in code (19): shared constants (`SINK_TOKENS`, the broad-handler names, `'*bare*'`, the `ImportError` pair, `['uv', 'lock', '--check']` and the rest); in tests (8): a conftest `git()` helper next to `GIT_ENV_ARGS`
+- [x] `paired-sibling-helpers` (2): one shared candidate helper in conftest
+- [x] `silent-broad-except` (36): remove the `try/except Exception` around `ast.unparse`; update the S112 comment in `pyproject.toml`
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] None of the rules above reports a hit beyond those left for Task 14
+- [x] None of the rules above reports a hit beyond those left for Task 14
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes
 
 **Notes:**
 

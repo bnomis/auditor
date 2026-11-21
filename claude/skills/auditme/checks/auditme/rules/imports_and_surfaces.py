@@ -1,13 +1,15 @@
 """Checks on import graphs and package public surfaces."""
 
 import ast
+import collections.abc
 import pathlib
 import re
 from collections import defaultdict
-from typing import Iterable
 
 import auditme.core
 from auditme.core import _accept_reason, _accepted_lazy_imports, _all_py_files, _emit, _relpath, _source_lines, _type_checking_linenos
+
+IMPORT_ERROR_NAMES = frozenset({'ImportError', 'ModuleNotFoundError'})
 
 
 def check_def_class_in_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -30,7 +32,7 @@ def check_def_class_in_init(scope: pathlib.Path, src_root: pathlib.Path) -> None
                 )
 
 
-def _walk_function_scopes(tree: ast.AST) -> Iterable[ast.AST]:
+def _walk_function_scopes(tree: ast.AST) -> collections.abc.Iterable[ast.AST]:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             yield node
@@ -151,11 +153,8 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                 for h in node.handlers:
                     if (
                         isinstance(h.type, ast.Name)
-                        and h.type.id in {'ImportError', 'ModuleNotFoundError'}
-                        or (
-                            isinstance(h.type, ast.Tuple)
-                            and any(isinstance(e, ast.Name) and e.id in {'ImportError', 'ModuleNotFoundError'} for e in h.type.elts)
-                        )
+                        and h.type.id in IMPORT_ERROR_NAMES
+                        or (isinstance(h.type, ast.Tuple) and any(isinstance(e, ast.Name) and e.id in IMPORT_ERROR_NAMES for e in h.type.elts))
                     ):
                         handles = True
                 if handles:
@@ -533,10 +532,7 @@ def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             passed = [a.id for a in call.args if isinstance(a, ast.Name)] + [kw.value.id for kw in call.keywords if isinstance(kw.value, ast.Name)]
             if len(passed) != len(set(passed)):
                 continue
-            try:
-                call_src = ast.unparse(call.func)
-            except Exception:
-                continue
+            call_src = ast.unparse(call.func)
             # skip self.<method>(args) - that's typical delegation, not a shim
             if call_src.startswith('self.'):
                 continue
@@ -655,10 +651,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
             if not (isinstance(value, ast.Attribute) and isinstance(value.value, ast.Attribute | ast.Name)):
                 continue
             # unparse RHS to get full dotted path
-            try:
-                rhs = ast.unparse(value)
-            except Exception:
-                continue
+            rhs = ast.unparse(value)
             if not rhs.startswith(package_root_name + '.'):
                 continue
             sym = value.attr
@@ -704,10 +697,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
                                 )
             # Pattern 2: `<shim_mod>.X` attribute access where X has a canonical home
             if isinstance(node, ast.Attribute) and isinstance(node.value, (ast.Name, ast.Attribute)):
-                try:
-                    full = ast.unparse(node)
-                except Exception:
-                    continue
+                full = ast.unparse(node)
                 if not full.startswith(package_root_name + '.'):
                     continue
                 # Split into module-prefix and attr
@@ -758,10 +748,7 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
             if node.value.attr != tgt.id:
                 continue
             # The RHS must be a module path (Attribute of Attribute or Name)
-            try:
-                rhs_src = ast.unparse(node.value)
-            except Exception:
-                continue
+            rhs_src = ast.unparse(node.value)
             accept = _accept_reason(lines, node.lineno, rule='reexport-in-non-init')
             _emit(
                 rule='reexport-in-non-init',

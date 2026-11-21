@@ -1,13 +1,12 @@
 """Checks on exception handling, error translation and failure reporting."""
 
 import ast
-import collections
+import collections.abc
 import contextlib
 import pathlib
 import re
 import typing
 from collections import defaultdict
-from typing import Iterable, Mapping
 
 from auditme.core import (
     _accept_reason,
@@ -22,6 +21,11 @@ from auditme.core import (
     resolve_call,
 )
 
+BARE_HANDLER_MARK = '*bare*'
+ERRORS_MODULE_NAMES = frozenset({'__init__.py', 'errors.py'})
+# A chain of one empty step: the error is raised in the function itself.
+RAISED_HERE: tuple[str, ...] = ('',)
+
 
 def is_broad_handler(handler: ast.ExceptHandler) -> bool:
     """True for a bare `except:` and for `Exception` or `BaseException`,
@@ -35,7 +39,7 @@ def is_broad_handler(handler: ast.ExceptHandler) -> bool:
         names = [e.id for e in exc.elts if isinstance(e, ast.Name)]
     else:
         return False
-    return any(n in {'Exception', 'BaseException'} for n in names)
+    return any(n in BROAD_HANDLER_NAMES for n in names)
 
 
 def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -327,10 +331,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
                     # Inspect handler body for `raise <Something>Error(...)`
                     for sub in ast.walk(handler):
                         if isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call):
-                            try:
-                                raised = ast.unparse(sub.exc.func)
-                            except Exception:
-                                continue
+                            raised = ast.unparse(sub.exc.func)
                             # name ends in 'Error' or similar
                             tail = raised.rsplit('.', 1)[-1]
                             if tail.endswith('Error'):
@@ -348,10 +349,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
-            try:
-                callee_src = ast.unparse(node.func)
-            except Exception:
-                continue
+            callee_src = ast.unparse(node.func)
             # Look up in function_index: match any entry whose suffix == callee_src
             # or whose full dotted path == callee_src
             callee_candidates = []
@@ -464,10 +462,7 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
                     continue
                 if sub.type is None:
                     continue
-                try:
-                    type_src = ast.unparse(sub.type)
-                except Exception:
-                    continue
+                type_src = ast.unparse(sub.type)
                 for caught in re.findall(r'[a-zA-Z_.][a-zA-Z0-9_.]*', type_src):
                     tail = caught.split('.')[-1]
                     caught_elsewhere[tail].add(_relpath(src, scope))
@@ -530,22 +525,15 @@ def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathli
             #     dispatcher-aware second argument)
             returns_int = False
             if node.returns is not None:
-                try:
-                    ret_src = ast.unparse(node.returns)
-                    if ret_src.strip() == 'int':
-                        returns_int = True
-                except Exception:
-                    pass
+                if ast.unparse(node.returns).strip() == 'int':
+                    returns_int = True
             # params whose annotation string contains a capitalised cappa
             # command class (the `parent: 'pkg.cli.app.App'` style)
             has_cappa_param = False
             for arg in node.args.args:
                 if arg.annotation is None:
                     continue
-                try:
-                    ann_src = ast.unparse(arg.annotation)
-                except Exception:
-                    continue
+                ann_src = ast.unparse(arg.annotation)
                 if re.search(r"\.[A-Z]\w+['\"]?$", ann_src.strip('\'"')):
                     has_cappa_param = True
                     break
@@ -619,10 +607,7 @@ def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Pat
             for stmt in first.body:
                 for sub in ast.walk(stmt):
                     if isinstance(sub, ast.Call):
-                        try:
-                            callee = ast.unparse(sub.func)
-                        except Exception:
-                            continue
+                        callee = ast.unparse(sub.func)
                         short = callee.rsplit('.', 1)[-1]
                         with_body_callees.add(short)
             if not with_body_callees:
@@ -633,10 +618,7 @@ def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Pat
                 for stmt in handler.body:
                     for sub in ast.walk(stmt):
                         if isinstance(sub, ast.Call):
-                            try:
-                                callee = ast.unparse(sub.func)
-                            except Exception:
-                                continue
+                            callee = ast.unparse(sub.func)
                             short = callee.rsplit('.', 1)[-1]
                             handler_callees.add(short)
                 # Overlap of non-trivial callees
@@ -706,7 +688,7 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
 
     # Second pass: walk every module raising stdlib errors
     for path in _all_py_files(src_root):
-        if path.name in {'errors.py', '__init__.py'}:
+        if path.name in ERRORS_MODULE_NAMES:
             continue
         pkg = path.relative_to(src_root).parts[:-1]
         if pkg not in package_has_domain_error:
@@ -790,10 +772,7 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
                     continue
                 target = inner.exc.func if isinstance(inner.exc, ast.Call) else inner.exc
                 if isinstance(target, (ast.Name, ast.Attribute)):
-                    try:
-                        src = ast.unparse(target)
-                    except Exception:
-                        continue
+                    src = ast.unparse(target)
                     tail = src.rsplit('.', 1)[-1]
                     if tail.endswith('Error'):
                         function_raises[key].add(tail)
@@ -824,20 +803,14 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
                 for sub in ast.walk(body_stmt):
                     if not isinstance(sub, ast.Call):
                         continue
-                    try:
-                        callee = ast.unparse(sub.func)
-                    except Exception:
-                        continue
+                    callee = ast.unparse(sub.func)
                     short = callee.rsplit('.', 1)[-1]
                     for full in short_to_full.get(short, set()):
                         caught_classes: set[str] = set()
                         for h in node.handlers:
                             if h.type is None:
                                 continue
-                            try:
-                                type_src = ast.unparse(h.type)
-                            except Exception:
-                                continue
+                            type_src = ast.unparse(h.type)
                             for caught in re.findall(r'[A-Za-z_][A-Za-z_0-9]*', type_src):
                                 if caught.endswith('Error'):
                                     caught_classes.add(caught)
@@ -849,10 +822,7 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
                             for h in node.handlers:
                                 if h.type is None:
                                     continue
-                                try:
-                                    h_src = ast.unparse(h.type)
-                                except Exception:
-                                    continue
+                                h_src = ast.unparse(h.type)
                                 if caught not in h_src:
                                     continue
                                 for handler_stmt in h.body:
@@ -864,10 +834,7 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
                                         tgt = raisesub.exc.func if isinstance(raisesub.exc, ast.Call) else raisesub.exc
                                         if not isinstance(tgt, (ast.Name, ast.Attribute)):
                                             continue
-                                        try:
-                                            tgt_src = ast.unparse(tgt)
-                                        except Exception:
-                                            continue
+                                        tgt_src = ast.unparse(tgt)
                                         tgt_tail = tgt_src.rsplit('.', 1)[-1]
                                         if tgt_tail.endswith('Error'):
                                             translations[full][caught].add(tgt_tail)
@@ -899,53 +866,64 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
 # cache / does writing I/O. Catching only library-specific exceptions
 # (MlflowException, BotoException, etc.) without also catching OSError
 # leaks disk failures to callers.
-FILESYSTEM_TOUCHING_CALLS = {
-    # Third-party helpers that cache to disk / upload / download
-    'download_artifacts',
-    'download_file',
-    'download',
-    'save_model',
-    'log_artifact',
-    'log_artifacts',
-    'log_model',
-    'from_pretrained',
-    'save_pretrained',
-    'push_to_hub',
-    'snapshot_download',
-    'upload_file',
-    'upload_artifacts',
-    # Pathlib / open / stdlib filesystem primitives used directly.
-    # `replace`, `rename`, `copy`, `remove` are intentionally omitted -
-    # `str.replace`, `dataclasses.replace`, `list.copy`, `dict.copy`,
-    # `list.remove` are overwhelmingly common; the false-positive rate
-    # on their bare names dominates.
-    'write_text',
-    'write_bytes',
-    'read_text',
-    'read_bytes',
-    'mkdir',
-    'unlink',
-    'rmdir',
-    'touch',
-    'rmtree',
-    'makedirs',
-    'symlink_to',
-    'copytree',
-    # Common library read entry points that open the file under the hood
-    'read_csv',
-    'read_json',
-    'read_parquet',
-    'read_table',
-    'read_excel',
-    'read_pickle',
-    'read_feather',
-    'read_hdf',
-    'read_sql',
-    'read_sql_query',
-    'read_sql_table',
-    'from_csv',
-    'from_json',
-}
+THIRD_PARTY_FILESYSTEM_CALLS = frozenset(
+    {
+        # Third-party helpers that cache to disk / upload / download
+        'download',
+        'download_artifacts',
+        'download_file',
+        'from_pretrained',
+        'log_artifact',
+        'log_artifacts',
+        'log_model',
+        'push_to_hub',
+        'save_model',
+        'save_pretrained',
+        'snapshot_download',
+        'upload_artifacts',
+        'upload_file',
+    }
+)
+# `replace`, `rename`, `copy`, `remove` are intentionally omitted -
+# `str.replace`, `dataclasses.replace`, `list.copy`, `dict.copy`,
+# `list.remove` are overwhelmingly common; the false-positive rate
+# on their bare names dominates.
+STDLIB_FILESYSTEM_CALLS = frozenset(
+    {
+        # Pathlib / open / stdlib filesystem primitives used directly.
+        'copytree',
+        'makedirs',
+        'mkdir',
+        'read_bytes',
+        'read_text',
+        'rmdir',
+        'rmtree',
+        'symlink_to',
+        'touch',
+        'unlink',
+        'write_bytes',
+        'write_text',
+    }
+)
+LIBRARY_READ_CALLS = frozenset(
+    {
+        # Common library read entry points that open the file under the hood
+        'from_csv',
+        'from_json',
+        'read_csv',
+        'read_excel',
+        'read_feather',
+        'read_hdf',
+        'read_json',
+        'read_parquet',
+        'read_pickle',
+        'read_sql',
+        'read_sql_query',
+        'read_sql_table',
+        'read_table',
+    }
+)
+FILESYSTEM_TOUCHING_CALLS = THIRD_PARTY_FILESYSTEM_CALLS | STDLIB_FILESYSTEM_CALLS | LIBRARY_READ_CALLS
 
 
 def module_tuple_constants(tree: ast.Module) -> dict[str, list[ast.expr]]:
@@ -969,7 +947,7 @@ def module_tuple_constants(tree: ast.Module) -> dict[str, list[ast.expr]]:
     return {name: members for name, members in tuples.items() if counts[name] == 1}
 
 
-def package_class_parents(trees: Iterable[ast.Module]) -> dict[str, set[str]]:
+def package_class_parents(trees: collections.abc.Iterable[ast.Module]) -> dict[str, set[str]]:
     """Map each top-level class in the given modules to the names of its bases.
 
     A base written `mod.Base` is recorded as `Base`, so the table follows the
@@ -984,7 +962,7 @@ def package_class_parents(trees: Iterable[ast.Module]) -> dict[str, set[str]]:
     return dict(parents)
 
 
-def class_lineage(name: str, parents: Mapping[str, set[str]]) -> set[str]:
+def class_lineage(name: str, parents: collections.abc.Mapping[str, set[str]]) -> set[str]:
     """The name and every ancestor of it, transitively, in `parents`.
 
     A cycle terminates, and a name `parents` does not know is its own lineage."""
@@ -1065,10 +1043,7 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                         resolved.extend(constants[element.id])
                     else:
                         resolved.append(element)
-                try:
-                    type_src = ', '.join(ast.unparse(element) for element in resolved)
-                except Exception:
-                    continue
+                type_src = ', '.join(ast.unparse(element) for element in resolved)
                 names = set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', type_src))
                 if {'OSError', 'Exception', 'BaseException', 'IOError', 'PermissionError', 'FileNotFoundError'} & names:
                     covers_os = True
@@ -1219,7 +1194,7 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
                     package_exports[pkg].add(alias.asname or alias.name)
 
     for path in _all_py_files(src_root):
-        if path.name in {'errors.py', '__init__.py'}:
+        if path.name in ERRORS_MODULE_NAMES:
             continue
         pkg = path.relative_to(src_root).parts[:-1]
         if pkg not in package_has_domain_error:
@@ -1317,10 +1292,7 @@ def check_logger_exception_graceful_degradation(
                 continue
             ann = None
             if node.returns is not None:
-                try:
-                    ann = ast.unparse(node.returns)
-                except Exception:
-                    ann = None
+                ann = ast.unparse(node.returns)
             if best is None or start > best[0]:
                 best = (start, ann)
         return best[1] if best else None
@@ -1464,10 +1436,7 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
                     continue
                 target = inner.exc.func if isinstance(inner.exc, ast.Call) else inner.exc
                 if isinstance(target, (ast.Name, ast.Attribute)):
-                    try:
-                        src = ast.unparse(target)
-                    except Exception:
-                        continue
+                    src = ast.unparse(target)
                     tail = src.rsplit('.', 1)[-1]
                     if tail.endswith('Error'):
                         actual.add(tail)
@@ -1491,57 +1460,57 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
 # Builtin exception classes: not a project's domain errors.
 STDLIB_ERRORS = frozenset(
     {
-        'ValueError',
-        'TypeError',
-        'RuntimeError',
-        'KeyError',
-        'IndexError',
-        'AttributeError',
-        'NotImplementedError',
-        'OSError',
-        'FileNotFoundError',
-        'PermissionError',
-        'IsADirectoryError',
-        'UnicodeDecodeError',
-        'UnicodeEncodeError',
         'ArithmeticError',
-        'ZeroDivisionError',
-        'StopIteration',
-        'StopAsyncIteration',
         'AssertionError',
-        'LookupError',
-        'MemoryError',
-        'OverflowError',
-        'ReferenceError',
-        'SystemError',
+        'AttributeError',
+        'BaseException',
+        'BlockingIOError',
+        'BrokenPipeError',
         'BufferError',
-        'ImportError',
-        'ModuleNotFoundError',
-        'NameError',
-        'UnboundLocalError',
-        'IndentationError',
-        'SyntaxError',
-        'TabError',
-        'EOFError',
-        'FloatingPointError',
-        'GeneratorExit',
-        'KeyboardInterrupt',
-        'RecursionError',
-        'SystemExit',
-        'TimeoutError',
-        'ConnectionError',
+        'ChildProcessError',
         'ConnectionAbortedError',
+        'ConnectionError',
         'ConnectionRefusedError',
         'ConnectionResetError',
-        'BrokenPipeError',
-        'ChildProcessError',
-        'BlockingIOError',
-        'InterruptedError',
-        'ProcessLookupError',
-        'NotADirectoryError',
-        'FileExistsError',
+        'EOFError',
         'Exception',
-        'BaseException',
+        'FileExistsError',
+        'FileNotFoundError',
+        'FloatingPointError',
+        'GeneratorExit',
+        'ImportError',
+        'IndentationError',
+        'IndexError',
+        'InterruptedError',
+        'IsADirectoryError',
+        'KeyError',
+        'KeyboardInterrupt',
+        'LookupError',
+        'MemoryError',
+        'ModuleNotFoundError',
+        'NameError',
+        'NotADirectoryError',
+        'NotImplementedError',
+        'OSError',
+        'OverflowError',
+        'PermissionError',
+        'ProcessLookupError',
+        'RecursionError',
+        'ReferenceError',
+        'RuntimeError',
+        'StopAsyncIteration',
+        'StopIteration',
+        'SyntaxError',
+        'SystemError',
+        'SystemExit',
+        'TabError',
+        'TimeoutError',
+        'TypeError',
+        'UnboundLocalError',
+        'UnicodeDecodeError',
+        'UnicodeEncodeError',
+        'ValueError',
+        'ZeroDivisionError',
     }
 )
 
@@ -1584,7 +1553,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
             parsed.append((path, lines, ast.parse('\n'.join(lines))))
         except SyntaxError:
             continue
-    parents = package_class_parents(tree for _path, _lines, tree in parsed)
+    parents = package_class_parents(tree for _, _, tree in parsed)
     for path, lines, tree in parsed:
         if path.name == '__init__.py' or path.name == 'errors.py':
             continue
@@ -1679,7 +1648,7 @@ def check_bare_except_in_module_with_narrow_errors(scope: pathlib.Path, src_root
             if any(n.endswith('_ERRORS') or n.endswith('_EXCEPTIONS') for n in names):
                 narrow_errors_tuple_seen = True
                 continue
-            if any(n in {'Exception', 'BaseException'} for n in names):
+            if any(n in BROAD_HANDLER_NAMES for n in names):
                 bare_handlers.append(node)
         if not (narrow_errors_tuple_seen and bare_handlers):
             continue
@@ -1702,7 +1671,7 @@ def check_bare_except_in_module_with_narrow_errors(scope: pathlib.Path, src_root
 # included. Scope is deliberately narrow: outside an adapter, a bare
 # `return None` from an except handler is often a legitimate cache miss or
 # optional lookup, and firing on those would make the check untrustworthy.
-EXTERNAL_ADAPTER_DIRS = frozenset({'sources', 'resolvers', 'providers'})
+EXTERNAL_ADAPTER_DIRS = frozenset({'providers', 'resolvers', 'sources'})
 
 # What counts as "recording a failure the caller can see". Logging does not:
 # a log line is not a value the caller can branch on, which is the whole point
@@ -1930,7 +1899,7 @@ def receiver_is_toml_mapping(receiver: ast.expr, scope_node: ast.AST, tree: ast.
     return False
 
 
-def _name_scopes(tree: ast.AST) -> Iterable[ast.AST]:
+def _name_scopes(tree: ast.AST) -> collections.abc.Iterable[ast.AST]:
     """The module and every function and class body, searched separately.
 
     `_walk_within_scope` prunes at each of these, so a name assigned in one
@@ -2104,11 +2073,8 @@ def _handler_catches(handler: ast.ExceptHandler) -> set[str]:
     ever looked up. A bare `except:` gives the `*bare*` sentinel.
     """
     if handler.type is None:
-        return {'*bare*'}
-    try:
-        return set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', ast.unparse(handler.type)))
-    except Exception:
-        return set()
+        return {BARE_HANDLER_MARK}
+    return set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', ast.unparse(handler.type)))
 
 
 def handler_translates(handler: ast.ExceptHandler) -> bool:
@@ -2124,11 +2090,8 @@ def handler_translates(handler: ast.ExceptHandler) -> bool:
         target = sub.exc.func if isinstance(sub.exc, ast.Call) else sub.exc
         if not isinstance(target, (ast.Name, ast.Attribute)):
             continue
-        try:
-            if ast.unparse(target).rsplit('.', 1)[-1].endswith('Error'):
-                return True
-        except Exception:
-            continue
+        if ast.unparse(target).rsplit('.', 1)[-1].endswith('Error'):
+            return True
     return False
 
 
@@ -2179,7 +2142,7 @@ def callable_short_name(expr: ast.expr) -> str | None:
     return None
 
 
-def _guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterable[ast.AST]:
+def _guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> collections.abc.Iterable[ast.AST]:
     """Every node in the function's own body - not its signature or decorators.
 
     A decorator is itself a `Call`, and walking it would let
@@ -2207,10 +2170,7 @@ def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
         short = node.func.id
     elif isinstance(node.func, ast.Attribute):
         short = node.func.attr
-        try:
-            receiver = ast.unparse(node.func.value).rsplit('.', 1)[-1]
-        except Exception:
-            receiver = ''
+        receiver = ast.unparse(node.func.value).rsplit('.', 1)[-1]
         if receiver == 'json' and short in LOADER_CALLS:
             branches.append(('json.JSONDecodeError', frozenset({'JSONDecodeError', 'ValueError'})))
         if receiver in {'pandas', 'pd'} and short.startswith('read_'):
@@ -2336,7 +2296,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             _emit(
                 rule='translator-envelope-gap',
                 variant=(
-                    f'{func.name} calls `{callee}` under {", ".join(site_sources)}, whose except tuple {sorted(site_caught - {"*bare*"})!r} omits {missing!r}'
+                    f'{func.name} calls `{callee}` under {", ".join(site_sources)}, whose except tuple {sorted(site_caught - {BARE_HANDLER_MARK})!r} omits {missing!r}'
                 ),
                 path=rel,
                 line=lineno,
@@ -2347,7 +2307,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
 
 
 # Handlers that catch every domain error, whatever its name.
-_BROAD_HANDLER_NAMES = frozenset({'BaseException', 'Exception'})
+BROAD_HANDLER_NAMES = frozenset({'BaseException', 'Exception'})
 
 
 def _handler_passes_on(handler: ast.ExceptHandler) -> bool:
@@ -2371,7 +2331,7 @@ def _handler_types(handler: ast.ExceptHandler) -> frozenset[str] | None:
     for node in types:
         if isinstance(node, (ast.Name, ast.Attribute)):
             names.add(ast.unparse(node).rsplit('.', 1)[-1])
-    if names & _BROAD_HANDLER_NAMES:
+    if names & BROAD_HANDLER_NAMES:
         return None
     return frozenset(names)
 
@@ -2478,7 +2438,7 @@ def _function_levels(body: list[ast.stmt]) -> list[HandlerLevel]:
 def unset_optional_guard(
     func: ast.FunctionDef | ast.AsyncFunctionDef,
     error: str,
-    parents: Mapping[str, set[str]],
+    parents: collections.abc.Mapping[str, set[str]],
     call: ast.Call,
     bound: bool,
 ) -> bool:
@@ -2602,12 +2562,12 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
             continue
         modules[module_dotted(path, src_root)] = (path, tree, lines)
 
-    parents = package_class_parents(tree for _path, tree, _lines in modules.values())
+    parents = package_class_parents(tree for _, tree, _ in modules.values())
     package_classes = set(parents)
     declared_by: dict[str, set[str]] = {}
     path_of: dict[str, pathlib.Path] = {}
     functions: list[tuple[str, str, str | None, ast.FunctionDef | ast.AsyncFunctionDef]] = []
-    for module, (_path, tree, _lines) in modules.items():
+    for module, (_, tree, _) in modules.items():
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 functions.append((module, f'{module}.{node.name}', None, node))
@@ -2616,13 +2576,13 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                     if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         functions.append((module, f'{module}.{node.name}.{member.name}', node.name, member))
     node_of: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
-    for _module, qualname, _cls, node in functions:
+    for module, qualname, _, node in functions:
         declared_by[qualname] = raises_section_names(ast.get_docstring(node) or '')
         node_of[qualname] = node
-        path_of[qualname] = modules[_module][0]
+        path_of[qualname] = modules[module][0]
 
-    known = {qualname: cls for _module, qualname, cls, _node in functions}
-    bindings_of = {module: call_bindings(tree, module, path.name == '__init__.py') for module, (path, tree, _lines) in modules.items()}
+    known = {qualname: cls for _, qualname, cls, _ in functions}
+    bindings_of = {module: call_bindings(tree, module, path.name == '__init__.py') for module, (path, tree, _) in modules.items()}
     aliases = reexport_aliases(bindings_of, known)
 
     def ancestors(name: str) -> set[str]:
@@ -2635,7 +2595,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         lineage = {name} | ancestors(name)
         return any(_level_catches(level, lineage) for level in around)
 
-    module_of = {qualname: module for module, qualname, _cls, _node in functions}
+    module_of = {qualname: module for module, qualname, _, _ in functions}
 
     def is_bound(site: ast.Call, callee: str) -> bool:
         callee_node = node_of[callee]
@@ -2683,7 +2643,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         return found
 
     def describe(chain: tuple[str, ...]) -> str:
-        if chain == ('',):
+        if chain == RAISED_HERE:
             return 'raised here'
         *wrappers, last = chain
         if last == '':
@@ -2706,7 +2666,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
             if isinstance(site, ast.Raise):
                 name = _raised_name(site)
                 if name and is_domain(name) and not caught(name, around):
-                    reached[name].add(('',))
+                    reached[name].add(RAISED_HERE)
                 continue
             callee = resolve_call(site, module, cls, imported, known, aliases, class_methods=True)
             if callee is None or callee == qualname:

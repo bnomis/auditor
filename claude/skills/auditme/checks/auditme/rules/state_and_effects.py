@@ -9,6 +9,7 @@ import re
 
 from auditme.core import (
     _SIDE_EFFECT_CALL_NAMES,
+    BARE_GENERIC_NAMES,
     _accept_reason,
     _all_py_files,
     _emit,
@@ -20,33 +21,33 @@ from auditme.core import (
 )
 
 _DISK_IO_NAMES = {
-    'open',
-    'mkdir',
-    'rmdir',
-    'unlink',
-    'rmtree',
-    'makedirs',
-    'remove',
-    'read_text',
-    'write_text',
-    'read_bytes',
-    'write_bytes',
-    'touch',
-    'iterdir',
-    'glob',
-    'rglob',
-    'exists',
-    'is_file',
-    'is_dir',
-    'stat',
     'copy',
     'copytree',
+    'exists',
+    'glob',
+    'is_dir',
+    'is_file',
+    'iterdir',
+    'makedirs',
+    'mkdir',
+    'mkdtemp',
+    'mkstemp',
     'move',
+    'open',
+    'read_bytes',
+    'read_text',
+    'remove',
     'rename',
     'replace',
+    'rglob',
+    'rmdir',
+    'rmtree',
+    'stat',
     'symlink_to',
-    'mkstemp',
-    'mkdtemp',
+    'touch',
+    'unlink',
+    'write_bytes',
+    'write_text',
 }
 
 
@@ -451,10 +452,7 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
             for arg in init.args.args:
                 if arg.annotation is None:
                     continue
-                try:
-                    ann_src = ast.unparse(arg.annotation)
-                except Exception:
-                    continue
+                ann_src = ast.unparse(arg.annotation)
                 # top-level `dict` or `list` (allow `| None`, subscripts)
                 # but not inside tuple/frozenset/etc.
                 normalised = ann_src.split('|')[0].strip()
@@ -1120,10 +1118,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
             # Is it a dataclass? Check decorators
             is_dataclass = False
             for dec in cls.decorator_list:
-                try:
-                    dec_src = ast.unparse(dec)
-                except Exception:
-                    continue
+                dec_src = ast.unparse(dec)
                 if 'dataclass' in dec_src:
                     is_dataclass = True
                     break
@@ -1136,10 +1131,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
                     continue
                 if not isinstance(item.target, ast.Name):
                     continue
-                try:
-                    ann_src = ast.unparse(item.annotation)
-                except Exception:
-                    continue
+                ann_src = ast.unparse(item.annotation)
                 if 'None' not in ann_src:
                     continue
                 # Check default is None (direct or `field(default=None)`)
@@ -1191,7 +1183,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
 
 # Walk every branch arm; ensure it starts with an assignment
 # to var_name or a return, not a read.
-def _branch_overrides(branch: list, var_name: str) -> bool:
+def _branch_overrides(branch: list[ast.stmt], var_name: str) -> bool:
     for s in branch:
         # Assigns var_name before reading
         if isinstance(s, (ast.Assign, ast.AnnAssign)):
@@ -1203,10 +1195,7 @@ def _branch_overrides(branch: list, var_name: str) -> bool:
         # this isn't dead init
         if isinstance(s, ast.Return):
             if s.value is not None:
-                try:
-                    rs = ast.unparse(s.value)
-                except Exception:
-                    return False
+                rs = ast.unparse(s.value)
                 # if body reads var_name in return, branch did not override;
                 # if it returned something else, the initial value was dead
                 return not re.search(rf'\b{re.escape(var_name)}\b', rs)
@@ -1244,7 +1233,6 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     Restricting to "initial empty-constructor assignment + exhaustive
     if/elif/else that returns" keeps the check low-FP.
     """
-    EMPTY_CONSTRUCTORS = {'dict', 'list', 'set', 'tuple', 'frozenset'}
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
         lines = _source_lines(path)
@@ -1281,7 +1269,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 or (
                     isinstance(value, ast.Call)
                     and isinstance(value.func, ast.Name)
-                    and value.func.id in EMPTY_CONSTRUCTORS
+                    and value.func.id in BARE_GENERIC_NAMES
                     and not value.args
                     and not value.keywords
                 )
@@ -1356,10 +1344,7 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
             for inner in ast.walk(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                try:
-                    call_src = ast.unparse(inner.func)
-                except Exception:
-                    continue
+                call_src = ast.unparse(inner.func)
                 if _SUBPROCESS_CALL_RE.search(call_src):
                     hit_line = inner.lineno
                     break

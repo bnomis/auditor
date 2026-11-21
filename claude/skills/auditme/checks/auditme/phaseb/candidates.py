@@ -59,6 +59,18 @@ REGISTRY: dict[str, tuple[Lister, pathlib.Path, int]] = {}
 KINDS: dict[str, tuple[str, ...]] = {}
 
 
+def read_test_files(scope: pathlib.Path, names: collections.abc.Iterable[str]) -> list[bytes]:
+    """Read each named test file under `scope`, for hashing into a candidate.
+
+    Raises:
+        PhaseBError: a test file cannot be read.
+    """
+    try:
+        return [(scope / name).read_bytes() for name in names]
+    except OSError as error:
+        raise PhaseBError(f'cannot read test file under {scope}: {error}') from error
+
+
 def register_question(
     question: str, brief: pathlib.Path, kinds: tuple[str, ...], batch_size: int = DEFAULT_BATCH_SIZE
 ) -> collections.abc.Callable[[Lister], Lister]:
@@ -767,7 +779,7 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
         if not reasons:
             continue
         test_files = index.test_files(site.id, depth)
-        parts = [site.source.encode('utf-8'), *((scope / name).read_bytes() for name in test_files)]
+        parts = [site.source.encode('utf-8'), *read_test_files(scope, test_files)]
         found.append(
             Candidate(
                 question='T1',
@@ -1026,7 +1038,7 @@ def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
         types.sort(key=lambda entry: str(entry['id']))
         class_sources.sort()
         test_files = index.test_files(site.id, depth)
-        parts = [site.source.encode('utf-8'), *(source for _, source in class_sources), *((scope / name).read_bytes() for name in test_files)]
+        parts = [site.source.encode('utf-8'), *(source for _, source in class_sources), *read_test_files(scope, test_files)]
         pairs = sorted(other for inverse in inverse_names(node.name) for other in by_name.get(inverse, ()))
         found.append(
             Candidate(

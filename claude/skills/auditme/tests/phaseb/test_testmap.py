@@ -298,16 +298,16 @@ def test_each_test_file_is_parsed_once(project: Project, monkeypatch: pytest.Mon
 
 CHAIN = {
     'src/pkg/__init__.py': '',
-    'src/pkg/mod.py': """
-        def load():
-            return 1
-    """,
     'src/pkg/mid.py': """
         from pkg.mod import load
 
 
         def run():
             return load()
+    """,
+    'src/pkg/mod.py': """
+        def load():
+            return 1
     """,
     'src/pkg/top.py': """
         from pkg.mid import run

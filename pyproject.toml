@@ -39,8 +39,8 @@ select = [
 # SIM108 Use ternary operator
 # SIM102 collapsible-if
 # S110 try/except/pass
-# S112 try/except/continue: the auditme checker skips files and nodes it
-#      cannot parse or unparse rather than aborting the whole audit.
+# S112 try/except/continue: the auditme checker skips files it cannot
+#      parse rather than aborting the whole audit.
 # S311 random
 ignore = ["E501", "E722", 'ICN001', 'SIM108', 'SIM102', 'S110', 'S112', 'S311']
 

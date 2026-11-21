@@ -134,8 +134,8 @@ def test_a_resolution_timestamp_is_masked_out_of_the_evidence(
 
 
 LOCK_PROJECT = {
-    'src/probe/mod.py': 'VALUE = 1\n',
     'pyproject.toml': '[project]\nname = "probe"\n',
+    'src/probe/mod.py': 'VALUE = 1\n',
     'uv.lock': 'version = 1\n',
 }
 USER_EXCLUDE_NEWER = (

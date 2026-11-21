@@ -31,6 +31,11 @@ if str(CHECKS_ROOT) not in sys.path:
     sys.path.insert(0, str(CHECKS_ROOT))
 
 import auditme.core  # noqa: E402  sys.path is set up immediately above
+import auditme.phaseb  # noqa: E402  sys.path is set up above
+
+
+def make_candidate(candidate_id: str) -> auditme.phaseb.Candidate:
+    return auditme.phaseb.Candidate(question='Q1', id=candidate_id, path='src/pkg/mod.py', start=1, end=2, payload={}, hash='h')
 
 
 @pytest.fixture(autouse=True)

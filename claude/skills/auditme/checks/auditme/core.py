@@ -26,6 +26,16 @@ ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*
 # record, so two genuinely different hits can never collide here.
 _EMITTED: set[str] = set()
 
+# Builtin generics that take type parameters: a bare annotation or an empty
+# constructor call of one names the type without its members.
+BARE_GENERIC_NAMES = frozenset({'dict', 'frozenset', 'list', 'set', 'tuple'})
+
+
+def is_test_relpath(rel: str) -> bool:
+    """True for a root-relative path that is a `test_*.py`, `*_test.py`, `conftest.py` or inside a `tests` directory."""
+    path = pathlib.PurePosixPath(rel)
+    return 'tests' in path.parts[:-1] or path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py'
+
 
 def _emit(related: list[str] | None = None, **kwargs) -> None:
     """Print one hit. `related` names the other files a cross-file hit compares
@@ -576,19 +586,19 @@ def corpus_definitions(
 
 
 _SIDE_EFFECT_CALL_NAMES = {
-    'mkdir',
-    'rmdir',
-    'unlink',
-    'rmtree',
-    'makedirs',
-    'remove',
-    'write_text',
-    'write_bytes',
-    'touch',
     'copytree',
-    'symlink_to',
-    'mkstemp',
+    'makedirs',
+    'mkdir',
     'mkdtemp',
+    'mkstemp',
+    'remove',
+    'rmdir',
+    'rmtree',
+    'symlink_to',
+    'touch',
+    'unlink',
+    'write_bytes',
+    'write_text',
 }
 
 

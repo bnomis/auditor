@@ -21,7 +21,7 @@ import auditme.core
 import auditme.rules.error_handling
 import auditme.rules.imports_and_surfaces
 import auditme.rules.state_and_effects
-from auditme.phaseb import candidates, testmap
+from auditme.phaseb import candidates
 from auditme.phaseb.errors import PhaseBError
 
 Check = collections.abc.Callable[[pathlib.Path, pathlib.Path], None]
@@ -315,14 +315,14 @@ def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
 
 A19_BRIEF = candidates.DOC_BRIEFS / 'A19.md'
-A19_RULES = ('silent-broad-except', 'broad-except-wrong-level', 'logger-exception-graceful-degradation')
+A19_RULES = ('broad-except-wrong-level', 'logger-exception-graceful-degradation', 'silent-broad-except')
 A19_CHECKS = (
     auditme.rules.error_handling.check_silent_broad_except,
     auditme.rules.error_handling.check_broad_except_wrong_level,
     auditme.rules.error_handling.check_logger_exception_graceful_degradation,
 )
-LOGGER_NAMES = frozenset({'logger', 'log', '_logger', 'LOGGER', 'logging', 'loguru.logger'})
-LOG_LEVELS = frozenset({'debug', 'info', 'warning', 'warn', 'error', 'critical', 'exception'})
+LOGGER_NAMES = frozenset({'LOGGER', '_logger', 'log', 'logger', 'logging', 'loguru.logger'})
+LOG_LEVELS = frozenset({'critical', 'debug', 'error', 'exception', 'info', 'warn', 'warning'})
 LEAVING_STATEMENTS = (ast.Return, ast.Raise, ast.Continue, ast.Break)
 
 
@@ -616,7 +616,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     sites: dict[str, list[CallSite]] = {}
     callers_of: dict[str, list[tuple[ParsedSource, CallSite]]] = collections.defaultdict(list)
     for file in files:
-        if testmap.is_test_relpath(file.rel):
+        if auditme.core.is_test_relpath(file.rel):
             continue
         sites[file.rel] = list(call_sites(file.tree, Scope(MODULE_QUALNAME, None, False, None, None)))
         for site in sites[file.rel]:
@@ -642,7 +642,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
     found: list[candidates.Candidate] = []
     for file in files:
-        if testmap.is_test_relpath(file.rel) or file.module.partition('.')[0] not in domain_errors:
+        if auditme.core.is_test_relpath(file.rel) or file.module.partition('.')[0] not in domain_errors:
             continue
         errors = domain_errors[file.module.partition('.')[0]]
         imports = import_targets(file.tree)
@@ -765,7 +765,7 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                 continue
             for path, line in where:
                 rel = auditme.core._relpath(path, scope)
-                if rel.startswith(f'{directory}/') or testmap.is_test_relpath(rel) or (A17_SHIM_RULE, rel, line) in hits:
+                if rel.startswith(f'{directory}/') or auditme.core.is_test_relpath(rel) or (A17_SHIM_RULE, rel, line) in hits:
                     continue
                 text = line_cache.setdefault(path, path.read_text(encoding='utf-8').splitlines())[line - 1].strip()
                 entries.append((name, f'{rel}: {text}'))

@@ -9,12 +9,12 @@ import pytest
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
 LAYOUT = {
+    'bin/tool.py': 'x = 1\n',
+    'checks/audit.py': 'x = 1\n',
     'checks/pkg/mod.py': 'x = 1\n',
     'checks/pkg/sub/deep.py': 'x = 1\n',
-    'checks/audit.py': 'x = 1\n',
-    'tests/test_a.py': 'x = 1\n',
     'src/lib/core.py': 'x = 1\n',
-    'bin/tool.py': 'x = 1\n',
+    'tests/test_a.py': 'x = 1\n',
 }
 
 

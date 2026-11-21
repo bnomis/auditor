@@ -66,15 +66,9 @@ def parse_file(path: pathlib.Path, base: pathlib.Path, root: pathlib.Path) -> Pa
     )
 
 
-def is_test_relpath(rel: str) -> bool:
-    """True for a root-relative path that is a `test_*.py`, `*_test.py`, `conftest.py` or inside a `tests` directory."""
-    path = pathlib.PurePosixPath(rel)
-    return 'tests' in path.parts[:-1] or path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py'
-
-
 def is_test_path(path: pathlib.Path, root: pathlib.Path) -> bool:
     """True for a file in a `tests` directory, a `test_*.py`, `*_test.py` or `conftest.py`."""
-    return is_test_relpath(path.relative_to(root).as_posix())
+    return auditme.core.is_test_relpath(path.relative_to(root).as_posix())
 
 
 def test_tree_roots(root: pathlib.Path) -> list[pathlib.Path]:

@@ -136,6 +136,10 @@ def test_directory_raises(tmp_path):
 # resolution
 
 FIXTURE = {
+    'AGENTS.md': '# Agents\n',
+    'agents/specs/probe/spec.md': '# Probe\n',
+    'docs/guide.md': '# Guide\n',
+    'docs/sub/notes.md': '# Notes\n',
     'src/pkg/__init__.py': 'from pkg.mod import run_it\n',
     'src/pkg/mod.py': """
         import argparse
@@ -174,10 +178,6 @@ FIXTURE = {
             parser.add_argument('--limit', type=int)
             return parser
     """,
-    'agents/specs/probe/spec.md': '# Probe\n',
-    'docs/guide.md': '# Guide\n',
-    'docs/sub/notes.md': '# Notes\n',
-    'AGENTS.md': '# Agents\n',
 }
 
 

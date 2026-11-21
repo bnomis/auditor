@@ -5,13 +5,11 @@ import pathlib
 import re
 from collections import defaultdict
 
+import auditme.core
 from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, _walk_within_scope
 
-
-def is_test_file(rel: str) -> bool:
-    """True for a root-relative path in a `tests` directory, a `test_*.py`, `*_test.py` or `conftest.py`."""
-    path = pathlib.PurePosixPath(rel)
-    return 'tests' in path.parts[:-1] or path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py'
+SET_CALL_NAMES = frozenset({'frozenset', 'set'})
+SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
 
 
 def is_pytest_param(node: ast.AST) -> bool:
@@ -53,10 +51,10 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
         # Find frozenset(...) / set(...) call nodes so we can skip their inner ast.Set/Tuple child
         skip_inner_nodes: set[int] = set()
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {'frozenset', 'set'}:
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in SET_CALL_NAMES:
                 if node.args and isinstance(node.args[0], (ast.Set, ast.Tuple, ast.List)):
                     skip_inner_nodes.add(id(node.args[0]))
-        in_test = is_test_file(rel)
+        in_test = auditme.core.is_test_relpath(rel)
         expectation_nodes = test_expectation_nodes(tree) if in_test else set()
         for node in ast.walk(tree):
             if id(node) in skip_inner_nodes or id(node) in expectation_nodes:
@@ -67,7 +65,7 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
                 members = node.elts
                 kind = type(node).__name__
             elif isinstance(node, ast.Call):
-                if isinstance(node.func, ast.Name) and node.func.id in {'frozenset', 'set'}:
+                if isinstance(node.func, ast.Name) and node.func.id in SET_CALL_NAMES:
                     if node.args and isinstance(node.args[0], (ast.Set, ast.Tuple, ast.List)):
                         members = node.args[0].elts
                         kind = 'frozenset'
@@ -121,10 +119,7 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
         for node in tree.body:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            try:
-                body_src = '\n'.join(ast.unparse(b) for b in node.body if not isinstance(b, ast.Expr) or not isinstance(b.value, ast.Constant))
-            except Exception:
-                continue
+            body_src = '\n'.join(ast.unparse(b) for b in node.body if not isinstance(b, ast.Expr) or not isinstance(b.value, ast.Constant))
             if not body_src.strip() or len(body_src) < 40:
                 continue
             bodies[body_src].append((rel, node.lineno, node.name))
@@ -212,26 +207,17 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 for inner in ast.walk(member):
                     if not isinstance(inner, ast.Call):
                         continue
-                    try:
-                        callee = ast.unparse(inner.func)
-                    except Exception:
-                        continue
+                    callee = ast.unparse(inner.func)
                     # collect self.<attr> args
                     self_args: list[str] = []
                     for a in inner.args:
-                        try:
-                            src = ast.unparse(a)
-                        except Exception:
-                            continue
+                        src = ast.unparse(a)
                         if src.startswith('self.'):
                             self_args.append(src)
                     for kw in inner.keywords:
                         if kw.arg is None:
                             continue
-                        try:
-                            src = ast.unparse(kw.value)
-                        except Exception:
-                            continue
+                        src = ast.unparse(kw.value)
                         if src.startswith('self.'):
                             self_args.append(src)
                     if not self_args:
@@ -246,9 +232,7 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
                 # looks like a sink (write/flush/persist/save/emit/log/dump)
                 # or when the arg set suggests a shared target
                 callee_tail = callee.rsplit('.', 1)[-1].lower()
-                looks_like_sink = any(
-                    tok in callee_tail for tok in ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
-                )
+                looks_like_sink = any(tok in callee_tail for tok in SINK_TOKENS)
                 target_is_path_or_dir = any('dir' in a.lower() or 'path' in a.lower() or 'file' in a.lower() for a in self_args)
                 if not (looks_like_sink or target_is_path_or_dir):
                     continue
@@ -302,14 +286,10 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
         `write(path=a)` and `write(path=b)` are different calls.
     """
     package_root_name = src_root.name
-    SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
 
     def role_tail(expr: ast.expr) -> str:
         """Reduce one argument expression to its role token."""
-        try:
-            tail = ast.unparse(expr)
-        except Exception:
-            return ''
+        tail = ast.unparse(expr)
         if tail.startswith('self.'):
             tail = tail[5:]
         # If attribute access, take the last segment
@@ -356,10 +336,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
             for inner in _walk_within_scope(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                try:
-                    callee = ast.unparse(inner.func)
-                except Exception:
-                    continue
+                callee = ast.unparse(inner.func)
                 callee_tail = callee.rsplit('.', 1)[-1].lower()
                 tail_parts = set(re.split(r'[_\W]+', callee_tail))
                 if not any(tok in tail_parts for tok in SINK_TOKENS):
@@ -410,10 +387,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
             for inner in _walk_within_scope(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                try:
-                    callee = ast.unparse(inner.func)
-                except Exception:
-                    continue
+                callee = ast.unparse(inner.func)
                 tail = callee.rsplit('.', 1)[-1].lower()
                 tail_parts = set(re.split(r'[_\W]+', tail))
                 if any(tok in tail_parts for tok in SINK_TOKENS):
@@ -472,10 +446,10 @@ _TRIVIAL_CALLS = frozenset(
     {
         'append',
         'as_posix',
+        'close',
         'commit',
         'connect',
         'copy',
-        'close',
         'cursor',
         'debug',
         'deepcopy',
@@ -557,10 +531,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
             for inner in ast.walk(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                try:
-                    callee = ast.unparse(inner.func)
-                except Exception:
-                    continue
+                callee = ast.unparse(inner.func)
                 # Require a dotted callee (skips bare len(), str(), dict(),
                 # and a project's own local helpers). Measured both ways on a
                 # 200-file suite: without it the sequences fill with builtins

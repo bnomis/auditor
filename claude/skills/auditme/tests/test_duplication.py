@@ -245,13 +245,6 @@ def test_methods_named_for_mutation_are_out_of_scope(project: Builder, run_check
 
 
 REDUNDANT_TREE = {
-    'src/probe/pipeline.py': """
-    import probe.writer
-
-
-    def tokenize(config: dict, run_dir: str) -> None:
-        probe.writer.flush_config(config, run_dir)
-    """,
     'src/probe/cli.py': """
     import probe.pipeline
     import probe.writer
@@ -260,6 +253,13 @@ REDUNDANT_TREE = {
     def run_evaluate(config: dict, run_dir: str) -> None:
         probe.writer.flush_config(config, run_dir)
         probe.pipeline.tokenize(config, run_dir)
+    """,
+    'src/probe/pipeline.py': """
+    import probe.writer
+
+
+    def tokenize(config: dict, run_dir: str) -> None:
+        probe.writer.flush_config(config, run_dir)
     """,
 }
 

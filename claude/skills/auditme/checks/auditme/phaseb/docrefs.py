@@ -12,7 +12,7 @@ from auditme.phaseb.errors import PhaseBError
 from auditme.rules.project_hygiene import _CLASS_LINE_RE, _DEF_LINE_RE
 
 # Changed only by a skill change with a brief version bump.
-PATH_EXTENSIONS = ('.py', '.md', '.toml', '.yaml', '.yml', '.json', '.sh', '.txt', '.lock')
+PATH_EXTENSIONS = ('.json', '.lock', '.md', '.py', '.sh', '.toml', '.txt', '.yaml', '.yml')
 TREE_DEPTH = 3
 
 _HEADING_RE = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
@@ -130,7 +130,7 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
 
 # resolution
 
-OPTION_CALLS = frozenset({'add_argument', 'option', 'Option'})
+OPTION_CALLS = frozenset({'Option', 'add_argument', 'option'})
 SETTINGS_BASE = 'BaseSettings'
 
 

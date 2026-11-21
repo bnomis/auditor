@@ -4,6 +4,7 @@ import collections.abc
 import dataclasses
 import pathlib
 
+import conftest
 import pytest
 from auditme import phaseb
 from auditme.phaseb import candidates
@@ -21,10 +22,6 @@ def _verdict(**overrides) -> phaseb.Verdict:
     }
     fields.update(overrides)
     return phaseb.Verdict(**fields)
-
-
-def _candidate(candidate_id: str) -> phaseb.Candidate:
-    return phaseb.Candidate(question='Q1', id=candidate_id, path='src/pkg/mod.py', start=1, end=2, payload={}, hash='h')
 
 
 @pytest.fixture
@@ -56,7 +53,7 @@ def test_not_flagged_when_dismissed() -> None:
 
 def test_candidate_and_verdict_are_frozen() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
-        _candidate('a').hash = 'x'  # type: ignore[misc]
+        conftest.make_candidate('a').hash = 'x'  # type: ignore[misc]
     with pytest.raises(dataclasses.FrozenInstanceError):
         _verdict().reason = 'x'  # type: ignore[misc]
 
@@ -66,7 +63,7 @@ def test_register_question_records_lister_and_brief(isolated_registry: None, tmp
 
     @phaseb.register_question('Q1', brief, ('missing',))
     def lister(root: pathlib.Path) -> list[phaseb.Candidate]:
-        return [_candidate('b'), _candidate('a')]
+        return [conftest.make_candidate('b'), conftest.make_candidate('a')]
 
     assert phaseb.question_brief('Q1') == brief
     assert [c.id for c in phaseb.list_candidates('Q1', tmp_path)] == ['a', 'b']

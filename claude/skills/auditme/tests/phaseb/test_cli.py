@@ -8,6 +8,8 @@ import sys
 
 import auditme.phaseb
 import auditme.phaseb.candidates
+import conftest
+import phaseb
 import pytest
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[2] / 'checks' / 'phaseb.py'
@@ -69,8 +71,8 @@ def test_candidates_prints_one_json_line_per_candidate(root: pathlib.Path) -> No
 
 @pytest.mark.parametrize('question', ['Doc1', 'Doc2', 'Doc4', 'Doc5'])
 def test_candidates_runs_for_listers_that_take_no_depth(root: pathlib.Path, question: str) -> None:
-    subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
-    subprocess.run(['git', 'add', '.'], cwd=root, check=True)
+    conftest.git(root, 'init', '-q')
+    conftest.git(root, 'add', '.')
     done = run('candidates', root, '--question', question)
     assert done.returncode == 0, done.stderr
 
@@ -198,11 +200,8 @@ def test_unknown_question_exits_2_with_the_message_on_stderr(root: pathlib.Path)
 
 def _plan_in_process(monkeypatch: pytest.MonkeyPatch, root: pathlib.Path, out: pathlib.Path, *extra: str) -> list[list[str]]:
     """Run `phaseb.py plan` in this process for a question registered with a batch size of 1."""
-    import phaseb  # noqa: PLC0415  the script lives in checks/, which conftest puts on sys.path
-    from auditme.phaseb import candidates  # noqa: PLC0415
-
-    lister, brief, _ = candidates.REGISTRY['A4']
-    monkeypatch.setitem(candidates.REGISTRY, 'A4', (lister, brief, 1))
+    lister, brief, _ = auditme.phaseb.candidates.REGISTRY['A4']
+    monkeypatch.setitem(auditme.phaseb.candidates.REGISTRY, 'A4', (lister, brief, 1))
     monkeypatch.setattr(sys, 'argv', ['phaseb.py', 'plan', str(root), '--question', 'A4', '--out', str(out), *extra])
     assert phaseb.main() == 0
     return json.loads((out / 'plan.json').read_text(encoding='utf-8'))['batches']
@@ -231,9 +230,12 @@ def test_candidates_lists_t1(project: Project) -> None:
 
 
 EVERY_QUESTION_FILES = {
+    'AGENTS.md': '# Agents\n\n## Layout\n\nCode is in `src/pkg/mod.py`; use `ruff` and `pytest`.\n',
+    'agents/specs/probe/spec.md': '# Probe\n\n**Status:** implemented\n\n## Run\n\nThe `first_step` function runs.\n',
+    'docs/guide.md': '# Guide\n\n## Usage\n\nCall `first_step` to start.\n',
+    'pyproject.toml': '[project]\nname = "pkg"\ndependencies = []\n',
     'src/pkg/__init__.py': '',
     'src/pkg/base.py': 'class ProbeError(Exception):\n    pass\n',
-    'src/pkg/types.py': 'import enum\n\n\nclass Mode(enum.Enum):\n    FAST = 1\n    SLOW = 2\n',
     'src/pkg/mod.py': (
         'import pkg.types\n\n\n'
         'def first_step(mode: pkg.types.Mode, path: str) -> int:\n'
@@ -246,20 +248,17 @@ EVERY_QUESTION_FILES = {
     'src/pkg/pure.py': 'def clamp_it(x: int) -> int:\n    if x > 3:\n        return 3\n    return x\n',
     'src/pkg/sub/__init__.py': "from .base import Probe\n\n__all__ = ['Probe']\n",
     'src/pkg/sub/base.py': 'class Probe:\n    pass\n',
+    'src/pkg/types.py': 'import enum\n\n\nclass Mode(enum.Enum):\n    FAST = 1\n    SLOW = 2\n',
     'src/pkg/user.py': 'import pkg.sub\n\n\ndef use():\n    return pkg.sub.Probe\n',
     'src/tests/__init__.py': '',
-    'agents/specs/probe/spec.md': '# Probe\n\n**Status:** implemented\n\n## Run\n\nThe `first_step` function runs.\n',
-    'docs/guide.md': '# Guide\n\n## Usage\n\nCall `first_step` to start.\n',
-    'AGENTS.md': '# Agents\n\n## Layout\n\nCode is in `src/pkg/mod.py`; use `ruff` and `pytest`.\n',
-    'pyproject.toml': '[project]\nname = "pkg"\ndependencies = []\n',
 }
 
 
 @pytest.mark.parametrize('question', sorted(auditme.phaseb.candidates.REGISTRY))
 def test_every_registered_question_round_trips_plan_check_and_merge(project: Project, tmp_path_factory: pytest.TempPathFactory, question: str) -> None:
     root = project(EVERY_QUESTION_FILES)
-    subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
-    subprocess.run(['git', 'add', '-A'], cwd=root, check=True)
+    conftest.git(root, 'init', '-q')
+    conftest.git(root, 'add', '-A')
     out = tmp_path_factory.mktemp('run')
     planned = run('plan', root, '--question', question, '--out', out)
     assert planned.returncode == 0, planned.stderr

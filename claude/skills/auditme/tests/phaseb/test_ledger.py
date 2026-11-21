@@ -5,6 +5,7 @@ import json
 import os
 import pathlib
 
+import conftest
 import pytest
 from auditme import phaseb
 from auditme.phaseb import ledger
@@ -22,10 +23,6 @@ def _verdict(candidate_id: str = 'src/pkg/mod.py::probe', **overrides) -> phaseb
     }
     fields.update(overrides)
     return phaseb.Verdict(**fields)
-
-
-def _candidate(candidate_id: str) -> phaseb.Candidate:
-    return phaseb.Candidate(question='Q1', id=candidate_id, path='src/pkg/mod.py', start=1, end=2, payload={}, hash='h')
 
 
 def _write(path: pathlib.Path, verdicts: list[phaseb.Verdict]) -> None:
@@ -72,21 +69,21 @@ def test_merge_writes_new_and_keeps_current(tmp_path: pathlib.Path) -> None:
     old = _verdict('a')
     _write(path, [old])
     new = _verdict('b')
-    result = ledger.merge_verdicts(path, [_candidate('a'), _candidate('b')], [new])
+    result = ledger.merge_verdicts(path, [conftest.make_candidate('a'), conftest.make_candidate('b')], [new])
     assert (result.written, result.kept, result.dropped) == (1, 1, 0)
     assert ledger.read_ledger(path) == {'a': old, 'b': new}
 
 
 def test_merge_creates_missing_directory(tmp_path: pathlib.Path) -> None:
     path = tmp_path / 'agents' / 'ledger' / 'Q1.jsonl'
-    ledger.merge_verdicts(path, [_candidate('a')], [_verdict('a')])
+    ledger.merge_verdicts(path, [conftest.make_candidate('a')], [_verdict('a')])
     assert set(ledger.read_ledger(path)) == {'a'}
 
 
 def test_merge_drops_entry_that_is_no_longer_a_candidate(tmp_path: pathlib.Path) -> None:
     path = tmp_path / 'Q1.jsonl'
     _write(path, [_verdict('a'), _verdict('gone')])
-    result = ledger.merge_verdicts(path, [_candidate('a')], [])
+    result = ledger.merge_verdicts(path, [conftest.make_candidate('a')], [])
     assert (result.written, result.kept, result.dropped) == (0, 1, 1)
     assert set(ledger.read_ledger(path)) == {'a'}
 
@@ -95,7 +92,7 @@ def test_unchanged_findings_keep_the_dismissal(tmp_path: pathlib.Path) -> None:
     path = tmp_path / 'Q1.jsonl'
     findings = {'missing': ['ProbeError'], 'extra': []}
     _write(path, [_verdict('a', findings=findings, dismissed='2026-01-02: intended')])
-    ledger.merge_verdicts(path, [_candidate('a')], [_verdict('a', hash='new', findings=findings)])
+    ledger.merge_verdicts(path, [conftest.make_candidate('a')], [_verdict('a', hash='new', findings=findings)])
     merged = ledger.read_ledger(path)['a']
     assert merged.hash == 'new'
     assert merged.dismissed == '2026-01-02: intended'
@@ -105,7 +102,7 @@ def test_unchanged_findings_keep_the_dismissal(tmp_path: pathlib.Path) -> None:
 def test_changed_findings_drop_the_dismissal(tmp_path: pathlib.Path) -> None:
     path = tmp_path / 'Q1.jsonl'
     _write(path, [_verdict('a', findings={'missing': ['ProbeError'], 'extra': []}, dismissed='2026-01-02: intended')])
-    ledger.merge_verdicts(path, [_candidate('a')], [_verdict('a', findings={'missing': ['OtherError'], 'extra': []})])
+    ledger.merge_verdicts(path, [conftest.make_candidate('a')], [_verdict('a', findings={'missing': ['OtherError'], 'extra': []})])
     merged = ledger.read_ledger(path)['a']
     assert merged.dismissed is None
     assert merged.flagged
@@ -129,7 +126,7 @@ def test_dismiss_unknown_id_raises(tmp_path: pathlib.Path) -> None:
 
 def test_ledger_is_written_one_sorted_line_per_verdict(tmp_path: pathlib.Path) -> None:
     path = tmp_path / 'Q1.jsonl'
-    ledger.merge_verdicts(path, [_candidate('b'), _candidate('a')], [_verdict('b'), _verdict('a')])
+    ledger.merge_verdicts(path, [conftest.make_candidate('b'), conftest.make_candidate('a')], [_verdict('b'), _verdict('a')])
     lines = path.read_text(encoding='utf-8').splitlines()
     assert [json.loads(line)['id'] for line in lines] == ['a', 'b']
 
@@ -139,11 +136,11 @@ def test_failed_write_leaves_old_ledger_intact(tmp_path: pathlib.Path, monkeypat
     _write(path, [_verdict('a')])
     before = path.read_bytes()
 
-    def fail(*_args: object, **_kwargs: object) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
         raise OSError('disk full')
 
     monkeypatch.setattr(os, 'replace', fail)
     with pytest.raises(phaseb.PhaseBError):
-        ledger.merge_verdicts(path, [_candidate('a'), _candidate('b')], [_verdict('b')])
+        ledger.merge_verdicts(path, [conftest.make_candidate('a'), conftest.make_candidate('b')], [_verdict('b')])
     assert path.read_bytes() == before
     assert [entry.name for entry in tmp_path.iterdir()] == ['Q1.jsonl']

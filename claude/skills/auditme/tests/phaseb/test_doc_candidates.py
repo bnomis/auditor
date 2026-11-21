@@ -1,9 +1,9 @@
 """Tests for the Doc4 and Doc5 listers: documents, pairs, unresolved names and hashes."""
 
 import pathlib
-import subprocess
 import textwrap
 
+import conftest
 import pytest
 from auditme import phaseb
 from auditme.phaseb import candidates
@@ -66,14 +66,14 @@ GUIDE = """
 """
 
 FILES = {
+    'AGENTS.md': '# Agents\n',
+    'README.md': '# Probe\n\n## Start\n\nRun `run_it` first.\n',
+    'agents/specs/draft/spec.md': DRAFT,
+    'agents/specs/probe/spec.md': SPEC,
+    'docs/guide.md': GUIDE,
     'src/pkg/__init__.py': '',
     'src/pkg/mod.py': MOD,
     'src/pkg/other.py': OTHER,
-    'agents/specs/probe/spec.md': SPEC,
-    'agents/specs/draft/spec.md': DRAFT,
-    'docs/guide.md': GUIDE,
-    'README.md': '# Probe\n\n## Start\n\nRun `run_it` first.\n',
-    'AGENTS.md': '# Agents\n',
 }
 
 
@@ -87,8 +87,8 @@ def write(root: pathlib.Path, name: str, text: str) -> None:
 def root(tmp_path: pathlib.Path) -> pathlib.Path:
     for name, text in FILES.items():
         write(tmp_path, name, text)
-    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True, capture_output=True)
-    subprocess.run(['git', 'add', '-A'], cwd=tmp_path, check=True, capture_output=True)
+    conftest.git(tmp_path, 'init', '-q')
+    conftest.git(tmp_path, 'add', '-A')
     return tmp_path
 
 
@@ -157,7 +157,7 @@ def test_undefined_name_gets_an_unresolved_candidate_until_defined(root: pathlib
     candidate = listed(root, 'Doc5')[key]
     assert candidate.payload['tokens'] == [{'name': 'missing_fn', 'line': 10, 'definitions': []}]
     write(root, 'src/pkg/more.py', 'def missing_fn():\n    return 1\n')
-    subprocess.run(['git', 'add', '-A'], cwd=root, check=True, capture_output=True)
+    conftest.git(root, 'add', '-A')
     after = listed(root, 'Doc5')
     assert key not in after
     assert 'docs/guide.md::Guide > Usage::src/pkg/more.py::missing_fn' in after
@@ -256,7 +256,7 @@ def agents_root(root: pathlib.Path) -> pathlib.Path:
     write(root, 'pyproject.toml', PYPROJECT)
     write(root, '.pre-commit-config.yaml', HOOKS)
     write(root, 'src/pkg/uses.py', 'import numpy\nfrom os import path\n')
-    subprocess.run(['git', 'add', '-A'], cwd=root, check=True, capture_output=True)
+    conftest.git(root, 'add', '-A')
     return root
 
 
@@ -281,7 +281,7 @@ def test_doc1_hash_follows_tracked_directories_only(agents_root: pathlib.Path) -
     before = listed(agents_root, 'Doc1')[key].hash
     write(agents_root, 'untracked/file.py', 'x = 1\n')
     assert listed(agents_root, 'Doc1')[key].hash == before
-    subprocess.run(['git', 'add', '-A'], cwd=agents_root, check=True, capture_output=True)
+    conftest.git(agents_root, 'add', '-A')
     assert listed(agents_root, 'Doc1')[key].hash != before
 
 

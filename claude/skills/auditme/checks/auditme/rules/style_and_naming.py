@@ -5,7 +5,7 @@ import pathlib
 import re
 from collections import defaultdict
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, is_dunder_all_assignment
+from auditme.core import BARE_GENERIC_NAMES, _accept_reason, _all_py_files, _emit, _relpath, _source_lines, is_dunder_all_assignment
 
 # Public stdlib API spelt with a leading underscore, so not private access:
 # `os._exit` (https://docs.python.org/3/library/os.html#os._exit) and the
@@ -28,12 +28,12 @@ def is_stdlib_public_access_only(line: str) -> bool:
 CODE_ONLY_RULES = frozenset(
     {
         'aliased-imports',
-        'legacy-typing',
         'leading-underscore-attribute-access',
         'leading-underscore-const-lower',
         'leading-underscore-const-upper',
         'leading-underscore-def-class',
         'leading-underscore-self',
+        'legacy-typing',
         'relative-import-nonpackage',
     }
 )
@@ -165,7 +165,7 @@ def literal_format_lines(lines: list[str]) -> set[int]:
     return found
 
 
-_STRFTIME_TOKENS = {'%Y', '%y', '%m', '%d', '%H', '%I', '%M', '%S', '%p', '%A', '%a', '%B', '%b', '%j', '%U', '%W', '%c', '%x', '%X', '%Z', '%z', '%f'}
+_STRFTIME_TOKENS = {'%A', '%B', '%H', '%I', '%M', '%S', '%U', '%W', '%X', '%Y', '%Z', '%a', '%b', '%c', '%d', '%f', '%j', '%m', '%p', '%x', '%y', '%z'}
 
 
 def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -350,7 +350,6 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
 
 
 def _check_bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> None:
-    BARE_GENERICS = {'dict', 'list', 'tuple', 'set', 'frozenset'}
     try:
         tree = ast.parse('\n'.join(lines))
     except SyntaxError:
@@ -366,7 +365,7 @@ def _check_bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> Non
             if isinstance(node, ast.Subscript):
                 # parametric; if slice is `dict` itself that's fine too, stop
                 return
-            if isinstance(node, ast.Name) and node.id in BARE_GENERICS:
+            if isinstance(node, ast.Name) and node.id in BARE_GENERIC_NAMES:
                 lineno = getattr(node, 'lineno', None)
                 if lineno is None or lineno in reported:
                     return
@@ -433,16 +432,16 @@ def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
 
 
 _PARAMETRIC_NONBUILTIN_GENERICS = {
+    'asyncio.Queue',
+    'collections.Counter',
+    'collections.OrderedDict',
+    'collections.defaultdict',
+    'collections.deque',
+    'concurrent.futures.Executor',
+    'concurrent.futures.Future',
     'multiprocessing.Queue',
     'multiprocessing.queues.Queue',
     'queue.Queue',
-    'asyncio.Queue',
-    'concurrent.futures.Future',
-    'concurrent.futures.Executor',
-    'collections.deque',
-    'collections.OrderedDict',
-    'collections.defaultdict',
-    'collections.Counter',
     'weakref.WeakKeyDictionary',
     'weakref.WeakValueDictionary',
 }
@@ -489,10 +488,7 @@ def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]
             return  # parametric
         full = None
         if isinstance(ann, ast.Attribute):
-            try:
-                full = ast.unparse(ann)
-            except Exception:
-                return
+            full = ast.unparse(ann)
         elif isinstance(ann, ast.Name):
             full = alias_to_full.get(ann.id, ann.id)
         if full is None:
