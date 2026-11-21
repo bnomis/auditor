@@ -165,7 +165,7 @@ def literal_format_lines(lines: list[str]) -> set[int]:
     return found
 
 
-_STRFTIME_TOKENS = {'%A', '%B', '%H', '%I', '%M', '%S', '%U', '%W', '%X', '%Y', '%Z', '%a', '%b', '%c', '%d', '%f', '%j', '%m', '%p', '%x', '%y', '%z'}
+STRFTIME_TOKENS = {'%A', '%B', '%H', '%I', '%M', '%S', '%U', '%W', '%X', '%Y', '%Z', '%a', '%b', '%c', '%d', '%f', '%j', '%m', '%p', '%x', '%y', '%z'}
 
 
 def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -185,7 +185,7 @@ def check_percent_formatting(scope: pathlib.Path, src_root: pathlib.Path) -> Non
             for s in strings:
                 if not suspect_re.search(s):
                     continue
-                if any(tok in s for tok in _STRFTIME_TOKENS):
+                if any(tok in s for tok in STRFTIME_TOKENS):
                     continue
                 accept = auditme.core.accept_reason(lines, idx, rule='legacy-formatting-percent')
                 auditme.core.emit(
@@ -346,22 +346,22 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
       - local AnnAssign targets inside function bodies
     """
     for path in auditme.core.all_py_files(src_root):
-        _check_bare_parametric_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path))
+        bare_parametric_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path))
 
 
-def _check_bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> None:
+def bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> None:
     try:
         tree = ast.parse('\n'.join(lines))
     except SyntaxError:
         return
     reported: set[int] = set()
 
-    def _flag_annotation(ann: ast.AST, ctx: str) -> None:
+    def flag_annotation(ann: ast.AST, ctx: str) -> None:
         # Walk the annotation expression to find any `Name` matching
         # a bare generic. `Subscript(Name(id='dict'), ...)` is fine.
         # `Name(id='dict')` alone is a bare annotation. Handle
         # `dict | None`, `dict | Other`, etc. by descending into BinOp.
-        def _visit(node: ast.AST) -> None:
+        def visit(node: ast.AST) -> None:
             if isinstance(node, ast.Subscript):
                 # parametric; if slice is `dict` itself that's fine too, stop
                 return
@@ -381,27 +381,27 @@ def _check_bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> Non
                     accepted_reason=accept,
                 )
             elif isinstance(node, ast.BinOp):
-                _visit(node.left)
-                _visit(node.right)
+                visit(node.left)
+                visit(node.right)
             elif isinstance(node, ast.Tuple):
                 for elt in node.elts:
-                    _visit(elt)
+                    visit(elt)
 
-        _visit(ann)
+        visit(ann)
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for arg in (*node.args.args, *node.args.kwonlyargs, *node.args.posonlyargs):
                 if arg.annotation is not None:
-                    _flag_annotation(arg.annotation, f'{node.name}({arg.arg}:)')
+                    flag_annotation(arg.annotation, f'{node.name}({arg.arg}:)')
             if node.returns is not None:
-                _flag_annotation(node.returns, f'{node.name} -> ')
+                flag_annotation(node.returns, f'{node.name} -> ')
         elif isinstance(node, ast.AnnAssign) and node.annotation is not None:
             tgt = node.target
             ctx = 'annotation'
             if isinstance(tgt, ast.Name):
                 ctx = f'{tgt.id}:'
-            _flag_annotation(node.annotation, ctx)
+            flag_annotation(node.annotation, ctx)
 
 
 def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -431,7 +431,7 @@ def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             )
 
 
-_PARAMETRIC_NONBUILTIN_GENERICS = {
+PARAMETRIC_NONBUILTIN_GENERICS = {
     'asyncio.Queue',
     'collections.Counter',
     'collections.OrderedDict',
@@ -462,10 +462,10 @@ def check_bare_nonbuiltin_generic_annotation(scope: pathlib.Path, src_root: path
     handled by `check_bare_parametric_annotation` and skipped here.
     """
     for path in auditme.core.all_py_files(src_root):
-        _check_bare_nonbuiltin_generic_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path))
+        bare_nonbuiltin_generic_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path))
 
 
-def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]) -> None:
+def bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]) -> None:
     try:
         tree = ast.parse('\n'.join(lines))
     except SyntaxError:
@@ -483,7 +483,7 @@ def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]
 
     reported: set[int] = set()
 
-    def _flag(ann: ast.AST) -> None:
+    def flag_bare_annotation(ann: ast.AST) -> None:
         if isinstance(ann, ast.Subscript):
             return  # parametric
         full = None
@@ -493,7 +493,7 @@ def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]
             full = alias_to_full.get(ann.id, ann.id)
         if full is None:
             return
-        if full not in _PARAMETRIC_NONBUILTIN_GENERICS:
+        if full not in PARAMETRIC_NONBUILTIN_GENERICS:
             return
         lineno = getattr(ann, 'lineno', None)
         if lineno is None or lineno in reported:
@@ -514,14 +514,14 @@ def _check_bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for arg in (*node.args.args, *node.args.kwonlyargs, *node.args.posonlyargs):
                 if arg.annotation is not None:
-                    _flag(arg.annotation)
+                    flag_bare_annotation(arg.annotation)
             if node.returns is not None:
-                _flag(node.returns)
+                flag_bare_annotation(node.returns)
         elif isinstance(node, ast.AnnAssign) and node.annotation is not None:
-            _flag(node.annotation)
+            flag_bare_annotation(node.annotation)
 
 
-def _collect_name_loads(scope: ast.AST) -> dict[str, list[int]]:
+def collect_name_loads(scope: ast.AST) -> dict[str, list[int]]:
     """Return a map of Name.id -> [lineno, ...] for every Load within
     `scope` (not descending into nested function or class definitions)."""
     result: dict[str, list[int]] = collections.defaultdict(list)
@@ -538,7 +538,7 @@ def _collect_name_loads(scope: ast.AST) -> dict[str, list[int]]:
     return result
 
 
-def _leading_underscore_names(target: ast.AST) -> list[tuple[str, int]]:
+def leading_underscore_names(target: ast.AST) -> list[tuple[str, int]]:
     """Return `(name, lineno)` for every `_foo` Store-name inside a
     tuple-unpack target (or a bare `_foo`). Skips bare `_`."""
     out: list[tuple[str, int]] = []
@@ -583,7 +583,7 @@ def check_underscore_unpack_target_read(scope: pathlib.Path, src_root: pathlib.P
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 scopes.append(node)
         for scope_node in scopes:
-            loads = _collect_name_loads(scope_node)
+            loads = collect_name_loads(scope_node)
             for node in ast.iter_child_nodes(scope_node) if scope_node is tree else ast.walk(scope_node):
                 if scope_node is not tree and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)) and node is not scope_node:
                     continue
@@ -597,7 +597,7 @@ def check_underscore_unpack_target_read(scope: pathlib.Path, src_root: pathlib.P
                 for target in targets:
                     if not isinstance(target, (ast.Tuple, ast.List)):
                         continue
-                    for name, lineno in _leading_underscore_names(target):
+                    for name, lineno in leading_underscore_names(target):
                         reads_after = [ln for ln in loads.get(name, []) if ln > lineno]
                         if not reads_after:
                             continue
@@ -633,7 +633,7 @@ def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.
         for node in ast.walk(tree):
             if not isinstance(node, (ast.For, ast.AsyncFor)):
                 continue
-            underscore_targets = _leading_underscore_names(node.target)
+            underscore_targets = leading_underscore_names(node.target)
             if not underscore_targets:
                 continue
             # Collect loads inside loop body
@@ -659,7 +659,7 @@ def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.
                 )
 
 
-def _function_nested_definitions(tree: ast.Module) -> list[tuple[ast.AST, str]]:
+def function_nested_definitions(tree: ast.Module) -> list[tuple[ast.AST, str]]:
     """Return every def/class lexically inside a function body, with its kind.
 
     Descends through nested functions to any depth, so a helper defined
@@ -736,7 +736,7 @@ def check_leading_underscore_nested_def_class(scope: pathlib.Path, src_root: pat
                     if isinstance(target, ast.Name):
                         module_level_names.add(target.id)
 
-        for node, kind in _function_nested_definitions(tree):
+        for node, kind in function_nested_definitions(tree):
             name = getattr(node, 'name', '')
             if not name.startswith('_'):
                 continue
@@ -757,12 +757,12 @@ def check_leading_underscore_nested_def_class(scope: pathlib.Path, src_root: pat
             )
 
 
-def _is_leading_underscore(name: str | None) -> bool:
+def is_leading_underscore(name: str | None) -> bool:
     """True for `_foo`; false for bare `_`, a dunder or a mangled `__foo`."""
     return bool(name) and name.startswith('_') and name != '_' and not name.startswith('__')
 
 
-def _leading_underscore_bindings(tree: ast.Module) -> list[tuple[str, int, str]]:
+def leading_underscore_bindings(tree: ast.Module) -> list[tuple[str, int, str]]:
     """Return `(name, lineno, kind)` for every leading-underscore name a file binds.
 
     A binding is any name the author chose for a value: a parameter, a
@@ -800,7 +800,7 @@ def _leading_underscore_bindings(tree: ast.Module) -> list[tuple[str, int, str]]
             found.append((node.name, node.lineno, '`match` capture'))
         elif isinstance(node, ast.MatchMapping) and node.rest:
             found.append((node.rest, node.lineno, '`match` capture'))
-    return [(name, lineno, kind) for name, lineno, kind in found if _is_leading_underscore(name)]
+    return [(name, lineno, kind) for name, lineno, kind in found if is_leading_underscore(name)]
 
 
 def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -814,7 +814,7 @@ def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path
     invisible. This check walks the AST for all of them and replaces the
     five `destructure`/`forloop` regexes, which it subsumes.
 
-    Signal: see `_leading_underscore_bindings`.
+    Signal: see `leading_underscore_bindings`.
 
     Refinements (each has a test asserting it does not fire):
       - Bare `_` does not fire; it is the sanctioned throwaway.
@@ -836,7 +836,7 @@ def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
-        for name, lineno, kind in sorted(_leading_underscore_bindings(tree), key=lambda item: (item[1], item[0])):
+        for name, lineno, kind in sorted(leading_underscore_bindings(tree), key=lambda item: (item[1], item[0])):
             accept = auditme.core.accept_reason(lines, lineno, rule='leading-underscore-binding')
             auditme.core.emit(
                 rule='leading-underscore-binding',
@@ -852,7 +852,7 @@ def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path
 # Every `typing` alias PEP 585 deprecated, and where its replacement lives.
 # `List`/`Dict`/`Tuple`/`Set`/`FrozenSet`/`Type` are absent: their replacement
 # is a builtin, and `legacy-typing` already reports them.
-_TYPING_DEPRECATED_ALIASES = {
+TYPING_DEPRECATED_ALIASES = {
     'AbstractSet': 'collections.abc.Set',
     'AsyncContextManager': 'contextlib.AbstractAsyncContextManager',
     'AsyncGenerator': 'collections.abc.AsyncGenerator',
@@ -921,15 +921,15 @@ def check_typing_deprecated_alias(scope: pathlib.Path, src_root: pathlib.Path) -
         found: set[tuple[int, str]] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == 'typing':
-                if node.attr in _TYPING_DEPRECATED_ALIASES:
+                if node.attr in TYPING_DEPRECATED_ALIASES:
                     found.add((node.lineno, node.attr))
             elif isinstance(node, ast.ImportFrom) and node.module == 'typing' and node.level == 0:
-                found.update((node.lineno, alias.name) for alias in node.names if alias.name in _TYPING_DEPRECATED_ALIASES)
+                found.update((node.lineno, alias.name) for alias in node.names if alias.name in TYPING_DEPRECATED_ALIASES)
         for lineno, name in sorted(found):
             accept = auditme.core.accept_reason(lines, lineno, rule=rule)
             auditme.core.emit(
                 rule=rule,
-                variant=f'typing.{name} -> {_TYPING_DEPRECATED_ALIASES[name]}',
+                variant=f'typing.{name} -> {TYPING_DEPRECATED_ALIASES[name]}',
                 path=rel,
                 line=lineno,
                 evidence=(lines[lineno - 1].strip()[:200] if 1 <= lineno <= len(lines) else ''),

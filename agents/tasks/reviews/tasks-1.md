@@ -401,7 +401,7 @@ underscore, and the checker's code imports by full path.
 
 ## Task 12: Module-local renames in code
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** "The plan the coding standards settle", Renames
@@ -411,17 +411,17 @@ is left in the checker's code.
 
 **Subtasks:**
 
-- [ ] Rename the remaining module-local functions, classes and constants, and `self._counts`, avoiding the collisions the review names (`_types` would shadow `types`; `_members`)
-- [ ] Run the sweep: no `leading-underscore-*` hit remains in code except the docstring mentions left for Task 14
+- [x] Rename the remaining module-local functions, classes and constants, and `self._counts`, avoiding the collisions the review names (`_types` would shadow `types`; `_members`)
+- [x] Run the sweep: no `leading-underscore-*` hit remains in code except the docstring mentions left for Task 14
 
 **Acceptance Criteria:**
 
-- [ ] As above
+- [x] As above
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes
 
 **Notes:**
 

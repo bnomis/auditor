@@ -29,7 +29,7 @@ CHECKS_ROOT = AUDIT_SCRIPT.parent
 
 def test_every_package_under_src_is_discovered(project: Builder) -> None:
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n'})
-    assert [path.name for path in auditme.core._packages_under(root / 'src')] == ['probe', 'tests']
+    assert [path.name for path in auditme.core.packages_under(root / 'src')] == ['probe', 'tests']
 
 
 def test_caches_and_build_artefacts_are_not_packages(project: Builder) -> None:
@@ -42,7 +42,7 @@ def test_caches_and_build_artefacts_are_not_packages(project: Builder) -> None:
             'src/docs/notes.md': 'no python here\n',
         }
     )
-    assert [path.name for path in auditme.core._packages_under(root / 'src')] == ['probe']
+    assert [path.name for path in auditme.core.packages_under(root / 'src')] == ['probe']
 
 
 def test_a_script_root_outside_src_is_audited_as_its_own_pass(project: Builder) -> None:

@@ -116,14 +116,14 @@ def type_checking_linenos(tree: ast.AST) -> set[int]:
     return result
 
 
-def _py_files(root: pathlib.Path, mode: str) -> list[pathlib.Path]:
+def py_files(root: pathlib.Path, mode: str) -> list[pathlib.Path]:
     if mode == TOP_LEVEL:
         return sorted(p for p in root.glob('*.py') if p.is_file())
     return sorted(p for p in root.rglob('*.py'))
 
 
 def all_py_files(src_root: pathlib.Path) -> list[pathlib.Path]:
-    return _py_files(src_root, ROOT_MODULES.get(src_root, PACKAGE))
+    return py_files(src_root, ROOT_MODULES.get(src_root, PACKAGE))
 
 
 def module_dotted(path: pathlib.Path, src_root: pathlib.Path) -> str:
@@ -160,12 +160,12 @@ def accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     return pairs
 
 
-_LITERAL_DISPATCH_TYPE_NAMES = frozenset({'str'})  # extensible via helper below
+LITERAL_DISPATCH_TYPE_NAMES = frozenset({'str'})  # extensible via helper below
 
 
 # Directories outside `src/` that hold auditable Python. A project's scripts
 # conventionally live in `bin/`, and until 2026-09-01 the sweep could not see
-# them at all: `_packages_under` enumerates packages *under `src/`*, so a
+# them at all: `packages_under` enumerates packages *under `src/`*, so a
 # project whose scripts live in `bin/` got zero rows for them - accepted or
 # otherwise - and a summary could record "`bin/` remains at zero unaccepted
 # hits" as a measurement of nothing.
@@ -194,7 +194,7 @@ class RootsError(Exception):
     """`[tool.auditme]` in `pyproject.toml` is invalid; the message is the error text."""
 
 
-def _inside(inner: pathlib.Path, outer: pathlib.Path) -> bool:
+def path_inside(inner: pathlib.Path, outer: pathlib.Path) -> bool:
     return inner == outer or outer in inner.parents
 
 
@@ -245,18 +245,18 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
         root = scope / path
         if not root.is_dir():
             raise RootsError(f'declared root {path} not found')
-        if not _py_files(root, mode):
+        if not py_files(root, mode):
             raise RootsError(f'declared root {path} holds no .py file')
         roots.append((root, mode))
     for i, (a, a_mode) in enumerate(roots):
         for b, b_mode in roots[i + 1 :]:
-            nested = (a_mode == PACKAGE and (_inside(b, a) and b_mode in (PACKAGE, TOP_LEVEL))) or (b_mode == PACKAGE and _inside(a, b))
+            nested = (a_mode == PACKAGE and (path_inside(b, a) and b_mode in (PACKAGE, TOP_LEVEL))) or (b_mode == PACKAGE and path_inside(a, b))
             if nested:
                 raise RootsError(f'declared roots {a.relative_to(scope)} and {b.relative_to(scope)} overlap')
     return roots
 
 
-def _packages_under(src: pathlib.Path) -> list[pathlib.Path]:
+def packages_under(src: pathlib.Path) -> list[pathlib.Path]:
     """Every package directory directly under `src/`, sorted.
 
     Sorted because emission order is part of the output: `CHECKS`' order fixes
@@ -285,7 +285,7 @@ def loose_src_modules(scope: pathlib.Path) -> list[pathlib.Path]:
     return sorted(p for p in src.glob('*.py') if p.is_file())
 
 
-def _extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | None = None) -> list[pathlib.Path]:
+def extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | None = None) -> list[pathlib.Path]:
     """Every auditable root outside `src/`, in the order `names` gives them.
 
     `names` defaults to the current `EXTRA_ROOT_NAMES`, read at call time so the
@@ -321,7 +321,7 @@ def audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
         ROOT_MODULES = types.MappingProxyType({root: mode for root, mode in declared})
         return [root for root, _ in declared]
     ROOT_MODULES = types.MappingProxyType({})
-    return _packages_under(scope / 'src') + _extra_roots(scope)
+    return packages_under(scope / 'src') + extra_roots(scope)
 
 
 # call resolver
@@ -452,8 +452,8 @@ def corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib
     """
     declared = declared_roots(scope)
     if declared is not None:
-        return sorted(path for root, mode in declared for path in _py_files(root, mode))
-    roots = _extra_roots(scope)
+        return sorted(path for root, mode in declared for path in py_files(root, mode))
+    roots = extra_roots(scope)
     src = scope / 'src'
     if src.is_dir():
         roots.insert(0, src)
@@ -625,7 +625,7 @@ def is_dunder_all_assignment(node: ast.Assign | ast.AnnAssign) -> bool:
     return len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == '__all__'
 
 
-def _all_names(path: pathlib.Path) -> set[str] | None:
+def all_names(path: pathlib.Path) -> set[str] | None:
     """The string members of the `__all__` in `path`, or None when it has none."""
     if not path.is_file():
         return None
@@ -661,7 +661,7 @@ def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
                 files.append(current / f'{part}.py')
             current = current / part
             files.append(current / '__init__.py')
-    found = [names for names in (_all_names(f) for f in files) if names is not None]
+    found = [names for names in (all_names(f) for f in files) if names is not None]
     if found:
         return qualname.split('.')[0] not in set().union(*found)
     segments = qualname.split('.') + module.split('.')

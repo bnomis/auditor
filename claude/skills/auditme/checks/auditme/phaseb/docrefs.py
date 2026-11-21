@@ -15,13 +15,13 @@ import auditme.rules.project_hygiene
 PATH_EXTENSIONS = ('.json', '.lock', '.md', '.py', '.sh', '.toml', '.txt', '.yaml', '.yml')
 TREE_DEPTH = 3
 
-_HEADING_RE = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
+HEADING_RE = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
 FENCE_RE = re.compile(r'^\s*(```|~~~)')
-_INLINE_CODE_RE = re.compile(r'`([^`\n]+)`')
+INLINE_CODE_RE = re.compile(r'`([^`\n]+)`')
 TRAILING_CALL_RE = re.compile(r'\(.*\)$')
-_IDENTIFIER_RE = re.compile(r'^[A-Za-z_]\w*(\.\w+)*$')
-_INNER_CAPITAL_RE = re.compile(r'[a-z0-9][A-Z]')
-_OPTION_RE = re.compile(r'^--[A-Za-z][\w-]*$')
+IDENTIFIER_RE = re.compile(r'^[A-Za-z_]\w*(\.\w+)*$')
+INNER_CAPITAL_RE = re.compile(r'[a-z0-9][A-Z]')
+OPTION_RE = re.compile(r'^--[A-Za-z][\w-]*$')
 
 
 @dataclasses.dataclass(frozen=True)
@@ -35,16 +35,16 @@ class DocSection:
     names: list[tuple[int, str]]  # (line, token) per code-shaped name, in line order
 
 
-def _code_shaped(token: str) -> str | None:
+def code_shaped(token: str) -> str | None:
     """Return the token without a trailing call when it is a code-shaped name, else None."""
     token = TRAILING_CALL_RE.sub('', token.strip())
     if not token or ' ' in token or '<' in token:
         return None
     if token.startswith(('/', '~')):
         return None
-    if '/' in token or token.endswith(PATH_EXTENSIONS) or _OPTION_RE.match(token):
+    if '/' in token or token.endswith(PATH_EXTENSIONS) or OPTION_RE.match(token):
         return token
-    if _IDENTIFIER_RE.match(token) and ('_' in token or '.' in token or _INNER_CAPITAL_RE.search(token)):
+    if IDENTIFIER_RE.match(token) and ('_' in token or '.' in token or INNER_CAPITAL_RE.search(token)):
         return token
     return None
 
@@ -63,11 +63,11 @@ def backticked_tokens(lines: list[str], start: int, end: int) -> list[tuple[int,
         if FENCE_RE.match(line):
             in_fence = not in_fence
         elif not in_fence:
-            found.extend((number, match.group(1).strip()) for match in _INLINE_CODE_RE.finditer(line) if match.group(1).strip())
+            found.extend((number, match.group(1).strip()) for match in INLINE_CODE_RE.finditer(line) if match.group(1).strip())
     return found
 
 
-def _api_fence_name(line: str) -> str | None:
+def api_fence_name(line: str) -> str | None:
     """Return the name a `def` or `class` line defines, else None."""
     match = auditme.rules.project_hygiene.DEF_LINE_RE.match(line)
     if match:
@@ -97,7 +97,7 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
         if FENCE_RE.match(line):
             in_fence = not in_fence
             continue
-        heading = None if in_fence else _HEADING_RE.match(line)
+        heading = None if in_fence else HEADING_RE.match(line)
         if heading:
             level, title = len(heading.group(1)), heading.group(2)
             while stack and stack[-1][0] >= level:
@@ -113,12 +113,12 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
         names = raw[-1][2]
         if in_fence:
             if raw[-1][3]:
-                name = _api_fence_name(line)
+                name = api_fence_name(line)
                 if name:
                     names.append((number, name))
             continue
-        for match in _INLINE_CODE_RE.finditer(line):
-            token = _code_shaped(match.group(1))
+        for match in INLINE_CODE_RE.finditer(line):
+            token = code_shaped(match.group(1))
             if token:
                 names.append((number, token))
     sections = []
@@ -210,7 +210,7 @@ class CorpusIndex:
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and call_name(node) in OPTION_CALLS:
                 for value in [*node.args, *(keyword.value for keyword in node.keywords)]:
-                    if isinstance(value, ast.Constant) and isinstance(value.value, str) and _OPTION_RE.match(value.value):
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str) and OPTION_RE.match(value.value):
                         target = DocTarget('option', f'{rel}::{value.value}', rel, node.lineno, node.end_lineno or node.lineno)
                         self.options.setdefault(value.value, []).append(target)
 

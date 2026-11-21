@@ -303,7 +303,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
             tail = last_two if last_two in {'run_dir', 'run_id', 'trial_id', 'split_id', 'split_name'} else parts[-1]
         return tail
 
-    def _arg_signature(call: ast.Call) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    def arg_signature(call: ast.Call) -> tuple[tuple[str, ...], tuple[str, ...]]:
         """Normalise a call's arguments into (positional_tails, keyword pairs).
 
         Normalisation keeps role tokens that survive renames: `patched_config`
@@ -340,7 +340,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                 tail_parts = set(re.split(r'[_\W]+', callee_tail))
                 if not any(tok in tail_parts for tok in SINK_TOKENS):
                     continue
-                function_sinks[key][callee].append(_arg_signature(inner))
+                function_sinks[key][callee].append(arg_signature(inner))
     if not function_sinks:
         return
 
@@ -390,7 +390,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                 tail = callee.rsplit('.', 1)[-1].lower()
                 tail_parts = set(re.split(r'[_\W]+', tail))
                 if any(tok in tail_parts for tok in SINK_TOKENS):
-                    direct_sinks.append((inner.lineno, callee, _arg_signature(inner)))
+                    direct_sinks.append((inner.lineno, callee, arg_signature(inner)))
                 else:
                     targets = [k for k in resolve_helper(callee, module) if k != own_key]
                     if targets:
@@ -441,7 +441,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
 # every database test performs. A sequence made mostly of these describes the
 # framework being used, not the shape of the code, so counting them makes two
 # unrelated tests that both open a connection look like copies.
-_TRIVIAL_CALLS = frozenset(
+TRIVIAL_CALLS = frozenset(
     {
         'append',
         'as_posix',
@@ -543,7 +543,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
                 if '.' not in callee:
                     continue
                 short = callee.rsplit('.', 1)[-1]
-                if short in _TRIVIAL_CALLS:
+                if short in TRIVIAL_CALLS:
                     continue
                 if seq and seq[-1] == short:
                     continue
@@ -560,7 +560,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
     # Compute longest common subsequences pairwise; report pairs that share
     # a subsequence of length >= 5. Quadratic in function count - bounded
     # to architecturally-significant functions (we already filtered to >=5).
-    def _lcs(a: tuple[str, ...], b: tuple[str, ...]) -> list[str]:
+    def longest_common_subsequence(a: tuple[str, ...], b: tuple[str, ...]) -> list[str]:
         n, m = len(a), len(b)
         if n == 0 or m == 0:
             return []
@@ -624,7 +624,7 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
             # removed rather than wired up.
 
             # Only interesting if LCS is long enough
-            lcs = _lcs(seq_a, seq_b)
+            lcs = longest_common_subsequence(seq_a, seq_b)
             if len(lcs) < 6:
                 continue
             # Drop generic calls that appear in many functions; the LCS

@@ -682,14 +682,14 @@ def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
     return found
 
 
-def _self_attribute(node: ast.AST) -> str | None:
+def self_attribute(node: ast.AST) -> str | None:
     """The attribute name when node is `self.<attr>`, else None."""
     if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == 'self':
         return node.attr
     return None
 
 
-def _tested_attributes(method: FunctionNode) -> set[str]:
+def tested_attributes(method: FunctionNode) -> set[str]:
     """The `self.<attr>` names method tests in an `if`, a `match` subject or a comparison."""
     tested: set[str] = set()
     for node in auditme.core.walk_within_scope(method):
@@ -703,13 +703,13 @@ def _tested_attributes(method: FunctionNode) -> set[str]:
             continue
         for expression in expressions:
             for inner in ast.walk(expression):
-                name = _self_attribute(inner)
+                name = self_attribute(inner)
                 if name is not None:
                     tested.add(name)
     return tested
 
 
-def _assigned_attributes(node: FunctionNode) -> set[str]:
+def assigned_attributes(node: FunctionNode) -> set[str]:
     """The `self.<attr>` names node assigns in its own body."""
     assigned: set[str] = set()
     for inner in auditme.core.walk_within_scope(node):
@@ -720,7 +720,7 @@ def _assigned_attributes(node: FunctionNode) -> set[str]:
             targets = [inner.target]
         for target in targets:
             for part in ast.walk(target):
-                name = _self_attribute(part)
+                name = self_attribute(part)
                 if name is not None:
                     assigned.add(name)
     return assigned
@@ -737,10 +737,10 @@ def t1_reasons(node: ast.FunctionDef | ast.AsyncFunctionDef, cls: ast.ClassDef |
     if any(isinstance(inner, ast.Match) for inner in own):
         reasons.append('match')
     if cls is not None:
-        assigned = _assigned_attributes(node)
+        assigned = assigned_attributes(node)
         if assigned:
             others = (method for method in cls.body if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method is not node)
-            if any(assigned & _tested_attributes(method) for method in others):
+            if any(assigned & tested_attributes(method) for method in others):
                 reasons.append('state')
     return reasons
 

@@ -9,7 +9,7 @@ import re
 
 import auditme.core
 
-_DISK_IO_NAMES = {
+DISK_IO_NAMES = {
     'copy',
     'copytree',
     'exists',
@@ -66,7 +66,7 @@ def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
                         fname = inner.func.id
                     elif isinstance(inner.func, ast.Attribute):
                         fname = inner.func.attr
-                    if fname not in _DISK_IO_NAMES:
+                    if fname not in DISK_IO_NAMES:
                         continue
                     accept = auditme.core.accept_reason(lines, inner.lineno, rule='constructor-disk-io')
                     auditme.core.emit(
@@ -542,7 +542,7 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
         for node in ast.walk(tree):
             if not isinstance(node, ast.If):
                 continue
-            chain = if_chain(node, _extract_string_eq_var)
+            chain = if_chain(node, extract_string_eq_var)
             if chain is None or len(chain.tests) < 3:
                 continue
             chain_var = chain.subject
@@ -580,7 +580,7 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
             )
 
 
-def _extract_string_eq_var(test: ast.expr) -> str | None:
+def extract_string_eq_var(test: ast.expr) -> str | None:
     """Return `name` if `test` is `name == "literal"` or `"literal" == name`,
     otherwise None."""
     if not isinstance(test, ast.Compare):
@@ -678,7 +678,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
                 break
 
 
-_MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
+MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
     ast.Dict: ('dict literal', 'types.MappingProxyType(...)'),
     ast.DictComp: ('dict comprehension', 'types.MappingProxyType(...)'),
     ast.List: ('list literal', 'tuple(...)'),
@@ -691,7 +691,7 @@ _MUTABLE_VALUE_SHAPES: dict[type[ast.expr], tuple[str, str]] = {
 # to one states its type in the assignment as a literal does, so it is the same
 # finding; any other call (`get_defaults()`) states none and stays out. Ruled on
 # 2026-10-31 on an audit's request; see `requests.md`.
-_MUTABLE_CONSTRUCTORS: dict[str, tuple[str, str]] = {
+MUTABLE_CONSTRUCTORS: dict[str, tuple[str, str]] = {
     'dict': ('dict constructor call', 'types.MappingProxyType(...)'),
     'list': ('list constructor call', 'tuple(...)'),
     'set': ('set constructor call', 'frozenset(...)'),
@@ -704,11 +704,11 @@ def mutable_value_shape(value: ast.expr) -> tuple[str, str] | None:
     A literal or comprehension of a dict, list or set, or a call to the bare
     builtin `dict`, `list` or `set`. Pure.
     """
-    shape = _MUTABLE_VALUE_SHAPES.get(type(value))
+    shape = MUTABLE_VALUE_SHAPES.get(type(value))
     if shape is not None:
         return shape
     if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
-        return _MUTABLE_CONSTRUCTORS.get(value.func.id)
+        return MUTABLE_CONSTRUCTORS.get(value.func.id)
     return None
 
 
@@ -764,7 +764,7 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
         except SyntaxError:
             continue
         for node in tree.body:
-            name, value = _module_level_binding(node)
+            name, value = module_level_binding(node)
             if name is None or value is None or name.startswith('_'):
                 continue
             if mutable_value_shape(value) is None:
@@ -803,9 +803,9 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
 # The wrappers A20 accepts as making an exported container immutable. Every one
 # of them is shallow: it freezes the container it is given and nothing inside
 # it, which is what `check_mutable_members_in_immutable_wrapper` is for.
-_IMMUTABLE_WRAPPERS = frozenset({'MappingProxyType', 'frozenset', 'tuple'})
+IMMUTABLE_WRAPPERS = frozenset({'MappingProxyType', 'frozenset', 'tuple'})
 
-_MEMBER_CONTAINERS = (ast.Dict, ast.DictComp, ast.GeneratorExp, ast.List, ast.ListComp, ast.Set, ast.SetComp, ast.Tuple)
+MEMBER_CONTAINERS = (ast.Dict, ast.DictComp, ast.GeneratorExp, ast.List, ast.ListComp, ast.Set, ast.SetComp, ast.Tuple)
 
 
 def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -837,7 +837,7 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
     The dataclass carve-in is not an exception to that; a dataclass's
     mutability is stated by its own decorator, in this corpus, and read there.
     """
-    frozen_by_name = _dataclass_frozen_by_name(scope, src_root)
+    frozen_by_name = dataclass_frozen_by_name(scope, src_root)
     candidates: list[tuple[pathlib.Path, ast.stmt, str, str, list[tuple[int, str]]]] = []
     module_name_of: dict[pathlib.Path, str] = {}
     for path in auditme.core.all_py_files(src_root):
@@ -847,14 +847,14 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
         except SyntaxError:
             continue
         for node in tree.body:
-            name, value = _module_level_binding(node)
+            name, value = module_level_binding(node)
             if name is None or value is None or name.startswith('_'):
                 continue
-            wrapped = _wrapped_literal(value)
+            wrapped = wrapped_literal(value)
             if wrapped is None:
                 continue
             wrapper, literal = wrapped
-            hazards = _mutable_members(literal, frozen_by_name)
+            hazards = mutable_members(literal, frozen_by_name)
             if hazards:
                 candidates.append((path, node, name, wrapper, hazards))
 
@@ -870,7 +870,7 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
         accept = auditme.core.accept_reason(lines, assign_node.lineno, rule='mutable-members-in-immutable-wrapper')
         auditme.core.emit(
             rule='mutable-members-in-immutable-wrapper',
-            variant=(f'{name} is wrapped in {wrapper}, which is shallow; still mutable through it: {_hazard_summary(hazards)}'),
+            variant=(f'{name} is wrapped in {wrapper}, which is shallow; still mutable through it: {hazard_summary(hazards)}'),
             path=auditme.core.relpath(path, scope),
             line=assign_node.lineno,
             evidence=(lines[assign_node.lineno - 1].strip()[:200] if assign_node.lineno <= len(lines) else ''),
@@ -879,7 +879,7 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
         )
 
 
-def _module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
+def module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
     """The `(name, value)` a top-level statement binds, if it binds one name."""
     if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
         return node.targets[0].id, node.value
@@ -888,7 +888,7 @@ def _module_level_binding(node: ast.stmt) -> tuple[str | None, ast.expr | None]:
     return None, None
 
 
-def _wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
+def wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
     """`types.MappingProxyType({...})` -> `('MappingProxyType', <the dict>)`.
 
     Only a single literal or comprehension argument counts, for the same
@@ -903,15 +903,15 @@ def _wrapped_literal(value: ast.expr) -> tuple[str, ast.expr] | None:
         wrapper = func.id
     else:
         return None
-    if wrapper not in _IMMUTABLE_WRAPPERS:
+    if wrapper not in IMMUTABLE_WRAPPERS:
         return None
     argument = value.args[0]
-    if not isinstance(argument, _MEMBER_CONTAINERS):
+    if not isinstance(argument, MEMBER_CONTAINERS):
         return None
     return wrapper, argument
 
 
-def _mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list[tuple[int, str]]:
+def mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list[tuple[int, str]]:
     """Every mutable member of a literal, as `(line, what it is)`, deduped.
 
     Descends through a nested tuple literal, which is immutable itself and
@@ -920,18 +920,18 @@ def _mutable_members(literal: ast.expr, frozen_by_name: dict[str, bool]) -> list
     into - it is already the hazard, and is reported as itself.
     """
     hazards: dict[str, int] = {}
-    for member in _members(literal):
+    for member in member_nodes(literal):
         if isinstance(member, ast.Tuple):
-            for line, what in _mutable_members(member, frozen_by_name):
+            for line, what in mutable_members(member, frozen_by_name):
                 hazards.setdefault(what, line)
             continue
-        what = _member_hazard(member, frozen_by_name)
+        what = member_hazard(member, frozen_by_name)
         if what is not None:
             hazards.setdefault(what, getattr(member, 'lineno', 0))
     return sorted((line, what) for what, line in hazards.items())
 
 
-def _members(literal: ast.expr) -> list[ast.expr]:
+def member_nodes(literal: ast.expr) -> list[ast.expr]:
     """The member expressions of a literal or comprehension.
 
     A comprehension has exactly one member expression, evaluated per item, so
@@ -948,9 +948,9 @@ def _members(literal: ast.expr) -> list[ast.expr]:
     return []
 
 
-def _member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | None:
+def member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | None:
     """What makes this member mutable, phrased for the variant line, or None."""
-    shape = _MUTABLE_VALUE_SHAPES.get(type(member))
+    shape = MUTABLE_VALUE_SHAPES.get(type(member))
     if shape is not None:
         return f'a {shape[0]}'
     if isinstance(member, ast.Call):
@@ -961,11 +961,11 @@ def _member_hazard(member: ast.expr, frozen_by_name: dict[str, bool]) -> str | N
     return None
 
 
-def _hazard_summary(hazards: list[tuple[int, str]]) -> str:
+def hazard_summary(hazards: list[tuple[int, str]]) -> str:
     return ', '.join(f'{what} at line {line}' for line, what in hazards)
 
 
-def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, bool]:
+def dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, bool]:
     """Every dataclass the corpus defines, mapped to whether it is frozen.
 
     A name defined more than once is frozen if any definition is: the scan
@@ -981,14 +981,14 @@ def _dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> di
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
-            frozen = [f for f in (_dataclass_decorator(d) for d in node.decorator_list) if f is not None]
+            frozen = [f for f in (dataclass_decorator(d) for d in node.decorator_list) if f is not None]
             if not frozen:
                 continue
             frozen_by_name[node.name] = frozen_by_name.get(node.name, False) or any(frozen)
     return frozen_by_name
 
 
-def _dataclass_decorator(decorator: ast.expr) -> bool | None:
+def dataclass_decorator(decorator: ast.expr) -> bool | None:
     """True/False if this decorator is `@dataclass`, saying whether it freezes."""
     call = decorator if isinstance(decorator, ast.Call) else None
     target = call.func if call is not None else decorator
@@ -1008,7 +1008,7 @@ def _dataclass_decorator(decorator: ast.expr) -> bool | None:
     return False
 
 
-_CALLBACK_METHOD_RE = re.compile(r'^on_(step|log|evaluate|train_\w+|batch_\w+|epoch_\w+|predict_\w+|save|init_\w+)$')
+CALLBACK_METHOD_RE = re.compile(r'^on_(step|log|evaluate|train_\w+|batch_\w+|epoch_\w+|predict_\w+|save|init_\w+)$')
 
 
 def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -1050,13 +1050,13 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
             base_str = ' '.join(base_names)
             looks_like_callback = 'Callback' in base_str or 'TrainerCallback' in base_str
             # Also accept if any method in the class matches the callback pattern
-            has_callback_method = any(isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and _CALLBACK_METHOD_RE.match(m.name) for m in cls.body)
+            has_callback_method = any(isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and CALLBACK_METHOD_RE.match(m.name) for m in cls.body)
             if not (looks_like_callback or has_callback_method):
                 continue
             for method in cls.body:
                 if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     continue
-                if not _CALLBACK_METHOD_RE.match(method.name):
+                if not CALLBACK_METHOD_RE.match(method.name):
                     continue
                 for sub in ast.walk(method):
                     if not isinstance(sub, ast.Call):
@@ -1172,7 +1172,7 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
 
 # Walk every branch arm; ensure it starts with an assignment
 # to var_name or a return, not a read.
-def _branch_overrides(branch: list[ast.stmt], var_name: str) -> bool:
+def branch_overrides(branch: list[ast.stmt], var_name: str) -> bool:
     for s in branch:
         # Assigns var_name before reading
         if isinstance(s, (ast.Assign, ast.AnnAssign)):
@@ -1192,18 +1192,18 @@ def _branch_overrides(branch: list[ast.stmt], var_name: str) -> bool:
     return False
 
 
-def _walk_chain(stmt: ast.If, var_name: str) -> bool:
-    if not _branch_overrides(stmt.body, var_name):
+def walk_chain(stmt: ast.If, var_name: str) -> bool:
+    if not branch_overrides(stmt.body, var_name):
         return False
     orelse = stmt.orelse
     while orelse:
         if len(orelse) == 1 and isinstance(orelse[0], ast.If):
             nxt = orelse[0]
-            if not _branch_overrides(nxt.body, var_name):
+            if not branch_overrides(nxt.body, var_name):
                 return False
             orelse = nxt.orelse
         else:
-            return _branch_overrides(orelse, var_name)
+            return branch_overrides(orelse, var_name)
     return False  # no else branch => init might be read on that path
 
 
@@ -1275,7 +1275,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             if not isinstance(if_stmt, ast.If):
                 continue
 
-            if not _walk_chain(if_stmt, var_name):
+            if not walk_chain(if_stmt, var_name):
                 continue
             accept = auditme.core.accept_reason(lines, first.lineno, rule='dead-local-init')
             auditme.core.emit(
@@ -1289,7 +1289,7 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             )
 
 
-_SUBPROCESS_CALL_RE = re.compile(r'\b(subprocess|sp)\.(run|check_output|check_call|Popen|call)\b')
+SUBPROCESS_CALL_RE = re.compile(r'\b(subprocess|sp)\.(run|check_output|check_call|Popen|call)\b')
 
 
 def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -1334,7 +1334,7 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
                 if not isinstance(inner, ast.Call):
                     continue
                 call_src = ast.unparse(inner.func)
-                if _SUBPROCESS_CALL_RE.search(call_src):
+                if SUBPROCESS_CALL_RE.search(call_src):
                     hit_line = inner.lineno
                     break
             if hit_line is None:

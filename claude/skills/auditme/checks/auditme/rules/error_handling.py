@@ -61,7 +61,7 @@ def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> No
             )
 
 
-def _stmt_end_by_lineno(tree: ast.AST) -> dict[int, int]:
+def stmt_end_by_lineno(tree: ast.AST) -> dict[int, int]:
     """Map each source line to the max end_lineno of any statement enclosing it."""
     mapping: dict[int, int] = {}
     for node in ast.walk(tree):
@@ -72,7 +72,7 @@ def _stmt_end_by_lineno(tree: ast.AST) -> dict[int, int]:
     return mapping
 
 
-def _is_categorical_class_name_expr(expr_src: str, bound: str) -> bool:
+def is_categorical_class_name_expr(expr_src: str, bound: str) -> bool:
     """Return True when expr_src is a categorical class-name access on the
     bound exception name (e.g. ``type(exc).__name__`` or
     ``exc.__class__.__qualname__``). These patterns expose only the
@@ -100,7 +100,7 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
     the exception class name string. The class name is a categorical
     hint, not a lossy duplication of the message body, so these
     patterns are skipped without emitting a hit. See
-    ``_is_categorical_class_name_expr``.
+    ``is_categorical_class_name_expr``.
     """
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
@@ -109,7 +109,7 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
             tree = ast.parse('\n'.join(lines))
         except SyntaxError:
             continue
-        stmt_end = _stmt_end_by_lineno(tree)
+        stmt_end = stmt_end_by_lineno(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.ExceptHandler) or not node.name:
                 continue
@@ -125,7 +125,7 @@ def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> N
                             expr_src = ast.unparse(v.value) if hasattr(ast, 'unparse') else ''
                             if not re.search(rf'\b{re.escape(bound)}\b', expr_src):
                                 continue
-                            if _is_categorical_class_name_expr(expr_src, bound):
+                            if is_categorical_class_name_expr(expr_src, bound):
                                 continue
                             key = (inner.lineno, 'fstring')
                             if key in seen_linenos:
@@ -1270,7 +1270,7 @@ def check_logger_exception_graceful_degradation(
     """
 
     # Build a map of lineno -> enclosing FunctionDef return annotation.
-    def _enclosing_return_annotation(tree: ast.AST, lineno: int) -> str | None:
+    def enclosing_return_annotation(tree: ast.AST, lineno: int) -> str | None:
         best: tuple[int, str | None] | None = None
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1337,7 +1337,7 @@ def check_logger_exception_graceful_degradation(
                 continue
             lineno = default_return.lineno
             # Exclude CLI entry points (return `int` exit code)
-            ret_ann = _enclosing_return_annotation(tree, lineno)
+            ret_ann = enclosing_return_annotation(tree, lineno)
             if ret_ann is not None and ret_ann.strip() == 'int':
                 continue
             accept = auditme.core.accept_reason(lines, lineno, rule='logger-exception-graceful-degradation')
@@ -1520,7 +1520,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
     Refinement (2026-11-01): a raise that a handler around it catches, by its
     own class or a base class in the package's class tree (a bare `except:`,
     `Exception` and `BaseException` catch all), without re-raising, does not
-    reach the caller and does not count (`_level_catches`). A def nested in
+    reach the caller and does not count (`level_catches`). A def nested in
     the subject counts only where it is called by bare name, under that
     call's handlers (`nested_call_sites`); a nested def never called counts
     nothing, and stays a subject of its own. A handler that re-raises, one
@@ -1577,7 +1577,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
                 if name in STDLIB_ERRORS:
                     continue  # stdlib raises are covered by the layer-stdlib check
                 lineage = class_lineage(name, parents)
-                if any(_level_catches(level, lineage) for level in levels):
+                if any(level_catches(level, lineage) for level in levels):
                     continue
                 found_project_raise = True
                 break
@@ -1665,14 +1665,14 @@ EXTERNAL_ADAPTER_DIRS = frozenset({'providers', 'resolvers', 'sources'})
 # What counts as "recording a failure the caller can see". Logging does not:
 # a log line is not a value the caller can branch on, which is the whole point
 # of the rule.
-_FAILURE_WORD_RE = re.compile(r'error|failure|failed|cannot_answer', re.IGNORECASE)
+FAILURE_WORD_RE = re.compile(r'error|failure|failed|cannot_answer', re.IGNORECASE)
 
-_LOGGING_CALL_RE = re.compile(r'^(logger|logging|log)\b|\.(debug|info|warning|error|exception|critical)$')
+LOGGING_CALL_RE = re.compile(r'^(logger|logging|log)\b|\.(debug|info|warning|error|exception|critical)$')
 
-_STATUS_TEST_RE = re.compile(r'\b(status|status_code|statuscode)\b')
+STATUS_TEST_RE = re.compile(r'\b(status|status_code|statuscode)\b')
 
 
-def _clean_absence_return(node: ast.Return) -> str | None:
+def clean_absence_return(node: ast.Return) -> str | None:
     """Label this return if it signals 'nothing here', else None.
 
     Covers the tuple form because `resolve_chain` returns `(None, None)`.
@@ -1691,7 +1691,7 @@ def _clean_absence_return(node: ast.Return) -> str | None:
     return None
 
 
-def _records_visible_failure(stmts: list[ast.stmt]) -> bool:
+def records_visible_failure(stmts: list[ast.stmt]) -> bool:
     """True when these statements raise, or set something the caller reads.
 
     A keyword argument counts (`SearchBatch(..., error=str(e))`) because that
@@ -1702,27 +1702,27 @@ def _records_visible_failure(stmts: list[ast.stmt]) -> bool:
         for child in [stmt, *auditme.core.walk_within_scope(stmt)]:
             if isinstance(child, ast.Raise):
                 return True
-            if isinstance(child, ast.keyword) and child.arg and _FAILURE_WORD_RE.search(child.arg):
+            if isinstance(child, ast.keyword) and child.arg and FAILURE_WORD_RE.search(child.arg):
                 return True
             if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
                 targets = child.targets if isinstance(child, ast.Assign) else [child.target]
-                if any(_FAILURE_WORD_RE.search(ast.unparse(t)) for t in targets if t is not None):
+                if any(FAILURE_WORD_RE.search(ast.unparse(t)) for t in targets if t is not None):
                     return True
             if isinstance(child, ast.Call):
                 func_src = ast.unparse(child.func)
-                if _LOGGING_CALL_RE.search(func_src):
+                if LOGGING_CALL_RE.search(func_src):
                     continue
-                if _FAILURE_WORD_RE.search(func_src):
+                if FAILURE_WORD_RE.search(func_src):
                     return True
     return False
 
 
-def _status_failure_branch(node: ast.If) -> list[ast.stmt] | None:
+def status_failure_branch(node: ast.If) -> list[ast.stmt] | None:
     """Return whichever branch of an HTTP-status test runs on a non-200."""
     test = node.test
     if not isinstance(test, ast.Compare) or len(test.ops) != 1:
         return None
-    if not _STATUS_TEST_RE.search(ast.unparse(test)):
+    if not STATUS_TEST_RE.search(ast.unparse(test)):
         return None
     op = test.ops[0]
     if isinstance(op, (ast.NotEq, ast.GtE, ast.Gt, ast.NotIn)):
@@ -1772,18 +1772,18 @@ def check_failure_as_absence(scope: pathlib.Path, src_root: pathlib.Path) -> Non
             if isinstance(node, ast.ExceptHandler):
                 variant, body = 'caught exception returns empty', node.body
             elif isinstance(node, ast.If):
-                body = _status_failure_branch(node)
+                body = status_failure_branch(node)
                 if body is None:
                     continue
                 variant = 'non-200 branch returns empty'
             else:
                 continue
-            if _records_visible_failure(body):
+            if records_visible_failure(body):
                 continue
             for child in [*body, *(c for stmt in body for c in auditme.core.walk_within_scope(stmt))]:
                 if not isinstance(child, ast.Return):
                     continue
-                label = _clean_absence_return(child)
+                label = clean_absence_return(child)
                 if label is None:
                     continue
                 accept = auditme.core.accept_reason(lines, child.lineno, rule='failure-as-absence') or auditme.core.accept_reason(
@@ -1800,7 +1800,7 @@ def check_failure_as_absence(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                 )
 
 
-def _empty_container_default(node: ast.Call) -> str | None:
+def empty_container_default(node: ast.Call) -> str | None:
     """Label the empty-container default of a two-argument `.get` call.
 
     Only literals count. `parsed.get('usage', dict())` has the same defect but
@@ -1890,7 +1890,7 @@ def receiver_is_toml_mapping(receiver: ast.expr, scope_node: ast.AST, tree: ast.
     return False
 
 
-def _name_scopes(tree: ast.AST) -> collections.abc.Iterable[ast.AST]:
+def name_scopes(tree: ast.AST) -> collections.abc.Iterable[ast.AST]:
     """The module and every function and class body, searched separately.
 
     `walk_within_scope` prunes at each of these, so a name assigned in one
@@ -1903,7 +1903,7 @@ def _name_scopes(tree: ast.AST) -> collections.abc.Iterable[ast.AST]:
             yield node
 
 
-def _name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
+def name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
     """True when the scope tests `name` for truth, for None, or for its type.
 
     `x = parsed.get('usage', {})` followed by `if x is None`, `x = x or {}`,
@@ -1935,7 +1935,7 @@ def _name_is_reguarded(scope_node: ast.AST, name: str) -> bool:
     return False
 
 
-def _none_hostile_use(scope_node: ast.AST, name: str, assign: ast.Assign) -> str | None:
+def none_hostile_use(scope_node: ast.AST, name: str, assign: ast.Assign) -> str | None:
     """Label the first use of `name` in this scope that a None would break.
 
     A method call (`name.get(...)`, `name.items()`) raises `AttributeError`;
@@ -1975,7 +1975,7 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
     two-argument `.get` call with an empty container literal as the default,
     where that name is later the receiver of an attribute call, or is iterated,
     in the same scope - and where the scope never tests the name for truth, for
-    None, or for its type (see `_name_is_reguarded`).
+    None, or for its type (see `name_is_reguarded`).
 
     Scope: non-test source only. In a test the payload is a fixture the author
     wrote, so an explicit null cannot arrive unannounced.
@@ -1991,7 +1991,7 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
       - A scalar default (`0`, `''`). Nothing is called on the result.
       - A non-empty container default. `d.get(k, {'a': 1})` fails the same way,
         but is rare enough that including it would only widen the predicate.
-      - Subscripting the result (`x['k']`); see `_none_hostile_use`.
+      - Subscripting the result (`x['k']`); see `none_hostile_use`.
     """
     for path in auditme.core.all_py_files(src_root):
         if 'tests' in set(path.parts) or path.name.startswith('conftest'):
@@ -2003,21 +2003,21 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
         except SyntaxError:
             continue
         toml_functions = toml_returning_functions(tree)
-        for scope_node in _name_scopes(tree):
+        for scope_node in name_scopes(tree):
             for stmt in auditme.core.walk_within_scope(scope_node):
                 if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
                     continue
                 target = stmt.targets[0]
                 if not isinstance(target, ast.Name) or not isinstance(stmt.value, ast.Call):
                     continue
-                default = _empty_container_default(stmt.value)
+                default = empty_container_default(stmt.value)
                 if default is None:
                     continue
                 if isinstance(stmt.value.func, ast.Attribute) and receiver_is_toml_mapping(stmt.value.func.value, scope_node, tree, toml_functions):
                     continue
-                if _name_is_reguarded(scope_node, target.id):
+                if name_is_reguarded(scope_node, target.id):
                     continue
-                use = _none_hostile_use(scope_node, target.id, stmt)
+                use = none_hostile_use(scope_node, target.id, stmt)
                 if use is None:
                     continue
                 accept = auditme.core.accept_reason(lines, stmt.lineno, rule='get-container-default-then-method-call')
@@ -2033,12 +2033,12 @@ def check_get_container_default_then_method_call(scope: pathlib.Path, src_root: 
 
 
 # Anything that also satisfies a narrower requirement, whatever the body does.
-_UNIVERSAL_CATCHES = frozenset({'*bare*', 'BaseException', 'Exception'})
+UNIVERSAL_CATCHES = frozenset({'*bare*', 'BaseException', 'Exception'})
 
 # `OSError`'s subclasses are accepted as satisfying the disk branch, matching
 # `check_filesystem_envelope_gap`. Neither check tries to prove that the
 # subclass named is the one the body can raise; that is Phase B's job.
-_OSERROR_SATISFIERS = frozenset(
+OSERROR_SATISFIERS = frozenset(
     {
         'FileNotFoundError',
         'IOError',
@@ -2053,10 +2053,10 @@ _OSERROR_SATISFIERS = frozenset(
 # trigger: the attribute name is used by tokenisers, codecs and protocol
 # helpers far more often than by `bytes.decode`, so it would fire mostly on
 # calls that cannot raise `UnicodeDecodeError` at all.
-_TEXT_DECODING_CALLS = frozenset({'read_text'})
+TEXT_DECODING_CALLS = frozenset({'read_text'})
 
 
-def _handler_catches(handler: ast.ExceptHandler) -> set[str]:
+def handler_catches(handler: ast.ExceptHandler) -> set[str]:
     """Every identifier named in this handler's except tuple.
 
     Dotted forms contribute both halves (`json.JSONDecodeError` gives `json`
@@ -2113,7 +2113,7 @@ def translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
                     continue
                 for handler in sub.handlers:
                     if handler_translates(handler):
-                        caught |= _handler_catches(handler)
+                        caught |= handler_catches(handler)
             if caught:
                 envelopes[node.name] |= caught
     return {name: frozenset(caught) for name, caught in envelopes.items()}
@@ -2133,7 +2133,7 @@ def callable_short_name(expr: ast.expr) -> str | None:
     return None
 
 
-def _guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> collections.abc.Iterable[ast.AST]:
+def guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> collections.abc.Iterable[ast.AST]:
     """Every node in the function's own body - not its signature or decorators.
 
     A decorator is itself a `Call`, and walking it would let
@@ -2148,7 +2148,7 @@ def _guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> collect
         yield from auditme.core.walk_within_scope(stmt)
 
 
-def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
+def a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
     """The locked-set branches this call triggers, as (required, satisfied-by).
 
     Each branch is one row of A2's locked set, keyed on a form that needs no
@@ -2168,10 +2168,10 @@ def _a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
             branches.append(('pandas.errors.ParserError', frozenset({'ParserError'})))
         if receiver == 'gzip' and short in {'GzipFile', 'open'}:
             branches.append(('gzip.BadGzipFile', frozenset({'BadGzipFile'})))
-    if short in _TEXT_DECODING_CALLS:
+    if short in TEXT_DECODING_CALLS:
         branches.append(('UnicodeDecodeError', frozenset({'UnicodeDecodeError'})))
     if short in FILESYSTEM_TOUCHING_CALLS:
-        branches.append(('OSError', _OSERROR_SATISFIERS))
+        branches.append(('OSError', OSERROR_SATISFIERS))
     return branches
 
 
@@ -2238,7 +2238,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             # folded into the whole function's envelope.
             with_ranges: list[tuple[int, int, frozenset[str], str]] = []
             lexical_try_linenos: set[int] = set()
-            for sub in _guarded_body_nodes(func):
+            for sub in guarded_body_nodes(func):
                 if isinstance(sub, ast.Try):
                     for stmt in sub.body:
                         for inner in ast.walk(stmt):
@@ -2263,10 +2263,10 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             # one to report, so a reader lands on the first parse in the
             # function rather than on whichever the traversal reached first.
             gaps: list[tuple[int, str, list[str], list[str], set[str]]] = []
-            for node in _guarded_body_nodes(func):
+            for node in guarded_body_nodes(func):
                 if not isinstance(node, ast.Call):
                     continue
-                branches = _a2_branches_for_call(node)
+                branches = a2_branches_for_call(node)
                 if not branches or node.lineno in lexical_try_linenos:
                     continue
                 site_caught = set(caught)
@@ -2275,7 +2275,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                     if start <= node.lineno <= end:
                         site_caught |= range_caught
                         site_sources.append(f'with {range_names}')
-                if not site_sources or site_caught & _UNIVERSAL_CATCHES:
+                if not site_sources or site_caught & UNIVERSAL_CATCHES:
                     continue
                 missing = [required for required, satisfied_by in branches if not satisfied_by & site_caught]
                 if missing:
@@ -2301,7 +2301,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
 BROAD_HANDLER_NAMES = frozenset({'BaseException', 'Exception'})
 
 
-def _handler_passes_on(handler: ast.ExceptHandler) -> bool:
+def handler_passes_on(handler: ast.ExceptHandler) -> bool:
     """Whether an `except` clause re-raises (a bare `raise`, or `raise <bound name>`).
 
     Only the clause's own scope counts: a raise inside a def, lambda or class
@@ -2314,7 +2314,7 @@ def _handler_passes_on(handler: ast.ExceptHandler) -> bool:
     )
 
 
-def _handler_types(handler: ast.ExceptHandler) -> frozenset[str] | None:
+def handler_types(handler: ast.ExceptHandler) -> frozenset[str] | None:
     """The class-name tails an `except` clause matches, or None for a broad one. Pure."""
     if handler.type is None:
         return None
@@ -2328,7 +2328,7 @@ def _handler_types(handler: ast.ExceptHandler) -> frozenset[str] | None:
     return frozenset(names)
 
 
-def _raised_name(node: ast.Raise) -> str | None:
+def raised_name(node: ast.Raise) -> str | None:
     """The class-name tail a `raise` statement raises, or None.
 
     `raise X(...)` and `raise mod.X(...)` name a class; a bare `raise` and
@@ -2347,12 +2347,12 @@ def _raised_name(node: ast.Raise) -> str | None:
 HandlerLevel = tuple[tuple[frozenset[str] | None, bool], ...]
 
 
-def _handler_level(node: ast.Try | ast.TryStar) -> HandlerLevel:
+def handler_level(node: ast.Try | ast.TryStar) -> HandlerLevel:
     """A `try`'s handlers in source order. Pure."""
-    return tuple((_handler_types(handler), _handler_passes_on(handler)) for handler in node.handlers)
+    return tuple((handler_types(handler), handler_passes_on(handler)) for handler in node.handlers)
 
 
-def _level_catches(level: HandlerLevel, lineage: set[str]) -> bool:
+def level_catches(level: HandlerLevel, lineage: set[str]) -> bool:
     """Whether a `try` stops an error of this lineage. Pure.
 
     Python runs only the first clause that matches, so a re-raising clause
@@ -2364,7 +2364,7 @@ def _level_catches(level: HandlerLevel, lineage: set[str]) -> bool:
     return False
 
 
-def _reach_sites(
+def reach_sites(
     body: list[ast.stmt],
     catches: tuple[HandlerLevel, ...] = (),
 ) -> list[tuple[ast.AST, tuple[HandlerLevel, ...]]]:
@@ -2380,7 +2380,7 @@ def _reach_sites(
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             return
         if isinstance(node, (ast.Try, ast.TryStar)):
-            inner = (*around, _handler_level(node))
+            inner = (*around, handler_level(node))
             for child in node.body:
                 visit(child, inner)
             for child in [*node.handlers, *node.orelse, *node.finalbody]:
@@ -2397,20 +2397,20 @@ def _reach_sites(
 
 
 def nested_call_sites(func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[tuple[ast.AST, tuple[HandlerLevel, ...]]]:
-    """`_reach_sites(func.body)` plus, for each call by bare name to a def
+    """`reach_sites(func.body)` plus, for each call by bare name to a def
     nested directly in `func`'s body, that def's own reach sites with the
     call's handler levels prepended. One level deep; a nested def that is
     never called contributes nothing.
     """
     nested = {stmt.name: stmt for stmt in func.body if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))}
-    sites = _reach_sites(func.body)
+    sites = reach_sites(func.body)
     for site, around in list(sites):
         if isinstance(site, ast.Call) and isinstance(site.func, ast.Name) and site.func.id in nested:
-            sites.extend((inner, (*around, *levels)) for inner, levels in _reach_sites(nested[site.func.id].body))
+            sites.extend((inner, (*around, *levels)) for inner, levels in reach_sites(nested[site.func.id].body))
     return sites
 
 
-def _function_levels(body: list[ast.stmt]) -> list[HandlerLevel]:
+def function_levels(body: list[ast.stmt]) -> list[HandlerLevel]:
     """Every `try` level in a function body, nested defs skipped."""
     levels: list[HandlerLevel] = []
 
@@ -2418,7 +2418,7 @@ def _function_levels(body: list[ast.stmt]) -> list[HandlerLevel]:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             return
         if isinstance(node, (ast.Try, ast.TryStar)):
-            levels.append(_handler_level(node))
+            levels.append(handler_level(node))
         for child in ast.iter_child_nodes(node):
             visit(child)
 
@@ -2471,7 +2471,7 @@ def unset_optional_guard(
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             return True
         if isinstance(node, ast.Raise):
-            name = _raised_name(node)
+            name = raised_name(node)
             if name and error in class_lineage(name, parents):
                 found = True
                 if not guarded:
@@ -2585,7 +2585,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
 
     def caught(name: str, around: tuple[HandlerLevel, ...]) -> bool:
         lineage = {name} | ancestors(name)
-        return any(_level_catches(level, lineage) for level in around)
+        return any(level_catches(level, lineage) for level in around)
 
     module_of = {qualname: module for module, qualname, _, _ in functions}
 
@@ -2616,7 +2616,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         module = module_of[qualname]
         for site, around in nested_call_sites(node_of[qualname]):
             if isinstance(site, ast.Raise):
-                name = _raised_name(site)
+                name = raised_name(site)
                 if name and is_domain(name) and not caught(name, around):
                     found[name].add((qualname, ''))
                 continue
@@ -2656,7 +2656,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         reached: dict[str, set[tuple[str, ...]]] = collections.defaultdict(set)
         for site, around in nested_call_sites(node):
             if isinstance(site, ast.Raise):
-                name = _raised_name(site)
+                name = raised_name(site)
                 if name and is_domain(name) and not caught(name, around):
                     reached[name].add(RAISED_HERE)
                 continue
@@ -2689,12 +2689,12 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
-        levels = _function_levels(node.body)
+        levels = function_levels(node.body)
         for name in sorted(declared):
             if any(name == found or name in ancestors(found) for found in reached):
                 continue
             lineage = {name} | ancestors(name)
-            if not any(_level_catches(level, lineage) for level in levels):
+            if not any(level_catches(level, lineage) for level in levels):
                 continue
             auditme.core.emit(
                 rule='raises-section-drift',

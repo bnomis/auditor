@@ -100,12 +100,12 @@ class SiteCounter:
     """
 
     def __init__(self) -> None:
-        self._counts: collections.Counter[str] = collections.Counter()
+        self.qualname_counts: collections.Counter[str] = collections.Counter()
 
     def next(self, qualname: str) -> int:
         """The number of the next site in this qualname."""
-        self._counts[qualname] += 1
-        return self._counts[qualname]
+        self.qualname_counts[qualname] += 1
+        return self.qualname_counts[qualname]
 
 
 def child_qualname(qualname: str, name: str) -> str:

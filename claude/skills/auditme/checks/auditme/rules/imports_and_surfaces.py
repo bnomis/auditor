@@ -31,13 +31,13 @@ def check_def_class_in_init(scope: pathlib.Path, src_root: pathlib.Path) -> None
                 )
 
 
-def _walk_function_scopes(tree: ast.AST) -> collections.abc.Iterable[ast.AST]:
+def walk_function_scopes(tree: ast.AST) -> collections.abc.Iterable[ast.AST]:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             yield node
 
 
-_STDLIB = {
+STDLIB = {
     'abc',
     'argparse',
     'ast',
@@ -163,7 +163,7 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                                 importerror_linenos.add(sub.lineno)
         importer_module = rel.replace('/', '.').removesuffix('.py').removeprefix('src.')
         first_party = declared_root_modules() | {importer_module.split('.')[0]}
-        for func in _walk_function_scopes(tree):
+        for func in walk_function_scopes(tree):
             for inner in ast.walk(func):
                 if not isinstance(inner, (ast.Import, ast.ImportFrom)):
                     continue
@@ -181,7 +181,7 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                     if pair_accepted:
                         accept = accept or f'AGENTS.md accepted ({importer_module} -> {imported})'
                     top = imported.split('.')[0]
-                    variant = 'stdlib' if top in _STDLIB else ('first-party' if top in first_party else 'third-party')
+                    variant = 'stdlib' if top in STDLIB else ('first-party' if top in first_party else 'third-party')
                     auditme.core.emit(
                         rule='in-function-import',
                         variant=variant,
@@ -233,7 +233,7 @@ def check_unused_submodule_imports(scope: pathlib.Path, src_root: pathlib.Path) 
 # "no `as` imports either", 'Do NOT use "as" imports', "never use `as` imports".
 # Requiring the quoting is what keeps ordinary prose - "no imports as such" -
 # from reading as a declared rule.
-_AS_IMPORT_BAN_RE = re.compile(
+AS_IMPORT_BAN_RE = re.compile(
     r"""(?:\bno\b|\bnever\b|\bavoid\b|\bdo\s+not\b|\bdon'?t\b)
         [^.\n]{0,24}?
         [`"']as[`"']
@@ -242,7 +242,7 @@ _AS_IMPORT_BAN_RE = re.compile(
 )
 
 
-def _project_bans_as_imports(scope: pathlib.Path) -> bool:
+def project_bans_as_imports(scope: pathlib.Path) -> bool:
     """True when the project's own AGENTS.md declares `import X as Y` banned.
 
     The check is gated because the rule is a project standard, not a universal
@@ -255,7 +255,7 @@ def _project_bans_as_imports(scope: pathlib.Path) -> bool:
     if not agents.exists():
         return False
     try:
-        return bool(_AS_IMPORT_BAN_RE.search(agents.read_text(encoding='utf-8')))
+        return bool(AS_IMPORT_BAN_RE.search(agents.read_text(encoding='utf-8')))
     except OSError, UnicodeDecodeError:
         return False
 
@@ -279,9 +279,9 @@ def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     plain `import x as y` in an `__init__.py` is not a re-export and still
     fires.
 
-    Fires only where `_project_bans_as_imports` finds the rule declared.
+    Fires only where `project_bans_as_imports` finds the rule declared.
     """
-    if not _project_bans_as_imports(scope):
+    if not project_bans_as_imports(scope):
         return
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
@@ -371,7 +371,7 @@ def check_from_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             )
 
 
-def _parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
+def parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
     """Parse AGENTS.md's Package Layering section.
 
     Returns (layer_order, accepted_exceptions). layer_order is a list of
@@ -426,7 +426,7 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
     in the layering chain, flag unless the (importer, imported) pair is
     in AGENTS.md's accepted-exceptions table or the line carries an
     `# auditme: accept` marker."""
-    layer_order, accepted = _parse_package_layering(scope)
+    layer_order, accepted = parse_package_layering(scope)
     if not layer_order:
         return
     rank = {pkg: i for i, pkg in enumerate(layer_order)}
@@ -454,15 +454,15 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
                     continue
                 for alias in node.names:
                     module_name = alias.name
-                    _maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name, rank, accepted, package_root_name)
+                    maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name, rank, accepted, package_root_name)
             elif isinstance(node, ast.ImportFrom) and node.module:
                 if node.lineno in tc_linenos:
                     continue
                 module_name = node.module
-                _maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name, rank, accepted, package_root_name)
+                maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name, rank, accepted, package_root_name)
 
 
-def _maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name, rank, accepted, package_root_name):
+def maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name, rank, accepted, package_root_name):
     if not module_name.startswith(package_root_name + '.'):
         return
     parts = module_name.split('.')
@@ -760,10 +760,10 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
             )
 
 
-_ALL_GUARD_RE = re.compile(r"""['"]__all__['"]|\.__all__\b""")
+ALL_GUARD_RE = re.compile(r"""['"]__all__['"]|\.__all__\b""")
 
 
-def _project_has_all_guard(scope: pathlib.Path) -> bool:
+def project_has_all_guard(scope: pathlib.Path) -> bool:
     """True when some file in the project inspects other modules' `__all__`.
 
     The signal is `__all__` read as data - `getattr(mod, '__all__')`,
@@ -779,7 +779,7 @@ def _project_has_all_guard(scope: pathlib.Path) -> bool:
             text = path.read_text(encoding='utf-8')
         except OSError, UnicodeDecodeError:
             continue
-        if _ALL_GUARD_RE.search(text):
+        if ALL_GUARD_RE.search(text):
             return True
     return False
 
@@ -802,9 +802,9 @@ def check_annotated_all_assignment(scope: pathlib.Path, src_root: pathlib.Path) 
     normalise the declaration to the plain form.
 
     Fires only where the project has an `__all__`-based guard at all; see
-    `_project_has_all_guard`.
+    `project_has_all_guard`.
     """
-    if not _project_has_all_guard(scope):
+    if not project_has_all_guard(scope):
         return
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
