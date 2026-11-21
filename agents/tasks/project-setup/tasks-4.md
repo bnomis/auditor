@@ -139,7 +139,7 @@ sweep does.
 
 ## Task 4: Document the declared roots
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Documentation (amendment 1.11)
@@ -150,20 +150,20 @@ audit and the hooks cover my code.
 
 **Subtasks:**
 
-- [ ] `docs/setup.md`, "What you get": a project whose Python lives elsewhere declares its roots in `[tool.auditme]`, with the spec's example, and undeclared directories are not swept
-- [ ] `docs/reference/cli.md`, the `audit.py` section: the table, both `modules` values, that the list replaces the defaults, how `--extra-root` overrides it, and the new exit-2 errors in its exit table
-- [ ] `claude/skills/auditme/SKILL.md`: name `[tool.auditme]` beside the description of roots in the mechanical sweep
-- [ ] `uv run --group docs mkdocs build --strict`
+- [x] `docs/setup.md`, "What you get": a project whose Python lives elsewhere declares its roots in `[tool.auditme]`, with the spec's example, and undeclared directories are not swept
+- [x] `docs/reference/cli.md`, the `audit.py` section: the table, both `modules` values, that the list replaces the defaults, how `--extra-root` overrides it, and the new exit-2 errors in its exit table
+- [x] `claude/skills/auditme/SKILL.md`: name `[tool.auditme]` beside the description of roots in the mechanical sweep
+- [x] `uv run --group docs mkdocs build --strict`
 
 **Acceptance Criteria:**
 
-- [ ] Every error the spec's 1.11 rows name appears in `docs/reference/cli.md`
-- [ ] The docs build passes
+- [x] Every error the spec's 1.11 rows name appears in `docs/reference/cli.md`
+- [x] The docs build passes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 

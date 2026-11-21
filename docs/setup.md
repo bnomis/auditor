@@ -26,6 +26,22 @@ belongs to no package, so it is reported as a `src-loose-module` hit; move it
 into a package, or accept it with a line-1 marker. No other directory's Python
 is swept.
 
+A project whose Python lives elsewhere declares its roots in `pyproject.toml`
+instead, and the declared list replaces `src/` and `bin/`:
+
+```toml
+[tool.auditme]
+roots = [
+    { path = "tools/mypkg" },
+    { path = "tools", modules = "top-level" },
+    { path = "tests" },
+]
+```
+
+A directory that is not declared is not swept. See
+[`audit.py`](reference/cli.md#claudeskillsauditmechecksauditpy) for the
+`modules` values and the errors.
+
 The checker also reads files outside those passes:
 
 - every `.md` file under the project, outside hidden directories and `.git`,
