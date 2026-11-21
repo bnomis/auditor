@@ -112,6 +112,10 @@ check runs once per root, and a project holding only `src/a.py` has none), and
 `--package` emits none. Move the file into a package, or accept it with
 `# auditme: accept[src-loose-module] <reason>` on line 1.
 
+A file a check cannot read (removed mid-run, permission denied, not UTF-8) is
+reported by the driver as an `unreadable-file` hit naming the path; the check
+skips it and still reports its other hits.
+
 The `ruff-version-drift` check sits beside the existing ruff check. It is
 project-level: it compares the version `ruff --version` prints for the ruff
 the audit runs with the `rev` of the `ruff-pre-commit` repo in

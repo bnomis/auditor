@@ -571,3 +571,50 @@ def test_an_invalid_declaration_prints_its_cause(
     err = capsys.readouterr().err
     assert err.startswith('ERROR: pyproject.toml: not valid TOML (')
     assert err.rstrip().endswith(')')
+
+
+def test_a_file_removed_between_listing_and_reading_is_an_unreadable_hit(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A vanished file is named, and the check's other hits in the root survive."""
+
+    def reading_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        for path in auditme.core.all_py_files(src_root):
+            if path.name == 'gone.py':
+                path.unlink()
+            if auditme.core.parse_source(path) is not None:
+                auditme.core.emit(rule='probe', variant='v', path=path.name, line=1, evidence='x', accepted=False, accepted_reason=None)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (reading_check,))
+    root = project({'src/probe/a_gone.py': 'x = 1\n', 'src/probe/gone.py': 'x = 1\n', 'src/probe/ok.py': 'y = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    unreadable = [record for record in records if record['rule'] == 'unreadable-file']
+    assert [record['path'] for record in unreadable] == ['src/probe/gone.py']
+    assert unreadable[0]['line'] is None
+    assert unreadable[0]['accepted'] is False
+    assert sorted(record['path'] for record in records if record['rule'] == 'probe') == ['a_gone.py', 'ok.py']
+
+
+def test_a_file_with_bad_bytes_is_an_unreadable_hit(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project({'src/probe/ok.py': 'y = 1\n'})
+    (root / 'src' / 'probe' / 'bad.py').write_bytes(b'x = "\xff\xfe"\n')
+
+    def reading_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        for path in auditme.core.all_py_files(src_root):
+            auditme.core.parse_source(path)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (reading_check,))
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [record['path'] for record in records if record['rule'] == 'unreadable-file'] == ['src/probe/bad.py']

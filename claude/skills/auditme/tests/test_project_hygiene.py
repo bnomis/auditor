@@ -64,6 +64,20 @@ def test_a_missing_ruff_is_reported_rather_than_passing_silently(
     assert all(hit['evidence'] == 'ruff not installed' for hit in hits)
 
 
+def test_a_ruff_that_cannot_be_executed_gets_the_same_report(
+    project: Builder,
+    run_check: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def denied(*args: object, **kwargs: object) -> None:
+        raise PermissionError('ruff')
+
+    monkeypatch.setattr(subprocess, 'run', denied)
+    root = project({'src/probe/mod.py': 'VALUE = 1\n'})
+    hits = run_check(RUFF, root)
+    assert {hit['variant'] for hit in hits} == {'ruff-check', 'ruff-format'}
+
+
 # --------------------------------------------------------------------------
 # check_lockfile
 # --------------------------------------------------------------------------

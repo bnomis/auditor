@@ -257,10 +257,8 @@ def project_bans_as_imports(scope: pathlib.Path) -> bool:
     agents = scope / 'AGENTS.md'
     if not agents.exists():
         return False
-    try:
-        return bool(AS_IMPORT_BAN_RE.search(agents.read_text(encoding='utf-8')))
-    except OSError, UnicodeDecodeError:
-        return False
+    text = auditme.core.read_source(agents)
+    return text is not None and bool(AS_IMPORT_BAN_RE.search(text))
 
 
 def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -385,7 +383,9 @@ def parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[st
     agents = scope / 'AGENTS.md'
     if not agents.exists():
         return [], set()
-    text = agents.read_text(encoding='utf-8')
+    text = auditme.core.read_source(agents)
+    if text is None:
+        return [], set()
     layer_order: list[str] = []
     accepted: set[tuple[str, str]] = set()
     in_layering_section = False
@@ -577,9 +577,8 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
         # Skip the top-level package init (parent is src_root itself)
         if path.parent == src_root:
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         export_count = 0
         for node in tree.body:
@@ -640,9 +639,8 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     shims: dict[str, set[tuple[str, str]]] = collections.defaultdict(set)
 
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         # mod path like 'pkg.models.settings'
@@ -676,9 +674,8 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     # symbol via the shim's module path.
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         # the consumer is itself a module; do not flag the canonical or shim
         rel_parts = path.relative_to(src_root).parts
@@ -739,9 +736,8 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
         if path.name == '__init__.py':
             continue
         rel = auditme.core.relpath(path, scope)
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         lines = auditme.core.source_lines(path)
         for node in tree.body:
@@ -787,9 +783,8 @@ def project_has_all_guard(scope: pathlib.Path) -> bool:
     if not src.is_dir():
         return False
     for path in sorted(src.rglob('*.py')):
-        try:
-            text = path.read_text(encoding='utf-8')
-        except OSError, UnicodeDecodeError:
+        text = auditme.core.read_source(path)
+        if text is None:
             continue
         if ALL_GUARD_RE.search(text):
             return True

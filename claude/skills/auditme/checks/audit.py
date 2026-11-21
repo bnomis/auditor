@@ -95,6 +95,25 @@ if typing.TYPE_CHECKING:
 DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditme.core.EXTRA_ROOT_NAMES)
 
 
+def report_unreadable(scope: pathlib.Path) -> None:
+    """Emit one `unreadable-file` hit per file a check could not read, then forget them."""
+    for path, error in sorted(auditme.core.UNREADABLE.items()):
+        try:
+            shown = path.relative_to(scope).as_posix()
+        except ValueError:
+            shown = path.as_posix()
+        auditme.core.emit(
+            rule='unreadable-file',
+            variant='a file a check could not read',
+            path=shown,
+            line=None,
+            evidence=error,
+            accepted=False,
+            accepted_reason=None,
+        )
+    auditme.core.UNREADABLE.clear()
+
+
 def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None], scope: pathlib.Path, root: pathlib.Path) -> None:
     """Run one check, reporting a crash as a hit so the sweep continues."""
     try:
@@ -111,6 +130,8 @@ def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None
             accepted=False,
             accepted_reason=None,
         )
+    finally:
+        report_unreadable(scope)
 
 
 def main() -> int:

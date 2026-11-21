@@ -46,9 +46,8 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
     bucket: dict[tuple, set[tuple[str, int, str]]] = collections.defaultdict(set)
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         # Find frozenset(...) / set(...) call nodes so we can skip their inner ast.Set/Tuple child
         skip_inner_nodes: set[int] = set()
@@ -114,9 +113,8 @@ def check_paired_sibling_helpers(scope: pathlib.Path, src_root: pathlib.Path) ->
     bodies: dict[str, list[tuple[str, int, str]]] = collections.defaultdict(list)
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in tree.body:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -323,9 +321,8 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
     function_sinks: dict[str, dict[str, list[tuple[tuple[str, ...], tuple[str, ...]]]]] = collections.defaultdict(lambda: collections.defaultdict(list))
     # function_sinks[func_key][sink_callee] = list of (positional_tails, kwarg_keys)
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel_parts = path.relative_to(src_root).parts
         if rel_parts[-1] == '__init__.py':
@@ -372,9 +369,8 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
     # a later helper call whose target (any full key matching its short name)
     # makes the SAME sink call with the SAME signature.
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
@@ -521,9 +517,8 @@ def check_duplicate_call_sequence(scope: pathlib.Path, src_root: pathlib.Path) -
     # Build per-function signature
     signatures: list[tuple[str, int, str, tuple[str, ...]]] = []
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         for node in ast.walk(tree):
@@ -682,9 +677,8 @@ def check_recompile_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> 
     # name -> list of (path, lineno, literal)
     sites: dict[str, list[tuple[pathlib.Path, int, str]]] = collections.defaultdict(list)
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in tree.body:
             target_name: str | None = None

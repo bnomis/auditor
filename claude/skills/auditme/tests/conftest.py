@@ -52,8 +52,10 @@ def clean_emitted() -> collections.abc.Iterator[None]:
     identical hit, making assertions depend on test order.
     """
     auditme.core.EMITTED.clear()
+    auditme.core.UNREADABLE.clear()
     yield
     auditme.core.EMITTED.clear()
+    auditme.core.UNREADABLE.clear()
 
 
 @pytest.fixture(autouse=True)

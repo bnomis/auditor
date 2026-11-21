@@ -979,9 +979,8 @@ def dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dic
     """
     frozen_by_name: dict[str, bool] = {}
     for path in auditme.core.corpus_py_files(scope, src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):

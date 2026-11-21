@@ -280,9 +280,8 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     package_root_name = src_root.name
 
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         rel_parts = path.relative_to(src_root).parts
@@ -304,9 +303,8 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     # key: callee full dotted path; value: list of (caller_path, lineno, is_wrapped)
 
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         # Track which nodes are inside a try block
@@ -444,9 +442,8 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
         # Build set of classes actually used in except clauses anywhere in the tree.
         caught_elsewhere: dict[str, set[str]] = collections.defaultdict(set)
         for src in auditme.core.all_py_files(src_root):
-            try:
-                other_tree = ast.parse(src.read_text(encoding='utf-8'))
-            except SyntaxError, UnicodeDecodeError:
+            other_tree = auditme.core.parse_source(src)
+            if other_tree is None:
                 continue
             for sub in ast.walk(other_tree):
                 if not isinstance(sub, ast.ExceptHandler):
@@ -664,9 +661,8 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
     for path in auditme.core.all_py_files(src_root):
         if path.name != 'errors.py':
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in tree.body:
             if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
@@ -744,9 +740,8 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
     function_raises: dict[str, set[str]] = collections.defaultdict(set)
     function_path_line: dict[str, tuple[str, int]] = {}
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         rel_parts = path.relative_to(src_root).parts
@@ -782,9 +777,8 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
     translations: dict[str, dict[str, set[str]]] = collections.defaultdict(lambda: collections.defaultdict(set))
     # translations[callee_full][caught_error] = set of translated target classes
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.Try):
@@ -1147,9 +1141,8 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
     for path in auditme.core.all_py_files(src_root):
         if path.name != 'errors.py':
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in tree.body:
             if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
@@ -1168,9 +1161,8 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
         pkg = path.relative_to(src_root).parts[:-1]
         if pkg not in package_has_domain_error:
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in tree.body:
             if isinstance(node, ast.Assign):
@@ -2102,9 +2094,8 @@ def translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
     """
     envelopes: dict[str, set[str]] = collections.defaultdict(set)
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

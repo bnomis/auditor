@@ -27,6 +27,12 @@ ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*
 # record, so two genuinely different hits can never collide here.
 EMITTED: set[str] = set()  # auditme: accept[mutable-module-level-exported] process-lifetime state the driver fills and the tests clear
 
+# Files a check could not read this run, mapped to the error text. A check that
+# meets one skips it, so the driver drains this after each check and reports each
+# path as an `unreadable-file` hit instead of letting one vanished file crash
+# the check and hide its other hits.
+UNREADABLE: dict[pathlib.Path, str] = {}  # auditme: accept[mutable-module-level-exported] process-lifetime state the driver drains and the tests clear
+
 # Builtin generics that take type parameters: a bare annotation or an empty
 # constructor call of one names the type without its members.
 BARE_GENERIC_NAMES = frozenset({'dict', 'frozenset', 'list', 'set', 'tuple'})
@@ -64,11 +70,35 @@ def describe_error(error: BaseException) -> str:
     return f'{error} ({cause})'
 
 
-def source_lines(path: pathlib.Path) -> list[str]:
+def read_source(path: pathlib.Path) -> str | None:
+    """The text of `path`, or None when it cannot be read.
+
+    An unreadable file (gone, denied, not UTF-8) is recorded in `UNREADABLE` so
+    the driver reports it by name."""
     try:
-        return path.read_text(encoding='utf-8').splitlines()
-    except UnicodeDecodeError:
-        return []
+        return path.read_text(encoding='utf-8')
+    except OSError, UnicodeDecodeError:
+        UNREADABLE[path] = f'cannot read {path.name}'
+        return None
+
+
+def parse_source(path: pathlib.Path) -> ast.Module | None:
+    """The syntax tree of `path`, or None when it cannot be read or parsed.
+
+    A file that does not parse is skipped without a record, as before; one that
+    cannot be read is recorded by `read_source`."""
+    text = read_source(path)
+    if text is None:
+        return None
+    try:
+        return ast.parse(text)
+    except SyntaxError:
+        return None
+
+
+def source_lines(path: pathlib.Path) -> list[str]:
+    text = read_source(path)
+    return [] if text is None else text.splitlines()
 
 
 def accept_reason(
@@ -146,7 +176,9 @@ def accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     agents = scope / 'AGENTS.md'
     if not agents.exists():
         return set()
-    text = agents.read_text(encoding='utf-8')
+    text = read_source(agents)
+    if text is None:
+        return set()
     pairs: set[tuple[str, str]] = set()
     for line in text.splitlines():
         if not line.startswith('|'):
@@ -213,7 +245,9 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
     pyproject = scope / 'pyproject.toml'
     if DECLARATION_IGNORED or not pyproject.is_file():
         return None
-    text = pyproject.read_text(encoding='utf-8')
+    text = read_source(pyproject)
+    if text is None:
+        return None
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
@@ -526,9 +560,8 @@ def reads_by_module_and_name(
     """
     reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = collections.defaultdict(list)
     for path in corpus_py_files(scope, src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = parse_source(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
@@ -631,9 +664,8 @@ def all_names(path: pathlib.Path) -> set[str] | None:
     """The string members of the `__all__` in `path`, or None when it has none."""
     if not path.is_file():
         return None
-    try:
-        tree = ast.parse(path.read_text(encoding='utf-8'))
-    except SyntaxError, UnicodeDecodeError:
+    tree = parse_source(path)
+    if tree is None:
         return None
     names: set[str] | None = None
     for node in tree.body:
@@ -704,9 +736,8 @@ def script_entry_points(path: pathlib.Path) -> set[str] | None:
     """
     if not path.is_file() or path.name == '__init__.py' or (path.parent / '__init__.py').exists():
         return None
-    try:
-        tree = ast.parse(path.read_text(encoding='utf-8'))
-    except SyntaxError, UnicodeDecodeError:
+    tree = parse_source(path)
+    if tree is None:
         return None
     guards = [node for node in tree.body if is_main_guard(node)]
     if not guards:

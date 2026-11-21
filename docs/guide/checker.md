@@ -204,6 +204,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | Rule id | Reports |
 |---|---|
 | `src-loose-module` | A `.py` file directly in `src/`, outside any package |
+| `unreadable-file` | A file a check could not read (gone, denied or not UTF-8); `path` names it and `evidence` the reason. The check skips it and reports its other hits. |
 | `auditme-check-crash` | A check raised; `variant` names it and `evidence` the exception. `changed.py` fails on it. |
 
 ### `duplication.py`

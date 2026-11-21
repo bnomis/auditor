@@ -186,7 +186,7 @@ every later task's Definition of Done uses.
 
 ## Task 6: Report an unreadable file as a hit
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Source Reference:** F1, D2
@@ -195,22 +195,22 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Add one reader to `claude/skills/auditme/checks/auditme/core.py` that returns a file's text, or nothing when it raises `OSError` or `UnicodeDecodeError`, and records the path
-- [ ] Use it at every `read_text` site listed under A1 and A2 in `agents/audit-reviews/review-1.md`, keeping each site's handling of `SyntaxError`
-- [ ] Have the driver (`checks/audit.py`) emit one `unreadable-file` hit per recorded path in the existing schema: `path` the file, `line` null, `evidence` the error text, `accepted: false`
-- [ ] Widen the `subprocess.run` handlers in `rules/project_hygiene.py` (`check_lockfile`, `check_ruff`, `check_ruff_version`) to `OSError`, keeping each one's existing report
-- [ ] Tests: a file removed between listing and reading gives one `unreadable-file` hit and the check's other hits in that root; a file with bad bytes gives the hit; a missing `uv` or `ruff` still gives today's report
-- [ ] Document the new hit in `claude/skills/auditme/SKILL.md` (beside `src-loose-module`) and in `docs/guide/checker.md`
+- [x] Add one reader to `claude/skills/auditme/checks/auditme/core.py` that returns a file's text, or nothing when it raises `OSError` or `UnicodeDecodeError`, and records the path
+- [x] Use it at every `read_text` site listed under A1 and A2 in `agents/audit-reviews/review-1.md`, keeping each site's handling of `SyntaxError`
+- [x] Have the driver (`checks/audit.py`) emit one `unreadable-file` hit per recorded path in the existing schema: `path` the file, `line` null, `evidence` the error text, `accepted: false`
+- [x] Widen the `subprocess.run` handlers in `rules/project_hygiene.py` (`check_lockfile`, `check_ruff`, `check_ruff_version`) to `OSError`, keeping each one's existing report
+- [x] Tests: a file removed between listing and reading gives one `unreadable-file` hit and the check's other hits in that root; a file with bad bytes gives the hit; a missing `uv` or `ruff` still gives today's report
+- [x] Document the new hit in `claude/skills/auditme/SKILL.md` (beside `src-loose-module`) and in `docs/guide/checker.md`
 
 **Acceptance Criteria:**
 
-- [ ] No `read_text` call in `claude/skills/auditme/checks/auditme/` remains outside the shared reader, except a site that already catches `OSError`
-- [ ] The new tests pass, and fail when the reader re-raises `OSError`
+- [x] No `read_text` call in `claude/skills/auditme/checks/auditme/` remains outside the shared reader, except a site that already catches `OSError`
+- [x] The new tests pass, and fail when the reader re-raises `OSError`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_state_and_effects.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_state_and_effects.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
