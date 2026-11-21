@@ -48,11 +48,11 @@ confirmation. Never push.
 
 | Placeholder | Source |
 |---|---|
-| `{{AGENTS_REV}}` | the commit on `main` of the shared repository: `git ls-remote git@github.com:bnomis/agents.git refs/heads/main`, first field |
+| `{{AUDITOR_REV}}` | the commit on `main` of the auditor repository: `git ls-remote git@github.com:bnomis/auditor.git refs/heads/main`, first field |
 | `{{PROJECT_NAME}}` | the repository directory's name; confirm it |
 | `{{TEST_COMMAND}}` | ask the operator for the project's test command |
 
-If `git ls-remote` fails (no SSH access to the shared repository), stop and
+If `git ls-remote` fails (no SSH access to the auditor repository), stop and
 say so: the hooks cannot be pinned without a revision.
 
 ## `new`
@@ -63,7 +63,7 @@ or `DONE.md`, ask whether to overwrite each one, or stop and suggest `adopt`.
 
 1. Write `.pre-commit-config.yaml` from `templates/pre-commit-config.yaml`
    (ruff check and format, shellcheck, and both auditme hooks pinned at
-   `{{AGENTS_REV}}`, with `auditme-all` also at the `pre-push` stage).
+   `{{AUDITOR_REV}}`, with `auditme-all` also at the `pre-push` stage).
 2. Write `.github/workflows/ci.yml` from `templates/ci.yml`: checkout, the
    deploy-key step, Python and uv, `uv sync`, `pre-commit run --all-files`, the
    `auditme-all` step and `{{TEST_COMMAND}}`.
@@ -76,14 +76,14 @@ or `DONE.md`, ask whether to overwrite each one, or stop and suggest `adopt`.
 
 Check that no placeholder remains in any written file
 (`grep -rnE '\{\{[A-Z_]+\}\}' <files>` prints nothing). A bare `{{` search is
-not enough: `ci.yml` holds GitHub's own `${{ secrets.AGENTS_DEPLOY_KEY }}`.
+not enough: `ci.yml` holds GitHub's own `${{ secrets.AUDITOR_DEPLOY_KEY }}`.
 
 ## `adopt`
 
 For an existing project.
 
-1. **Hooks.** Add the `git@github.com:bnomis/agents.git` repo block with
-   `auditme-changed` and `auditme-all`, at `{{AGENTS_REV}}`, to
+1. **Hooks.** Add the `git@github.com:bnomis/auditor.git` repo block with
+   `auditme-changed` and `auditme-all`, at `{{AUDITOR_REV}}`, to
    `.pre-commit-config.yaml` (create it from the template's hook block if it is
    absent). Look for a project-local hook, script or `.claude/settings.json`
    Stop hook that does the same job (an audit runner scoped to changed files).
@@ -111,9 +111,9 @@ For an existing project.
 Each step is asked before it runs, and shows the exact command first. Use a
 scratch directory made for this run (`mktemp -d`), never the repository.
 
-1. `ssh-keygen -t ed25519 -N '' -f <scratch>/agents_deploy_key`
-2. `gh repo deploy-key add <scratch>/agents_deploy_key.pub --repo bnomis/agents --title <project>`
-3. `gh secret set AGENTS_DEPLOY_KEY --repo <owner>/<project> < <scratch>/agents_deploy_key`
+1. `ssh-keygen -t ed25519 -N '' -f <scratch>/auditor_deploy_key`
+2. `gh repo deploy-key add <scratch>/auditor_deploy_key.pub --repo bnomis/auditor --title <project>`
+3. `gh secret set AUDITOR_DEPLOY_KEY --repo <owner>/<project> < <scratch>/auditor_deploy_key`
 4. Delete both files, and the scratch directory, whatever happened above.
 
 `<project>` is the confirmed project name; `<owner>/<project>` comes from

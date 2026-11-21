@@ -16,17 +16,17 @@ NAMES = [
     'DONE.md',
     'claude/rules/README.md',
 ]
-PLACEHOLDERS = {'AGENTS_REV', 'PROJECT_NAME', 'TEST_COMMAND'}
-ALIAS_REWRITE = 'url."git@github-agents:bnomis/agents.git".insteadOf "git@github.com:bnomis/agents.git"'
+PLACEHOLDERS = {'AUDITOR_REV', 'PROJECT_NAME', 'TEST_COMMAND'}
+ALIAS_REWRITE = 'url."git@github-auditor:bnomis/auditor.git".insteadOf "git@github.com:bnomis/auditor.git"'
 AUDIT_COMMAND = 'pre-commit run auditme-all --hook-stage manual --all-files'
 DEPLOY_KEY_LINES = (
-    'AGENTS_DEPLOY_KEY',
-    'Host github-agents',
+    'AUDITOR_DEPLOY_KEY',
+    'Host github-auditor',
     'IdentitiesOnly yes',
     'StrictHostKeyChecking yes',
     'api.github.com/meta',
     'if: always()',
-    'rm -f ~/.ssh/agents_deploy_key',
+    'rm -f ~/.ssh/auditor_deploy_key',
     ALIAS_REWRITE,
 )
 
@@ -53,8 +53,8 @@ def test_claude_md_imports_agents_md() -> None:
 def test_pre_commit_config_structure() -> None:
     text = read('pre-commit-config.yaml')
     assert text.startswith('repos:\n')
-    assert '- repo: git@github.com:bnomis/agents.git' in text
-    assert 'rev: {{AGENTS_REV}}' in text
+    assert '- repo: git@github.com:bnomis/auditor.git' in text
+    assert 'rev: {{AUDITOR_REV}}' in text
     for hook in (
         'ruff-check',
         'ruff-format',
@@ -78,7 +78,7 @@ def test_ci_structure() -> None:
     ):
         assert needle in text, needle
     assert text.index('uv sync') < text.index(AUDIT_COMMAND)
-    assert text.index('{{TEST_COMMAND}}') < text.index('AGENTS_DEPLOY_KEY')
+    assert text.index('{{TEST_COMMAND}}') < text.index('AUDITOR_DEPLOY_KEY')
     assert 'ssh-keyscan' not in text
     assert 'ssh-keyscan' not in read('ci-audit-step.yml')
 

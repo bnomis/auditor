@@ -222,7 +222,7 @@ Rules for reviewers:
 
 ### 5. Spec review
 
-For each spec in scope, check it against the validation criteria and spec template in `claude/skills/specdev/SKILL.md`. Record gaps as findings. Skip if no specs in scope.
+For each spec in scope, check it against the validation criteria and spec template in the specdev skill (`~/.claude/skills/specdev/SKILL.md`, installed from the agents repository). Record gaps as findings. Skip if no specs in scope.
 
 ### 6. Re-verify prior findings
 
