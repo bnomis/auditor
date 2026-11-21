@@ -1,6 +1,6 @@
 # Doc4 brief
 
-**Brief version:** 2
+**Brief version:** 3
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -40,6 +40,12 @@ against the code.
   plainly means. A standard-library or third-party name, a command, a value,
   an environment variable, a path outside the repository, or a path created
   at run time is not drift.
+- A section or table that states its own date ("as classified on
+  <date>", "measured on <date>") is a record of that day: its names, counts
+  and line numbers are not checked against today's code, and nothing in it
+  is drift.
+- For an `(unresolved)` candidate, its section's other statements are
+  judged by the thresholds above as well, not only its unresolved tokens.
 
 A threshold that this brief does not settle is not yours to decide: report
 it in your reply, name the candidate, and judge the rest as the brief says.
