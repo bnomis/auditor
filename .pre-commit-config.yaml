@@ -17,7 +17,7 @@ repos:
   # The audit hooks, run from this repository's own tree rather than pinned to
   # a revision of it: this is the checker's repository, so a checker change
   # applies in the commit that makes it. Other projects pin them; see
-  # claude/skills/project-setup/SKILL.md.
+  # claude/skills/auditme-project-setup/SKILL.md.
   - repo: local
     hooks:
       - id: auditme-changed

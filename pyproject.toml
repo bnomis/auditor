@@ -1,6 +1,6 @@
 [project]
 name = "auditor"
-description = "The auditme audit checker, its pre-commit hooks and the /project-setup skill"
+description = "The auditme audit checker, its pre-commit hooks and the /auditme-project-setup skill"
 version = "0.1.0"
 requires-python = ">=3.14.7,<3.15"
 
@@ -50,7 +50,7 @@ ignore = ["E501", "E722", 'ICN001', 'SIM108', 'SIM102', 'S110', 'S112', 'S311']
 # subprocess and the hygiene test probes for `ruff` on PATH exactly as the
 # checker does. Both are the behaviour under test.
 "claude/skills/auditme/tests/*" = ["S101", "S603", "S607"]
-"claude/skills/project-setup/tests/*" = ["S101"]
+"claude/skills/auditme-project-setup/tests/*" = ["S101"]
 # The root-level tests run shipped scripts (the Stop hook, the installer) as
 # subprocesses from PATH; that is the behaviour under test.
 "tests/*" = ["S101", "S603", "S607"]

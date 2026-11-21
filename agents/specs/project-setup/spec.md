@@ -1,6 +1,6 @@
 # Project setup
 
-**Version:** 1.8
+**Version:** 1.9
 **Status:** implemented
 **Date:** 2026-10-31
 
@@ -9,9 +9,10 @@ guards by default: the auditme sweep on every commit, the whole-tree sweep in
 CI, and the Claude Code Stop hook that refuses to end a turn over unaccepted
 hits. Today only one project has them, built inside that project, and each copy
 has gaps. This spec moves the guards into this repository, publishes them as
-pre-commit hooks that a project pins by revision, adds a `/project-setup` skill
-that installs them in a new project or adopts them into an existing one, and
-documents the whole setup for a new machine, a new user and a new project.
+pre-commit hooks that a project pins by revision, adds a
+`/auditme-project-setup` skill that installs them in a new project or adopts
+them into an existing one, and documents the whole setup for a new machine, a
+new user and a new project.
 
 ## Motivation
 
@@ -86,6 +87,13 @@ design, not the project:
   2026-11-21 at the operator's request). With no package under `src/` and no
   extra root, the driver ran no pass, so the lockfile and ruff-pin checks
   never ran and a project with no Python passed them unchecked.
+- **The skill's name was too general** (amendment 1.9, decided by the
+  operator on 2026-11-21). `/project-setup` read as a skill for setting up
+  any project, beside other installed skills; it is renamed
+  `/auditme-project-setup`, in `claude/skills/auditme-project-setup/`. This
+  spec keeps its own name and path, since it covers the hooks, the Stop hook
+  and the guide as well as the skill. Dated task lists and `DONE.md` keep the
+  old name: they are records.
 
 ## Module location
 
@@ -97,7 +105,7 @@ design, not the project:
 | `.pre-commit-hooks.yaml` | At the repository root (new): publishes `auditme-changed` and `auditme-all` |
 | `claude/hooks/auditme-stop.sh` | The Stop hook (new) |
 | `bin/install-claude.py` | Also registers the Stop hook in `~/.claude/settings.json` |
-| `claude/skills/project-setup/SKILL.md` | The skill (new), with `templates/` beside it |
+| `claude/skills/auditme-project-setup/SKILL.md` | The skill (new), with `templates/` beside it |
 | `docs/setup.md` | The user guide (new); `README.md` gains an overview linking to it |
 | `claude/skills/auditme/tests/test_changed.py`, `tests/test_install_claude.py` | Tests (new) |
 | `claude/skills/auditme/checks/audit.py` | 1.2: drops the `src/` guards, emits `src-loose-module` |
@@ -193,8 +201,8 @@ pays one.
 ### The skill
 
 ```text
-/project-setup new [<path>]
-/project-setup adopt [<path>]
+/auditme-project-setup new [<path>]
+/auditme-project-setup adopt [<path>]
 ```
 
 `<path>` defaults to the working directory's repository root. Frontmatter
@@ -452,11 +460,11 @@ earliest warning, and the binding gates - the commit hook and CI - run the pinne
 one. A project's own `.claude/settings.json` Stop hook doing the same job is
 removed when the project adopts this one, or every turn runs the sweep twice.
 
-### The `/project-setup` skill
+### The `/auditme-project-setup` skill
 
-`claude/skills/project-setup/SKILL.md`, invoked as
-`/project-setup new [<path>]` or `/project-setup adopt [<path>]`. It confirms
-before each outward-facing step (creating a deploy key, setting a secret,
+`claude/skills/auditme-project-setup/SKILL.md`, invoked as
+`/auditme-project-setup new [<path>]` or
+`/auditme-project-setup adopt [<path>]`. It confirms before each outward-facing step (creating a deploy key, setting a secret,
 committing) and never pushes.
 
 **`new`**, in an empty or freshly initialised repository:
@@ -509,9 +517,10 @@ conversation or the project that motivated it, in this order:
    key; that rules and skills are shared and project specifics go in the
    project's `claude/` directory (the agents repository's
    `claude/rules/rule-scope.md`).
-4. **A new project** - `/project-setup new`, what it writes, and the deploy key.
-5. **An existing project** - `/project-setup adopt`, the backlog step, and
-   enabling the CI gate.
+4. **A new project** - `/auditme-project-setup new`, what it writes, and the
+   deploy key.
+5. **An existing project** - `/auditme-project-setup adopt`, the backlog step,
+   and enabling the CI gate.
 6. **Upgrading the checker** - `pre-commit autoupdate`, and handling its
    catch-up hits in the same commit.
 7. **Troubleshooting** - the hook cannot clone (SSH, the deploy key, the host
@@ -584,8 +593,8 @@ is and linking to `docs/setup.md`.
   changed.
 - `audit.py`'s output is byte-identical to the previous commit's for every hit
   without `related`.
-- `/project-setup new` in an empty repository and `/project-setup adopt` in an
-  existing one each leave a working, committed setup; `adopt` adds no CI gate
+- `/auditme-project-setup new` in an empty repository and
+  `/auditme-project-setup adopt` in an existing one each leave a working, committed setup; `adopt` adds no CI gate
   over a non-zero count.
 - `docs/setup.md` takes a new machine from nothing to a passing hook run.
 - 1.2: a project with no `src/` can commit a clean `bin/` script and is
@@ -613,4 +622,4 @@ stdlib-only.
 Background only; each is its own repository's work. The project whose review
 motivated this adopts the hooks in its review task list, replacing its
 `bin/audit-changed.*` and its own Stop hook, and that work waits for this spec's
-implementation. Every other project adopts with `/project-setup adopt`.
+implementation. Every other project adopts with `/auditme-project-setup adopt`.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-install-claude: symlinks the auditme skill, the /project-setup skill and the
+install-claude: symlinks the auditme skill, the /auditme-project-setup skill and the
 auditme Stop hook into ~/.claude/, and registers the Stop hook
 """
 

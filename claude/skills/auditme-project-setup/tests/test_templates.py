@@ -1,4 +1,4 @@
-"""Tests for the `/project-setup` templates."""
+"""Tests for the `/auditme-project-setup` templates."""
 
 import pathlib
 import re

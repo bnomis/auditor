@@ -4,7 +4,7 @@
 
 `auditme`, a static checker that projects pin as pre-commit hooks so the rules a script can check
 are enforced on every commit, push and CI run, together with the Claude Code Stop hook that runs it
-before a turn ends and the `/project-setup` skill that adopts the hooks in a project. The rules the
+before a turn ends and the `/auditme-project-setup` skill that adopts the hooks in a project. The rules the
 checker enforces, and every other shared skill, live in the agents repository
 ([`bnomis/agents`](https://bnomis.github.io/agents/)).
 
@@ -13,9 +13,9 @@ git clone git@github.com:bnomis/auditor.git ~/src/auditor
 ~/src/auditor/bin/install-claude.py
 ```
 
-The installer links the `/auditme` and `/project-setup` skills and the Stop hook into `~/.claude/`,
-and registers the Stop hook. A project then opts in to the checker with `/project-setup new` or
-`/project-setup adopt`, which pins the hooks in its `.pre-commit-config.yaml`:
+The installer links the `/auditme` and `/auditme-project-setup` skills and the Stop hook into `~/.claude/`,
+and registers the Stop hook. A project then opts in to the checker with `/auditme-project-setup new` or
+`/auditme-project-setup adopt`, which pins the hooks in its `.pre-commit-config.yaml`:
 
 ```yaml
 - repo: git@github.com:bnomis/auditor.git
@@ -32,7 +32,7 @@ and registers the Stop hook. A project then opts in to the checker with `/projec
 |---|---|
 | `claude/skills/auditme/checks/` | The checker: a standard-library-only sweep over `src/` and `bin/`. See [The audit checker](guide/checker.md). |
 | `claude/skills/auditme/` | The `/auditme` skill: the sweep, then the interpretive review. See [Skills](reference/skills.md). |
-| `claude/skills/project-setup/` | The `/project-setup` skill and its templates. See [Skills](reference/skills.md). |
+| `claude/skills/auditme-project-setup/` | The `/auditme-project-setup` skill and its templates. See [Skills](reference/skills.md). |
 | `claude/hooks/` | The Claude Code Stop hook that runs the checker before a turn ends. |
 | `bin/install-claude.py` | The installer. See [Command line and hooks](reference/cli.md). |
 | `.pre-commit-hooks.yaml` | The hooks other projects pin. |

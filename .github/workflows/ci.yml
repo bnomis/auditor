@@ -25,7 +25,7 @@ jobs:
       - run: uv sync
       # The checker runs `ruff` from PATH: use the project's locked one.
       - run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-      - run: uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/project-setup/tests tests -q -p no:cacheprovider
+      - run: uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider
       # The names hook lives in the private agents repository; pre-commit
       # clones it over SSH with a read-only deploy key. GitHub accepts a deploy
       # key on one repository only, so the key sits under its own host alias.

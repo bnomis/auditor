@@ -1,5 +1,5 @@
 site_name: auditor
-site_description: The auditme checker, the pre-commit hooks and Stop hook that run it, and the /project-setup skill that adopts them in a project
+site_description: The auditme checker, the pre-commit hooks and Stop hook that run it, and the /auditme-project-setup skill that adopts them in a project
 site_url: https://bnomis.github.io/auditor/
 theme:
   name: material

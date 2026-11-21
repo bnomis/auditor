@@ -3,13 +3,13 @@
 The `auditme` audit checker (`claude/skills/auditme/`), the pre-commit hooks
 that run it (`.pre-commit-hooks.yaml`), the Claude Code Stop hook that runs it
 at the end of a session (`claude/hooks/auditme-stop.sh`) and the
-`/project-setup` skill that adopts the hooks in a project
-(`claude/skills/project-setup/`).
+`/auditme-project-setup` skill that adopts the hooks in a project
+(`claude/skills/auditme-project-setup/`).
 
 ## Installing
 
 `bin/install-claude.py` links `claude/skills/auditme`,
-`claude/skills/project-setup` and `claude/hooks/auditme-stop.sh` into
+`claude/skills/auditme-project-setup` and `claude/hooks/auditme-stop.sh` into
 `~/.claude` and registers the Stop hook in `~/.claude/settings.json`. The
 shared rules and the other skills come from the agents repository's own
 installer.
@@ -19,7 +19,7 @@ installer.
 From the repository root:
 
 ```shell
-uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/project-setup/tests tests -q -p no:cacheprovider
+uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider
 ```
 
 ## No project names

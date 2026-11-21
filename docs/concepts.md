@@ -6,7 +6,7 @@ commit of this repository, and Claude Code on your machine, which runs the Stop 
 ```mermaid
 flowchart LR
     repo["auditor repository"]
-    home["~/.claude/<br>auditme, project-setup, Stop hook"]
+    home["~/.claude/<br>auditme, auditme-project-setup, Stop hook"]
     proj["project<br>.pre-commit-config.yaml"]
     ci["project CI"]
     repo -- "bin/install-claude.py<br>(symlinks)" --> home

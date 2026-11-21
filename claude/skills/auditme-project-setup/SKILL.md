@@ -1,5 +1,5 @@
 ---
-name: project-setup
+name: auditme-project-setup
 description: Set up a new project with the shared audit guards, or adopt them into an existing project - pre-commit hooks, CI gate, deploy key and project files
 when_to_use: |
     Use this skill whenever the user mentions:
@@ -15,8 +15,8 @@ allowed_tools: [Read, Write, Edit, Bash, AskUserQuestion]
 # Project setup
 
 Invoke as:
-    /project-setup new [<path>]
-    /project-setup adopt [<path>]
+    /auditme-project-setup new [<path>]
+    /auditme-project-setup adopt [<path>]
 
 `<path>` defaults to the working directory's repository root
 (`git rev-parse --show-toplevel`). All work happens in that repository.

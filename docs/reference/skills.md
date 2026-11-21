@@ -13,7 +13,7 @@ that trigger it ("audit the code", "set up a new project").
 | Skill | Invocation | Purpose |
 |---|---|---|
 | [auditme](#auditme) | `/auditme [scope]` | Scripted and checklist audit of code, specs and docs |
-| [project-setup](#project-setup) | `/project-setup new [path]`, `/project-setup adopt [path]` | Install the shared audit hooks, CI gate and project files |
+| [auditme-project-setup](#auditme-project-setup) | `/auditme-project-setup new [path]`, `/auditme-project-setup adopt [path]` | Install the shared audit hooks, CI gate and project files |
 
 ## /auditme {#auditme}
 
@@ -42,15 +42,15 @@ file path, a spec slug, or the docs. `--category` (`standards`,
 The checker, its rules and accept markers are described in
 [The checker](../guide/checker.md).
 
-## /project-setup {#project-setup}
+## /auditme-project-setup {#auditme-project-setup}
 
 ```text
-/project-setup new [<path>]
-/project-setup adopt [<path>]
+/auditme-project-setup new [<path>]
+/auditme-project-setup adopt [<path>]
 ```
 
 Path defaults to the current repository root. Templates are in
-`claude/skills/project-setup/templates/`.
+`claude/skills/auditme-project-setup/templates/`.
 
 - **`new`:** writes `.pre-commit-config.yaml` (ruff, shellcheck, and the
   `auditme-changed` and `auditme-all` hooks pinned to this repository's

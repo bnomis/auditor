@@ -14,8 +14,8 @@ existing one.
   every push and in CI, so a hit in a file nobody touched still fails the push.
 - **A Stop hook** - a Claude Code hook that blocks the end of a turn once while
   an opted-in project's changed files carry unaccepted hits.
-- **`/project-setup`** - a skill that writes the config, CI workflow and project
-  files for a new project, or adopts the hooks into an existing one.
+- **`/auditme-project-setup`** - a skill that writes the config, CI workflow
+  and project files for a new project, or adopts the hooks into an existing one.
 
 The checker audits the packages under `src/<package>/` and the scripts in
 `bin/`. `src/` is optional: a project with only `bin/` is audited over `bin/`,
@@ -126,7 +126,7 @@ to one project. A project's own rules and skills go in its `claude/` directory
 In an empty repository, in Claude Code:
 
 ```text
-/project-setup new
+/auditme-project-setup new
 ```
 
 It asks for the project's test command, then writes:
@@ -159,7 +159,7 @@ clone URL to use it.
 ## An existing project
 
 ```text
-/project-setup adopt
+/auditme-project-setup adopt
 ```
 
 It adds the two hooks to `.pre-commit-config.yaml`, and shows you any
@@ -186,8 +186,8 @@ Why no gate over a backlog: a gate that fails every push gets switched off.
 
 To enable the gates later, add `stages: [manual, pre-push]` under
 `- id: auditme-all` in `.pre-commit-config.yaml`, paste
-`claude/skills/project-setup/templates/ci-audit-step.yml` into the workflow
-after the project's own setup, and run the deploy-key steps.
+`claude/skills/auditme-project-setup/templates/ci-audit-step.yml` into the
+workflow after the project's own setup, and run the deploy-key steps.
 
 ## Moving a project from agents
 
@@ -210,7 +210,7 @@ To move it:
    half in a new `AUDITOR_DEPLOY_KEY` secret on the project; the old
    `AGENTS_DEPLOY_KEY` secret can be deleted once CI passes.
 3. In the CI workflow, replace the deploy-key steps with those in
-   `claude/skills/project-setup/templates/ci-audit-step.yml`: they read
+   `claude/skills/auditme-project-setup/templates/ci-audit-step.yml`: they read
    `AUDITOR_DEPLOY_KEY`, install it under the `github-auditor` host alias, and
    rewrite `bnomis/auditor.git` rather than `bnomis/agents.git`.
 4. Run `pre-commit run auditme-all --hook-stage manual --all-files`, and fix or
