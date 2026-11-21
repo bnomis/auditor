@@ -1,7 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    # auditme: accept[ruff-version-drift] the ruff installed on PATH is newer than the 14-day exclude-newer window lets uv.lock pin
     rev: v0.17.2
     hooks:
       # Run the linter.

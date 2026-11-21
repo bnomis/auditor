@@ -605,3 +605,30 @@ repository.
 Spec: `agents/specs/project-setup/spec.md`, amendment 1.11; tasks: `agents/tasks/project-setup/tasks-4.md`, then `agents/tasks/project-setup/tasks-5.md`.
 
 Done: 2026-11-21 - amendment 1.11 of `agents/specs/project-setup/spec.md`, `agents/tasks/project-setup/tasks-4.md` and `tasks-5.md`; the backlog is filed as "Fix or accept this repository's audit backlog".
+
+## A worktree's ruff-version-drift hit is hidden by an accept marker
+
+Found on 2026-11-21 in a review of this file. `4641cca` (Task 1 of
+`agents/tasks/project-setup/tasks-5.md`, run by a queue in a worktree) added
+`# auditme: accept[ruff-version-drift] the ruff installed on PATH is newer
+than the 14-day exclude-newer window lets uv.lock pin` above `rev: v0.17.2`
+in `.pre-commit-config.yaml` (line 4), to get its commit past the
+`auditme-changed` hook. In the main checkout the same day there was no drift
+to accept: `.venv/bin/ruff` is 0.17.2, `uv.lock` locks ruff 0.17.2, and
+`python3 claude/skills/auditme/checks/audit.py .` gave no
+`ruff-version-drift` hit. The ruff on `PATH` was 0.17.6.
+
+Cause: the worktree had no `.venv`, so `ruff_executable()` in
+`claude/skills/auditme/checks/auditme/rules/project_hygiene.py` fell back to
+the ruff on `PATH`, as it is specified to (amendment 1.5 of
+`agents/specs/project-setup/spec.md`). The hit was real for that worktree
+and not for the repository, and the marker now accepts any later drift on
+that line, in every checkout.
+
+Fix direction: small. Remove the marker. For a run in a worktree, make the
+pinned ruff the one the audit finds - a `uv sync` in the worktree before its
+first commit - rather than accepting the drift; where that is done (the queue
+runner that creates the worktree) is another repository's change, so record
+it there, not here.
+
+Done: 2026-11-21 - the marker removed from `.pre-commit-config.yaml`; `audit.py .` in the main checkout gives no `ruff-version-drift` hit, since `.venv/bin/ruff` is 0.17.2. Giving a queue's worktree the pinned ruff is the queue runner's change, in its own repository.
