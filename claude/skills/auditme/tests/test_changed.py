@@ -307,3 +307,21 @@ def test_marker_advice_is_given_beside_rule_advice(repo, stub_sweep, capsys) -> 
     out = capsys.readouterr().out
     assert 'lockfile-drift: run `uv lock`' in out
     assert '# auditme: accept[<rule>] <reason>' in out
+
+
+DECLARED = '[[tool.auditme.roots]]\npath = "lib/pkg"\n'
+
+
+def test_all_sweeps_a_declared_root_outside_src(tmp_path, capsys) -> None:
+    root = start_script_project(
+        tmp_path,
+        {'pyproject.toml': DECLARED, 'lib/pkg/__init__.py': '', 'lib/pkg/mod.py': conftest.FUTURE_IMPORT},
+    )
+    assert changed.main(['--all', str(root)]) == 1
+    assert 'lib/pkg/mod.py:1  future-annotations' in capsys.readouterr().out
+
+
+def test_a_malformed_declaration_fails_the_sweep(tmp_path, capsys) -> None:
+    root = start_script_project(tmp_path, {'pyproject.toml': '[tool.auditme]\nroots = "lib"\n', 'lib/a.py': 'A = 1\n'})
+    assert changed.main(['--all', str(root)]) == 1
+    assert 'ERROR: ' in capsys.readouterr().out

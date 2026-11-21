@@ -105,7 +105,7 @@ call site changed.
 
 ## Task 3: The hooks and Phase B follow the declaration
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation - Declared audit roots (1.11) (every consumer reads `_audit_roots()`)
@@ -116,19 +116,19 @@ sweep does.
 
 **Subtasks:**
 
-- [ ] `claude/skills/auditme/tests/test_changed.py`: on a fixture whose Python lives only in a declared root, `changed.py --all` reports an unaccepted hit there and exits 1; a malformed `[tool.auditme]` makes the sweep fail (exit 1, naming the `audit.py` error)
-- [ ] `claude/skills/auditme/tests/phaseb/` (the test module for `plan`): on the same fixture, `phaseb.py plan` lists a candidate from the declared root for A4
-- [ ] `phaseb.py`: if `plan` (or any subcommand that reads roots) meets a `RootsError`, print `ERROR: <message>` on stderr and exit 2; add a test
-- [ ] Change code only where a test shows a consumer not following `_audit_roots()`
+- [x] `claude/skills/auditme/tests/test_changed.py`: on a fixture whose Python lives only in a declared root, `changed.py --all` reports an unaccepted hit there and exits 1; a malformed `[tool.auditme]` makes the sweep fail (exit 1, naming the `audit.py` error)
+- [x] `claude/skills/auditme/tests/phaseb/` (the test module for `plan`): on the same fixture, `phaseb.py plan` lists a candidate from the declared root for A4
+- [x] `phaseb.py`: if `plan` (or any subcommand that reads roots) meets a `RootsError`, print `ERROR: <message>` on stderr and exit 2; add a test
+- [x] Change code only where a test shows a consumer not following `_audit_roots()`
 
 **Acceptance Criteria:**
 
-- [ ] Each case above passes
+- [x] Each case above passes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_changed.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_changed.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 
