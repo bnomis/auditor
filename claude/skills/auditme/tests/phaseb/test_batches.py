@@ -111,7 +111,7 @@ def complete_run(run: pathlib.Path) -> None:
 def test_complete_run_has_no_problems(tmp_path: pathlib.Path) -> None:
     run = planned_run(tmp_path)
     complete_run(run)
-    result = auditme.phaseb.batches.check_run(run)
+    result = auditme.phaseb.batches.read_run_check(run)
     assert result.problems == {}
     assert result.retry == []
 
@@ -120,7 +120,7 @@ def test_each_problem_kind_is_reported_against_its_batch(tmp_path: pathlib.Path)
     run = planned_run(tmp_path)
     write_result(run, 1, [make_result_line('src/pkg/mod.py::a'), '{not json'])
     write_result(run, 2, [make_result_line('src/pkg/mod.py::c'), make_result_line('src/pkg/mod.py::c')])
-    result = auditme.phaseb.batches.check_run(run)
+    result = auditme.phaseb.batches.read_run_check(run)
     assert result.retry == [1, 2, 3]
     assert any('unparseable' in problem for problem in result.problems[1])
     assert any('missing' in problem and 'mod.py::b' in problem for problem in result.problems[1])
@@ -133,7 +133,7 @@ def test_unexpected_id_is_reported(tmp_path: pathlib.Path) -> None:
     run = planned_run(tmp_path)
     complete_run(run)
     write_result(run, 1, [make_result_line('src/pkg/mod.py::a'), make_result_line('src/pkg/mod.py::b'), make_result_line('src/pkg/mod.py::zzz')])
-    result = auditme.phaseb.batches.check_run(run)
+    result = auditme.phaseb.batches.read_run_check(run)
     assert result.retry == [1]
     assert any('unexpected' in problem and 'zzz' in problem for problem in result.problems[1])
 
@@ -142,19 +142,19 @@ def test_malformed_fields_are_reported_not_raised(tmp_path: pathlib.Path) -> Non
     run = planned_run(tmp_path)
     complete_run(run)
     write_result(run, 2, [make_result_line('src/pkg/mod.py::c', findings={'missing': 'nope'}), '[1]'])
-    result = auditme.phaseb.batches.check_run(run)
+    result = auditme.phaseb.batches.read_run_check(run)
     assert result.retry == [2]
 
 
 def test_check_run_without_plan_raises(tmp_path: pathlib.Path) -> None:
     with pytest.raises(auditme.phaseb.PhaseBError):
-        auditme.phaseb.batches.check_run(tmp_path)
+        auditme.phaseb.batches.read_run_check(tmp_path)
 
 
 def test_unreadable_plan_raises(tmp_path: pathlib.Path) -> None:
     (tmp_path / 'plan.json').write_text('{bad', encoding='utf-8')
     with pytest.raises(auditme.phaseb.PhaseBError):
-        auditme.phaseb.batches.check_run(tmp_path)
+        auditme.phaseb.batches.read_run_check(tmp_path)
 
 
 def test_read_run_verdicts_stamps_hash_brief_version_and_date(tmp_path: pathlib.Path) -> None:
@@ -203,7 +203,7 @@ def test_every_registered_questions_shape_passes_and_reads_back_sorted(tmp_path:
     findings: dict[str, list[str]] = {kind: [] for kind in kinds}
     findings[kinds[0]] = ['zeta', 'alpha']
     write_result(run, 1, [make_findings_line(findings)])
-    result = auditme.phaseb.batches.check_run(run)
+    result = auditme.phaseb.batches.read_run_check(run)
     assert result.problems == {}
     assert result.retry == []
     verdicts = auditme.phaseb.batches.read_run_verdicts(run, [make_batch_candidate('a')], today='2026-02-03')
@@ -224,7 +224,7 @@ def test_every_registered_questions_shape_passes_and_reads_back_sorted(tmp_path:
 def test_malformed_findings_lines_are_unparseable(tmp_path: pathlib.Path, line: str) -> None:
     run = one_candidate_run(tmp_path, 'A4')
     write_result(run, 1, [line])
-    result = auditme.phaseb.batches.check_run(run)
+    result = auditme.phaseb.batches.read_run_check(run)
     assert result.retry == [1]
     assert any('unparseable' in problem for problem in result.problems[1])
 

@@ -75,12 +75,12 @@ def test_capture_hits_names_a_check_that_raises(project: Project) -> None:
 def test_unparseable_file_raises_naming_it(project: Project) -> None:
     root = project({'src/pkg/__init__.py': '', 'src/pkg/bad.py': 'def (:\n'})
     with pytest.raises(auditme.phaseb.PhaseBError, match='bad.py'):
-        auditme.phaseb.architecture.parse_audited_files(root)
+        auditme.phaseb.architecture.read_audited_files(root)
 
 
 def test_parse_audited_files_returns_each_file(project: Project) -> None:
     root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': SILENT})
-    assert {file.rel for file in auditme.phaseb.architecture.parse_audited_files(root)} == {'src/pkg/__init__.py', 'src/pkg/mod.py'}
+    assert {file.rel for file in auditme.phaseb.architecture.read_audited_files(root)} == {'src/pkg/__init__.py', 'src/pkg/mod.py'}
 
 
 def test_site_counter_numbers_sites_per_qualname() -> None:

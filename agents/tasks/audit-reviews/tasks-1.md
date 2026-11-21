@@ -379,7 +379,7 @@ every later task's Definition of Done uses.
 
 ## Task 12: Name I/O honestly and build each shape once
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** medium
 **Source Reference:** F3, F14
@@ -388,19 +388,19 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Rename each A9 function outside the registry listed in `agents/audit-reviews/review-1.md` (`resolve_base`, `is_private`, `parse_audited_files`, `check_batch`, `check_run`, `resolve_path`, `parse_file`, `parse_test_tree`, `build_index`, `build_test_map`, `parse_package_layering`) to a name that says it reads, or a `load_` name where A9's exemption applies; update every caller, test, spec and doc that names it
-- [ ] Build `CorpusIndex` complete in `phaseb/docrefs.py` rather than setting `aliases` after construction
-- [ ] One factory each for `Site` (`phaseb/testmap.py`, `phaseb/candidates.py`), the site-to-`Candidate` and section-to-`Candidate` construction (`phaseb/candidates.py`) and `DocTarget` (`phaseb/docrefs.py`)
-- [ ] `phaseb/architecture.py:820`: document in the lister's docstring that an A17 candidate is one `__init__.py`, so its id is the file's path; leave the id form unchanged so existing ledger ids stay valid
+- [x] Rename each A9 function outside the registry listed in `agents/audit-reviews/review-1.md` (`resolve_base`, `is_private`, `parse_audited_files`, `check_batch`, `check_run`, `resolve_path`, `parse_file`, `parse_test_tree`, `build_index`, `build_test_map`, `parse_package_layering`) to a name that says it reads, or a `load_` name where A9's exemption applies; update every caller, test, spec and doc that names it
+- [x] Build `CorpusIndex` complete in `phaseb/docrefs.py` rather than setting `aliases` after construction
+- [x] One factory each for `Site` (`phaseb/testmap.py`, `phaseb/candidates.py`), the site-to-`Candidate` and section-to-`Candidate` construction (`phaseb/candidates.py`) and `DocTarget` (`phaseb/docrefs.py`)
+- [x] `phaseb/architecture.py:820`: document in the lister's docstring that an A17 candidate is one `__init__.py`, so its id is the file's path; leave the id form unchanged so existing ledger ids stay valid
 
 **Acceptance Criteria:**
 
-- [ ] No `phaseb.py` subcommand or ledger id changes as a side effect
+- [x] No `phaseb.py` subcommand or ledger id changes as a side effect
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (the renames reach most test files)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (the renames reach most test files)
 
 **Notes:**
 

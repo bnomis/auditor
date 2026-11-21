@@ -36,7 +36,7 @@ Task 1 with `grep -n '^\*\*Status:\*\*' <spec>`, which must print
    [tasks-1](../../tasks/repeatable-phase-b/tasks-1.md); also
    `python3 claude/skills/auditme/checks/phaseb.py candidates . --question A4`
    exits 0. This spec uses its `Candidate`, `Verdict`, `register_question`,
-   ledger, batches, `check_run` and command line unchanged.
+   ledger, batches, `read_run_check` and command line unchanged.
 2. [Listed Phase B documentation questions](../listed-phase-b-documentation-questions/spec.md).
 3. [Listed Phase B test questions](../listed-phase-b-test-questions/spec.md).
 
@@ -120,7 +120,7 @@ module. No rule's output and no existing test changes.
   `_reads_by_module_and_name` move from `rules/state_and_effects.py` to
   `core.py` without the underscore; the A20 rule imports them from there.
 - Used as they are: `package_class_parents`, `class_lineage`,
-  `is_dunder_all_assignment`, and `is_private` from `core.py`, which the
+  `is_dunder_all_assignment`, and `read_is_private` from `core.py`, which the
   test-questions spec adds (decision 1). `capture_hits`, in
   `phaseb/architecture.py`, generalises the capture in the runner in
   `tests/conftest.py`.
@@ -225,14 +225,14 @@ never list environment variables or print an env file) and
   broad handler otherwise) and raises one of `domain_errors`. Logging,
   returning a default or a bare re-raise is not translation. A lexical `try`
   in the function or a listed envelope counts. A call in a helper that
-  `is_private` marks private, or in a nested function, is also covered when
+  `read_is_private` marks private, or in a nested function, is also covered when
   every resolved caller calls the helper inside a translating envelope
   (decision 2); the payload's `callers` lists those call sites, and the hash
   adds each caller's source, so a new caller re-plans the helper.
 - **A17.** A name with no consumer is a hit unless a dynamic use (a literal
   `getattr`, `importlib.import_module`, an entry point) reads it. A consumer
   reading a name from a submodule when the `__init__.py` exports it is a
-  bypass; for an empty `__init__.py`, a reach-in to a submodule `is_private`
+  bypass; for an empty `__init__.py`, a reach-in to a submodule `read_is_private`
   marks private is a bypass, and any other submodule is the owning module.
   A read from the test tree is not a consumer (decision 3): a name only
   tests read is a finding.
@@ -275,7 +275,7 @@ Answered on the review page of
 `agents/reviews/order-raises-resolution-and-listed-phase-b-specs.md`; version
 1.1 applies them:
 
-1. **What is private (D6 in that review):** `is_private` from the
+1. **What is private (D6 in that review):** `read_is_private` from the
    test-questions spec: named in no `__all__` of its package where the
    package has one, a leading underscore only where it has none. Used for
    A1 helpers and A17 reach-ins.

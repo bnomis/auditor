@@ -232,7 +232,7 @@ def test_walk_within_scope_does_not_enter_nested_scopes() -> None:
     assert any(isinstance(n, ast.FunctionDef) and n.name == 'inner' for n in nodes)
 
 
-# is_private
+# read_is_private
 
 INIT_ALL = "__all__ = ['load', 'Probe']\n"
 NO_ALL = 'def load() -> None:\n    pass\n'
@@ -240,42 +240,42 @@ NO_ALL = 'def load() -> None:\n    pass\n'
 
 def test_is_private_a_name_in_the_package_all_is_public(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
-    assert not auditme.core.is_private('load', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('load', 'pkg.mod', root)
 
 
 def test_is_private_a_name_left_out_of_the_package_all_is_private(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
-    assert auditme.core.is_private('helper', 'pkg.mod', root)
+    assert auditme.core.read_is_private('helper', 'pkg.mod', root)
 
 
 def test_is_private_a_name_in_its_modules_own_all_is_public(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': "__all__ = ['helper']\n"})
-    assert not auditme.core.is_private('helper', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('helper', 'pkg.mod', root)
 
 
 def test_is_private_a_method_follows_its_class(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
-    assert not auditme.core.is_private('Probe.load', 'pkg.mod', root)
-    assert auditme.core.is_private('Other.load', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('Probe.load', 'pkg.mod', root)
+    assert auditme.core.read_is_private('Other.load', 'pkg.mod', root)
 
 
 def test_is_private_without_an_all_only_an_underscore_makes_private(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': NO_ALL, 'src/pkg/_mod.py': NO_ALL})
-    assert not auditme.core.is_private('load', 'pkg.mod', root)
-    assert auditme.core.is_private('_load', 'pkg.mod', root)
-    assert auditme.core.is_private('load', 'pkg._mod', root)
-    assert auditme.core.is_private('Probe._load', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('load', 'pkg.mod', root)
+    assert auditme.core.read_is_private('_load', 'pkg.mod', root)
+    assert auditme.core.read_is_private('load', 'pkg._mod', root)
+    assert auditme.core.read_is_private('Probe._load', 'pkg.mod', root)
 
 
 def test_is_private_an_underscore_name_in_an_all_is_public(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': "__all__ = ['_load']\n", 'src/pkg/mod.py': NO_ALL})
-    assert not auditme.core.is_private('_load', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('_load', 'pkg.mod', root)
 
 
 def test_is_private_reads_an_annotated_all(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': "__all__: list[str] = ['load']\n", 'src/pkg/mod.py': NO_ALL})
-    assert not auditme.core.is_private('load', 'pkg.mod', root)
-    assert auditme.core.is_private('other', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('load', 'pkg.mod', root)
+    assert auditme.core.read_is_private('other', 'pkg.mod', root)
 
 
 SCRIPT = (

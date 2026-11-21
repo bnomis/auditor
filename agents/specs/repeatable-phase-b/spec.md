@@ -176,7 +176,7 @@ def plan_batches(candidates: list[Candidate], ledger: dict[str, Verdict], brief_
     """
 
 
-def check_run(run_dir: pathlib.Path) -> RunCheck:
+def read_run_check(run_dir: pathlib.Path) -> RunCheck:
     """Check every planned batch has exactly one valid verdict per candidate.
 
     Returns the problems per batch (no output, unparseable line, missing,
@@ -200,7 +200,7 @@ def merge_verdicts(ledger_path: pathlib.Path, candidates: list[Candidate], verdi
 ```
 
 Signatures updated 2026-11-21 to match the code: `list_candidates` takes an
-optional `depth` (how far the lister follows callees), and `check_run` names
+optional `depth` (how far the lister follows callees), and `read_run_check` names
 its parameter `run_dir`.
 
 Command line, run from the project root:
@@ -228,7 +228,7 @@ from the plan's, naming both; a plan without a `depth` is read as the default,
   ledger that cannot be read is never treated as empty: an empty ledger
   re-judges everything, and a later merge would overwrite the real one.
 - A missing ledger file is a clean absence: every candidate is planned.
-- A reviewer's malformed output is not an exception. `check_run` reports it,
+- A reviewer's malformed output is not an exception. `read_run_check` reports it,
   and the batch is retried.
 - A batch with problems after two retries, each by a fresh reviewer, is
   recorded in the review as not judged, naming its ids. The question then
@@ -290,7 +290,7 @@ question's registered kinds to a list of strings, empty when nothing is
 wrong) and `reason` (a string). `parse_result` checks a line against
 `question_kinds(plan.question)`: a key outside the three, a missing or extra
 kind, or a value that is not a list of strings makes the line unparseable,
-which `check_run` reports against its batch, as today. `read_run_verdicts`
+which `read_run_check` reports against its batch, as today. `read_run_verdicts`
 stores `findings` as the line gives it, each list sorted. The kinds each
 question registers:
 
@@ -340,11 +340,11 @@ In `claude/skills/auditme/tests/phaseb/`, on neutral fixtures (`pkg`,
 `ProbeError`): the lister finds a `Raises:` function, skips a protocol stub
 (D2), resolves a `Class.method()` callee, and lists an unresolvable call;
 changing a callee changes the hash; `plan_batches` skips a current verdict
-and re-plans a changed hash and a bumped brief version; `check_run` reports
+and re-plans a changed hash and a bumped brief version; `read_run_check` reports
 each problem kind; `merge_verdicts` drops vanished ids, keeps an unchanged
 dismissal and drops a changed one; a malformed ledger raises `PhaseBError`.
 For 1.2: for every registered question, a line in its brief's shape passes
-`check_run` and `read_run_verdicts` stores its kinds; a line with an
+`read_run_check` and `read_run_verdicts` stores its kinds; a line with an
 unregistered kind, a missing kind, or A4's old top-level `missing` and
 `extra` is reported unparseable; every brief's Output section names exactly
 its question's registered kinds; and `register_question` rejects empty or

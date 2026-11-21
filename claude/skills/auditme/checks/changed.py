@@ -70,7 +70,7 @@ def git_lines(repo_root: pathlib.Path, *args: str) -> list[str]:
     return [line for line in result.stdout.splitlines() if line]
 
 
-def resolve_base(repo_root: pathlib.Path) -> str | None:
+def read_base_ref(repo_root: pathlib.Path) -> str | None:
     """The first of the candidate refs that resolves, or None.
 
     Raises:
@@ -224,7 +224,7 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
         repo_root = repo_root.resolve()
         scope: frozenset[str] | None = None
         if not args.all:
-            base = args.base or resolve_base(repo_root)
+            base = args.base or read_base_ref(repo_root)
             if base is None:
                 print('changed.py: no diff base resolves (no upstream, origin/main or main); nothing to compare')
                 return 0

@@ -1,6 +1,6 @@
 """The test tree index: which tests reach which package function.
 
-`build_test_map` parses each test file once and maps each package function
+`load_test_map` parses each test file once and maps each package function
 id to the `TestRef` entries of the tests that call it. Resolution starts from
 each test file's imports through the shared call resolver, so a bare name
 match without an import is never evidence.
@@ -46,7 +46,7 @@ class ParsedFile:
     bindings: dict[str, str]
 
 
-def parse_file(path: pathlib.Path, base: pathlib.Path, root: pathlib.Path) -> ParsedFile:
+def read_test_file(path: pathlib.Path, base: pathlib.Path, root: pathlib.Path) -> ParsedFile:
     """Parse one file, naming it in the error when it cannot be read or parsed.
 
     Raises:
@@ -91,21 +91,13 @@ def source_sites(root: pathlib.Path) -> tuple[list[auditme.phaseb.candidates.Sit
         for path in auditme.core.all_py_files(src_root):
             if is_test_path(path, root):
                 continue
-            file = parse_file(path, src_root, root)
+            file = read_test_file(path, src_root, root)
             parsed[file.module] = file
-            for node in file.tree.body:
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    sites.append(auditme.phaseb.candidates.Site(file.module, f'{file.module}.{node.name}', None, node, file.rel, file.lines))
-                elif isinstance(node, ast.ClassDef):
-                    sites.extend(
-                        auditme.phaseb.candidates.Site(file.module, f'{file.module}.{node.name}.{member.name}', node.name, member, file.rel, file.lines)
-                        for member in node.body
-                        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
-                    )
+            sites.extend(auditme.phaseb.candidates.module_sites(file.module, file.tree, file.rel, file.lines))
     return sites, parsed
 
 
-def parse_test_tree(root: pathlib.Path) -> tuple[list[ParsedFile], dict[pathlib.Path, ParsedFile]]:
+def read_test_tree(root: pathlib.Path) -> tuple[list[ParsedFile], dict[pathlib.Path, ParsedFile]]:
     """The test files (`test_*.py`, `*_test.py`) and every `conftest.py`, each parsed once.
 
     Raises:
@@ -118,9 +110,9 @@ def parse_test_tree(root: pathlib.Path) -> tuple[list[ParsedFile], dict[pathlib.
             if path in tests or path in conftests:
                 continue
             if path.name == 'conftest.py':
-                conftests[path.parent] = parse_file(path, tree_root, root)
+                conftests[path.parent] = read_test_file(path, tree_root, root)
             elif path.name.startswith('test_') or path.name.endswith('_test.py'):
-                tests[path] = parse_file(path, tree_root, root)
+                tests[path] = read_test_file(path, tree_root, root)
     return sorted(tests.values(), key=lambda file: file.rel), conftests
 
 
@@ -285,7 +277,7 @@ class TestIndex:
         )
 
 
-def build_index(root: pathlib.Path) -> TestIndex:
+def load_test_index(root: pathlib.Path) -> TestIndex:
     """Parse the package and its test tree once and resolve every test's direct calls.
 
     A test reaches a function directly when a call in its body, or in a
@@ -297,7 +289,7 @@ def build_index(root: pathlib.Path) -> TestIndex:
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     site_list, parsed_sources = source_sites(root)
-    tests, conftests = parse_test_tree(root)
+    tests, conftests = read_test_tree(root)
     sites = {site.qualname: site for site in site_list}
     known = {site.qualname: site.cls for site in site_list}
     aliases = auditme.core.reexport_aliases(
@@ -342,7 +334,7 @@ def build_index(root: pathlib.Path) -> TestIndex:
 
 
 # auditme: accept[passthrough-shim] public, documented and in `phaseb.__all__`
-def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
+def load_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
     """Map each package function id to the tests that reach it, sorted by id.
 
     A test reaches a function directly when a call in its body, or in a
@@ -354,4 +346,4 @@ def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, .
         PhaseBError: a test file or audited source file does not parse.
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
-    return build_index(root).refs(depth)
+    return load_test_index(root).refs(depth)

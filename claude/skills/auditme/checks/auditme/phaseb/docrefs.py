@@ -155,7 +155,7 @@ class ClassInfo:
     field_types: dict[str, list[str]]  # field name -> class names its annotation mentions
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class CorpusIndex:
     """Everything `resolve_name` looks names up in, built once per lister call."""
 
@@ -195,23 +195,22 @@ class CorpusIndex:
             if module:
                 from_bindings[module] = auditme.core.from_import_bindings(tree, module, path.name == '__init__.py')
             index.add_module(tree, path, rel, module)
-        index.aliases = auditme.core.reexport_aliases(from_bindings, index.by_dotted.keys())
-        return index
+        return dataclasses.replace(index, aliases=auditme.core.reexport_aliases(from_bindings, index.by_dotted.keys()))
 
     def add_module(self, tree: ast.Module, path: pathlib.Path, rel: str, module: str | None) -> None:
         """Record a module's functions, classes and option literals."""
         for node in ast.iter_child_nodes(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                self.record(path, node, DocTarget('function', f'{rel}::{node.name}', rel, *span(node)), module, node.name)
+                self.record(path, node, node_target('function', rel, node.name, node), module, node.name)
             elif isinstance(node, ast.ClassDef):
-                target = DocTarget('class', f'{rel}::{node.name}', rel, *span(node))
+                target = node_target('class', rel, node.name, node)
                 self.record(path, node, target, module, node.name)
                 self.classes.setdefault(node.name, []).append(self.class_info(node, target, path, rel, module))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and call_name(node) in OPTION_CALLS:
                 for value in [*node.args, *(keyword.value for keyword in node.keywords)]:
                     if isinstance(value, ast.Constant) and isinstance(value.value, str) and OPTION_RE.match(value.value):
-                        target = DocTarget('option', f'{rel}::{value.value}', rel, node.lineno, node.end_lineno or node.lineno)
+                        target = node_target('option', rel, value.value, node)
                         self.options.setdefault(value.value, []).append(target)
 
     def record(
@@ -228,7 +227,7 @@ class CorpusIndex:
         info = ClassInfo(target, bases, {}, {})
         for member in node.body:
             if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                method = DocTarget('method', f'{rel}::{node.name}.{member.name}', rel, *span(member))
+                method = node_target('method', rel, f'{node.name}.{member.name}', member)
                 info.members[member.name] = method
                 self.record(path, member, method, module, f'{node.name}.{member.name}')
             elif isinstance(member, ast.AnnAssign) and isinstance(member.target, ast.Name):
@@ -254,13 +253,18 @@ class CorpusIndex:
 
 def field_target(class_name: str, rel: str, name: str, node: ast.stmt) -> DocTarget:
     """The target of a class field's statement."""
-    return DocTarget('field', f'{rel}::{class_name}.{name}', rel, node.lineno, node.end_lineno or node.lineno)
+    return node_target('field', rel, f'{class_name}.{name}', node)
 
 
-def span(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> tuple[int, int]:
-    """First and last line of a def or class, decorators included."""
-    start = min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)])
-    return start, node.end_lineno or node.lineno
+def node_target(kind: str, rel: str, qualname: str, node: ast.stmt) -> DocTarget:
+    """The target of a definition or statement: lines from its first decorator, if any, to its end."""
+    start = min([node.lineno, *(decorator.lineno for decorator in getattr(node, 'decorator_list', ()))])
+    return DocTarget(kind, f'{rel}::{qualname}', rel, start, node.end_lineno or node.lineno)
+
+
+def path_target(kind: str, rel: str, last_line: int) -> DocTarget:
+    """The target of a file or directory: its path, from line 1."""
+    return DocTarget(kind, rel, rel, 1, last_line)
 
 
 def call_name(call: ast.Call) -> str | None:
@@ -296,10 +300,10 @@ def file_target(index: CorpusIndex, rel: str) -> DocTarget:
         lines = (index.scope / rel).read_bytes().count(b'\n') + 1
     except OSError as error:
         raise auditme.phaseb.errors.PhaseBError(f'cannot read {rel}') from error
-    return DocTarget('file', rel, rel, 1, lines)
+    return path_target('file', rel, lines)
 
 
-def resolve_path(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
+def read_path_targets(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
     """A tracked file or directory, relative to the repository root, then to the document's directory."""
     if '/' not in token and not token.endswith(PATH_EXTENSIONS):
         return []
@@ -311,7 +315,7 @@ def resolve_path(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocT
         if rel in index.files:
             return [file_target(index, rel)]
         if rel in index.directories:
-            return [DocTarget('directory', rel, rel, 1, 1)]
+            return [path_target('directory', rel, 1)]
     return []
 
 
@@ -368,7 +372,7 @@ def resolve_name(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocT
     aliases, a bare name, `Class.member`, a setting key, a command-line option.
     Each is positive evidence; nothing resolves by resemblance.
     """
-    for step in (resolve_path, resolve_dotted, resolve_bare, resolve_member, resolve_setting, resolve_option):
+    for step in (read_path_targets, resolve_dotted, resolve_bare, resolve_member, resolve_setting, resolve_option):
         found = step(token, doc, index)
         if found:
             return found

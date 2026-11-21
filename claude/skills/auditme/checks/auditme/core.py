@@ -774,7 +774,7 @@ def privacy(qualname: str, module: str, root: pathlib.Path) -> tuple[bool, str]:
     return any(s.startswith('_') and not (s.startswith('__') and s.endswith('__')) for s in segments), PRIVACY_UNDERSCORE
 
 
-def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
+def read_is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
     """Whether the function or class qualname in module is private; see `privacy`."""
     return privacy(qualname, module, root)[0]
 
@@ -805,7 +805,6 @@ __all__ = [
     'emit',
     'from_import_bindings',
     'is_dunder_all_assignment',
-    'is_private',
     'is_test_relpath',
     'loose_src_modules',
     'module_dotted',
@@ -813,6 +812,7 @@ __all__ = [
     'parse_source',
     'path_inside',
     'privacy',
+    'read_is_private',
     'read_source',
     'reads_by_module_and_name',
     'reexport_aliases',

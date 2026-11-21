@@ -372,7 +372,7 @@ def check_from_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             )
 
 
-def parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
+def read_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
     """Parse AGENTS.md's Package Layering section.
 
     Returns (layer_order, accepted_exceptions). layer_order is a list of
@@ -429,7 +429,7 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
     in the layering chain, flag unless the (importer, imported) pair is
     in AGENTS.md's accepted-exceptions table or the line carries an
     `# auditme: accept` marker."""
-    layer_order, accepted = parse_package_layering(scope)
+    layer_order, accepted = read_package_layering(scope)
     if not layer_order:
         return
     rank = {pkg: i for i, pkg in enumerate(layer_order)}

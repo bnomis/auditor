@@ -147,7 +147,7 @@ def run_plan(args: argparse.Namespace) -> int:
 
 
 def run_check(args: argparse.Namespace) -> int:
-    result = auditme.phaseb.batches.check_run(args.run_dir)
+    result = auditme.phaseb.batches.read_run_check(args.run_dir)
     for number in result.retry:
         for problem in result.problems[number]:
             print(f'batch {number}: {problem}')

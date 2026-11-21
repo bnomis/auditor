@@ -71,7 +71,7 @@ class ParsedSource:
     lines: list[str]
 
 
-def parse_audited_files(scope: pathlib.Path) -> list[ParsedSource]:
+def read_audited_files(scope: pathlib.Path) -> list[ParsedSource]:
     """Every Python file under an audit root, parsed once, in path order.
 
     Raises:
@@ -279,7 +279,7 @@ def type_source_of(annotation: str | None, aliases: dict[str, str]) -> str | Non
 @candidates.register_question('A11', A11_BRIEF, ('unexhausted',))
 def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     """Every if chain, two-way split on a comparison flag and `match` the sweep does not already report."""
-    files = parse_audited_files(scope)
+    files = read_audited_files(scope)
     hits = capture_hits(scope, [auditme.rules.state_and_effects.check_assert_never_missing])
     aliases = typing_aliases(files)
     found: list[candidates.Candidate] = []
@@ -371,7 +371,7 @@ def handler_anchor_lines(handler: ast.ExceptHandler, function: FunctionNode | No
 @candidates.register_question('A19', A19_BRIEF, ('handler',))
 def list_a19_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     """Every broad handler and every handler logging `.exception(` that the sweep does not already report."""
-    files = parse_audited_files(scope)
+    files = read_audited_files(scope)
     hits = capture_hits(scope, A19_CHECKS)
     found: list[candidates.Candidate] = []
     for file in files:
@@ -611,7 +611,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     `privacy`, the reason it counts as a helper (`a1_helper_privacy`). Test
     files are neither listed nor counted as callers.
     """
-    files = parse_audited_files(scope)
+    files = read_audited_files(scope)
     hits = capture_hits(scope, A1_CHECKS)
     domain_errors = package_domain_errors(files)
     catches: dict[str, frozenset[str]] = {}
@@ -758,8 +758,12 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     consumer. A consumer line a `migration-shim-consumer` hit names is left
     out, and an `__init__.py` with an `empty-init-while-siblings-export` hit
     is not listed.
+
+    A candidate is one `__init__.py`, so its id is the file's repo-relative
+    path, with no `::` qualname part as the other questions' ids have; the
+    form is kept so ledger ids already written stay valid.
     """
-    files = parse_audited_files(scope)
+    files = read_audited_files(scope)
     roots = auditme.core.audit_roots(scope)
     if not roots:
         return []

@@ -4,7 +4,7 @@
 them as `batch-NN.jsonl` beside a `plan.json`. A reviewer writes one
 `result-NN.jsonl` per batch, one JSON line per candidate with `id`,
 `findings` (one list of strings per kind registered for the question) and
-`reason`. `check_run` reports each problem in those results
+`reason`. `read_run_check` reports each problem in those results
 instead of raising, so the orchestrator can retry the batch.
 """
 
@@ -181,7 +181,7 @@ def parse_result(line: str, kinds: tuple[str, ...]) -> dict[str, typing.Any]:
     return record
 
 
-def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple[str, ...]) -> tuple[list[str], list[dict[str, typing.Any]]]:
+def read_batch_check(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple[str, ...]) -> tuple[list[str], list[dict[str, typing.Any]]]:
     """Return a batch's problems and its valid result records."""
     path = result_path(run_dir, number)
     if not path.is_file():
@@ -216,7 +216,7 @@ def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple
     return problems, records
 
 
-def check_run(run_dir: pathlib.Path) -> RunCheck:
+def read_run_check(run_dir: pathlib.Path) -> RunCheck:
     """Check every planned batch has exactly one valid verdict per candidate.
 
     Returns the problems per batch (no output, unparseable line, missing,
@@ -230,7 +230,7 @@ def check_run(run_dir: pathlib.Path) -> RunCheck:
     kinds = question_kinds(plan.question)
     problems: dict[int, list[str]] = {}
     for number, ids in enumerate(plan.batches, start=1):
-        found, _ = check_batch(run_dir, number, ids, kinds)
+        found, _ = read_batch_check(run_dir, number, ids, kinds)
         if found:
             problems[number] = found
     return RunCheck(problems=problems)
@@ -247,7 +247,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
             planned id is not among candidates.
     """
     plan = read_plan(run_dir)
-    problems = check_run(run_dir).problems
+    problems = read_run_check(run_dir).problems
     if problems:
         raise auditme.phaseb.errors.PhaseBError(f'run in {run_dir} has problems in batches {sorted(problems)}; run check and retry them')
     kinds = question_kinds(plan.question)
@@ -255,7 +255,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
     stamp = today or datetime.date.today().isoformat()
     verdicts: list[Verdict] = []
     for number, ids in enumerate(plan.batches, start=1):
-        _, records = check_batch(run_dir, number, ids, kinds)
+        _, records = read_batch_check(run_dir, number, ids, kinds)
         for record in records:
             candidate = by_id.get(str(record['id']))
             if candidate is None:
@@ -274,4 +274,4 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
     return sorted(verdicts, key=lambda verdict: verdict.id)
 
 
-__all__ = ['Plan', 'RunCheck', 'check_run', 'plan_batches', 'read_plan', 'read_run_verdicts', 'write_plan']
+__all__ = ['Plan', 'RunCheck', 'plan_batches', 'read_plan', 'read_run_check', 'read_run_verdicts', 'write_plan']

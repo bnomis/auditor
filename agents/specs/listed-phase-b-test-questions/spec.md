@@ -56,7 +56,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
   `test_t1_candidates.py`, `test_t2_candidates.py`: tests
 - `claude/skills/auditme/SKILL.md`: T1 and T2 named as listed
 
-`claude/skills/auditme/checks/auditme/core.py` gains `is_private` (see
+`claude/skills/auditme/checks/auditme/core.py` gains `read_is_private` (see
 API), which [the architecture-questions spec](../listed-phase-b-architecture-questions/spec.md) reuses.
 
 Reused, not copied: `audit_roots` and `module_dotted` (`core.py`), the
@@ -80,7 +80,7 @@ class TestRef:
     property: bool  # decorated with hypothesis `given`
 
 
-def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
+def load_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
     """Map each package function id to the tests that reach it, sorted by id.
 
     Raises:
@@ -103,7 +103,7 @@ def privacy(qualname: str, module: str, root: pathlib.Path) -> tuple[bool, str]:
     """
 
 
-def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
+def read_is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
     """`privacy(...)[0]`."""
 
 
@@ -234,7 +234,7 @@ reported, not decided, and the security rule every subagent brief carries.
 
 - `T1.md`: findings `{"missing": ["test case"]}` or `{"missing": []}`.
   Covered when a listed `direct` test calls it, or, for a function
-  `is_private` marks private, a `caller` test reaches it (decisions 1 and
+  `read_is_private` marks private, a `caller` test reaches it (decisions 1 and
   2). The payload carries `private: bool` and `privacy`, the rule that
   decided it; the reason names the rule whenever it decides the verdict
   (brief version 3, amendment 1.4). An
@@ -263,7 +263,7 @@ assignment and a nested def's `if` do not; a T2 function over `int` and a
 frozen `Probe` dataclass is listed, and ones taking `pathlib.Path`, calling
 `write_text`, mutating a parameter or without a branch or loop are not; a
 test file is never a candidate; direct, fixture-routed and caller tests are
-found with their route; `is_private` is false for a name in its package's
+found with their route; `read_is_private` is false for a name in its package's
 `__all__`, true for one left out of it, and falls back to a leading
 underscore only in a package with no `__all__`; a same-named function in a test file that does not
 import the module adds no ref; a test added to the mirrored file, or a field
@@ -294,7 +294,7 @@ Answered on the review page of
    package where the package has one; a leading underscore counts only for
    a package without `__all__`. The shared coding standard forbids leading
    underscores and asks for `__all__`, so an underscore test alone would
-   find nothing private in a project that follows it. `is_private` in
+   find nothing private in a project that follows it. `read_is_private` in
    `core.py` holds the rule, for this spec and the [architecture-questions](../listed-phase-b-architecture-questions/spec.md)
    spec.
 2. **A caller's test and a public T1 candidate (D7):** a public candidate
