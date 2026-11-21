@@ -8,7 +8,41 @@ from collections import defaultdict
 from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines
 
 
+def is_test_file(rel: str) -> bool:
+    """True for a root-relative path in a `tests` directory, a `test_*.py`, `*_test.py` or `conftest.py`."""
+    path = pathlib.PurePosixPath(rel)
+    return 'tests' in path.parts[:-1] or path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py'
+
+
+def is_pytest_param(node: ast.AST) -> bool:
+    """True for a call to `pytest.param`."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == 'param'
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == 'pytest'
+    )
+
+
+def test_expectation_nodes(tree: ast.AST) -> set[int]:
+    """The ids of every node inside an `assert` statement or a `pytest.param(...)` call."""
+    inside: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assert) or is_pytest_param(node):
+            inside.update(id(child) for child in ast.walk(node))
+    return inside
+
+
 def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag the same string-literal collection written in two or more places.
+
+    Refinement (2026-11-21): in a test file (a `tests` directory, `test_*.py`,
+    `*_test.py` or `conftest.py`) a one-member literal and a literal inside an
+    `assert` statement or a `pytest.param(...)` call are expectations, not
+    shared data, and are not counted. A multi-member literal in test set-up
+    still counts, and so does any literal in source.
+    """
     bucket: dict[tuple, set[tuple[str, int, str]]] = defaultdict(set)
     for path in _all_py_files(src_root):
         rel = _relpath(path, scope)
@@ -22,8 +56,10 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {'frozenset', 'set'}:
                 if node.args and isinstance(node.args[0], (ast.Set, ast.Tuple, ast.List)):
                     skip_inner_nodes.add(id(node.args[0]))
+        in_test = is_test_file(rel)
+        expectation_nodes = test_expectation_nodes(tree) if in_test else set()
         for node in ast.walk(tree):
-            if id(node) in skip_inner_nodes:
+            if id(node) in skip_inner_nodes or id(node) in expectation_nodes:
                 continue
             members = None
             kind = None
@@ -35,7 +71,7 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
                     if node.args and isinstance(node.args[0], (ast.Set, ast.Tuple, ast.List)):
                         members = node.args[0].elts
                         kind = 'frozenset'
-            if not members:
+            if not members or (in_test and len(members) == 1):
                 continue
             consts: list[str] = []
             ok = True

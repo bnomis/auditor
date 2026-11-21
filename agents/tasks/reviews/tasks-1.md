@@ -159,7 +159,7 @@ literal (fixture source, a regex) as code.
 
 ## Task 5: R2 - `literal-duplication` leaves test expectations alone
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** R2 (option A)
@@ -169,19 +169,19 @@ an `assert` or a `pytest.param` is not counted as a duplicate.
 
 **Subtasks:**
 
-- [ ] In `check_literal_duplication` (`rules/duplication.py`), for a file under a test directory, skip one-member literals and literals inside `assert` statements and `pytest.param(...)` calls; a multi-member literal in test set-up still counts
-- [ ] Tests: each skipped form does not fire in a test file; the same literal in source still fires; a repeated multi-member literal in a test fixture still fires
-- [ ] Document it in the rule's docstring and SKILL.md's documented refinements, dated
-- [ ] Run the sweep and record the count in the commit body
+- [x] In `check_literal_duplication` (`rules/duplication.py`), for a file under a test directory, skip one-member literals and literals inside `assert` statements and `pytest.param(...)` calls; a multi-member literal in test set-up still counts
+- [x] Tests: each skipped form does not fire in a test file; the same literal in source still fires; a repeated multi-member literal in a test fixture still fires
+- [x] Document it in the rule's docstring and SKILL.md's documented refinements, dated
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] The test expectation hits (about 122) are gone
+- [x] The test expectation hits (about 122) are gone
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_duplication.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_duplication.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
