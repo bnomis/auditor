@@ -151,7 +151,7 @@ def question_kinds(question: str) -> tuple[str, ...]:
     """
 
 
-def list_candidates(question: str, root: pathlib.Path) -> list[Candidate]:
+def list_candidates(question: str, root: pathlib.Path, depth: int | None = None) -> list[Candidate]:
     """List every candidate for question under root, sorted by id.
 
     Raises:
@@ -176,7 +176,7 @@ def plan_batches(candidates: list[Candidate], ledger: dict[str, Verdict], brief_
     """
 
 
-def check_run(batch_dir: pathlib.Path) -> RunCheck:
+def check_run(run_dir: pathlib.Path) -> RunCheck:
     """Check every planned batch has exactly one valid verdict per candidate.
 
     Returns the problems per batch (no output, unparseable line, missing,
@@ -194,6 +194,10 @@ def merge_verdicts(ledger_path: pathlib.Path, candidates: list[Candidate], verdi
         PhaseBError: the ledger cannot be read or written.
     """
 ```
+
+Signatures updated 2026-11-21 to match the code: `list_candidates` takes an
+optional `depth` (how far the lister follows callees), and `check_run` names
+its parameter `run_dir`.
 
 Command line, run from the project root:
 

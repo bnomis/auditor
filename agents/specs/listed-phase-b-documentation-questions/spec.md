@@ -84,9 +84,15 @@ def corpus_definitions(scope: pathlib.Path, src_root: pathlib.Path, *, classes: 
     """Module-level defs across the corpus by bare name; with classes, classes and methods too."""
 
 
-def register_question(question: str, brief: pathlib.Path, batch_size: int = 48) -> typing.Callable[[Lister], Lister]:
+def register_question(
+    question: str, brief: pathlib.Path, kinds: tuple[str, ...], batch_size: int = DEFAULT_BATCH_SIZE
+) -> collections.abc.Callable[[Lister], Lister]:
     """Register a lister with its brief and default batch size (extends repeatable-phase-b)."""
 ```
+
+Signature updated 2026-11-21 to match the code: `kinds` (the keys of the
+`findings` object in the question's result line) is a required parameter, and
+the default batch size is `DEFAULT_BATCH_SIZE`.
 
 `CorpusIndex` is built once per lister call from `corpus_definitions(...,
 classes=True)`, the shared resolver's re-export alias table, settings

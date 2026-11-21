@@ -96,7 +96,7 @@ including `RootsError` from `_audit_roots` (added 2026-11-21).
 
 ## Task 3: The drifted spec signatures
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** "The plan the coding standards settle", Specs
@@ -106,16 +106,16 @@ including `RootsError` from `_audit_roots` (added 2026-11-21).
 
 **Subtasks:**
 
-- [ ] Find the three `spec-api-signature-drift` hits in the sweep and update each `def` line in its spec's `## API` block to the current signature, with a dated note under it
-- [ ] Run the sweep: no `spec-api-signature-drift` hit remains
+- [x] Find the three `spec-api-signature-drift` hits in the sweep and update each `def` line in its spec's `## API` block to the current signature, with a dated note under it
+- [x] Run the sweep: no `spec-api-signature-drift` hit remains
 
 **Acceptance Criteria:**
 
-- [ ] The sweep reports no `spec-api-signature-drift` hit
+- [x] The sweep reports no `spec-api-signature-drift` hit
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 
