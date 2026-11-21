@@ -557,3 +557,17 @@ def test_a_top_level_root_names_its_files_by_path(
     assert audit.main() == 0
     paths = [json.loads(line)['path'] for line in capsys.readouterr().out.splitlines()]
     assert paths == ['tools/run.py']
+
+
+def test_an_invalid_declaration_prints_its_cause(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project({'pyproject.toml': '[tool.auditme\n', 'tools/run.py': 'x = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 2
+    err = capsys.readouterr().err
+    assert err.startswith('ERROR: pyproject.toml: not valid TOML (')
+    assert err.rstrip().endswith(')')

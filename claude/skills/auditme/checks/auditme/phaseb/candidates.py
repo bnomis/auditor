@@ -152,7 +152,7 @@ def brief_version(brief: pathlib.Path) -> int:
     try:
         text = brief.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read brief {brief}: {error}') from error
+        raise PhaseBError(f'cannot read brief {brief}') from error
     found = BRIEF_VERSION_LINE.findall(text)
     if len(found) != 1 or int(found[0]) < 1:
         raise PhaseBError(f'brief {brief} must have exactly one `**Brief version:** N` line with N a positive integer')
@@ -335,7 +335,7 @@ def read_text(path: pathlib.Path) -> str:
     try:
         return path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read {path}: {error}') from error
+        raise PhaseBError(f'cannot read {path}') from error
 
 
 def section_blocks(lines: list[str], start: int, end: int) -> list[tuple[int, int]]:
@@ -387,7 +387,7 @@ def target_bytes(target: auditme.phaseb.docrefs.DocTarget, index: auditme.phaseb
     try:
         data = (index.scope / target.path).read_bytes()
     except OSError as error:
-        raise PhaseBError(f'cannot read {target.path}: {error}') from error
+        raise PhaseBError(f'cannot read {target.path}') from error
     if target.kind == 'file':
         return data
     return b'\n'.join(data.splitlines()[target.start - 1 : target.end])
@@ -569,7 +569,7 @@ def read_pyproject(scope: pathlib.Path) -> dict[str, typing.Any]:
     try:
         return tomllib.loads(path.read_bytes().decode('utf-8'))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-        raise PhaseBError(f'cannot read {path}: {error}') from error
+        raise PhaseBError(f'cannot read {path}') from error
 
 
 def declared_tables(pyproject: dict[str, typing.Any]) -> dict[str, dict[str, set[str]] | set[str]]:
@@ -597,7 +597,7 @@ def read_hook_file(scope: pathlib.Path) -> bytes:
     try:
         return path.read_bytes()
     except OSError as error:
-        raise PhaseBError(f'cannot read {path}: {error}') from error
+        raise PhaseBError(f'cannot read {path}') from error
 
 
 def imported_modules(scope: pathlib.Path) -> set[str]:

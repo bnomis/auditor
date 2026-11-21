@@ -259,3 +259,17 @@ def test_is_private_reads_an_annotated_all(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': "__all__: list[str] = ['load']\n", 'src/pkg/mod.py': _NO_ALL})
     assert not auditme.core.is_private('load', 'pkg.mod', root)
     assert auditme.core.is_private('other', 'pkg.mod', root)
+
+
+def test_describe_error_appends_the_chained_cause() -> None:
+    try:
+        try:
+            raise OSError('disk on fire')
+        except OSError as error:
+            raise auditme.core.RootsError('cannot read x') from error
+    except auditme.core.RootsError as caught:
+        assert auditme.core.describe_error(caught) == 'cannot read x (disk on fire)'
+
+
+def test_describe_error_is_the_bare_message_without_a_cause() -> None:
+    assert auditme.core.describe_error(auditme.core.RootsError('plain')) == 'plain'

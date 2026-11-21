@@ -45,7 +45,7 @@ def parse_verdict(record: object, where: str) -> Verdict:
     try:
         return Verdict(**{field.name: record[field.name] for field in dataclasses.fields(Verdict) if field.name in record})
     except TypeError as error:
-        raise PhaseBError(f'{where}: {error}') from error
+        raise PhaseBError(f'{where}: not a valid verdict') from error
 
 
 def read_ledger(path: pathlib.Path) -> dict[str, Verdict]:
@@ -59,7 +59,7 @@ def read_ledger(path: pathlib.Path) -> dict[str, Verdict]:
     try:
         text = path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read ledger {path}: {error}') from error
+        raise PhaseBError(f'cannot read ledger {path}') from error
     verdicts: dict[str, Verdict] = {}
     for number, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
@@ -68,7 +68,7 @@ def read_ledger(path: pathlib.Path) -> dict[str, Verdict]:
         try:
             record = json.loads(line)
         except json.JSONDecodeError as error:
-            raise PhaseBError(f'{where}: not valid JSON: {error}') from error
+            raise PhaseBError(f'{where}: not valid JSON') from error
         verdict = parse_verdict(record, where)
         verdicts[verdict.id] = verdict
     return verdicts
@@ -90,7 +90,7 @@ def write_ledger(path: pathlib.Path, verdicts: dict[str, Verdict]) -> None:
         os.replace(temporary, path)
         temporary = None
     except OSError as error:
-        raise PhaseBError(f'cannot write ledger {path}: {error}') from error
+        raise PhaseBError(f'cannot write ledger {path}') from error
     finally:
         if temporary is not None:
             pathlib.Path(temporary).unlink(missing_ok=True)

@@ -54,7 +54,7 @@ def parse_file(path: pathlib.Path, base: pathlib.Path, root: pathlib.Path) -> Pa
         text = path.read_text(encoding='utf-8')
         tree = ast.parse(text)
     except (OSError, UnicodeDecodeError, SyntaxError) as error:
-        raise PhaseBError(f'cannot parse {path}: {error}') from error
+        raise PhaseBError(f'cannot parse {path}') from error
     module = auditme.core.module_dotted(path, base)
     return ParsedFile(
         path=path,

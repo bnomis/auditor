@@ -103,6 +103,7 @@ def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None
             variant=check.__name__,
             path=None,
             line=None,
+            # auditme: accept[except-interpolation] the crash text is the hit's evidence
             evidence=f'{type(exc).__name__}: {exc}',
             accepted=False,
             accepted_reason=None,
@@ -155,7 +156,8 @@ def main() -> int:
         try:
             default_roots = auditme.core._audit_roots(scope)
         except auditme.core.RootsError as exc:
-            print(f'ERROR: {exc}', file=sys.stderr)
+            # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+            print(f'ERROR: {auditme.core.describe_error(exc)}', file=sys.stderr)
             return 2
 
         # A module directly in src/ belongs to no root, so no pass would read

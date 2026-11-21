@@ -292,7 +292,7 @@ sweep in every project, not once per root.
 
 ## Task 9: E1 - entry points print the cause
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** E1 (option A)
@@ -302,22 +302,22 @@ and the raise sites stop interpolating it.
 
 **Subtasks:**
 
-- [ ] First: grep the tests for assertions on an error message's system text (`No such file`, `Errno`, `Permission denied`); note each one this task must keep passing
-- [ ] `audit.py`, `changed.py`, `phaseb.py`: where they print an error, also print `exc.__cause__` when it is set (`ERROR: <message> (<cause>)`)
-- [ ] The 23 `raise PhaseBError(f'...: {error}') from error` sites drop the `{error}` interpolation
-- [ ] The 7 report-message sites (`audit.py:106,158`, `changed.py:229`, `phaseb.py:190,193`, `batches.py:164,175`, as of 2026-11-21) get scoped `except-interpolation` accept markers giving the reason
-- [ ] Tests: an entry point's error output carries the cause
-- [ ] Run the sweep and record the count in the commit body
+- [x] First: grep the tests for assertions on an error message's system text (`No such file`, `Errno`, `Permission denied`); note each one this task must keep passing
+- [x] `audit.py`, `changed.py`, `phaseb.py`: where they print an error, also print `exc.__cause__` when it is set (`ERROR: <message> (<cause>)`)
+- [x] The 23 `raise PhaseBError(f'...: {error}') from error` sites drop the `{error}` interpolation
+- [x] The 7 report-message sites (`audit.py:106,158`, `changed.py:229`, `phaseb.py:190,193`, `batches.py:164,175`, as of 2026-11-21) get scoped `except-interpolation` accept markers giving the reason
+- [x] Tests: an entry point's error output carries the cause
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] No unaccepted `except-interpolation` hit remains
-- [ ] Every test noted in the first subtask passes
+- [x] No unaccepted `except-interpolation` hit remains
+- [x] Every test noted in the first subtask passes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_changed.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_changed.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 

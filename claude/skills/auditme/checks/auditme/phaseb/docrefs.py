@@ -86,7 +86,7 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
     try:
         text = path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read {path}: {error}') from error
+        raise PhaseBError(f'cannot read {path}') from error
     doc = path.relative_to(root).as_posix()
     lines = text.splitlines()
     stack: list[tuple[int, str]] = []  # (level, title) of the enclosing headings
@@ -282,7 +282,7 @@ def tracked_files(scope: pathlib.Path) -> frozenset[str]:
         # git from PATH, fixed arguments: the same tool the user runs against the audited project.
         result = subprocess.run(['git', 'ls-files', '-z'], cwd=scope, capture_output=True, check=True)  # noqa: S603, S607
     except (OSError, subprocess.CalledProcessError) as error:
-        raise PhaseBError(f'git ls-files failed in {scope}: {error}') from error
+        raise PhaseBError(f'git ls-files failed in {scope}') from error
     return frozenset(name for name in result.stdout.decode('utf-8', errors='surrogateescape').split('\0') if name)
 
 
@@ -295,7 +295,7 @@ def file_target(index: CorpusIndex, rel: str) -> DocTarget:
     try:
         lines = (index.scope / rel).read_bytes().count(b'\n') + 1
     except OSError as error:
-        raise PhaseBError(f'cannot read {rel}: {error}') from error
+        raise PhaseBError(f'cannot read {rel}') from error
     return DocTarget('file', rel, rel, 1, lines)
 
 

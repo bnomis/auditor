@@ -96,7 +96,7 @@ def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: 
             batch_path(run_dir, number).write_text(body, encoding='utf-8')
         (run_dir / PLAN_NAME).write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
     except OSError as error:
-        raise PhaseBError(f'cannot write plan in {run_dir}: {error}') from error
+        raise PhaseBError(f'cannot write plan in {run_dir}') from error
 
 
 def read_plan(run_dir: pathlib.Path) -> Plan:
@@ -109,9 +109,9 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
     try:
         document = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeDecodeError) as error:
-        raise PhaseBError(f'cannot read plan {path}: {error}') from error
+        raise PhaseBError(f'cannot read plan {path}') from error
     except json.JSONDecodeError as error:
-        raise PhaseBError(f'{path}: not valid JSON: {error}') from error
+        raise PhaseBError(f'{path}: not valid JSON') from error
     try:
         planned = document['batches']
         valid = (
@@ -122,7 +122,7 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
             and all(isinstance(batch, list) and all(isinstance(item, str) for item in batch) for batch in planned)
         )
     except (KeyError, TypeError) as error:
-        raise PhaseBError(f'{path}: not a valid plan: {error!r}') from error
+        raise PhaseBError(f'{path}: not a valid plan') from error
     if not valid:
         raise PhaseBError(f'{path}: not a valid plan')
     return Plan(document['question'], document['brief'], document['brief_version'], planned)
@@ -161,6 +161,7 @@ def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple
     try:
         text = path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
+        # auditme: accept[except-interpolation] the text is a problem reported to the user, not a raised exception
         return [f'unreadable output {path.name}: {error}'], []
     problems: list[str] = []
     records: list[dict[str, typing.Any]] = []
@@ -172,6 +173,7 @@ def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple
         try:
             record = parse_result(line, kinds)
         except ValueError as error:
+            # auditme: accept[except-interpolation] the text is a problem reported to the user, not a raised exception
             problems.append(f'unparseable line {line_number} in {path.name}: {error}')
             continue
         found = str(record['id'])

@@ -42,6 +42,17 @@ def _emit(related: list[str] | None = None, **kwargs) -> None:
     print(line)
 
 
+def describe_error(error: BaseException) -> str:
+    """The message of `error`, followed by its `__cause__` in brackets when set.
+
+    The command-line entry points print this once, so a raise site chains the
+    cause with `from` instead of interpolating it into its own message."""
+    cause = error.__cause__
+    if cause is None:
+        return str(error)
+    return f'{error} ({cause})'
+
+
 def _source_lines(path: pathlib.Path) -> list[str]:
     try:
         return path.read_text(encoding='utf-8').splitlines()
@@ -195,7 +206,7 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         if '[tool.auditme' in text:
-            raise RootsError(f'pyproject.toml: {exc}') from exc
+            raise RootsError('pyproject.toml: not valid TOML') from exc
         return None
     tool = data.get('tool', {})
     table = tool.get('auditme') if isinstance(tool, dict) else None

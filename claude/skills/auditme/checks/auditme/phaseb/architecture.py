@@ -48,7 +48,7 @@ def capture_hits(scope: pathlib.Path, checks: collections.abc.Sequence[Check]) -
                     for src_root in auditme.core._audit_roots(scope):
                         check(scope, src_root)
             except Exception as error:  # a check's failure must stop the lister, whatever its type
-                raise PhaseBError(f'check {getattr(check, "__name__", check)!r} failed: {error}') from error
+                raise PhaseBError(f'check {getattr(check, "__name__", check)!r} failed') from error
             for line in buffer.getvalue().splitlines():
                 record = json.loads(line)
                 hits.add((record['rule'], record['path'], record['line']))
@@ -85,7 +85,7 @@ def parse_audited_files(scope: pathlib.Path) -> list[ParsedSource]:
                 text = path.read_text(encoding='utf-8')
                 tree = ast.parse(text)
             except (OSError, UnicodeDecodeError, SyntaxError) as error:
-                raise PhaseBError(f'cannot parse {path}: {error}') from error
+                raise PhaseBError(f'cannot parse {path}') from error
             files.append(ParsedSource(path, auditme.core._relpath(path, scope), auditme.core.module_dotted(path, src_root), tree, text.splitlines()))
     return files
 
@@ -725,7 +725,7 @@ def entry_point_targets(scope: pathlib.Path) -> list[tuple[str, str, str]]:
     try:
         project = tomllib.loads(pyproject.read_text(encoding='utf-8')).get('project', {})
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-        raise PhaseBError(f'cannot parse {pyproject}: {error}') from error
+        raise PhaseBError(f'cannot parse {pyproject}') from error
     tables = [project.get('scripts', {})]
     tables.extend(project.get('entry-points', {}).values())
     targets: list[tuple[str, str, str]] = []

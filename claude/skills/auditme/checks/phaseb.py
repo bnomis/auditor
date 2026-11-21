@@ -187,10 +187,12 @@ def main() -> int:
     try:
         return COMMANDS[args.command](args)
     except PhaseBError as error:
-        print(f'phaseb.py: {error}', file=sys.stderr)
+        # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+        print(f'phaseb.py: {auditme.core.describe_error(error)}', file=sys.stderr)
         return 2
     except auditme.core.RootsError as error:
-        print(f'ERROR: {error}', file=sys.stderr)
+        # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+        print(f'ERROR: {auditme.core.describe_error(error)}', file=sys.stderr)
         return 2
 
 
