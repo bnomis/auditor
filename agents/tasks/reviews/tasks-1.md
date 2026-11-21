@@ -476,7 +476,7 @@ on, and the backlog item is closed.
 **Subtasks:**
 
 - [x] Add a scoped `# auditme: accept[<rule>] <reason>` marker, with the review's reason, on each line items A1 to A12 name
-- [ ] Run the sweep: if any unaccepted hit remains that no task or item covers, stop the list as `blocked`, listing each by rule and `path:line`; do not accept it
+- [x] Run the sweep: if any unaccepted hit remains that no task or item covers, stop the list as `blocked`, listing each by rule and `path:line`; do not accept it
 - [ ] `.pre-commit-config.yaml`: restore `auditme-changed` to `stages: [pre-commit]` and `auditme-all` to `stages: [manual, pre-push]`, removing the pause comments
 - [ ] Move "Fix or accept this repository's audit backlog" to the end of `DONE.md`: heading and body unchanged, then `Done: <date> - agents/reviews/audit-backlog-2026-11-21.md and agents/tasks/reviews/tasks-1.md; the sweep reports no unaccepted hit, and both gates are back on.`
 - [ ] Say in the task's report that the repository is ready for its first audit (`/auditme`), and do not start it
@@ -503,3 +503,6 @@ on, and the backlog item is closed.
   - `mutable-module-level-exported` `claude/skills/auditme/checks/auditme/phaseb/candidates.py:60` (`KINDS`)
   - `recompile-duplication` `claude/skills/auditme/checks/auditme/phaseb/docrefs.py:19`, `claude/skills/auditme/checks/auditme/rules/project_hygiene.py:272` (`FENCE_RE`)
   - `literal-duplication` in tests: `tests/phaseb/test_briefs.py:57,58,69,78`, `tests/phaseb/test_model.py:107,140,141`, `tests/phaseb/test_doc_candidates.py:195,200,337,344`, `tests/test_driver.py:501`, `tests/test_roots.py:72`, `tests/test_error_handling.py:1084,1094` (all under `claude/skills/auditme/`)
+- Unblocked 2026-11-21 by an operator session (decided by Claude, not yet reviewed): the 22 hits were cleared, and the sweep then reported no unaccepted hit.
+  - Fixed: the `self._opened` prose in `rules/state_and_effects.py` now reads `self.opened` (its two markers dropped); `phaseb/candidates.py` drops the interpolated error, as E1 did for the other raise sites; `SINK_TOKENS` sorted; `rules/project_hygiene.py`'s fence pattern, which matches backtick fences only, renamed `BACKTICK_FENCE_RE` (its value differs from `phaseb/docrefs.py`'s `FENCE_RE`, so it is not one constant; widening it would change the spec-signature check); test literals hoisted to `DRIFT_QUESTIONS`, `AGENTS_QUESTIONS`, `CATCHING_HANDLERS` (sorted) and `AGENTS_DOC_KINDS`; the Doc brief test reads each question's kinds from `question_kinds`; `('question', 'keys')` argnames written as one string; `test_model.py`'s throwaway kinds and `test_driver.py`'s pathless-root case made distinct.
+  - Accepted, extending approved items to siblings they did not name: `KINDS` in `phaseb/candidates.py` (as A5 for `REGISTRY`), `UV_LOCK_CHECK` in `rules/project_hygiene.py` (as A2: argv order) and `AGENTS_DOC_KINDS` in `tests/phaseb/test_model.py` (the registered order of the kinds).

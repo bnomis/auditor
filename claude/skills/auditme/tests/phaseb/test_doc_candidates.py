@@ -8,6 +8,8 @@ import auditme.phaseb.candidates
 import conftest
 import pytest
 
+AGENTS_QUESTIONS = ['Doc1', 'Doc2']
+DRIFT_QUESTIONS = ['Doc4', 'Doc5']
 MOD = """
     def run_it():
         return 1
@@ -192,12 +194,12 @@ def test_unreadable_spec_raises(root: pathlib.Path) -> None:
         auditme.phaseb.list_candidates('Doc4', root)
 
 
-@pytest.mark.parametrize('question', ['Doc4', 'Doc5'])
+@pytest.mark.parametrize('question', DRIFT_QUESTIONS)
 def test_second_call_is_identical(root: pathlib.Path, question: str) -> None:
     assert auditme.phaseb.list_candidates(question, root) == auditme.phaseb.list_candidates(question, root)
 
 
-@pytest.mark.parametrize('question', ['Doc4', 'Doc5'])
+@pytest.mark.parametrize('question', DRIFT_QUESTIONS)
 def test_registered_with_brief_and_batch_size(question: str) -> None:
     assert auditme.phaseb.question_batch_size(question) == 24
     assert auditme.phaseb.question_brief(question) == auditme.phaseb.candidates.A4_BRIEF.parent / f'{question}.md'
@@ -334,14 +336,14 @@ def test_unreadable_hook_file_raises(agents_root: pathlib.Path) -> None:
         auditme.phaseb.list_candidates('Doc2', agents_root)
 
 
-@pytest.mark.parametrize('question', ['Doc1', 'Doc2'])
+@pytest.mark.parametrize('question', AGENTS_QUESTIONS)
 def test_failing_git_ls_files_raises(tmp_path: pathlib.Path, question: str) -> None:
     write(tmp_path, 'AGENTS.md', AGENTS)
     with pytest.raises(auditme.phaseb.PhaseBError):
         auditme.phaseb.list_candidates(question, tmp_path)
 
 
-@pytest.mark.parametrize('question', ['Doc1', 'Doc2'])
+@pytest.mark.parametrize('question', AGENTS_QUESTIONS)
 def test_agents_listers_are_registered_and_stable(agents_root: pathlib.Path, question: str) -> None:
     assert auditme.phaseb.question_batch_size(question) == 12
     assert auditme.phaseb.question_brief(question) == auditme.phaseb.candidates.A4_BRIEF.parent / f'{question}.md'

@@ -14,6 +14,7 @@ import pytest
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
 
+CATCHING_HANDLERS = ['except Exception:', 'except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except:']
 SILENT_BROAD = auditme.rules.error_handling.check_silent_broad_except
 INTERPOLATION = auditme.rules.error_handling.check_except_interpolation
 WRONG_LEVEL = auditme.rules.error_handling.check_broad_except_wrong_level
@@ -1081,7 +1082,7 @@ def make_caught_module(body: str) -> dict[str, str]:
     return {'src/probe/errors.py': CAUGHT_ERRORS, 'src/probe/mod.py': 'import probe.errors\n\n\n' + body}
 
 
-@pytest.mark.parametrize('handler', ['except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except Exception:', 'except:'])
+@pytest.mark.parametrize('handler', CATCHING_HANDLERS)
 def test_a_raise_caught_by_a_handler_around_it_is_not_a_hit(project: Builder, run_check: Runner, handler: str) -> None:
     root = project(
         make_caught_module(
@@ -1091,7 +1092,7 @@ def test_a_raise_caught_by_a_handler_around_it_is_not_a_hit(project: Builder, ru
     assert run_check(MISSING_RAISES, root) == []
 
 
-@pytest.mark.parametrize('handler', ['except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except Exception:', 'except:'])
+@pytest.mark.parametrize('handler', CATCHING_HANDLERS)
 def test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit(project: Builder, run_check: Runner, handler: str) -> None:
     root = project(
         make_caught_module(

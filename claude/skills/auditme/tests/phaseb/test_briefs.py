@@ -51,22 +51,20 @@ def question_line(question: str) -> str:
 
 
 DOC_BRIEF_VERSIONS = {'Doc1': 3, 'Doc2': 2, 'Doc4': 4, 'Doc5': 4}
+DOC_BRIEF_PHRASES = {'Doc1': 'tracked', 'Doc2': 'declared', 'Doc4': 'unresolved', 'Doc5': 'unresolved'}
 
 
-@pytest.mark.parametrize(
-    ('question', 'keys'),
-    [('Doc1', ('stale', 'missing')), ('Doc2', ('stale', 'missing')), ('Doc4', ('drift',)), ('Doc5', ('drift',))],
-)
-def test_doc_brief_holds_question_keys_and_security_rule(question: str, keys: tuple[str, ...]) -> None:
+@pytest.mark.parametrize('question', sorted(DOC_BRIEF_VERSIONS))
+def test_doc_brief_holds_question_keys_and_security_rule(question: str) -> None:
     brief = auditme.phaseb.question_brief(question)
     text = brief.read_text(encoding='utf-8')
     version = DOC_BRIEF_VERSIONS[question]
     assert len(re.findall(rf'^\*\*Brief version:\*\* {version}$', text, re.MULTILINE)) == 1
     assert auditme.phaseb.brief_version(brief) == version
     assert question_line(question) in text
-    for key in keys:
+    for key in auditme.phaseb.question_kinds(question):
         assert f'`{key}`' in text, key
-    for phrase in ('printenv', 'reason', 'unresolved' if question in ('Doc4', 'Doc5') else 'tracked' if question == 'Doc1' else 'declared'):
+    for phrase in ('printenv', 'reason', DOC_BRIEF_PHRASES[question]):
         assert phrase in text, phrase
 
 
@@ -75,7 +73,7 @@ def test_doc5_question_covers_readme() -> None:
 
 
 @pytest.mark.parametrize(
-    ('question', 'keys'),
+    'question,keys',
     [
         ('T1', ('reasons', 'tests', 'callers', 'test_files', 'private', 'direct', 'caller', 'findings', 'missing', 'reason', 'xfail', '--rejudge')),
         ('T2', ('params', 'returns', 'types', 'pairs', 'tests', 'test_files', 'property', 'findings', 'missing', 'reason', 'hypothesis', '--rejudge')),

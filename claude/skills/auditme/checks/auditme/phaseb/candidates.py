@@ -57,6 +57,7 @@ DEFAULT_BATCH_SIZE = 48
 
 # auditme: accept[mutable-module-level-exported] filled by `@register_question` at import, and patched by a test
 REGISTRY: dict[str, tuple[Lister, pathlib.Path, int]] = {}
+# auditme: accept[mutable-module-level-exported] filled by `@register_question` at import beside `REGISTRY`, and patched by a test
 KINDS: dict[str, tuple[str, ...]] = {}
 
 
@@ -69,7 +70,7 @@ def read_test_files(scope: pathlib.Path, names: collections.abc.Iterable[str]) -
     try:
         return [(scope / name).read_bytes() for name in names]
     except OSError as error:
-        raise auditme.phaseb.errors.PhaseBError(f'cannot read test file under {scope}: {error}') from error
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read test file under {scope}') from error
 
 
 def register_question(

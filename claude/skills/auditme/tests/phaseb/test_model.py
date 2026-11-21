@@ -9,6 +9,9 @@ import auditme.phaseb.candidates
 import conftest
 import pytest
 
+# auditme: accept[non-alphabetical-literal] the order Doc1 and Doc2 register their kinds in
+AGENTS_DOC_KINDS = ('stale', 'missing')
+
 
 def make_model_verdict(**overrides) -> auditme.phaseb.Verdict:
     fields = {
@@ -104,9 +107,9 @@ def test_question_batch_size_on_unregistered_question_raises(isolated_registry: 
 
 
 def test_registering_a_question_stores_its_kinds_in_order(isolated_registry: None, tmp_path: pathlib.Path) -> None:
-    auditme.phaseb.register_question('Q1', tmp_path / 'Q1.md', ('stale', 'missing'))(lambda root: [])
+    auditme.phaseb.register_question('Q1', tmp_path / 'Q1.md', ('second', 'first'))(lambda root: [])
 
-    assert auditme.phaseb.question_kinds('Q1') == ('stale', 'missing')
+    assert auditme.phaseb.question_kinds('Q1') == ('second', 'first')
 
 
 def test_empty_kinds_raise_and_register_nothing(isolated_registry: None, tmp_path: pathlib.Path) -> None:
@@ -137,8 +140,8 @@ def test_every_registered_question_has_the_specified_kinds() -> None:
         'A17': ('surface',),
         'A19': ('handler',),
         'A4': ('missing', 'extra'),
-        'Doc1': ('stale', 'missing'),
-        'Doc2': ('stale', 'missing'),
+        'Doc1': AGENTS_DOC_KINDS,
+        'Doc2': AGENTS_DOC_KINDS,
         'Doc4': ('drift',),
         'Doc5': ('drift',),
         'T1': ('missing',),

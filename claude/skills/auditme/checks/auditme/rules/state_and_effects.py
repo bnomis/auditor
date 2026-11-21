@@ -1026,7 +1026,7 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
       - Method body calls `open`, `Path.open`, `.mkdir`, `.write_text`,
         `.write_bytes`.
       - The call is not inside an attribute-cache guard
-        (`if self._opened is None: ...`) - we can't verify that  # auditme: accept[leading-underscore-self] prose about the rule, not a use  # auditme: accept[leading-underscore-attribute-access] prose about the rule, not a use
+        (`if self.opened is None: ...`) - we can't verify that
         mechanically, so the check is coarse: any such call is flagged.
 
     One-time setup belongs in `__init__`; if the setup cannot move there

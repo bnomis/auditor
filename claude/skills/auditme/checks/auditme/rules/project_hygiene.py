@@ -72,6 +72,7 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
 LOCKFILE_DRIFT_MARKER = 'needs to be updated'
 # uv's reason for re-resolving when the user's config adds an `exclude-newer` the lock lacks.
 USER_EXCLUDE_NEWER_MARKER = 'due to addition of global exclude newer'
+# auditme: accept[non-alphabetical-literal] a command line: the order is the argv
 UV_LOCK_CHECK = ('uv', 'lock', '--check')
 LOCKFILE_TIMESTAMP_RE = re.compile(r'\d{4}-\d{2}-\d{2}T[\d:.]+Z?')
 
@@ -269,7 +270,7 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
 
 API_HEADING_RE = re.compile(r'^#{2,4}\s+API\b', re.IGNORECASE)
 ANY_HEADING_RE = re.compile(r'^#{1,6}\s+')
-FENCE_RE = re.compile(r'^\s*```')
+BACKTICK_FENCE_RE = re.compile(r'^\s*```')
 DEF_LINE_RE = re.compile(r'^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(')
 CLASS_LINE_RE = re.compile(r'^(\s*)class\s+[A-Za-z_]\w*\s*[(:]')
 SPEC_SKIP_PARTS = frozenset({'.git', '.venv', '__pycache__', 'audit-reviews', 'node_modules', 'tasks'})
@@ -407,7 +408,7 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
         index = 0
         while index < len(lines):
             line = lines[index]
-            if FENCE_RE.match(line):
+            if BACKTICK_FENCE_RE.match(line):
                 in_fence = not in_fence
                 class_indent = None
                 index += 1

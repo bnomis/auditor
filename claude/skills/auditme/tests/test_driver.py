@@ -498,7 +498,7 @@ def test_a_declared_list_is_swept_and_src_is_not(
 @pytest.mark.parametrize(
     ('pyproject', 'message'),
     [
-        ('[tool.auditme]\nroots = [{ modules = "package" }]\n', 'has no path'),
+        ('[tool.auditme]\nroots = [{ modules = "top-level" }]\n', 'has no path'),
         ('[tool.auditme]\nroots = [{ path = "tools", modules = "flat" }]\n', 'modules must be'),
         ('[tool.auditme]\nroots = [{ path = "absent" }]\n', 'declared root absent not found'),
         ('[tool.auditme]\nroots = [{ path = "tools" }, { path = "tools/sub" }]\n', 'overlap'),

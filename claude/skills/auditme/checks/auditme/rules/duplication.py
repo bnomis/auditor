@@ -8,7 +8,7 @@ import re
 import auditme.core
 
 SET_CALL_NAMES = frozenset({'frozenset', 'set'})
-SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
+SINK_TOKENS = ('dump', 'emit', 'flush', 'log', 'persist', 'publish', 'register', 'save', 'upload', 'write')
 
 
 def is_pytest_param(node: ast.AST) -> bool:
