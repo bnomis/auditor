@@ -1,0 +1,274 @@
+# Listed Phase B test questions
+
+**Version:** 1.2
+**Status:** implemented
+**Date:** 2026-11-20
+
+Puts the auditme Phase B test questions T1 and T2 on the listed path of
+[Repeatable Phase B](../repeatable-phase-b/spec.md). A lister finds each
+branchy function and each function a property test would suit from the AST,
+finds the tests that reach it, and hashes those test files with it, so an
+unchanged function with unchanged tests keeps its verdict and a new test
+re-plans it. Each question gets a versioned brief that settles its thresholds.
+
+## Motivation
+
+Only A4 is listed; every other question is sampled and keeps finding sites
+earlier audits missed in unchanged code. Measured on 2026-11-20 on one
+project's last three full audits, by the question each finding names: the
+documentation questions 13, T1 and T2 7, A1, A11, A17 and A19 9, A13 and A15
+5, A4 3, the rest 5. T1 and T2 are the second group of the `TODO.md` item
+"Put the Phase B questions that find most onto the listed path", whose fix
+direction is: branchy functions and the functions a property test would
+suit, from the AST, with their test files in the hash. The questions,
+verbatim from `claude/skills/auditme/SKILL.md`:
+
+- **T1.** Every function with `if`/`try`/`except`/state transitions has at
+  least one test case.
+- **T2.** Domains that are well-defined (data shapes, config combinations)
+  have hypothesis tests.
+
+## Prerequisites
+
+Both merged to `main` before Task 1; the task list checks each:
+
+1. [Repeatable Phase B](../repeatable-phase-b/spec.md): `**Status:**` reads
+   `implemented`, and `python3 claude/skills/auditme/checks/phaseb.py
+   candidates . --question A4` exits 0. Its `Candidate`, `Verdict`,
+   `register_question`, ledger, batches, command line and shared call
+   resolver (`core.py`, `class_methods=True`) are used unchanged.
+2. [The documentation-questions spec](../listed-phase-b-documentation-questions/spec.md),
+   the first group: `**Status:**` reads `implemented`. It edits the same
+   registry and `SKILL.md` passages, so this spec follows the module layout
+   it leaves and the rule it settles for questions that stay sampled.
+
+## Module location
+
+The checker is not under `src/`; this repository keeps it with its skill.
+
+- `claude/skills/auditme/checks/auditme/phaseb/testmap.py` (new): the test
+  tree index
+- `claude/skills/auditme/checks/auditme/phaseb/candidates.py`: the T1 and T2
+  listers beside A4's (or the group module the documentation-questions spec
+  introduces)
+- `claude/skills/auditme/phaseb/briefs/T1.md` and `T2.md`: the briefs
+- `claude/skills/auditme/tests/phaseb/test_testmap.py`,
+  `test_t1_candidates.py`, `test_t2_candidates.py`: tests
+- `claude/skills/auditme/SKILL.md`: T1 and T2 named as listed
+
+`claude/skills/auditme/checks/auditme/core.py` gains `is_private` (see
+API), which the architecture-questions spec reuses.
+
+Reused, not copied: `_audit_roots` and `module_dotted` (`core.py`), the
+shared resolver, `_walk_within_scope` (`rules/error_handling.py`) and
+`_SIDE_EFFECT_CALL_NAMES` (`rules/state_and_effects.py`). A helper `phaseb/`
+uses from a rule module moves to `core.py`, the rule importing it from there.
+
+## API
+
+```python
+@dataclasses.dataclass(frozen=True)
+class TestRef:
+    """One test function that reaches a package function."""
+
+    id: str  # 'src/tests/test_mod.py::test_load'
+    path: str
+    start: int
+    end: int
+    route: typing.Literal['direct', 'caller']
+    via: str | None  # 'caller' only: id of the package function the test calls
+    property: bool  # decorated with hypothesis `given`
+
+
+def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
+    """Map each package function id to the tests that reach it, sorted by id.
+
+    Raises:
+        PhaseBError: a test file or audited source file does not parse.
+    """
+
+
+def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
+    """Whether the function or class qualname in module is private (decision 1).
+
+    The files that count are module's own `__all__` and the `__all__` of every
+    package `__init__.py` above it. Public when any of them names qualname's
+    first segment; private when at least one of them has an `__all__` and none
+    names it; where none has an `__all__`, private when a segment of qualname
+    or module starts with an underscore (clarified in 1.2).
+    """
+
+
+def t1_reasons(node: ast.FunctionDef | ast.AsyncFunctionDef, cls: ast.ClassDef | None) -> list[str]:
+    """Why node is a T1 candidate: any of 'if', 'try', 'match', 'state'; empty if not."""
+
+
+def is_t2_candidate(node: ast.FunctionDef, package_types: collections.abc.Mapping[str, ast.ClassDef]) -> bool:
+    """True when node is pure over well-defined types and has logic a property can test."""
+```
+
+Listers register as `T1` and `T2` with `register_question` and take the A4
+lister's arguments, `--depth` included. Payloads: T1 has `reasons`, `tests`
+(each `TestRef` as a dict), `callers` (package functions reaching it within
+`--depth`, as `{id, path, start, end}`) and `test_files`; T2 has `params`
+(`[{name, annotation}]`), `returns`, `types` (package classes the
+annotations name, as `{id, path, start, end}`), `pairs`, `tests` and
+`test_files`.
+
+## Error handling
+
+- `PhaseBError`, naming the file, when a test file or audited source file
+  does not parse. Skipping a test file would mark what it tests as untested;
+  skipping a source file would drop its ledger entries at the next merge.
+- No test tree (neither `src/tests/` nor `tests/`): not an error. T1
+  candidates are listed with empty `tests`; the review says none was found.
+- A test call the resolver cannot follow is left out of the map, never
+  raised or guessed; the reviewer reads `test_files`.
+- All else (unknown question, ledger, reviewer output, retries, exit codes)
+  is Repeatable Phase B's handling.
+
+## Implementation
+
+### Scope
+
+Candidates come from `_audit_roots` minus the test tree: a path with a
+`tests` part, `test_*.py`, `*_test.py` and `conftest.py` are never
+candidates. The test tree is every `test_*.py` and `*_test.py` under
+`src/tests/` (the layout of `claude/rules/python/testing.md`) and `tests/`.
+
+### T1 candidates
+
+A function or method whose own body (by `_walk_within_scope`: a nested def
+does not count for its parent) holds at least one of: `if`, an `ast.If`
+(an `elif` too; a conditional expression, comprehension filter or `assert`
+is not); `try`, an `ast.Try` or `ast.TryStar` with an `except` handler
+(`try`/`finally` alone does not branch); `match`, an `ast.Match`; `state`, an
+assignment to `self.<attr>` where another method of the class tests
+`self.<attr>` in an `if`, a `match` subject or a comparison. That test is the
+positive evidence the attribute is state; an assignment alone is not. The
+minimum is one, as T1's text names any such function. `@typing.overload`
+stubs and defs under `if TYPE_CHECKING:` are excluded.
+
+### T2 candidates
+
+A positive rule. All of:
+
+1. a module-level function or `staticmethod`, not `async`, not a generator,
+   with at least one parameter;
+2. every parameter and the return annotated, the return not `None`, each
+   annotation built only from `int`, `float`, `bool`, `str`, `bytes`, `None`,
+   `Decimal`, `Fraction`, `date`, `datetime`, `timedelta`, `Literal[...]`, a
+   package-defined `Enum`, frozen dataclass, `NamedTuple` or `TypedDict`
+   whose fields are themselves such types, and `list`, `tuple`, `dict`,
+   `set`, `frozenset`, `Sequence`, `Mapping`, `Iterable`, `|` or `Optional`
+   over them;
+3. no call in its own body whose short name is in `_SIDE_EFFECT_CALL_NAMES`
+   or is `open`, `print`, `input`, `now`, `time`, a `random` or `subprocess`
+   function; no `global` or `nonlocal`; no assignment to an attribute or
+   subscript of a parameter;
+4. a branch, loop or comprehension in its own body.
+
+Rule 2 is the evidence of a well-defined domain: hypothesis can build every
+type it allows. Rule 4 keeps out accessors with nothing to state. `pairs`
+lists another candidate whose name is the inverse (`parse_x`/`format_x`,
+`encode`/`decode`, `to_x`/`from_x`, `dumps`/`loads`), as a round-trip hint.
+
+### Finding the tests
+
+Each test file is parsed once. A test function (`test_*` at module level or
+in a `Test*` class) reaches a package function **directly** when a call in
+its body, or in a fixture it requests from the same file or a `conftest.py`
+above it, resolves to it; **through a caller** when it directly reaches a
+function whose resolved callees reach the target within `--depth`, `via`
+naming that function. Resolution starts from the test file's imports, so a
+bare name match without an import of the module or name is never evidence.
+
+`test_files` is, sorted: the mirrored test file (`src/<project>/<pkg>/<f>.py`
+-> `src/tests/<pkg>/test_<f>.py`) if it exists, every test file importing the
+candidate's module, and every test file importing a listed caller's module.
+
+### Content hash
+
+sha256 over, NUL-separated: the candidate's source; for T2 each `types`
+class's source in id order; then each `test_files` file's full text in path
+order. A new or edited test in any of those files re-plans the candidate. A
+test in a file importing neither the module nor a caller's does not; the
+brief says so, and `--rejudge` covers it.
+
+### Briefs
+
+Each has the question verbatim, its thresholds, the input format, the output
+(one JSON line per candidate with `id`, `findings`, `reason`, none left out)
+and `**Brief version:** 1`, plus the rule that an unsettled threshold is
+reported, not decided, and the security rule every subagent brief carries.
+
+- `T1.md`: findings `{"missing": ["test case"]}` or `{"missing": []}`.
+  Covered when a listed `direct` test calls it, or, for a function
+  `is_private` marks private, a `caller` test reaches it (decisions 1 and
+  2). The payload carries `private: bool`. An
+  unconditionally skipped or `xfail` test does not count. The reason names
+  the covering test's id.
+- `T2.md`: findings `{"missing": ["property test"]}` or `{"missing": []}`.
+  Covered when a test with `property: true` calls it directly. Flagged only
+  when the reason states a property the domain supports (a round trip with
+  a `pairs` entry, idempotence, an output invariant, a simpler oracle, a
+  bound); with none statable, not flagged, and the reason says why. Whether
+  the project declares hypothesis does not change the verdict.
+
+### Skill changes
+
+`SKILL.md` section 4 names T1 and T2 as listed, so they lose `(sampled)`. A
+dated entry under "Refining a predicate" records T2's candidate rule as the
+predicate's reading of "well-defined domains". As `SKILL.md` requires, this
+is a skill change between audits; the first audit after it judges every T1
+and T2 candidate as new, and its findings are coverage, not drift.
+
+### Tests
+
+On a fixture project with `src/pkg/` and `src/tests/`: each T1 reason fires,
+and a conditional expression, `try`/`finally` alone, an unread attribute
+assignment and a nested def's `if` do not; a T2 function over `int` and a
+frozen `Probe` dataclass is listed, and ones taking `pathlib.Path`, calling
+`write_text`, mutating a parameter or without a branch or loop are not; a
+test file is never a candidate; direct, fixture-routed and caller tests are
+found with their route; `is_private` is false for a name in its package's
+`__all__`, true for one left out of it, and falls back to a leading
+underscore only in a package with no `__all__`; a same-named function in a test file that does not
+import the module adds no ref; a test added to the mirrored file, or a field
+added to `Probe`, changes the hash; an unparseable test file raises
+`PhaseBError`; both briefs have a version line and their question verbatim.
+
+## Settings
+
+No new options: Repeatable Phase B's `--question` (`T1` or `T2`),
+`--batch-size` (`int`, `48`), `--depth` (`int`, `3`; here also how far up
+callers are followed) and `--rejudge` (flag, off). The type set of T2 rule 2
+and the call names of rule 3 are lister constants, changed only with a brief
+version bump.
+
+## External dependencies
+
+Standard library only (`ast`, `hashlib`, `dataclasses`). Hypothesis is
+recognised by name (`given` imported from `hypothesis`), never imported.
+Tests run with `uv run --no-project --with pytest pytest ~/.claude/skills/auditme/tests`.
+
+## Decisions (operator, 2026-11-20)
+
+Answered on the review page of
+`agents/reviews/order-raises-resolution-and-listed-phase-b-specs.md`; version
+1.1 applies them:
+
+1. **What is private (D6 in that review):** named in no `__all__` of its
+   package where the package has one; a leading underscore counts only for
+   a package without `__all__`. The shared coding standard forbids leading
+   underscores and asks for `__all__`, so an underscore test alone would
+   find nothing private in a project that follows it. `is_private` in
+   `core.py` holds the rule, for this spec and the architecture-questions
+   spec.
+2. **A caller's test and a public T1 candidate (D7):** a public candidate
+   needs a `direct` test; a private one may be covered through a caller,
+   matching the testing rule that every public function has tests.
+3. **`str` and `bytes` in T2's types (D8):** included, as rule 2 lists them.
+
+Settled in the same review without a question: whole test files go into the
+hash (formerly open decision 2), so no new test in a related file is missed.

@@ -1,0 +1,14 @@
+# Task Index
+
+| Spec | Task File | Version | Created |
+|------|-----------|---------|---------|
+| [Project setup](../specs/project-setup/spec.md) | [tasks-1.md](project-setup/tasks-1.md) | 1 | 2026-10-31 |
+| [Project setup](../specs/project-setup/spec.md) | [tasks-2.md](project-setup/tasks-2.md) | 2 | 2026-10-31 |
+| [Project setup](../specs/project-setup/spec.md) | [tasks-3.md](project-setup/tasks-3.md) | 3 | 2026-11-01 |
+| [Auditme false positives](../specs/auditme-false-positives/spec.md) | [tasks-1.md](auditme-false-positives/tasks-1.md) | 1 | 2026-11-01 |
+| [Repeatable Phase B](../specs/repeatable-phase-b/spec.md) | [tasks-1.md](repeatable-phase-b/tasks-1.md) | 1 | 2026-11-20 |
+| [Raises section resolution](../specs/raises-section-resolution/spec.md) | [tasks-1.md](raises-section-resolution/tasks-1.md) | 1 | 2026-11-20 |
+| [Listed Phase B documentation questions](../specs/listed-phase-b-documentation-questions/spec.md) | [tasks-1.md](listed-phase-b-documentation-questions/tasks-1.md) | 1 | 2026-11-20 |
+| [Listed Phase B test questions](../specs/listed-phase-b-test-questions/spec.md) | [tasks-1.md](listed-phase-b-test-questions/tasks-1.md) | 1 | 2026-11-20 |
+| [Listed Phase B architecture questions](../specs/listed-phase-b-architecture-questions/spec.md) | [tasks-1.md](listed-phase-b-architecture-questions/tasks-1.md) | 1 | 2026-11-20 |
+| [Repeatable Phase B](../specs/repeatable-phase-b/spec.md) | [tasks-2.md](repeatable-phase-b/tasks-2.md) | 2 | 2026-11-21 |

@@ -1,0 +1,56 @@
+site_name: auditor
+site_description: The auditme checker, the pre-commit hooks and Stop hook that run it, and the /project-setup skill that adopts them in a project
+site_url: https://bnomis.github.io/auditor/
+theme:
+  name: material
+  logo: assets/agents-mark.svg
+  favicon: assets/favicon.svg
+  # Mona Sans for text, Source Code Pro for code; both served by Google Fonts.
+  # https://squidfunk.github.io/mkdocs-material/setup/changing-the-fonts/
+  font:
+    text: Mona Sans
+    code: Source Code Pro
+  # https://squidfunk.github.io/mkdocs-material/setup/changing-the-colors/#color-palette-toggle
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+extra_css:
+  - assets/theme.css
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        # https://squidfunk.github.io/mkdocs-material/reference/diagrams/
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+plugins:
+  - search
+nav:
+  - Home: index.md
+  - How it works: concepts.md
+  - Setting up: setup.md
+  - User guide:
+      - The audit checker: guide/checker.md
+  - Reference:
+      - Skills: reference/skills.md
+      - Command line and hooks: reference/cli.md
