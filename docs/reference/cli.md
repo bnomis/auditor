@@ -58,6 +58,34 @@ To upgrade the installer, set `INSTALL_IN_CLAUDE_REV` to a newer commit
 (`git ls-remote git@github.com:bnomis/install-in-claude.git refs/heads/main`,
 first field) and run `bin/install-claude.sh --dry-run` to see what it changes.
 
+## `bin/check-foreign-names.sh`
+
+```text
+check-foreign-names.sh [--allow=<name>]... [--] <file>...
+```
+
+Fails when a file names a project on a list kept outside the repository, so
+that the list itself is never committed. It is the entry of the
+`no-project-names` hook and changes nothing on disk.
+
+- The list is one name per line; blank lines and lines starting with `#` are
+  skipped.
+- Matching is whole-word, case-insensitive and literal (`grep -w -i -F`): a
+  name inside a longer word does not match.
+- `--allow=<name>` removes that name from the list for this run (compared
+  case-insensitively against whole lines). Repeatable. A repository used
+  across projects passes its own name this way.
+- Each match is printed as `file:line:text`, followed by a pointer to
+  `claude/rules/rule-scope.md` in the agents repository.
+
+| Exit | Meaning |
+|---|---|
+| `0` | No match; or no list file (a notice goes to stderr and nothing is checked); or the list is empty after comments and `--allow`; or no files given |
+| `1` | At least one match |
+
+Environment: `AGENTS_FOREIGN_NAMES` (path of the list), `HOME` (the default
+list is `~/.config/agents/foreign-names`).
+
 ## `claude/skills/auditme/checks/audit.py`
 
 ```text
@@ -140,8 +168,8 @@ Environment: none directly; git and `audit.py` inherit the caller's.
 
 ## Published pre-commit hooks
 
-`.pre-commit-hooks.yaml` publishes these hooks for other projects to pin by
-`rev`. This repository runs the same entries from its own tree as `repo:
+`.pre-commit-hooks.yaml` publishes these hooks for other repositories to pin
+by `rev`. This repository runs the same entries from its own tree as `repo:
 local` hooks in `.pre-commit-config.yaml`, so a checker change applies in the
 commit that makes it.
 
@@ -149,12 +177,17 @@ commit that makes it.
 |---|---|---|---|---|
 | `auditme-changed` | `[pre-commit]` | `claude/skills/auditme/checks/changed.py` | Unaccepted checker hits in the files the change touches | Same stage |
 | `auditme-all` | `[manual]` | `claude/skills/auditme/checks/changed.py --all` | Unaccepted checker hits anywhere | `[manual, pre-push]`: runs on every push |
+| `no-project-names` | `[pre-commit, commit-msg]` | `bin/check-foreign-names.sh` | Project names in staged files and the commit message; `uv.lock` excluded | Same stages, no `--allow` |
 
 Both audit hooks set `pass_filenames: false` and `always_run: true`: they
 find their own scope and run even when no file is staged.
+`no-project-names` receives the staged file names, or the commit message file
+at `commit-msg`; a repository used across projects pins it with its own names
+as `args: [--allow=<name>]`, and installs the `commit-msg` hook type
+(`pre-commit install --hook-type commit-msg`).
 Each hook uses `language: script`, so the entry runs from the hook
 repository with the interpreter its shebang finds (`python3` for
-`changed.py`).
+`changed.py`, `bash` for `check-foreign-names.sh`).
 
 To run the manual hook by hand:
 
@@ -163,9 +196,8 @@ pre-commit run auditme-all --hook-stage manual --all-files
 ```
 
 This repository's config also runs `ruff-check`, `ruff-format` and
-`shellcheck`, and the agents repository's `no-project-names` hook, pinned
-from `bnomis/agents`; those come from their own repositories and are not
-published here.
+`shellcheck`; those come from their own repositories and are not published
+here.
 
 ## The Stop hook
 

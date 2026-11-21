@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fail when a file names a project that a repository used across projects
-# must not mention (claude/rules/rule-scope.md). The names cannot be listed here - the
-# list would name them - so they are read from a file outside the repository:
+# must not mention (claude/rules/rule-scope.md in the agents repository). The
+# names cannot be listed here - the list would name them - so they are read
+# from a file outside the repository:
 # one name per line in $AGENTS_FOREIGN_NAMES, default
 # ~/.config/agents/foreign-names. Blank lines and lines starting with # are
 # skipped. Matching is whole-word and ignores case.
@@ -38,7 +39,8 @@ fi
 if grep -H -n -i -w -F -e "$patterns" -- "$@"; then
     echo
     echo "These lines name a project. This repository is used across projects: write 'one project'"
-    echo "or a neutral name (pkg, probe, AppSettings) instead; see claude/rules/rule-scope.md."
+    echo "or a neutral name (pkg, probe, AppSettings) instead; see claude/rules/rule-scope.md"
+    echo "in the agents repository."
     exit 1
 fi
 exit 0

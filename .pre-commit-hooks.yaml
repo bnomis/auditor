@@ -12,3 +12,9 @@
   pass_filenames: false
   always_run: true
   stages: [manual]
+- id: no-project-names
+  name: no project names in a repository used across projects
+  entry: bin/check-foreign-names.sh
+  language: script
+  exclude: ^uv\.lock$
+  stages: [pre-commit, commit-msg]

@@ -52,7 +52,7 @@ def read_manifest() -> dict[str, dict[str, str]]:
 
 def test_manifest_publishes_the_audit_hooks() -> None:
     hooks = read_manifest()
-    assert sorted(hooks) == sorted(EXPECTED)
+    assert set(EXPECTED) <= set(hooks)
     for hook_id, expected in EXPECTED.items():
         hook = hooks[hook_id]
         assert hook['entry'] == expected['entry']

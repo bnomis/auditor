@@ -26,7 +26,8 @@ uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skil
 
 This repository serves many projects. Its code, tests, fixtures, specs, task
 lists, records and commit messages name no project it has been run on: a run
-that found something is "one project". The `no-project-names` hook, published
-by the agents repository, enforces it at commit and commit-msg time; install
+that found something is "one project". The `no-project-names` hook
+(`bin/check-foreign-names.sh`), published here and run on this repository too,
+enforces it at commit and commit-msg time; install
 both hook types with
 `pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg`.

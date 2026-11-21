@@ -218,6 +218,12 @@ To move it:
    rewrite `bnomis/auditor.git` rather than `bnomis/agents.git`.
 4. Run `pre-commit run auditme-all --hook-stage manual --all-files`, and fix or
    accept any new hits in the same commit, as for an upgrade.
+5. If the project also pins the `no-project-names` hook from
+   `bnomis/agents`, move it into the auditor block beside the audit hooks,
+   keeping its `args:`. It moved here too, and the agents repository no
+   longer publishes it. A project that pinned only that hook from agents
+   then needs no agents deploy key: remove the agents deploy-key steps from
+   its CI workflow and delete its `AGENTS_DEPLOY_KEY` secret.
 
 The old deploy key on `bnomis/agents` can then be removed.
 

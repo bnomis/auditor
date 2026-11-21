@@ -35,10 +35,13 @@ repos:
         always_run: true
         stages: [manual, pre-push]
 
-  # This repository serves many projects, so no file or commit message names
-  # one (the agents repository's claude/rules/rule-scope.md). The names hook is
-  # published by the agents repository and reads a list kept outside both.
-  - repo: git@github.com:bnomis/agents.git
-    rev: 0394f33ad0a93344a9d387a399225c0dca94a955
-    hooks:
+      # This repository serves many projects, so no file or commit message
+      # names one (the agents repository's claude/rules/rule-scope.md). The
+      # names are listed outside the repository; see
+      # bin/check-foreign-names.sh.
       - id: no-project-names
+        name: no project names in a repository used across projects
+        entry: bin/check-foreign-names.sh
+        language: script
+        exclude: ^uv\.lock$
+        stages: [pre-commit, commit-msg]

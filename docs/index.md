@@ -35,6 +35,7 @@ and registers the Stop hook. A project then opts in to the checker with `/auditm
 | `claude/skills/auditme-project-setup/` | The `/auditme-project-setup` skill and its templates. See [Skills](reference/skills.md). |
 | `claude/hooks/` | The Claude Code Stop hook that runs the checker before a turn ends. |
 | `bin/install-claude.sh` | The installer: runs the shared `install-in-claude` at a pinned commit. See [Command line and hooks](reference/cli.md). |
+| `bin/check-foreign-names.sh` | The `no-project-names` check, which keeps project names out of repositories used across projects. See [Command line and hooks](reference/cli.md). |
 | `.pre-commit-hooks.yaml` | The hooks other projects pin. |
 
 ## Where to start
