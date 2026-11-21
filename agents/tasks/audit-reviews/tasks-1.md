@@ -54,7 +54,7 @@ every later task's Definition of Done uses.
 
 ## Task 2: Fix the user guides, README and AGENTS.md
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F7, F8
@@ -63,27 +63,27 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] `docs/reference/cli.md:264`: the Stop hook runs a trusted auditor worktree's own `changed.py` when the project is one, else the installed one (read `claude/hooks/auditme-stop.sh`)
-- [ ] `docs/reference/cli.md:157`: the invalid-TOML message is `pyproject.toml: not valid TOML (<parse error>)`, as `audit.py` prints it (read `core.declared_roots` and the driver)
-- [ ] `docs/reference/cli.md:209`: say that an argument error goes to stderr (argparse's `parser.error`)
-- [ ] `docs/guide/checker.md:35`: the swept roots are the declared ones when `[tool.auditme]` declares any, and `--extra-root` replaces the extra roots
-- [ ] `docs/guide/checker.md:104`: an AGENTS.md row makes the layering check print no hit, rather than an accepted one (read `maybe_emit_layering`)
-- [ ] `docs/guide/checker.md:326-330`: name as project-level only the checks `registry.py` runs once (`PROJECT_CHECKS`); move the others to the per-root list
-- [ ] `docs/reference/skills.md:40`: the `/auditme` commit message is `docs(audit): add review-N`
-- [ ] `docs/reference/skills.md:59-60`: name the files `/auditme-project-setup new` asks before overwriting, as its `SKILL.md` lists them
-- [ ] `AGENTS.md:5`: the Stop hook runs at the end of a turn
-- [ ] `README.md:3`: list the published `no-project-names` hook beside `auditme-changed` and `auditme-all`
-- [ ] Search `docs/`, `README.md` and `AGENTS.md` for every other copy of each corrected statement and fix it too
+- [x] `docs/reference/cli.md:264`: the Stop hook runs a trusted auditor worktree's own `changed.py` when the project is one, else the installed one (read `claude/hooks/auditme-stop.sh`)
+- [x] `docs/reference/cli.md:157`: the invalid-TOML message is `pyproject.toml: not valid TOML (<parse error>)`, as `audit.py` prints it (read `core.declared_roots` and the driver)
+- [x] `docs/reference/cli.md:209`: say that an argument error goes to stderr (argparse's `parser.error`)
+- [x] `docs/guide/checker.md:35`: the swept roots are the declared ones when `[tool.auditme]` declares any, and `--extra-root` replaces the extra roots
+- [x] `docs/guide/checker.md:104`: an AGENTS.md row makes the layering check print no hit, rather than an accepted one (read `maybe_emit_layering`)
+- [x] `docs/guide/checker.md:326-330`: name as project-level only the checks `registry.py` runs once (`PROJECT_CHECKS`); move the others to the per-root list
+- [x] `docs/reference/skills.md:40`: the `/auditme` commit message is `docs(audit): add review-N`
+- [x] `docs/reference/skills.md:59-60`: name the files `/auditme-project-setup new` asks before overwriting, as its `SKILL.md` lists them
+- [x] `AGENTS.md:5`: the Stop hook runs at the end of a turn
+- [x] `README.md:3`: list the published `no-project-names` hook beside `auditme-changed` and `auditme-all`
+- [x] Search `docs/`, `README.md` and `AGENTS.md` for every other copy of each corrected statement and fix it too
 
 **Acceptance Criteria:**
 
-- [ ] Each line above matches the code it describes, checked against the file named
-- [ ] `uv run --group docs mkdocs build --strict` exits 0, as the docs workflow builds it
+- [x] Each line above matches the code it describes, checked against the file named
+- [x] `uv run --group docs mkdocs build --strict` exits 0, as the docs workflow builds it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 

@@ -20,8 +20,11 @@ Every path is relative to the project root passed as the first argument.
 - **Packages under `src/<package>/`**: each package is audited in its own
   pass, so module names are built without a `src.` prefix. `src/` is
   optional.
+- **Declared roots**: when `[tool.auditme]` in `pyproject.toml` declares
+  `roots`, those are the swept roots, in place of the packages and extra roots
+  below.
 - **Scripts in `bin/`**: the default extra root, used when it exists and holds
-  `.py` files.
+  `.py` files. `--extra-root` replaces the default set.
 - **A `.py` file directly in `src/`**: it belongs to no pass, so it is
   reported as a `src-loose-module` hit.
 - **Markdown**: every `.md` file under the root is read for
@@ -30,7 +33,8 @@ Every path is relative to the project root passed as the first argument.
   directory.
 - **Project files**: `pyproject.toml` with `uv.lock`, `.pre-commit-config.yaml`
   and `AGENTS.md` are read by the project-level checks (see
-  [Project-level checks](#project-level-checks)).
+  [Project-level checks](#project-level-checks)); `AGENTS.md` is also read by
+  the per-root checks named there.
 
 No other directory is swept.
 
@@ -101,12 +105,12 @@ To let one commit or push through, `SKIP=auditme-changed git commit` or
 | `path` | Repository-relative path, or `null` for a hit with no file |
 | `line` | 1-based line, or `null` |
 | `evidence` | The source snippet or identifier that matched |
-| `accepted` | `true` when an accept marker or an `AGENTS.md` row covers the hit |
+| `accepted` | `true` when an accept marker or, for `as-import` and `in-function-import`, an `AGENTS.md` row covers the hit; an `AGENTS.md` row for `layering-violation` makes the check print no hit at all |
 | `accepted_reason` | The marker's reason; `no reason given` for a marker with none |
 | `related` | Only on a hit that compares files: the other files' paths, sorted, never the hit's own |
 
-Identical hits are printed once, so a project-level check that runs once per
-pass reports each hit once.
+Identical hits are printed once, so a hit that several passes would each
+report appears once.
 
 `changed.py` prints only unaccepted hits in scope, sorted by path and line, as
 `<path>:<line>  <rule>` with the variant indented beneath, then how to fix or
@@ -315,21 +319,21 @@ The rules from `wildcard-imports` to `leading-underscore-attribute-access`,
 
 ### Project-level checks
 
-A project-level check asks about the project, not a package, and reports each
-hit once however many passes run:
+A project-level check asks about the project, not a package, and runs once
+(`PROJECT_CHECKS` in `registry.py`), whatever the number of passes:
 
 - `ruff-version-drift` reads `.pre-commit-config.yaml` and is anchored at the
   `ruff-pre-commit` `rev:` line, where its marker goes. It is silent with no
   config, no `ruff-pre-commit` repo, or no ruff to run.
 - `lockfile-drift` runs only when both `pyproject.toml` and `uv.lock` exist,
   and is silent when `uv` is missing.
-- `layering-violation`, `as-import` and `in-function-import` read `AGENTS.md`
-  for their gate or their acceptance tables.
-- `spec-api-signature-drift` reads every Markdown file in scope against the
-  whole corpus, and fires only when the name resolves to exactly one
-  module-level definition.
 
-`ruff` itself runs once per pass, over that pass's root.
+Every other check runs once per pass, over that pass's root. Among them,
+`layering-violation`, `as-import` and `in-function-import` read `AGENTS.md`
+for their gate or their acceptance tables, `spec-api-signature-drift` reads
+every Markdown file in scope against the whole corpus and fires only when the
+name resolves to exactly one module-level definition, and `ruff` runs over the
+pass's root. The driver prints identical hits once.
 
 ## The pinned version and upgrades
 

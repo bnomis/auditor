@@ -148,13 +148,13 @@ hit, and the sweep continues.
 | Exit | Meaning |
 |---|---|
 | `0` | Sweep completed, whatever it found; also when there is no root to audit (a notice goes to stderr and only the project-level checks run) |
-| `2` | `scope`, a named `--extra-root` or the `--package` directory does not exist; an argument error; or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
+| `2` | `scope`, a named `--extra-root` or the `--package` directory does not exist; an argument error (argparse's usage message on stderr); or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
 
 The declaration errors, each exit `2`:
 
 | Message | Cause |
 |---|---|
-| `pyproject.toml: <parse error>` | `pyproject.toml` is not valid TOML and mentions `[tool.auditme` |
+| `pyproject.toml: not valid TOML (<parse error>)` | `pyproject.toml` is not valid TOML and mentions `[tool.auditme` |
 | `pyproject.toml [tool.auditme]: must be a table` | `[tool.auditme]` is not a table |
 | `pyproject.toml [tool.auditme]: unknown key '<key>'` | a key other than `roots` |
 | `pyproject.toml [tool.auditme]: roots must be a list of tables` | `roots` is not a list of tables |
@@ -267,6 +267,12 @@ the repository root:
 ```shell
 python3 -I "$HOME/.claude/skills/auditme/checks/changed.py"
 ```
+
+The exception is a worktree of the auditor repository itself: when the
+installed checker links into the same git directory as the project and the
+project holds its own `claude/skills/auditme/checks/changed.py`, the hook runs
+that one instead, so a branch that changes the checker is judged by that
+branch. Any other repository's `changed.py` is never run.
 
 When that exits `1` it prints `{"decision": "block", "reason": "<report>"}`,
 and Claude Code keeps the turn going with the report as the reason. Since

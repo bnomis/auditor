@@ -2,7 +2,7 @@
 
 The `auditme` audit checker (`claude/skills/auditme/`), the pre-commit hooks
 that run it (`.pre-commit-hooks.yaml`), the Claude Code Stop hook that runs it
-at the end of a session (`claude/hooks/auditme-stop.sh`) and the
+at the end of a turn (`claude/hooks/auditme-stop.sh`) and the
 `/auditme-project-setup` skill that adopts the hooks in a project
 (`claude/skills/auditme-project-setup/`).
 

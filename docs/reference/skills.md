@@ -37,7 +37,7 @@ file path, a spec slug, or the docs. `--category` (`standards`,
   marks shipped tasks done in `agents/tasks/audit-reviews/`.
 - **Then:** runs `/taskdev agents/audit-reviews/review-N.md` if there are
   findings.
-- **Stops for:** uncommitted changes; commit (`auditme: add review-N`).
+- **Stops for:** uncommitted changes; commit (`docs(audit): add review-N`).
 
 The checker, its rules and accept markers are described in
 [The checker](../guide/checker.md).
@@ -57,7 +57,8 @@ Path defaults to the current repository root. Templates are in
   current `main` commit), `.github/workflows/ci.yml`, `AGENTS.md`,
   `CLAUDE.md`, `TODO.md`, `DONE.md` and `claude/rules/README.md`; installs the
   pre-commit and pre-push hooks; then runs the deploy-key steps. Asks before
-  overwriting any existing file.
+  overwriting an existing `.pre-commit-config.yaml`,
+  `.github/workflows/ci.yml`, `AGENTS.md`, `TODO.md` or `DONE.md`.
 - **`adopt`:** adds the auditme hooks, offers to remove a project-local hook
   doing the same job, and counts unaccepted hits with
   `pre-commit run auditme-all --hook-stage manual --all-files`. At zero hits
