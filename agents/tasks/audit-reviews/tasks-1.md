@@ -21,7 +21,7 @@ every later task's Definition of Done uses.
 
 ## Task 1: Declare the test dependencies
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F19, D5
@@ -30,20 +30,20 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Add `pytest` and `hypothesis` to the `dev` group in `pyproject.toml` with `uv add --dev pytest hypothesis`, so the lock picks the newest releases outside the `exclude-newer = "14 days"` window; record each pinned version and its release date in the commit body
-- [ ] Change the test command to `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` in `AGENTS.md`, `README.md` and `.github/workflows/ci.yml`, and in any copy under `docs/` (`grep -rn 'with pytest' docs AGENTS.md README.md .github`)
-- [ ] Leave the checker itself standard-library only: no import of `hypothesis` outside a test file
+- [x] Add `pytest` and `hypothesis` to the `dev` group in `pyproject.toml` with `uv add --dev pytest hypothesis`, so the lock picks the newest releases outside the `exclude-newer = "14 days"` window; record each pinned version and its release date in the commit body
+- [x] Change the test command to `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` in `AGENTS.md`, `README.md` and `.github/workflows/ci.yml`, and in any copy under `docs/` (`grep -rn 'with pytest' docs AGENTS.md README.md .github`)
+- [x] Leave the checker itself standard-library only: no import of `hypothesis` outside a test file
 
 **Acceptance Criteria:**
 
-- [ ] `uv run pytest claude/skills/auditme/tests/test_core.py -q -p no:cacheprovider` passes
-- [ ] `grep -rn 'with pytest' AGENTS.md README.md docs .github` prints nothing
-- [ ] `uv.lock` pins `pytest` and `hypothesis`
+- [x] `uv run pytest claude/skills/auditme/tests/test_core.py -q -p no:cacheprovider` passes
+- [x] `grep -rn 'with pytest' AGENTS.md README.md docs .github` prints nothing
+- [x] `uv.lock` pins `pytest` and `hypothesis`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_hooks_manifest.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_hooks_manifest.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

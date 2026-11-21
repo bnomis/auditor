@@ -19,7 +19,7 @@ agents repository's own installer.
 From the repository root:
 
 ```shell
-uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider
+uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider
 ```
 
 ## No project names
