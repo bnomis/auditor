@@ -1,8 +1,9 @@
 # Project setup
 
-**Version:** 1.10
+**Version:** 1.11
 **Status:** implemented
 **Date:** 2026-10-31
+**Review page (1.11):** https://claude.ai/artifact/XQ1bgLekKX9gPJJt9QGDFX
 
 Every project that uses these rules and skills should get the same mechanical
 guards by default: the auditme sweep on every commit, the whole-tree sweep in
@@ -103,6 +104,18 @@ design, not the project:
   The installer's own behaviour - linking, the `.orig` copies, the
   dangling-link report, the settings merge - is specified and tested there;
   what this spec keeps is the arguments.
+- **The audit read none of this repository's own Python** (amendment 1.11,
+  found 2026-11-21 when `/auditme` was run on this repository). The roots were
+  fixed by layout - each package under `src/`, then `bin/` - and every line of
+  this repository's Python lives under `claude/skills/`, so `audit.py` gave no
+  hits, the Phase B listers found no candidates for A1, A4 or T1, and the
+  commit and push hooks checked nothing here. Swept by hand with the
+  directories passed as `--extra-root`, the same tree gave 659 hits, 654
+  unaccepted, on 2026-11-21. `--extra-root` reached only one hand run: the
+  hooks run `audit.py <repo-root>` with no options, and `phaseb.py` takes
+  none. The operator chose on 2026-11-21 that a project declares its roots in
+  `pyproject.toml`, that the declared list replaces the defaults, and that
+  each root says how its modules are named.
 
 ## Module location
 
@@ -233,6 +246,10 @@ matches the other skills in `claude/skills/`, with
 | `install-claude.sh`: `~/.claude/settings.json` is not valid JSON | the shared installer refuses, naming the file, exit 1; nothing linked or written (1.10) |
 | `audit.py`: `<scope-root>` is not a directory (1.2) | `ERROR: <scope> is not a directory`, exit 2 |
 | `audit.py`: no package under `src/` and no extra root (1.2, 1.8) | notice on stderr, the project-level checks run once, exit 0 |
+| `[tool.auditme]` is not a table, `roots` is not a list of tables, an entry has no `path`, an unknown key, or a `modules` other than `package` or `top-level` (1.11) | `ERROR: pyproject.toml [tool.auditme]: <what is wrong>`, exit 2; the hooks then fail as a sweep that cannot run |
+| `pyproject.toml` is not valid TOML (1.11) | `ERROR: pyproject.toml: <the parser's message>`, exit 2, but only when the file mentions `[tool.auditme]`; otherwise the defaults apply and the lockfile check reports the file as before |
+| a declared root that does not exist, or holds no `.py` file (1.11) | `ERROR: declared root <path> not found` or `... holds no .py file`, exit 2 |
+| two declared roots that would sweep a file twice (1.11) | `ERROR: declared roots <a> and <b> overlap`, exit 2 |
 | `audit.py`: a `.py` file directly in `src/` (1.2) | one unaccepted `src-loose-module` hit per file |
 | `audit.py --package <name>` naming a missing package | unchanged: `ERROR: <root> not found`, exit 2 |
 | `ruff-version-drift`: no `.pre-commit-config.yaml`, or no `ruff-pre-commit` repo in it (1.4) | no hit |
@@ -323,6 +340,62 @@ alone, once, passing the scope as the unused root, with the same crash
 isolation as a pass. The checks that read `AGENTS.md` and the spec-drift
 check are not among them: they judge or accept Python definitions and hits,
 so with no Python they have nothing to compare.
+
+### Declared audit roots (1.11)
+
+A project whose Python is not laid out as `src/<package>/` and `bin/` declares
+its roots in `pyproject.toml`:
+
+```toml
+[tool.auditme]
+roots = [
+    { path = "claude/skills/auditme/checks/auditme" },
+    { path = "claude/skills/auditme/checks", modules = "top-level" },
+    { path = "claude/skills/auditme/tests" },
+]
+```
+
+- `path` is relative to the project root and must be a directory holding at
+  least one `.py` file.
+- `modules` is `"package"` (the default) or `"top-level"`.
+  - A `package` root is swept recursively, and a module is named after the
+    root as today (`module_dotted`): `checks/auditme/core.py` under the root
+    `checks/auditme` is `auditme.core`.
+  - A `top-level` root is a directory on `sys.path`: only the `.py` files
+    directly in it are swept, each named by its stem (`checks/audit.py` is
+    `audit`), and its subdirectories are left to their own roots. So a
+    package inside it is declared as a `package` root of its own, and no file
+    is swept twice.
+- The declared list replaces the default roots, in the order given. A project
+  that also has `src/` packages lists them. A project with no `[tool.auditme]`
+  table, or no `pyproject.toml`, keeps the defaults unchanged.
+- `--extra-root` on the command line replaces the declared list for that run,
+  each named root swept as a `package` root; `--package` is unchanged.
+- No two `package` roots may nest, and no `top-level` root may sit inside a
+  `package` root, since either would sweep a file twice.
+
+Every consumer reads the roots through `_audit_roots()` in `core.py`, which
+now reads the table, so `audit.py`, the hooks' `changed.py` (which runs
+`audit.py <repo-root>`) and the Phase B listers in `phaseb.py` all follow it
+with no new option. `corpus_py_files()` spans the declared roots too. The modes
+reach the helpers through one module-level table in `core.py`,
+`ROOT_MODULES: types.MappingProxyType[pathlib.Path, str]`, rebound (never
+mutated) when the roots are read, as the driver rebinds `EXTRA_ROOT_NAMES`
+today; `_all_py_files()` and `module_dotted()` consult it, so no check's
+call site changes. A root absent from the table is a `package` root, which is
+every root a test builds by hand.
+
+**This repository's roots.** `pyproject.toml` declares
+`claude/skills/auditme/checks/auditme` (package),
+`claude/skills/auditme/checks` (top-level),
+`claude/skills/auditme/tests`, `claude/skills/auditme-project-setup/tests`
+and `tests` (each package). Declaring them exposes the backlog measured in
+the motivation, so, as `adopt` does for a project with a backlog, the same
+change takes `pre-push` off `auditme-all` in `.pre-commit-config.yaml` (the
+commit hook stays on, so a commit cannot add hits to the files it changes)
+and files a `TODO.md` item recording the count by rule and the date, whose
+fix direction is to fix or accept every hit and then put `pre-push` back.
+The first audit of this repository runs after that item is done.
 
 ### The ruff version check (1.4)
 
@@ -555,6 +628,13 @@ ruff==<version>`, or change the `rev`). The comment above
 `templates/ci.yml`'s `.venv/bin` step says the same in one line. The auditme
 `SKILL.md` documents `ruff-version-drift` beside the existing ruff check.
 
+Amendment 1.11: "What you get" in `docs/setup.md` says that a project whose
+Python lives elsewhere declares its roots in `[tool.auditme]`, with the
+example above, and that undeclared directories are not swept.
+`docs/reference/cli.md` documents the table, both `modules` values, how
+`--extra-root` overrides it, and the new exit-2 errors; the auditme `SKILL.md`
+names `[tool.auditme]` beside its description of roots.
+
 Every command in it is runnable as written, with placeholders saying where the
 value comes from. `README.md` gains a short section saying what the repository
 is and linking to `docs/setup.md`.
@@ -598,6 +678,16 @@ is and linking to `docs/setup.md`.
   `.venv/bin/ruff` in its evidence; a `.venv/bin/ruff` without the execute bit
   falls back to `PATH`; `check_ruff` runs the `.venv` ruff when `PATH` has
   none.
+- 1.11, `test_driver.py` and a new `test_roots.py`: a project with
+  `[tool.auditme]` sweeps exactly its declared roots, in order, and not
+  `src/` or `bin/`; a `top-level` root sweeps only its own files, named by
+  stem, and a package inside it only as its own root; a `package` root names
+  modules after the root as before; no table, or no `pyproject.toml`, keeps
+  today's output byte for byte; `--extra-root` replaces the declared list;
+  each error row above exits 2 with its message; `changed.py --all` and
+  `phaseb.py plan` on a fixture with declared roots see the declared files
+  (a hit there blocks, a candidate there is listed); `corpus_py_files()`
+  spans the declared roots.
 
 ## Acceptance criteria
 
