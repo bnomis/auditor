@@ -1,6 +1,7 @@
 """Tests for the architecture listers and their shared helpers."""
 
 import ast
+import builtins
 import collections.abc
 import pathlib
 
@@ -10,6 +11,8 @@ import auditme.phaseb.architecture
 import auditme.phaseb.candidates
 import auditme.rules.error_handling
 import auditme.rules.imports_and_surfaces
+import hypothesis
+import hypothesis.strategies
 import pytest
 
 Project = collections.abc.Callable[[dict[str, str]], pathlib.Path]
@@ -810,3 +813,77 @@ def test_a17_hash_ignores_a_moved_consumer_line_and_tracks_an_init_edit(project:
     assert moved.hash == first.hash
     edited = run_a17(write_a17_project(project, {'src/pkg/user.py': A17_READER}, init=A17_INIT + '# edit\n'))[A17_KEY]
     assert edited.hash != first.hash
+
+
+DOTTED = hypothesis.strategies.from_regex(r'[a-z]{1,4}(\.[a-z]{1,4}){0,2}', fullmatch=True)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(qualname=DOTTED, name=hypothesis.strategies.from_regex(r'[A-Za-z_]{1,6}', fullmatch=True))
+def test_child_qualname_ends_in_the_name_and_splits_back(qualname: str, name: str) -> None:
+    child = auditme.phaseb.architecture.child_qualname(qualname, name)
+    assert child.rsplit('.', 1) == [qualname, name]
+    assert auditme.phaseb.architecture.child_qualname(auditme.phaseb.architecture.MODULE_QUALNAME, name) == name
+
+
+ANCHOR_HIT = hypothesis.strategies.tuples(
+    hypothesis.strategies.sampled_from('abc'), hypothesis.strategies.sampled_from(['x.py', 'y.py']), hypothesis.strategies.integers(1, 5)
+)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    hits=hypothesis.strategies.sets(ANCHOR_HIT, max_size=6),
+    extra=hypothesis.strategies.sets(ANCHOR_HIT, max_size=3),
+    lines=hypothesis.strategies.lists(hypothesis.strategies.integers(1, 5), max_size=3),
+    rules=hypothesis.strategies.lists(hypothesis.strategies.sampled_from('abc'), max_size=3),
+)
+def test_hit_on_anchor_matches_the_cross_product_and_is_monotone(hits, extra, lines, rules) -> None:
+    check = auditme.phaseb.architecture.hit_on_anchor
+    expected = any((rule, 'x.py', line) in hits for rule in rules for line in lines)
+    assert check(hits, 'x.py', lines, rules) == expected
+    if expected:
+        assert check(hits | extra, 'x.py', lines, rules)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    module=DOTTED, suffix=DOTTED, ident=hypothesis.strategies.from_regex(r'[a-z]{1,4}', fullmatch=True), others=hypothesis.strategies.lists(DOTTED, max_size=3)
+)
+def test_is_under_accepts_the_module_and_its_children_only(module: str, suffix: str, ident: str, others: list[str]) -> None:
+    check = auditme.phaseb.architecture.is_under
+    assert check(module, [module])
+    assert check(f'{module}.{suffix}', [module])
+    assert not check(module + ident, [module])
+    assert check(module, [*others, module])
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    lineage=hypothesis.strategies.lists(
+        hypothesis.strategies.sampled_from(['Exception', 'ValueError', 'OSError', 'object', 'int', 'dict', 'Nope', 'KeyboardInterrupt']), max_size=5
+    ),
+    more=hypothesis.strategies.lists(hypothesis.strategies.sampled_from(['Exception', 'int']), max_size=2),
+)
+def test_reaches_exception_matches_issubclass_and_is_monotone(lineage: list[str], more: list[str]) -> None:
+    expected = any(isinstance(getattr(builtins, name, None), type) and issubclass(getattr(builtins, name), Exception) for name in lineage)
+    assert auditme.phaseb.architecture.reaches_exception(lineage) == expected
+    if expected:
+        assert auditme.phaseb.architecture.reaches_exception([*lineage, *more])
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    aliases=hypothesis.strategies.dictionaries(
+        hypothesis.strategies.sampled_from(['Alpha', 'Beta', 'Gamma']), hypothesis.strategies.sampled_from(['src.one', 'src.two']), max_size=3
+    ),
+    names=hypothesis.strategies.lists(hypothesis.strategies.sampled_from(['Alpha', 'Beta', 'Delta', 'int']), min_size=1, max_size=3),
+)
+def test_type_source_of_is_none_or_an_alias_value(aliases: dict[str, str], names: list[str]) -> None:
+    annotation = ' | '.join(names)
+    result = auditme.phaseb.architecture.type_source_of(annotation, aliases)
+    assert auditme.phaseb.architecture.type_source_of(None, aliases) is None
+    if not any(name in aliases for name in names):
+        assert result is None
+    else:
+        assert result in aliases.values()

@@ -13,6 +13,8 @@ import pathlib
 import typing
 
 import auditme.core
+import hypothesis
+import hypothesis.strategies
 
 if typing.TYPE_CHECKING:
     import pytest
@@ -417,3 +419,32 @@ def test_reads_by_module_and_name_counts_both_import_spellings(project: Builder)
     reads = auditme.core.reads_by_module_and_name(root, root / 'src')
     assert [(path.name, line) for path, line in reads[('pkg.b', 'NAME')]] == [('a.py', 1)]
     assert [(path.name, line) for path, line in reads[('pkg.b', 'OTHER')]] == [('c.py', 3)]
+
+
+PLAIN_LINE = hypothesis.strategies.text(alphabet=hypothesis.strategies.characters(blacklist_characters='#\n\r', blacklist_categories=['Cs']), max_size=30)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    lines=hypothesis.strategies.lists(PLAIN_LINE, max_size=6),
+    lineno=hypothesis.strategies.integers(-2, 9),
+    end=hypothesis.strategies.none() | hypothesis.strategies.integers(-2, 9),
+)
+def test_accept_reason_is_none_without_a_marker(lines: list[str], lineno: int, end: int | None) -> None:
+    assert auditme.core.accept_reason(lines, lineno, end) is None
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    reason=hypothesis.strategies.text(alphabet='abc xyz', min_size=0, max_size=12),
+    rule=hypothesis.strategies.from_regex(r'[a-z][a-z0-9]{0,8}', fullmatch=True),
+    other=hypothesis.strategies.from_regex(r'[a-z][a-z0-9]{0,8}', fullmatch=True),
+)
+def test_accept_reason_answers_with_a_string_and_ignores_another_rules_marker(reason: str, rule: str, other: str) -> None:
+    hypothesis.assume(rule != other)
+    lines = [f'x = 1  # auditme: accept[{other}] {reason}']
+    assert auditme.core.accept_reason(lines, 1, None, rule=rule) is None
+    answer = auditme.core.accept_reason(lines, 1, None, rule=other)
+    assert isinstance(answer, str)
+    assert answer
+    assert auditme.core.accept_reason(lines, 1, None) == answer

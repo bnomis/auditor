@@ -350,7 +350,7 @@ every later task's Definition of Done uses.
 
 ## Task 11: Property tests for the pure helpers
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** medium
 **Source Reference:** F5, D5
@@ -359,17 +359,17 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] For each T2 id flagged in `agents/audit-reviews/ledger/T2.jsonl`, write a hypothesis test of a property its domain supports (a round trip, an invariant, an idempotence), in the module's own test file
-- [ ] Use `@settings(max_examples=20, deadline=10000)` on every one, as the testing rule requires
+- [x] For each T2 id flagged in `agents/audit-reviews/ledger/T2.jsonl`, write a hypothesis test of a property its domain supports (a round trip, an invariant, an idempotence), in the module's own test file
+- [x] Use `@settings(max_examples=20, deadline=10000)` on every one, as the testing rule requires
 
 **Acceptance Criteria:**
 
-- [ ] Every flagged T2 id has a test decorated with `given`
+- [x] Every flagged T2 id has a test decorated with `given`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest` passes on every test file the task edits, named in the commit body
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest` passes on every test file the task edits, named in the commit body
 
 **Notes:**
 

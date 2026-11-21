@@ -8,6 +8,8 @@ import textwrap
 
 import auditme.phaseb
 import auditme.phaseb.candidates
+import hypothesis
+import hypothesis.strategies
 
 Project = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
@@ -373,3 +375,27 @@ def test_second_call_gives_the_same_candidates_and_hashes(project: Project) -> N
 
 def test_t2_is_registered_with_its_brief_path() -> None:
     assert auditme.phaseb.question_brief('T2').as_posix().endswith('claude/skills/auditme/phaseb/briefs/T2.md')
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(name=hypothesis.strategies.from_regex(r'[a-z]{1,5}(_[a-z]{1,5}){0,2}', fullmatch=True))
+def test_inverse_names_are_symmetric(name: str) -> None:
+    inverses = auditme.phaseb.candidates.inverse_names(name)
+    assert all(name in auditme.phaseb.candidates.inverse_names(other) for other in inverses)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    lines=hypothesis.strategies.lists(hypothesis.strategies.sampled_from(['', 'text', '- item', '| a | b |', '```', '~~~', '  more', '1. one']), max_size=12),
+    start=hypothesis.strategies.integers(0, 3),
+)
+def test_section_blocks_are_ordered_disjoint_and_inside_the_section(lines: list[str], start: int) -> None:
+    end = len(lines)
+    hypothesis.assume(start <= end)
+    blocks = auditme.phaseb.candidates.section_blocks(lines, start, end)
+    previous_last = start
+    for first, last in blocks:
+        assert first <= last
+        assert first > previous_last
+        assert last <= end
+        previous_last = last

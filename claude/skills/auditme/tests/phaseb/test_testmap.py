@@ -5,6 +5,8 @@ import pathlib
 
 import auditme.phaseb
 import auditme.phaseb.testmap
+import hypothesis
+import hypothesis.strategies
 import pytest
 
 Project = collections.abc.Callable[[dict[str, str]], pathlib.Path]
@@ -452,3 +454,27 @@ def test_test_files_hold_a_file_importing_only_the_package_re_export(project: Pr
         'src/tests/test_from_package.py',
         'src/tests/test_import_package.py',
     ]
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    edges=hypothesis.strategies.dictionaries(
+        hypothesis.strategies.sampled_from('abcde'), hypothesis.strategies.lists(hypothesis.strategies.sampled_from('abcde'), max_size=3), max_size=5
+    ),
+    start=hypothesis.strategies.lists(hypothesis.strategies.sampled_from('abcde'), min_size=1, max_size=2, unique=True),
+    depth=hypothesis.strategies.integers(0, 4),
+)
+def test_reach_matches_a_breadth_first_search_and_grows_with_depth(edges: dict[str, list[str]], start: list[str], depth: int) -> None:
+    reached = auditme.phaseb.testmap.reach(edges, start, depth)
+    expected = dict.fromkeys(start, 0)
+    queue = list(start)
+    while queue:
+        name = queue.pop(0)
+        for callee in edges.get(name, []):
+            if callee not in expected and expected[name] < depth:
+                expected[callee] = expected[name] + 1
+                queue.append(callee)
+    assert reached == expected
+    assert all(0 <= distance <= depth for distance in reached.values())
+    deeper = auditme.phaseb.testmap.reach(edges, start, depth + 1)
+    assert all(deeper[name] == distance for name, distance in reached.items())

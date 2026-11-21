@@ -8,6 +8,8 @@ import subprocess
 
 import auditme.core
 import auditme.rules.project_hygiene
+import hypothesis
+import hypothesis.strategies
 import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
@@ -460,3 +462,32 @@ def test_spec_markdown_files_skip_records_and_hidden_directories(tmp_path: pathl
         path.write_text('# x\n', encoding='utf-8')
     found = auditme.rules.project_hygiene.spec_markdown_files(tmp_path)
     assert [path.relative_to(tmp_path).as_posix() for path in found] == ['README.md', 'docs/spec.md']
+
+
+YAML_LINE = hypothesis.strategies.sampled_from(
+    [
+        'repos:',
+        '  - repo: https://github.com/astral-sh/ruff-pre-commit',
+        '  - repo: https://github.com/other/hooks',
+        '    rev: v0.1.2',
+        '    rev: abc123 # frozen: v0.4.5',
+        '    rev: abc123',
+        '    hooks:',
+        '      - id: ruff',
+        '',
+    ]
+)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(lines=hypothesis.strategies.lists(YAML_LINE, max_size=10))
+def test_ruff_hook_pin_reports_lines_inside_the_file(lines: list[str]) -> None:
+    pin = auditme.rules.project_hygiene.ruff_hook_pin(lines)
+    if pin is None:
+        return
+    repo_line, rev_line, version = pin
+    assert 1 <= repo_line <= len(lines)
+    if rev_line is None:
+        assert version is None
+    else:
+        assert repo_line < rev_line <= len(lines)

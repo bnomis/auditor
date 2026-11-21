@@ -1,9 +1,12 @@
 """Tests for the naming, ordering and annotation-style predicates."""
 
+import ast
 import collections.abc
 import pathlib
 
 import auditme.rules.style_and_naming
+import hypothesis
+import hypothesis.strategies
 import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
@@ -630,3 +633,67 @@ def test_a_scoped_accept_marker_dismisses_the_typing_alias(project: Builder, run
 def test_a_marker_scoped_to_another_rule_does_not_dismiss_the_typing_alias(project: Builder, run_check: Runner) -> None:
     root = project({'src/probe/mod.py': 'import typing\n\nvalue: typing.Sequence[int]  # auditme: accept[legacy-typing] unrelated\n'})
     assert [hit['accepted'] for hit in run_check(TYPING_ALIAS, root)] == [False]
+
+
+CODE_LINE = hypothesis.strategies.text(alphabet=hypothesis.strategies.characters(blacklist_characters='\n\r', blacklist_categories=['Cs']), max_size=30)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    prefix=hypothesis.strategies.text(alphabet='abc =()', max_size=8),
+    obj=hypothesis.strategies.from_regex(r'[a-z]{1,6}', fullmatch=True),
+    attr=hypothesis.strategies.from_regex(r'_zz[a-z]{1,6}', fullmatch=True),
+)
+def test_stdlib_public_access_only_is_false_once_an_unlisted_underscore_access_is_added(prefix: str, obj: str, attr: str) -> None:
+    check = auditme.rules.style_and_naming.is_stdlib_public_access_only
+    hypothesis.assume(not auditme.rules.style_and_naming.ATTRIBUTE_ACCESS.search(prefix))
+    assert check(prefix)
+    assert not check(f'{prefix} {obj}.{attr}')
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(lines=hypothesis.strategies.lists(CODE_LINE, max_size=6))
+def test_literal_format_lines_stay_inside_the_file(lines: list[str]) -> None:
+    found = auditme.rules.style_and_naming.literal_format_lines(lines)
+    assert all(1 <= number <= len(lines) for number in found)
+    try:
+        ast.parse('\n'.join(lines))
+    except SyntaxError, ValueError:
+        assert found == set()
+
+
+MASK_SOURCES = hypothesis.strategies.lists(
+    hypothesis.strategies.sampled_from(
+        ['x = "abc"', 'y = 1', 'z = f(\'q r\', "s")', '# "note"', 'def f():', '    """doc"""', '    return "é ü"', 'w = """multi', 'line"""']
+    ),
+    max_size=6,
+)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(lines=MASK_SOURCES)
+def test_mask_string_literals_keeps_shape_only_blanks_and_is_idempotent(lines: list[str]) -> None:
+    masked = auditme.rules.style_and_naming.mask_string_literals(lines)
+    assert len(masked) == len(lines)
+    for before, after in zip(lines, masked, strict=True):
+        assert len(before) == len(after)
+        assert all(new == old or new == ' ' for old, new in zip(before, after, strict=True))
+    assert auditme.rules.style_and_naming.mask_string_literals(masked) == masked
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    name=hypothesis.strategies.from_regex(r'[A-Za-z_]{1,6}', fullmatch=True),
+    low=hypothesis.strategies.integers(0, 50),
+    high=hypothesis.strategies.integers(0, 50),
+)
+def test_ruff_dunder_all_key_groups_and_orders_digit_runs_naturally(name: str, low: int, high: int) -> None:
+    key = auditme.rules.style_and_naming.ruff_dunder_all_key
+    group = key(name)[0]
+    if len(name) > 1 and name.isupper():
+        assert group == 0
+    elif name[:1].isupper():
+        assert group == 1
+    else:
+        assert group == 2
+    assert (key(f'{name}{low}') < key(f'{name}{high}')) == (low < high)

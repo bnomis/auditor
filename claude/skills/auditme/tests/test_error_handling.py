@@ -9,6 +9,8 @@ import collections.abc
 import pathlib
 
 import auditme.rules.error_handling
+import hypothesis
+import hypothesis.strategies
 import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
@@ -2504,3 +2506,59 @@ def test_translator_envelopes_map_a_translating_function_to_what_it_catches(proj
     )
     envelopes = auditme.rules.error_handling.translator_envelopes(root / 'src')
     assert envelopes == {'translate': frozenset({'OSError'})}
+
+
+IDENTIFIER = hypothesis.strategies.from_regex(r'[A-Za-z_][A-Za-z0-9_]{0,8}', fullmatch=True)
+SPACES = hypothesis.strategies.text(alphabet=' \t', max_size=3)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    bound=IDENTIFIER,
+    pad=SPACES,
+    attr=hypothesis.strategies.sampled_from(['__name__', '__qualname__']),
+    suffix=hypothesis.strategies.text(min_size=1, max_size=5),
+)
+def test_categorical_class_name_expr_accepts_the_class_name_forms_only(bound: str, pad: str, attr: str, suffix: str) -> None:
+    check = auditme.rules.error_handling.is_categorical_class_name_expr
+    forms = [f'type({pad}{bound}{pad}).{attr}', f'{bound}.__class__.{attr}']
+    for form in forms:
+        assert check(f'{pad}{form}{pad}', bound)
+        assert not check(form + suffix.strip() + 'x', bound)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    names=hypothesis.strategies.lists(hypothesis.strategies.from_regex(r'[A-Z][a-z]{0,6}Error', fullmatch=True), unique=True, max_size=5),
+    bullet=hypothesis.strategies.sampled_from(['', '- ', '* ']),
+    dotted=hypothesis.strategies.booleans(),
+)
+def test_raises_section_names_round_trips_a_generated_section(names: list[str], bullet: str, dotted: bool) -> None:
+    body = [f'    {bullet}{"pkg.mod." if dotted else ""}{name}: raised when {name} applies\n        deeper OtherError line' for name in names]
+    doc = 'Summary.\n\nRaises:\n' + '\n'.join(body) + '\n'
+    found = auditme.rules.error_handling.raises_section_names(doc)
+    assert found == set(names)
+    assert all(name.endswith('Error') for name in found)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    graph=hypothesis.strategies.dictionaries(
+        hypothesis.strategies.sampled_from('abcdef'), hypothesis.strategies.sets(hypothesis.strategies.sampled_from('abcdef'), max_size=3), max_size=6
+    ),
+    name=hypothesis.strategies.sampled_from('abcdefg'),
+)
+def test_class_lineage_is_the_transitive_closure_and_terminates_on_cycles(graph: dict[str, set[str]], name: str) -> None:
+    lineage = auditme.rules.error_handling.class_lineage(name, graph)
+    assert name in lineage
+    assert all(parent in lineage for member in lineage for parent in graph.get(member, ()))
+    expected = {name}
+    grew = True
+    while grew:
+        grew = False
+        for member in list(expected):
+            for parent in graph.get(member, ()):
+                if parent not in expected:
+                    expected.add(parent)
+                    grew = True
+    assert lineage == expected
