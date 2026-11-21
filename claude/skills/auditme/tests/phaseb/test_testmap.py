@@ -437,3 +437,22 @@ def test_test_files_holds_mirror_importers_and_caller_importers(project: Project
         'src/tests/test_importer.py',
     ]
     assert 'src/tests/test_other.py' in index.test_files('src/pkg/mod.py::load', 2)
+
+
+def test_test_files_hold_a_file_importing_only_the_package_re_export(project: Project) -> None:
+    """A test reaching the candidate through the package's re-export is listed (review of 2026-11-21, D7)."""
+    root = project(
+        {
+            'src/pkg/__init__.py': 'from pkg.mod import load\n\n__all__ = ["load"]\n',
+            'src/pkg/mod.py': 'def load(path):\n    return path\n',
+            'src/pkg/other.py': 'def other():\n    return 1\n',
+            'src/tests/test_from_package.py': 'from pkg import load\n\n\ndef test_load():\n    assert load("x") == "x"\n',
+            'src/tests/test_import_package.py': 'import pkg\n\n\ndef test_load():\n    assert pkg.load("x") == "x"\n',
+            'src/tests/test_unrelated.py': 'from pkg import other\n\n\ndef test_other():\n    assert other.other() == 1\n',
+        }
+    )
+    index = testmap.build_index(root)
+    assert index.test_files('src/pkg/mod.py::load', 1) == [
+        'src/tests/test_from_package.py',
+        'src/tests/test_import_package.py',
+    ]

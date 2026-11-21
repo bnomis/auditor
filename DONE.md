@@ -632,3 +632,24 @@ runner that creates the worktree) is another repository's change, so record
 it there, not here.
 
 Done: 2026-11-21 - the marker removed from `.pre-commit-config.yaml`; `audit.py .` in the main checkout gives no `ruff-version-drift` hit, since `.venv/bin/ruff` is 0.17.2. Giving a queue's worktree the pinned ruff is the queue runner's change, in its own repository.
+
+## Ship or reject the three open checker requests
+
+Found on 2026-11-21 in a review of this file. `dfc34b2` filed three entries
+under `## Open` in `claude/skills/auditme/requests.md`, each raised by an
+audit the same day: "A user guide's parameter list is checked by nothing",
+"Listed briefs leave thresholds open that reviewers settle differently" and
+"D2 has no carve-out for type-stub packages and notebook kernels".
+
+Cause: the auditme skill (step 3, Mechanical sweep) lets no audit start while
+`## Open` has an entry, so these stand between the backlog item below and
+the first audit of this repository, and no item recorded them.
+
+Fix direction: for each entry, ship it (the check, brief threshold or
+predicate text, its tests, and the catch-up it exposes) or move it to
+`## Rejected` with the reason. The first entry adds or widens a check, so it
+goes through a spec first; the other two change brief and predicate text,
+each with a brief version bump where a brief changes. Do this before the
+backlog below, so the backlog's catch-up includes any new check's hits.
+
+Done: 2026-11-21 - all three shipped as `agents/reviews/checker-requests-2026-11-21.md` decided (every recommendation accepted): the T1 (version 2), A4 (4), Doc4 (4) and Doc5 (4) briefs' Thresholds; the T1 lister's `test_files` counting package re-exports (`checks/auditme/phaseb/testmap.py`, amendment 1.3 of `agents/specs/listed-phase-b-test-questions/spec.md`); D2's carve-out in `claude/skills/auditme/SKILL.md`; `requests.md`'s `## Open` emptied.

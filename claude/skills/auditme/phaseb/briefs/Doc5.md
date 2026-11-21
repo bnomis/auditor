@@ -1,6 +1,6 @@
 # Doc5 brief
 
-**Brief version:** 3
+**Brief version:** 4
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -35,8 +35,8 @@ against the code.
   default, or a file's existence or role.
 - An example in the section that would fail against the code is drift.
 - Not drift: an omission, unless the section presents a list as complete; a
-  dated record or decision; a shorter type spelling; a difference in the
-  parameter list, which the sweep's `spec-api-signature-drift` rule reports.
+  dated record or decision; a shorter type spelling; a call example
+  naming one keyword only, which does not present itself as the full list.
 - For an `(unresolved)` candidate, drift is a name the code once had or
   plainly means. A standard-library or third-party name, a command, a value,
   an environment variable, a path outside the repository, or a path created
@@ -52,6 +52,17 @@ against the code.
 - A list of the values a field or setting takes, written without "for
   example", "such as" or "including", presents itself as complete: a value
   the code also produces is drift.
+- A call example in `README.md` or `docs/` that names more than one
+  keyword of a public function presents itself as the full keyword list: a
+  keyword the function takes and the example lacks is drift. The sweep's
+  `spec-api-signature-drift` rule reads only a spec's `## API` block, so it
+  does not cover a guide.
+- A dated sentence inside an undated section is a record of that day for
+  its own statements only; the section's other statements are judged.
+- "Today" in an implemented spec is not a date: a sentence using it is
+  judged against the code like any other.
+- A drift that falls under several candidates of one section is reported
+  once, under the first of them in the batch's order whose span holds it.
 
 A threshold that this brief does not settle is not yours to decide: report
 it in your reply, name the candidate, and judge the rest as the brief says.

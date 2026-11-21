@@ -216,6 +216,7 @@ class TestIndex:
     reached: dict[str, dict[str, tuple[ast.FunctionDef | ast.AsyncFunctionDef, set[str]]]]  # test file rel -> test name -> (node, directly reached)
     by_id: dict[str, auditme.phaseb.candidates.Site]
     sources: dict[str, ParsedFile]  # package modules by dotted name
+    aliases: dict[str, str] = dataclasses.field(default_factory=dict)  # re-export `module.name` -> target qualname
 
     def refs(self, depth: int) -> dict[str, tuple[TestRef, ...]]:
         """Map each package function id to the tests that reach it, sorted by id."""
@@ -259,12 +260,16 @@ class TestIndex:
 
         The mirrored test file where it exists (`src/<project>/<pkg>/<f>.py` ->
         `src/tests/<pkg>/test_<f>.py`, also with the project directory kept),
-        every test file importing the function's module, and every one
-        importing a caller's module.
+        every test file importing the function's module, every one importing
+        a caller's module, and every one importing a re-export of the
+        function by its own name (`from pkg import load`) or the module that
+        re-exports it (`import pkg`).
         """
         site = self.by_id[function_id]
         modules = {site.module, *(caller.module for caller in self.caller_sites(function_id, depth))}
-        found = {file.rel for file in self.tests if any(imports_module(file, module) for module in modules)}
+        reexports = {alias for alias, target in self.aliases.items() if target == site.qualname}
+        reexport_names = reexports | {alias.rsplit('.', 1)[0] for alias in reexports}
+        found = {file.rel for file in self.tests if any(imports_module(file, module) for module in modules) or imported_names(file) & reexport_names}
         found.update(self.mirrored(site))
         return sorted(found)
 
@@ -335,7 +340,7 @@ def build_index(root: pathlib.Path) -> TestIndex:
     for file in tests:
         chain = [(owner, fixtures_of(owner)) for owner in [file, *conftest_chain(file, tree_root_names, conftests)]]
         reached[file.rel] = {qualname: (node, direct_targets(file, node, chain)) for qualname, node in test_functions(file)}
-    return TestIndex(root, sites, direct, tests, conftests, reached, {site.id: site for site in site_list}, parsed_sources)
+    return TestIndex(root, sites, direct, tests, conftests, reached, {site.id: site for site in site_list}, parsed_sources, aliases)
 
 
 def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:

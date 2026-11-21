@@ -1,6 +1,6 @@
 # Doc4 brief
 
-**Brief version:** 3
+**Brief version:** 4
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -46,6 +46,12 @@ against the code.
   is drift.
 - For an `(unresolved)` candidate, its section's other statements are
   judged by the thresholds above as well, not only its unresolved tokens.
+- A dated sentence inside an undated section is a record of that day for
+  its own statements only; the section's other statements are judged.
+- "Today" in an implemented spec is not a date: a sentence using it is
+  judged against the code like any other.
+- A drift that falls under several candidates of one section is reported
+  once, under the first of them in the batch's order whose span holds it.
 
 A threshold that this brief does not settle is not yours to decide: report
 it in your reply, name the candidate, and judge the rest as the brief says.

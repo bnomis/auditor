@@ -1,6 +1,6 @@
 # Listed Phase B test questions
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -186,6 +186,13 @@ bare name match without an import of the module or name is never evidence.
 `test_files` is, sorted: the mirrored test file (`src/<project>/<pkg>/<f>.py`
 -> `src/tests/<pkg>/test_<f>.py`) if it exists, every test file importing the
 candidate's module, and every test file importing a listed caller's module.
+Amendment 1.3 (decided by the operator on 2026-11-21, D7 of
+`agents/reviews/checker-requests-2026-11-21.md`): also every test file that
+imports a package re-export of the candidate by its own name
+(`from pkg import load`) or imports the module that re-exports it
+(`import pkg`). A file importing some other name from that package is not
+added. The T1 brief (version 2) counts a call through such a re-export as a
+call of the candidate, so a reviewer must see those files.
 
 ### Content hash
 

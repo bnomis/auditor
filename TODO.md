@@ -4,25 +4,6 @@ Open work only, in implementation order, nearest first. Finished items move to
 `DONE.md` unchanged. See the shared `todo-add` and `todo-review` skills for
 the shape of an item.
 
-## Ship or reject the three open checker requests
-
-Found on 2026-11-21 in a review of this file. `dfc34b2` filed three entries
-under `## Open` in `claude/skills/auditme/requests.md`, each raised by an
-audit the same day: "A user guide's parameter list is checked by nothing",
-"Listed briefs leave thresholds open that reviewers settle differently" and
-"D2 has no carve-out for type-stub packages and notebook kernels".
-
-Cause: the auditme skill (step 3, Mechanical sweep) lets no audit start while
-`## Open` has an entry, so these stand between the backlog item below and
-the first audit of this repository, and no item recorded them.
-
-Fix direction: for each entry, ship it (the check, brief threshold or
-predicate text, its tests, and the catch-up it exposes) or move it to
-`## Rejected` with the reason. The first entry adds or widens a check, so it
-goes through a spec first; the other two change brief and predicate text,
-each with a brief version bump where a brief changes. Do this before the
-backlog below, so the backlog's catch-up includes any new check's hits.
-
 ## Fix or accept this repository's audit backlog
 
 Found on 2026-11-21 when `pyproject.toml` first declared this repository's
@@ -45,3 +26,11 @@ gates every commit's changed files.
 Fix direction: fix or accept every hit, then put `pre-push` back on
 `auditme-all` (`stages: [manual, pre-push]`) and run the first audit of this
 repository.
+
+Note 2026-11-21: until this is done, every commit that changes a checker file
+is blocked by `auditme-changed` on the backlog hits already in that file (and
+in files a `literal-duplication` hit relates to it), whether or not the
+commit adds any. The commit that shipped the three checker requests added no
+hit (685 unaccepted before and after) and was made with
+`SKIP=auditme-changed`, as the operator chose; the next checker change meets
+the same block.
