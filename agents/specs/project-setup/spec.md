@@ -1,6 +1,6 @@
 # Project setup
 
-**Version:** 1.6
+**Version:** 1.7
 **Status:** implemented
 **Date:** 2026-10-31
 
@@ -73,6 +73,14 @@ design, not the project:
   moved out of the agents repository). The hook blocked only on exit 1, so a
   missing or dangling `~/.claude/skills/auditme` (status 2) or no `python3`
   (status 127) turned the end-of-session audit off without a word.
+- **The spec still named the agents repository** (amendment 1.7, found
+  2026-11-21 in a review of `TODO.md`). When the checker moved here,
+  `5a8eb69` moved the skill and its templates to `bnomis/auditor`,
+  `AUDITOR_DEPLOY_KEY` and the `github-auditor` alias, but this spec kept the
+  agents repository's hook block, upgrade command, secret, alias and
+  deploy-key steps. 1.7 matches them to the templates. The rules it cites
+  (`git-conventions.md`, `rule-scope.md`) stay in the agents repository and
+  are named as its.
 
 ## Module location
 
@@ -170,7 +178,8 @@ its own config (`stages: [manual, pre-push]` under `- id: auditme-all`). The
 manifest keeps `[manual]`, so a project adopted over a backlog is not blocked
 on every push. The push gate is switched on at the same moment as the CI gate:
 by `new` through the template, and by `adopt` only when the count is zero.
-This reconciles the spec with `claude/rules/git-conventions.md`, which runs
+This reconciles the spec with the agents repository's
+`claude/rules/git-conventions.md`, which runs
 whole-tree checks at `pre-push` and in CI, and gives the `pre-push` git hook
 that both `new` and the guide install a check to run. The sweep took 1-21
 seconds on the repositories measured on 2026-10-31, and each commit already
@@ -370,7 +379,7 @@ rejected: it leaves a marker someone must remember to remove.
 A project adds them by revision, which is what pins the checker:
 
 ```yaml
-- repo: git@github.com:bnomis/agents.git
+- repo: git@github.com:bnomis/auditor.git
   rev: <commit of this repository>
   hooks:
     - id: auditme-changed
@@ -380,7 +389,7 @@ A project adds them by revision, which is what pins the checker:
 `language: script` runs the file with its own `#!/usr/bin/env python3`, so the
 interpreter is the one on `PATH`, which must meet this repository's
 `requires-python`. Upgrading the checker is `pre-commit autoupdate --repo
-git@github.com:bnomis/agents.git` in the project: one commit, whose CI run shows
+git@github.com:bnomis/auditor.git` in the project: one commit, whose CI run shows
 the new rules' catch-up surface.
 
 #### CI
@@ -394,15 +403,15 @@ The CI step, in the project's workflow after its own setup:
 
 The repository is private, so the runner needs read access to it. Decided with
 the operator 2026-10-31: **a deploy key per project**. The project holds an
-`AGENTS_DEPLOY_KEY` secret, the private half of an SSH key added read-only to
+`AUDITOR_DEPLOY_KEY` secret, the private half of an SSH key added read-only to
 this repository's deploy keys, and its workflow installs it before pre-commit
 runs, with `Host github.com` / `IdentityFile` / `IdentitiesOnly yes` in
 `~/.ssh/config`. A project that already uses a deploy key for another private
 repository on the same host needs an `ssh` host alias per key, because GitHub
-admits one deploy key per repository; the template uses `github-agents` as the
+admits one deploy key per repository; the template uses `github-auditor` as the
 alias and rewrites the hook's URL to it with `git config --global
-url."git@github-agents:bnomis/agents.git".insteadOf
-"git@github.com:bnomis/agents.git"`.
+url."git@github-auditor:bnomis/auditor.git".insteadOf
+"git@github.com:bnomis/auditor.git"`.
 
 ### The Stop hook
 
@@ -467,9 +476,9 @@ committing) and never pushes.
    hooks`, when the operator agrees.
 
 **Deploy-key steps** (asked before each): `ssh-keygen -t ed25519 -N '' -f
-<scratch>/agents_deploy_key`; `gh repo deploy-key add <scratch>/agents_deploy_key.pub
---repo bnomis/agents --title <project>`; `gh secret set AGENTS_DEPLOY_KEY --repo
-<owner>/<project> < <scratch>/agents_deploy_key`; then delete both files. The
+<scratch>/auditor_deploy_key`; `gh repo deploy-key add <scratch>/auditor_deploy_key.pub
+--repo bnomis/auditor --title <project>`; `gh secret set AUDITOR_DEPLOY_KEY --repo
+<owner>/<project> < <scratch>/auditor_deploy_key`; then delete both files. The
 private key is never printed.
 
 ## Documentation
@@ -486,7 +495,8 @@ conversation or the project that motivated it, in this order:
    the `Stop` entry in `~/.claude/settings.json`).
 3. **A new user** - being given read access to this repository; their own SSH
    key; that rules and skills are shared and project specifics go in the
-   project's `claude/` directory (`claude/rules/rule-scope.md`).
+   project's `claude/` directory (the agents repository's
+   `claude/rules/rule-scope.md`).
 4. **A new project** - `/project-setup new`, what it writes, and the deploy key.
 5. **An existing project** - `/project-setup adopt`, the backlog step, and
    enabling the CI gate.
