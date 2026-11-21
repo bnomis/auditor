@@ -49,7 +49,7 @@ def root(project: Project) -> pathlib.Path:
 
 
 def write_results(run_dir: pathlib.Path, number: int, ids: list[str], missing: list[str] | None = None) -> None:
-    lines = [json.dumps({'id': item, 'missing': missing or [], 'extra': [], 'reason': 'ok'}) for item in ids]
+    lines = [json.dumps({'id': item, 'findings': {'missing': missing or [], 'extra': []}, 'reason': 'ok'}) for item in ids]
     (run_dir / f'result-{number:02d}.jsonl').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 

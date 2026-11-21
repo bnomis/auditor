@@ -5,7 +5,7 @@ import pathlib
 
 import pytest
 from auditme import phaseb
-from auditme.phaseb import batches
+from auditme.phaseb import batches, candidates
 
 
 def _candidate(name: str, hash_: str = 'h1') -> phaseb.Candidate:
@@ -80,7 +80,9 @@ def test_plan_json_and_batch_files(tmp_path: pathlib.Path) -> None:
 
 
 def _result_line(candidate_id: str, **overrides) -> str:
-    record = {'id': candidate_id, 'missing': [], 'extra': [], 'reason': 'ok'}
+    findings = {'missing': [], 'extra': []}
+    findings.update(overrides.pop('findings', {}))
+    record = {'id': candidate_id, 'findings': findings, 'reason': 'ok'}
     record.update(overrides)
     return json.dumps(record)
 
@@ -88,7 +90,7 @@ def _result_line(candidate_id: str, **overrides) -> str:
 def _planned(tmp_path: pathlib.Path) -> pathlib.Path:
     plan = batches.plan_batches([_candidate(name) for name in 'abcdef'], {}, 1, 2)
     run = tmp_path / 'run'
-    batches.write_plan('Q1', pathlib.Path('briefs/Q1.md'), 1, plan, run)
+    batches.write_plan('A4', pathlib.Path('briefs/A4.md'), 1, plan, run)
     return run
 
 
@@ -135,7 +137,7 @@ def test_unexpected_id_is_reported(tmp_path: pathlib.Path) -> None:
 def test_malformed_fields_are_reported_not_raised(tmp_path: pathlib.Path) -> None:
     run = _planned(tmp_path)
     _complete(run)
-    _write_result(run, 2, [_result_line('src/pkg/mod.py::c', missing='nope'), '[1]'])
+    _write_result(run, 2, [_result_line('src/pkg/mod.py::c', findings={'missing': 'nope'}), '[1]'])
     result = batches.check_run(run)
     assert result.retry == [2]
 
@@ -155,12 +157,12 @@ def test_read_run_verdicts_stamps_hash_brief_version_and_date(tmp_path: pathlib.
     candidates = [_candidate(name, f'hash-{name}') for name in 'ab']
     plan = batches.plan_batches(candidates, {}, 4, 10)
     run = tmp_path / 'run'
-    batches.write_plan('Q1', pathlib.Path('briefs/Q1.md'), 4, plan, run)
+    batches.write_plan('A4', pathlib.Path('briefs/A4.md'), 4, plan, run)
     _write_result(
         run,
         1,
         [
-            _result_line('src/pkg/mod.py::b', missing=['ProbeError'], reason='raises it'),
+            _result_line('src/pkg/mod.py::b', findings={'missing': ['ProbeError']}, reason='raises it'),
             _result_line('src/pkg/mod.py::a'),
         ],
     )
@@ -178,3 +180,46 @@ def test_read_run_verdicts_refuses_a_run_with_problems(tmp_path: pathlib.Path) -
     run = _planned(tmp_path)
     with pytest.raises(phaseb.PhaseBError):
         batches.read_run_verdicts(run, [], today='2026-02-03')
+
+
+def _one_candidate_run(tmp_path: pathlib.Path, question: str) -> pathlib.Path:
+    run = tmp_path / 'run'
+    batches.write_plan(question, pathlib.Path('briefs/x.md'), 1, [[_candidate('a')]], run)
+    return run
+
+
+def _line(findings: object, **extra: object) -> str:
+    return json.dumps({'id': 'src/pkg/mod.py::a', 'findings': findings, 'reason': 'ok', **extra})
+
+
+@pytest.mark.parametrize('question', sorted(candidates.REGISTRY))
+def test_every_registered_questions_shape_passes_and_reads_back_sorted(tmp_path: pathlib.Path, question: str) -> None:
+    kinds = phaseb.question_kinds(question)
+    run = _one_candidate_run(tmp_path, question)
+    findings: dict[str, list[str]] = {kind: [] for kind in kinds}
+    findings[kinds[0]] = ['zeta', 'alpha']
+    _write_result(run, 1, [_line(findings)])
+    result = batches.check_run(run)
+    assert result.problems == {}
+    assert result.retry == []
+    verdicts = batches.read_run_verdicts(run, [_candidate('a')], today='2026-02-03')
+    assert verdicts[0].findings == {**{kind: [] for kind in kinds}, kinds[0]: ['alpha', 'zeta']}
+
+
+@pytest.mark.parametrize(
+    'line',
+    [
+        _line({'missing': [], 'extra': [], 'bogus': []}),
+        _line({'missing': []}),
+        _line({'missing': 'x', 'extra': []}),
+        _line({'missing': [1], 'extra': []}),
+        _line({'missing': [], 'extra': []}, stray=1),
+        json.dumps({'id': 'src/pkg/mod.py::a', 'missing': [], 'extra': [], 'reason': 'ok'}),
+    ],
+)
+def test_malformed_findings_lines_are_unparseable(tmp_path: pathlib.Path, line: str) -> None:
+    run = _one_candidate_run(tmp_path, 'A4')
+    _write_result(run, 1, [line])
+    result = batches.check_run(run)
+    assert result.retry == [1]
+    assert any('unparseable' in problem for problem in result.problems[1])

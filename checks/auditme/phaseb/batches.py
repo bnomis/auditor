@@ -2,8 +2,9 @@
 
 `plan_batches` picks the candidates that need a verdict; `write_plan` writes
 them as `batch-NN.jsonl` beside a `plan.json`. A reviewer writes one
-`result-NN.jsonl` per batch, one JSON line per candidate with `id`, `missing`,
-`extra` and `reason`. `check_run` reports each problem in those results
+`result-NN.jsonl` per batch, one JSON line per candidate with `id`,
+`findings` (one list of strings per kind registered for the question) and
+`reason`. `check_run` reports each problem in those results
 instead of raising, so the orchestrator can retry the batch.
 """
 
@@ -13,7 +14,7 @@ import json
 import pathlib
 import typing
 
-from auditme.phaseb.candidates import Candidate, Verdict
+from auditme.phaseb.candidates import Candidate, Verdict, question_kinds
 from auditme.phaseb.errors import PhaseBError
 
 PLAN_NAME = 'plan.json'
@@ -127,27 +128,32 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
     return Plan(document['question'], document['brief'], document['brief_version'], planned)
 
 
-def parse_result(line: str) -> dict[str, typing.Any]:
-    """Parse one result line, returning the record.
+def parse_result(line: str, kinds: tuple[str, ...]) -> dict[str, typing.Any]:
+    """Parse one result line against a question's finding kinds, returning the record.
 
     Raises:
-        ValueError: the line is not a JSON object with the expected fields.
+        ValueError: the line is not a JSON object of exactly `id`, `findings`
+            and `reason`, or `findings` is not one list of strings per kind.
     """
     record = json.loads(line)
     if not isinstance(record, dict):
         raise ValueError('not a JSON object')
-    if not isinstance(record.get('id'), str):
+    if set(record) != {'id', 'findings', 'reason'}:
+        raise ValueError('keys must be exactly id, findings and reason')
+    if not isinstance(record['id'], str):
         raise ValueError('id must be a string')
-    for key in ('missing', 'extra'):
-        names = record.get(key)
+    findings = record['findings']
+    if not isinstance(findings, dict) or set(findings) != set(kinds):
+        raise ValueError(f'findings must have exactly the kinds {list(kinds)}')
+    for kind, names in findings.items():
         if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
-            raise ValueError(f'{key} must be a list of strings')
-    if not isinstance(record.get('reason'), str):
+            raise ValueError(f'findings {kind} must be a list of strings')
+    if not isinstance(record['reason'], str):
         raise ValueError('reason must be a string')
     return record
 
 
-def check_batch(run_dir: pathlib.Path, number: int, ids: list[str]) -> tuple[list[str], list[dict[str, typing.Any]]]:
+def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple[str, ...]) -> tuple[list[str], list[dict[str, typing.Any]]]:
     """Return a batch's problems and its valid result records."""
     path = result_path(run_dir, number)
     if not path.is_file():
@@ -164,7 +170,7 @@ def check_batch(run_dir: pathlib.Path, number: int, ids: list[str]) -> tuple[lis
         if not line.strip():
             continue
         try:
-            record = parse_result(line)
+            record = parse_result(line, kinds)
         except ValueError as error:
             problems.append(f'unparseable line {line_number} in {path.name}: {error}')
             continue
@@ -188,12 +194,13 @@ def check_run(run_dir: pathlib.Path) -> RunCheck:
     malformed output is reported, not raised.
 
     Raises:
-        PhaseBError: the plan cannot be read.
+        PhaseBError: the plan cannot be read or names an unregistered question.
     """
     plan = read_plan(run_dir)
+    kinds = question_kinds(plan.question)
     problems: dict[int, list[str]] = {}
     for number, ids in enumerate(plan.batches, start=1):
-        found, _ = check_batch(run_dir, number, ids)
+        found, _ = check_batch(run_dir, number, ids, kinds)
         if found:
             problems[number] = found
     return RunCheck(problems=problems)
@@ -213,11 +220,12 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
     problems = check_run(run_dir).problems
     if problems:
         raise PhaseBError(f'run in {run_dir} has problems in batches {sorted(problems)}; run check and retry them')
+    kinds = question_kinds(plan.question)
     by_id = {candidate.id: candidate for candidate in candidates}
     stamp = today or datetime.date.today().isoformat()
     verdicts: list[Verdict] = []
     for number, ids in enumerate(plan.batches, start=1):
-        _, records = check_batch(run_dir, number, ids)
+        _, records = check_batch(run_dir, number, ids, kinds)
         for record in records:
             candidate = by_id.get(str(record['id']))
             if candidate is None:
@@ -228,7 +236,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
                     id=candidate.id,
                     hash=candidate.hash,
                     brief_version=plan.brief_version,
-                    findings={'missing': sorted(record['missing']), 'extra': sorted(record['extra'])},
+                    findings={kind: sorted(record['findings'][kind]) for kind in kinds},
                     reason=str(record['reason']),
                     judged=stamp,
                 )
