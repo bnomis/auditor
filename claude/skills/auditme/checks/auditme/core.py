@@ -644,27 +644,103 @@ def all_names(path: pathlib.Path) -> set[str] | None:
     return names
 
 
-def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
-    """Whether the function or class qualname in module is private (decision 1).
+PRIVACY_ALL = 'all'
+PRIVACY_SCRIPT = 'script'
+PRIVACY_UNDERSCORE = 'underscore'
 
-    The files that count are module's own `__all__` and the `__all__` of every
-    package `__init__.py` above it. Public when any of them names qualname's
-    first segment; private when at least one of them has an `__all__` and none
-    names it; where none has an `__all__`, private when a segment of qualname
-    or module starts with an underscore (clarified in 1.2).
+
+def surface_files(module: str, root: pathlib.Path) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
+    """The files whose `__all__` count for module, and module's own candidate files.
+
+    The first list holds module's own file and every package `__init__.py`
+    above it; the second only module's own file (`<part>.py` or a package's
+    `__init__.py`). A root declared `top-level` holds its modules directly, so
+    a module there is `<root>/<module>.py`. Files that do not exist are kept;
+    readers skip them.
     """
     first, *rest = module.split('.')
     files: list[pathlib.Path] = []
-    for pkg_root in (r for r in audit_roots(root) if r.name == first):
-        files.append(pkg_root / '__init__.py')
-        current = pkg_root
+    own: list[pathlib.Path] = []
+    for src_root in audit_roots(root):
+        if ROOT_MODULES.get(src_root) == TOP_LEVEL:
+            if not rest:
+                files.append(src_root / f'{first}.py')
+                own.append(src_root / f'{first}.py')
+            continue
+        if src_root.name != first:
+            continue
+        files.append(src_root / '__init__.py')
+        current = src_root
         for index, part in enumerate(rest):
             if index == len(rest) - 1:
                 files.append(current / f'{part}.py')
+                own.append(current / f'{part}.py')
             current = current / part
             files.append(current / '__init__.py')
+        own.append(current / '__init__.py')
+    return files, own
+
+
+def is_main_guard(node: ast.stmt) -> bool:
+    """True for a top-level `if __name__ == '__main__':`, either way round."""
+    if not isinstance(node, ast.If) or not isinstance(node.test, ast.Compare) or len(node.test.ops) != 1:
+        return False
+    if not isinstance(node.test.ops[0], ast.Eq):
+        return False
+    sides = [node.test.left, node.test.comparators[0]]
+    has_name = any(isinstance(s, ast.Name) and s.id == '__name__' for s in sides)
+    has_main = any(isinstance(s, ast.Constant) and s.value == '__main__' for s in sides)
+    return has_name and has_main
+
+
+def script_entry_points(path: pathlib.Path) -> set[str] | None:
+    """The names a standalone script's `__main__` guard calls, or None when path is no script.
+
+    A script is a file outside any package (no `__init__.py` beside it) with a
+    top-level `if __name__ == '__main__':`; the guard is the positive evidence,
+    so a loose module that is only ever imported stays under the underscore
+    rule. The entry points are the bare names the guard calls (`main`, also
+    inside `sys.exit(main())`).
+    """
+    if not path.is_file() or path.name == '__init__.py' or (path.parent / '__init__.py').exists():
+        return None
+    try:
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+    except SyntaxError, UnicodeDecodeError:
+        return None
+    guards = [node for node in tree.body if is_main_guard(node)]
+    if not guards:
+        return None
+    return {n.func.id for guard in guards for n in ast.walk(guard) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+
+
+def privacy(qualname: str, module: str, root: pathlib.Path) -> tuple[bool, str]:
+    """Whether the function or class qualname in module is private, and the rule that decided.
+
+    The rules, first that applies (decision 1, clarified 2026-11-21):
+
+    - `all`: module's own `__all__` and the `__all__` of every package
+      `__init__.py` above it. Public when any of them names qualname's first
+      segment; private when at least one has an `__all__` and none names it.
+    - `script`: a standalone script (see `script_entry_points`) with no
+      `__all__`. Public only when qualname's first segment is a name its
+      `__main__` guard calls; every other function is private.
+    - `underscore`: where nothing is declared, private when a segment of
+      qualname or module starts with an underscore (clarified in 1.2).
+    """
+    files, own = surface_files(module, root)
+    first = qualname.split('.')[0]
     found = [names for names in (all_names(f) for f in files) if names is not None]
     if found:
-        return qualname.split('.')[0] not in set().union(*found)
+        return first not in set().union(*found), PRIVACY_ALL
+    for path in own:
+        entry_points = script_entry_points(path)
+        if entry_points is not None:
+            return first not in entry_points, PRIVACY_SCRIPT
     segments = qualname.split('.') + module.split('.')
-    return any(s.startswith('_') and not (s.startswith('__') and s.endswith('__')) for s in segments)
+    return any(s.startswith('_') and not (s.startswith('__') and s.endswith('__')) for s in segments), PRIVACY_UNDERSCORE
+
+
+def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
+    """Whether the function or class qualname in module is private; see `privacy`."""
+    return privacy(qualname, module, root)[0]

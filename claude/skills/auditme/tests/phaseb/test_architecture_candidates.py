@@ -686,6 +686,22 @@ def test_a1_lists_the_callers_of_a_nested_helper(project: Project) -> None:
     assert [caller['caller'] for caller in payload['callers']] == ['load']
 
 
+def test_a1_names_why_a_helper_is_a_helper(project: Project) -> None:
+    assert run_a1(write_a1_project(project, A1_HELPER))['src/pkg/mod.py::_read::call:open#1'].payload['privacy'] == 'underscore'
+    assert run_a1(write_a1_project(project, A1_NESTED))['src/pkg/mod.py::load.read::call:open#1'].payload['privacy'] == 'nested'
+
+
+def test_a1_lists_the_callers_of_a_script_helper(project: Project) -> None:
+    script = (
+        'import sys\n\n\nclass ProbeError(Exception):\n    pass\n\n\ndef read(path):\n    return open(path).read()\n\n\n'
+        'def main():\n    try:\n        return read(sys.argv[1])\n    except OSError as error:\n        raise ProbeError(str(error)) from error\n\n\n'
+        "if __name__ == '__main__':\n    main()\n"
+    )
+    payload = run_a1(project({'bin/probe.py': script}))['bin/probe.py::read::call:open#1'].payload
+    assert payload['privacy'] == 'script'
+    assert [caller['caller'] for caller in payload['callers']] == ['main']
+
+
 def test_a1_public_helper_has_no_callers_key(project: Project) -> None:
     found = run_a1(write_a1_project(project, A1_HELPER.replace('_read', 'read_it')))
     assert 'callers' not in found['src/pkg/mod.py::read_it::call:open#1'].payload

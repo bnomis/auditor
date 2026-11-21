@@ -765,7 +765,8 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     """List every function or method whose own body branches, with the tests that reach it.
 
     Each carries its reasons, its direct and caller tests, its callers to
-    `depth`, its `test_files` and whether it is private. The hash is a sha256
+    `depth`, its `test_files`, whether it is private and the `privacy` rule
+    that decided it (`auditme.core.privacy`). The hash is a sha256
     over its source then each `test_files` file's text in path order,
     NUL-separated. `@typing.overload` stubs and defs under `if TYPE_CHECKING:`
     are left out.
@@ -787,6 +788,7 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
             continue
         test_files = index.test_files(site.id, depth)
         parts = [site.source.encode('utf-8'), *read_test_files(scope, test_files)]
+        private, rule = auditme.core.privacy(site.qualname.removeprefix(f'{site.module}.'), site.module, scope)
         found.append(
             Candidate(
                 question='T1',
@@ -799,7 +801,8 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
                     'tests': [dataclasses.asdict(ref) for ref in refs.get(site.id, ())],
                     'callers': index.callers(site.id, depth),
                     'test_files': test_files,
-                    'private': auditme.core.is_private(site.qualname.removeprefix(f'{site.module}.'), site.module, scope),
+                    'private': private,
+                    'privacy': rule,
                 },
                 hash=digest(parts),
             )

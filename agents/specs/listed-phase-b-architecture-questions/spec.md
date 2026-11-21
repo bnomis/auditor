@@ -1,6 +1,6 @@
 # Listed Phase B architecture questions
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -179,7 +179,10 @@ module that imports one of those clients. A test file is `test_*.py`,
 translating decorator or `with` contextmanager on the function, from
 `translator_envelopes`, with what it catches), `domain_errors` (sorted
 names), and for a call in a private or nested helper `callers` (each
-resolved call site of the helper with its enclosing envelope, or null).
+resolved call site of the helper with its enclosing envelope, or null) and
+`privacy`, why the function counts as a helper: `nested`, or the rule of the
+test-questions spec's `privacy` that marks it private (`all`, `script` or
+`underscore`; amendment 1.3, 2026-11-21, A1 brief version 2).
 Hash: the enclosing function's source, each envelope's source, the domain
 error names, and each listed caller's source.
 

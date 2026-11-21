@@ -273,6 +273,65 @@ def test_is_private_reads_an_annotated_all(project: Builder) -> None:
     assert auditme.core.is_private('other', 'pkg.mod', root)
 
 
+SCRIPT = (
+    "import sys\n\n\ndef helper() -> int:\n    return 0\n\n\ndef main() -> int:\n    return helper()\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n"
+)
+
+
+def test_privacy_names_the_all_rule(project: Builder) -> None:
+    root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
+    assert auditme.core.privacy('load', 'pkg.mod', root) == (False, auditme.core.PRIVACY_ALL)
+    assert auditme.core.privacy('helper', 'pkg.mod', root) == (True, auditme.core.PRIVACY_ALL)
+
+
+def test_privacy_a_script_is_public_only_through_its_main_guard(project: Builder) -> None:
+    root = project({'bin/probe-run.py': SCRIPT})
+    assert auditme.core.privacy('main', 'bin.probe-run', root) == (False, auditme.core.PRIVACY_SCRIPT)
+    assert auditme.core.privacy('helper', 'bin.probe-run', root) == (True, auditme.core.PRIVACY_SCRIPT)
+
+
+def test_privacy_reads_the_guard_either_way_round(project: Builder) -> None:
+    root = project({'bin/probe.py': SCRIPT.replace("__name__ == '__main__'", "'__main__' == __name__")})
+    assert auditme.core.privacy('helper', 'bin.probe', root) == (True, auditme.core.PRIVACY_SCRIPT)
+
+
+def test_privacy_a_scripts_own_all_wins_over_its_guard(project: Builder) -> None:
+    root = project({'bin/probe.py': "__all__ = ['helper']\n" + SCRIPT})
+    assert auditme.core.privacy('helper', 'bin.probe', root) == (False, auditme.core.PRIVACY_ALL)
+    assert auditme.core.privacy('main', 'bin.probe', root) == (True, auditme.core.PRIVACY_ALL)
+
+
+def test_privacy_a_module_without_a_guard_falls_back_to_underscores(project: Builder) -> None:
+    root = project({'bin/probe.py': 'def helper() -> int:\n    return 0\n'})
+    assert auditme.core.privacy('helper', 'bin.probe', root) == (False, auditme.core.PRIVACY_UNDERSCORE)
+
+
+def test_privacy_a_guarded_module_inside_a_package_is_no_script(project: Builder) -> None:
+    root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': SCRIPT})
+    assert auditme.core.privacy('helper', 'pkg.mod', root) == (False, auditme.core.PRIVACY_UNDERSCORE)
+
+
+def test_privacy_reads_a_script_in_a_top_level_root(project: Builder) -> None:
+    root = project(
+        {
+            'pyproject.toml': "[tool.auditme]\nroots = [{path = 'scripts', modules = 'top-level'}]\n",
+            'scripts/probe.py': SCRIPT,
+        }
+    )
+    assert auditme.core.privacy('helper', 'probe', root) == (True, auditme.core.PRIVACY_SCRIPT)
+    assert auditme.core.privacy('main', 'probe', root) == (False, auditme.core.PRIVACY_SCRIPT)
+
+
+def test_privacy_reads_the_all_of_a_module_in_a_top_level_root(project: Builder) -> None:
+    root = project(
+        {
+            'pyproject.toml': "[tool.auditme]\nroots = [{path = 'lib', modules = 'top-level'}]\n",
+            'lib/probe.py': "__all__ = ['load']\n" + NO_ALL,
+        }
+    )
+    assert auditme.core.privacy('other', 'probe', root) == (True, auditme.core.PRIVACY_ALL)
+
+
 def test_describe_error_appends_the_chained_cause() -> None:
     try:
         try:

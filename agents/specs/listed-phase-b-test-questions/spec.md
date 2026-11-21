@@ -1,6 +1,6 @@
 # Listed Phase B test questions
 
-**Version:** 1.3
+**Version:** 1.4
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -88,15 +88,23 @@ def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, .
     """
 
 
-def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
-    """Whether the function or class qualname in module is private (decision 1).
+def privacy(qualname: str, module: str, root: pathlib.Path) -> tuple[bool, str]:
+    """Whether the function or class qualname in module is private, and the rule that decided.
 
-    The files that count are module's own `__all__` and the `__all__` of every
-    package `__init__.py` above it. Public when any of them names qualname's
-    first segment; private when at least one of them has an `__all__` and none
-    names it; where none has an `__all__`, private when a segment of qualname
-    or module starts with an underscore (clarified in 1.2).
+    The rules, first that applies (decision 1, amended in 1.4):
+
+    - `all`: module's own `__all__` and the `__all__` of every package
+      `__init__.py` above it. Public when any of them names qualname's first
+      segment; private when at least one has an `__all__` and none names it.
+    - `script`: a standalone script with no `__all__`. Public only when
+      qualname's first segment is a name its `__main__` guard calls.
+    - `underscore`: where nothing is declared, private when a segment of
+      qualname or module starts with an underscore (clarified in 1.2).
     """
+
+
+def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
+    """`privacy(...)[0]`."""
 
 
 def t1_reasons(node: ast.FunctionDef | ast.AsyncFunctionDef, cls: ast.ClassDef | None) -> list[str]:
@@ -194,6 +202,21 @@ imports a package re-export of the candidate by its own name
 added. The T1 brief (version 2) counts a call through such a re-export as a
 call of the candidate, so a reviewer must see those files.
 
+Amendment 1.4 (2026-11-21, from a request in
+`claude/skills/auditme/requests.md` raised by one project's full audit): a
+project that bans leading underscores and has no `__all__` in its `bin/`
+scripts had no private names there, so every helper of a script was a public
+function its tests reached only through `main()`. `privacy` now reads a
+standalone script's surface: a file outside any package (no `__init__.py`
+beside it) with a top-level `if __name__ == '__main__':` is a script, and only
+the bare names that guard calls are public. The guard is the positive
+evidence; a loose module without one, such as a helper module the scripts
+import, stays under the underscore rule. A script's own `__all__` still wins.
+A module in a root declared `top-level` is now found at `<root>/<module>.py`,
+so its `__all__` and guard are read too. The T1 brief (version 3) lets a test
+that loads a script by path and runs an entry point that reaches a `script`
+candidate count as its caller test.
+
 ### Content hash
 
 sha256 over, NUL-separated: the candidate's source; for T2 each `types`
@@ -212,7 +235,9 @@ reported, not decided, and the security rule every subagent brief carries.
 - `T1.md`: findings `{"missing": ["test case"]}` or `{"missing": []}`.
   Covered when a listed `direct` test calls it, or, for a function
   `is_private` marks private, a `caller` test reaches it (decisions 1 and
-  2). The payload carries `private: bool`. An
+  2). The payload carries `private: bool` and `privacy`, the rule that
+  decided it; the reason names the rule whenever it decides the verdict
+  (brief version 3, amendment 1.4). An
   unconditionally skipped or `xfail` test does not count. The reason names
   the covering test's id.
 - `T2.md`: findings `{"missing": ["property test"]}` or `{"missing": []}`.

@@ -221,6 +221,22 @@ def test_private_is_the_answer_of_is_private(project: Project) -> None:
     assert found['src/pkg/mod.py::load'].payload['private'] is False
 
 
+def test_privacy_names_the_rule_that_decided_private(project: Project) -> None:
+    found = run_t1(project(BASE))
+    assert found['src/pkg/mod.py::_inner'].payload['privacy'] == 'underscore'
+
+
+def test_a_script_helper_is_private_by_the_script_rule(project: Project) -> None:
+    script = (
+        'import sys\n\n\ndef helper(x):\n    if x:\n        return 1\n    return 0\n\n\n'
+        'def main():\n    if sys.argv:\n        return helper(1)\n    return 0\n\n\n'
+        "if __name__ == '__main__':\n    sys.exit(main())\n"
+    )
+    found = run_t1(project({'bin/probe.py': script}))
+    assert (found['bin/probe.py::helper'].payload['private'], found['bin/probe.py::helper'].payload['privacy']) == (True, 'script')
+    assert (found['bin/probe.py::main'].payload['private'], found['bin/probe.py::main'].payload['privacy']) == (False, 'script')
+
+
 def test_no_test_tree_lists_candidates_with_no_tests(project: Project) -> None:
     root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': MOD})
     candidate = run_t1(root)['src/pkg/mod.py::load']

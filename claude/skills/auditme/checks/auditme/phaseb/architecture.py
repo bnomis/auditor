@@ -589,12 +589,26 @@ def a1_anchor_lines(site: CallSite) -> list[int]:
     return lines
 
 
+def a1_helper_privacy(helper: Scope, module: str, scope: pathlib.Path) -> str | None:
+    """Why the function a call sits in is a helper: `nested`, or the `privacy` rule that marks it private.
+
+    None when the call sits in no function, or in one that is public.
+    """
+    if helper.function is None:
+        return None
+    if helper.nested:
+        return 'nested'
+    private, rule = auditme.core.privacy(helper.qualname, module, scope)
+    return rule if private else None
+
+
 @candidates.register_question('A1', A1_BRIEF, ('call',))
 def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     """Every external call in a package with a domain error that the sweep does not already report.
 
     A call in a private or nested helper lists its resolved callers, because
-    whether the helper is covered depends on how each caller calls it. Test
+    whether the helper is covered depends on how each caller calls it, and
+    `privacy`, the reason it counts as a helper (`a1_helper_privacy`). Test
     files are neither listed nor counted as callers.
     """
     files = parse_audited_files(scope)
@@ -640,7 +654,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                 and other.scope.qualname != helper.qualname
                 and (other.scope.qualname == parent or other.scope.qualname.startswith(f'{parent}.'))
             ]
-        return callers_of.get(f'{file.module}.{helper.qualname}', []) if auditme.core.is_private(helper.qualname, file.module, scope) else []
+        return callers_of.get(f'{file.module}.{helper.qualname}', [])
 
     found: list[candidates.Candidate] = []
     for file in files:
@@ -667,12 +681,10 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                 'envelopes': [{'name': name, 'catches': sorted(catches[name])} for name in names],
                 'domain_errors': errors,
             }
-            helper_sites = (
-                caller_entries(file, site)
-                if site.scope.function is not None and (site.scope.nested or auditme.core.is_private(site.scope.qualname, file.module, scope))
-                else None
-            )
+            helper_privacy = a1_helper_privacy(site.scope, file.module, scope)
+            helper_sites = caller_entries(file, site) if helper_privacy is not None else None
             if helper_sites is not None:
+                payload['privacy'] = helper_privacy
                 ordered = sorted(helper_sites, key=lambda entry: (entry[0].rel, entry[1].call.lineno))
                 payload['callers'] = [
                     {'at': f'{caller_file.rel}:{caller.call.lineno}', 'caller': caller.scope.qualname, 'envelope': site_envelope(caller, catches, caller_file)}
