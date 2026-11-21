@@ -94,7 +94,7 @@ every later task's Definition of Done uses.
 
 ## Task 3: Fix spec drift and the five spec-template gaps
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** F6, F20, D6
@@ -103,19 +103,19 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Fix each Doc4 site listed in `agents/audit-reviews/review-1.md` (21): the renamed helpers (`reach_sites`, `handler_passes_on`, `extract_string_eq_var`, `corpus_definitions`), `check_ruff_version` in `PROJECT_CHECKS`, `check_run`'s raises, `PhaseBError`'s module, the `--batch-size` default, the `--depth` setting, `DocTarget`'s kinds, the hashing of a def, the raise chain's form and the overtaken brief-version lines; where a spec records history, add a dated amendment line rather than rewriting the record
-- [ ] `agents/specs/listed-phase-b-architecture-questions/spec.md:257` and `agents/specs/listed-phase-b-documentation-questions/spec.md:253`: give each setting a type and default in the Settings section
-- [ ] `agents/specs/project-setup/spec.md`: add a Settings section for its options (`--base`, `--all`, `--package`, `--extra-root`, the declared roots, the Stop hook opt-in)
-- [ ] `agents/specs/listed-phase-b-test-questions/spec.md:60` and `:298`: link `../listed-phase-b-architecture-questions/spec.md`
+- [x] Fix each Doc4 site listed in `agents/audit-reviews/review-1.md` (21): the renamed helpers (`reach_sites`, `handler_passes_on`, `extract_string_eq_var`, `corpus_definitions`), `check_ruff_version` in `PROJECT_CHECKS`, `check_run`'s raises, `PhaseBError`'s module, the `--batch-size` default, the `--depth` setting, `DocTarget`'s kinds, the hashing of a def, the raise chain's form and the overtaken brief-version lines; where a spec records history, add a dated amendment line rather than rewriting the record
+- [x] `agents/specs/listed-phase-b-architecture-questions/spec.md:257` and `agents/specs/listed-phase-b-documentation-questions/spec.md:253`: give each setting a type and default in the Settings section
+- [x] `agents/specs/project-setup/spec.md`: add a Settings section for its options (`--base`, `--all`, `--package`, `--extra-root`, the declared roots, the Stop hook opt-in)
+- [x] `agents/specs/listed-phase-b-test-questions/spec.md:60` and `:298`: link `../listed-phase-b-architecture-questions/spec.md`
 
 **Acceptance Criteria:**
 
-- [ ] Every Doc4 site in the review is fixed or carries an amendment line
-- [ ] The five template gaps are closed; the 14 dismissed ones are untouched
+- [x] Every Doc4 site in the review is fixed or carries an amendment line
+- [x] The five template gaps are closed; the 14 dismissed ones are untouched
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 

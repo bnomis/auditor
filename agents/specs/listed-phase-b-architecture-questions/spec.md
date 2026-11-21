@@ -56,7 +56,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
 - `claude/skills/auditme/checks/auditme/core.py` - the corpus read index moved from `rules/state_and_effects.py` (see Hoists)
 - `checks/auditme/rules/error_handling.py`, `rules/state_and_effects.py` -
   site finders made public (see Hoists)
-- `claude/skills/auditme/phaseb/briefs/{A11,A19,A1,A17}.md` - briefs, version 1
+- `claude/skills/auditme/phaseb/briefs/{A11,A19,A1,A17}.md` - briefs, version 1 when written; the A1 brief is at version 2 (amendment 1.3)
 - `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py` - tests
 - `claude/skills/auditme/SKILL.md` - names the new listed questions
 
@@ -110,7 +110,7 @@ module. No rule's output and no existing test changes.
 
 - `if_chain` is the chain walk inside `check_assert_never_missing`
   (`rules/state_and_effects.py`), with the subject test as a parameter; the
-  rule passes `_extract_string_eq_var`.
+  rule passes `extract_string_eq_var`.
 - `is_broad_handler` replaces the copied handler-type test in
   `check_silent_broad_except` and `check_broad_except_wrong_level`
   (`rules/error_handling.py`).
@@ -256,8 +256,14 @@ new caller without an envelope re-plans it; an unparseable file raises
 
 ## Settings
 
-None new. `--question` accepts `A11`, `A19`, `A1` and `A17`; `--batch-size`
-keeps its default of 48; `--depth` applies to A4 only.
+None new. Command-line options of `phaseb.py`; the lister of each question takes the
+ones that apply to it.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--question` | `str` | none, required | `A11`, `A19`, `A1` or `A17` here, as well as the questions of the other specs |
+| `--batch-size` | `int` | the question's registered size (48 for A4) | Candidates per reviewer |
+| `--depth` | `int` | `3` | How far callees are followed; `list_candidates` hands it to any lister that takes a depth (A4, T1, T2) |
 
 ## External dependencies
 

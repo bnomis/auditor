@@ -57,7 +57,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
 - `claude/skills/auditme/SKILL.md`: T1 and T2 named as listed
 
 `claude/skills/auditme/checks/auditme/core.py` gains `is_private` (see
-API), which the architecture-questions spec reuses.
+API), which [the architecture-questions spec](../listed-phase-b-architecture-questions/spec.md) reuses.
 
 Reused, not copied: `audit_roots` and `module_dotted` (`core.py`), the
 shared resolver, `walk_within_scope` (`rules/error_handling.py`) and
@@ -229,7 +229,7 @@ brief says so, and `--rejudge` covers it.
 
 Each has the question verbatim, its thresholds, the input format, the output
 (one JSON line per candidate with `id`, `findings`, `reason`, none left out)
-and `**Brief version:** 1`, plus the rule that an unsettled threshold is
+and `**Brief version:** N` (1 when written; T1 is at 3, amendment 1.4), plus the rule that an unsettled threshold is
 reported, not decided, and the security rule every subagent brief carries.
 
 - `T1.md`: findings `{"missing": ["test case"]}` or `{"missing": []}`.
@@ -295,7 +295,7 @@ Answered on the review page of
    a package without `__all__`. The shared coding standard forbids leading
    underscores and asks for `__all__`, so an underscore test alone would
    find nothing private in a project that follows it. `is_private` in
-   `core.py` holds the rule, for this spec and the architecture-questions
+   `core.py` holds the rule, for this spec and the [architecture-questions](../listed-phase-b-architecture-questions/spec.md)
    spec.
 2. **A caller's test and a public T1 candidate (D7):** a public candidate
    needs a `direct` test; a private one may be covered through a caller,

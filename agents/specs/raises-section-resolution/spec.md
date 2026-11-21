@@ -40,11 +40,11 @@ Task 1 of `agents/tasks/repeatable-phase-b/tasks-1.md`
 merged: the rule's call resolution (inner `resolve`, the re-export alias
 table, the import bindings) is a shared helper in
 `claude/skills/auditme/checks/auditme/core.py` taking
-`class_methods: bool = False`, called by the rule at the default. Check:
+`class_methods: bool = False`, called by the rule (amendment 2026-11-21: with `class_methods=True`, as the A4 lister does). Check:
 `grep -n 'class_methods' claude/skills/auditme/checks/auditme/core.py` prints
-the helper's signature, and the same grep on
-`claude/skills/auditme/checks/auditme/rules/error_handling.py` prints
-nothing. Otherwise the first task stops as `blocked`. Below, "the resolver"
+the helper's signature (at the time of writing the same grep on
+`claude/skills/auditme/checks/auditme/rules/error_handling.py` printed
+nothing; it now prints the rule's calls with `class_methods=True`). Otherwise the first task stops as `blocked`. Below, "the resolver"
 means that helper, under whatever name Task 1 gave it.
 
 ## Module location
@@ -110,7 +110,7 @@ them.
 `escapes(f, hop, chain)` walks `nested_call_sites(f)`:
 
 - a `raise` of a domain error that `f`'s handlers at that site do not catch
-  escapes, with chain `(f,)`;
+  escapes, with chain `(f, '')`, the trailing `''` marking the raiser (amendment 2026-11-21: 1.0 gave `(f,)`);
 - only while `hop < SECTIONLESS_DEPTH`, each call resolving to a function
   not in `chain` and not `f` adds, minus what `f`'s handlers at that site
   catch: for a callee with a section, its declared domain errors not skipped

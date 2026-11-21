@@ -97,8 +97,8 @@ The call resolution `check_raises_section_drift` uses (its inner `resolve`
 and the alias table) moves to a shared helper in `checks/auditme/core.py`, so
 the rule and the A4 lister resolve calls the same way. The helper takes a
 `class_methods: bool = False` flag: the lister passes `True` to resolve
-`<ClassName>.<method>(...)`; the rule keeps the default, so its output does
-not change.
+`<ClassName>.<method>(...)`; the rule kept the default when this was written, so its output did
+not change (amendment 2026-11-21: the rule now passes `class_methods=True`).
 
 ## API
 
@@ -180,7 +180,11 @@ def check_run(run_dir: pathlib.Path) -> RunCheck:
     """Check every planned batch has exactly one valid verdict per candidate.
 
     Returns the problems per batch (no output, unparseable line, missing,
-    duplicate or unexpected id) and the batches to retry; raises nothing.
+    duplicate or unexpected id) and the batches to retry.
+
+    Raises:
+        PhaseBError: the plan cannot be read or names an unregistered
+            question (amendment 2026-11-21: 1.2 said it raised nothing).
     """
 
 
@@ -216,7 +220,8 @@ read.
 
 ## Error handling
 
-- `PhaseBError` (in `phaseb/__init__.py`) for an unknown question, a ledger
+- `PhaseBError` (defined in `phaseb/errors.py`, re-exported by
+  `phaseb/__init__.py`) for an unknown question, a ledger
   or plan that exists but cannot be read or parsed, or a write that fails. A
   ledger that cannot be read is never treated as empty: an empty ledger
   re-judges everything, and a later merge would overwrite the real one.
@@ -287,6 +292,9 @@ which `check_run` reports against its batch, as today. `read_run_verdicts`
 stores `findings` as the line gives it, each list sorted. The kinds each
 question registers:
 
+Brief versions below are those 1.2 set; amendment 2026-11-21: the briefs have
+since moved on (run `grep -n 'Brief version' claude/skills/auditme/phaseb/briefs/*.md`).
+
 | Question | Kinds | Brief version |
 |---|---|---|
 | A4 | `missing`, `extra` | 3 (output moves under `findings`) |
@@ -347,7 +355,7 @@ Command-line options only; the skill has no configuration file.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--question` | `str` | none, required | The Phase B question, e.g. `A4` |
-| `--batch-size` | `int` | `48` | Candidates per reviewer; the pilot's size |
+| `--batch-size` | `int` | the question's registered size | Candidates per reviewer; 48 for A4 (the pilot's size), smaller for the documentation and AGENTS.md questions |
 | `--depth` | `int` | `3` | How far callees are followed for the callee list and the hash |
 | `--rejudge` | flag | off | Plan every candidate, ignoring the ledger |
 

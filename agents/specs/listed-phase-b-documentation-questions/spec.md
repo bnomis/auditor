@@ -59,7 +59,7 @@ class DocSection:
 
 @dataclasses.dataclass(frozen=True)
 class DocTarget:
-    """What a name resolves to; kind is function, class, method, setting, option, file or directory."""
+    """What a name resolves to; kind is function, class, method, setting, option, field, file or directory."""
 
     kind: str
     id: str  # 'path::qualname', or 'path' for a file or directory
@@ -107,7 +107,7 @@ uses the registered batch size when `--batch-size` is not given.
   skips an unreadable file: a vanished candidate is dropped from the ledger
   at the next merge, so a silent skip would delete verdicts.
 - A Python file with a syntax error is skipped by the index, as
-  `_source_definitions` does now; the sweep's ruff hit reports it.
+  `corpus_definitions` in `core.py` does (amendment 2026-11-21: hoisted from `_source_definitions`); the sweep's ruff hit reports it.
 - A token resolving to nothing or to several definitions is not an error;
   it goes into its section's `(unresolved)` candidate.
 - No sweep rule is added: `CHECKS` and `registry-order.txt` are unchanged,
@@ -150,8 +150,8 @@ One candidate per (section, target) pair, id `<doc>::<heading
 path>::<target id>`, span the section's, payload the target and each line
 naming it. Hash: sha256, NUL-separated, over each block (paragraph, list
 item, table row or fence) of the section naming the target, once, in line
-order; then the target's source - `ast.get_source_segment` with decorators
-for a def or class, the statement for a field or option call, a file's
+order; then the target's source - the whole source lines from the first decorator's line to the end line
+for a def or class (amendment 2026-11-21: not `ast.get_source_segment`), the statement for a field or option call, a file's
 bytes, a directory's sorted tracked entries. A section with unresolved or
 ambiguous tokens also gets `<doc>::<heading path>::(unresolved)`: payload
 each token with its line and any definitions found, hash the section's text
@@ -252,16 +252,21 @@ existing tests pass unchanged.
 
 ## Settings
 
-No new option. A question's registered batch size is the `--batch-size`
-default; `--depth` stays A4's. The Doc1 tree depth (3) and the path-shaped
-extensions are constants in `docrefs.py`, changed only by a skill change
-with a brief version bump. Standard library only (`ast`, `hashlib`, `json`,
-`re`, `subprocess` for `git ls-files`, `tomllib`); tests run with `uv run
---no-project --with pytest pytest ~/.claude/skills/auditme/tests`.
+No new option. Command-line options of `phaseb.py` that the documentation
+questions use:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--batch-size` | `int` | the question's registered size (24 for Doc4 and Doc5, 12 for Doc1 and Doc2) | Candidates per reviewer |
+| `--depth` | `int` | `3` | How far callees are followed; read by the code-reading listers, not the documentation ones (amendment 2026-11-21: 1.0 said it stays A4's) |
+
+The Doc1 tree depth (`TREE_DEPTH` in `docrefs.py`) and the path-shaped
+extensions are constants there, changed only by a skill change with a brief
+version bump.
 
 ## External dependencies
 
-None beyond the standard library and `git`.
+None beyond the standard library (`ast`, `hashlib`, `json`, `re`, `tomllib`, and `subprocess` for `git ls-files`) and `git`.
 
 ## Decisions (operator, 2026-11-20)
 
