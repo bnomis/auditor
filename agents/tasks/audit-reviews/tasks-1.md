@@ -221,7 +221,7 @@ every later task's Definition of Done uses.
 
 ## Task 7: Refuse a merge at a different depth from its plan
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F13
@@ -230,20 +230,20 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Record the depth in `plan.json` when `phaseb.py plan` writes it
-- [ ] Make `phaseb.py merge` stop with a `PhaseBError` naming both depths when its `--depth` differs from the plan's, and how to proceed (re-plan, or merge with the plan's depth)
-- [ ] Read a `plan.json` written before this change as depth 3, the current default, and say so in the docstring
-- [ ] Tests: a matching depth merges; a different one is refused with both values named; an old plan without the field merges at the default
-- [ ] Update `docs/reference/cli.md` and the repeatable Phase B spec's plan format
+- [x] Record the depth in `plan.json` when `phaseb.py plan` writes it
+- [x] Make `phaseb.py merge` stop with a `PhaseBError` naming both depths when its `--depth` differs from the plan's, and how to proceed (re-plan, or merge with the plan's depth)
+- [x] Read a `plan.json` written before this change as depth 3, the current default, and say so in the docstring
+- [x] Tests: a matching depth merges; a different one is refused with both values named; an old plan without the field merges at the default
+- [x] Update `docs/reference/cli.md` and the repeatable Phase B spec's plan format
 
 **Acceptance Criteria:**
 
-- [ ] A merge at a different depth writes nothing to the ledger
+- [x] A merge at a different depth writes nothing to the ledger
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py claude/skills/auditme/tests/phaseb/test_batches.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py claude/skills/auditme/tests/phaseb/test_batches.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

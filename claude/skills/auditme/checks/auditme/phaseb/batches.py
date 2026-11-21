@@ -15,6 +15,7 @@ import typing
 
 import auditme.phaseb.errors
 from auditme.phaseb.candidates import (
+    DEFAULT_DEPTH,
     Candidate,
     Verdict,
     question_kinds,
@@ -46,6 +47,7 @@ class Plan:
     brief: str
     brief_version: int
     batches: list[list[str]]
+    depth: int = DEFAULT_DEPTH
 
 
 def batch_path(run_dir: pathlib.Path, number: int) -> pathlib.Path:
@@ -83,8 +85,18 @@ def plan_batches(
     return [needed[start : start + size] for start in range(0, len(needed), size)]
 
 
-def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: list[list[Candidate]], run_dir: pathlib.Path) -> None:
+def write_plan(
+    question: str,
+    brief: pathlib.Path,
+    brief_version: int,
+    planned: list[list[Candidate]],
+    run_dir: pathlib.Path,
+    depth: int = DEFAULT_DEPTH,
+) -> None:
     """Write each batch as batch-NN.jsonl and the plan as plan.json in run_dir.
+
+    The plan records the callee `depth` the candidates were listed at, so a
+    merge can refuse to re-list at another.
 
     Raises:
         PhaseBError: a file cannot be written.
@@ -93,6 +105,7 @@ def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: 
         'question': question,
         'brief': str(brief),
         'brief_version': brief_version,
+        'depth': depth,
         'batches': [[candidate.id for candidate in batch] for batch in planned],
     }
     try:
@@ -107,6 +120,8 @@ def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: 
 
 def read_plan(run_dir: pathlib.Path) -> Plan:
     """Read run_dir's plan.json.
+
+    A plan written before it recorded its depth is read as the default depth, 3.
 
     Raises:
         PhaseBError: the plan is absent, cannot be read or is not a valid plan.
@@ -124,6 +139,7 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
             isinstance(document['question'], str)
             and isinstance(document['brief'], str)
             and isinstance(document['brief_version'], int)
+            and isinstance(document.get('depth', DEFAULT_DEPTH), int)
             and isinstance(planned, list)
             and all(isinstance(batch, list) and all(isinstance(item, str) for item in batch) for batch in planned)
         )
@@ -131,7 +147,7 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
         raise auditme.phaseb.errors.PhaseBError(f'{path}: not a valid plan') from error
     if not valid:
         raise auditme.phaseb.errors.PhaseBError(f'{path}: not a valid plan')
-    return Plan(document['question'], document['brief'], document['brief_version'], planned)
+    return Plan(document['question'], document['brief'], document['brief_version'], planned, document.get('depth', DEFAULT_DEPTH))
 
 
 def parse_result(line: str, kinds: tuple[str, ...]) -> dict[str, typing.Any]:

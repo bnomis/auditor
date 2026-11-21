@@ -126,6 +126,36 @@ def test_merge_writes_the_ledger_and_a_second_plan_finds_nothing(root: pathlib.P
     assert '2 reused' in again.stdout
 
 
+def test_merge_at_the_plan_depth_succeeds(root: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    out = tmp_path / 'run'
+    run('plan', root, '--question', 'A4', '--out', out, '--depth', '2')
+    write_results(out, 1, [FIRST, SECOND])
+    assert run('merge', root, '--question', 'A4', out, '--depth', '2').returncode == 0
+
+
+def test_merge_at_another_depth_is_refused_and_writes_nothing(root: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    out = tmp_path / 'run'
+    run('plan', root, '--question', 'A4', '--out', out, '--depth', '2')
+    write_results(out, 1, [FIRST, SECOND])
+    done = run('merge', root, '--question', 'A4', out, '--depth', '4')
+    assert done.returncode == 2
+    assert 'depth 2' in done.stderr
+    assert 'not 4' in done.stderr
+    assert not ledger_of(root).exists()
+    assert run('merge', root, '--question', 'A4', out).returncode == 2
+
+
+def test_merge_reads_a_plan_without_a_depth_as_the_default(root: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    out = tmp_path / 'run'
+    run('plan', root, '--question', 'A4', '--out', out)
+    plan_file = out / 'plan.json'
+    document = json.loads(plan_file.read_text(encoding='utf-8'))
+    del document['depth']
+    plan_file.write_text(json.dumps(document), encoding='utf-8')
+    write_results(out, 1, [FIRST, SECOND])
+    assert run('merge', root, '--question', 'A4', out).returncode == 0
+
+
 def test_rejudge_plans_every_candidate_again(root: pathlib.Path, tmp_path: pathlib.Path) -> None:
     out = tmp_path / 'run'
     run('plan', root, '--question', 'A4', '--out', out)

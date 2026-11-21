@@ -116,6 +116,11 @@ def run_candidates(args: argparse.Namespace) -> int:
     return 0
 
 
+def depth_of(args: argparse.Namespace) -> int:
+    """The callee depth the command runs at: its `--depth`, else the default."""
+    return auditme.phaseb.candidates.DEFAULT_DEPTH if args.depth is None else args.depth
+
+
 def run_plan(args: argparse.Namespace) -> int:
     brief = auditme.phaseb.question_brief(args.question)
     version = auditme.phaseb.brief_version(brief)
@@ -124,7 +129,7 @@ def run_plan(args: argparse.Namespace) -> int:
     size = auditme.phaseb.question_batch_size(args.question) if args.batch_size is None else args.batch_size
     planned = auditme.phaseb.batches.plan_batches(found, ledger, version, size, args.rejudge)
     count = sum(len(batch) for batch in planned)
-    auditme.phaseb.batches.write_plan(args.question, brief, version, planned, args.out)
+    auditme.phaseb.batches.write_plan(args.question, brief, version, planned, args.out, depth_of(args))
     print(f'{count} planned in {len(planned)} batches, {len(found) - count} reused (brief version {version}) in {args.out}')
     return 0
 
@@ -145,6 +150,10 @@ def run_merge(args: argparse.Namespace) -> int:
     plan = auditme.phaseb.batches.read_plan(args.run_dir)
     if plan.question != args.question:
         raise auditme.phaseb.PhaseBError(f'the run in {args.run_dir} is for question {plan.question!r}, not {args.question!r}')
+    if depth_of(args) != plan.depth:
+        raise auditme.phaseb.PhaseBError(
+            f'the run in {args.run_dir} was planned at depth {plan.depth}, not {depth_of(args)}: merge with --depth {plan.depth}, or plan again at depth {depth_of(args)}'
+        )
     found = auditme.phaseb.list_candidates(args.question, args.root, args.depth)
     verdicts = auditme.phaseb.batches.read_run_verdicts(args.run_dir, found)
     path = ledger_path(args.root, args.question)

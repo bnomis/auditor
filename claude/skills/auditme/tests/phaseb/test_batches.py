@@ -71,6 +71,7 @@ def test_plan_json_and_batch_files(tmp_path: pathlib.Path) -> None:
     assert document['question'] == 'Q1'
     assert document['brief'] == 'briefs/Q1.md'
     assert document['brief_version'] == 3
+    assert document['depth'] == auditme.phaseb.candidates.DEFAULT_DEPTH
     assert document['batches'] == [
         ['src/pkg/mod.py::a', 'src/pkg/mod.py::b'],
         ['src/pkg/mod.py::c'],

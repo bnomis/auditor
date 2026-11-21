@@ -215,8 +215,10 @@ phaseb.py dismiss <root> --question A4 <id> --reason <text>
 ```
 
 `plan` writes `batch-NN.jsonl` files and a `plan.json` holding the question,
-brief path, brief version and each batch's ids, which `check` and `merge`
-read.
+brief path, brief version, the callee `depth` it listed at and each batch's
+ids, which `check` and `merge` read. `merge` refuses a `--depth` that differs
+from the plan's, naming both; a plan without a `depth` is read as the default,
+3.
 
 ## Error handling
 

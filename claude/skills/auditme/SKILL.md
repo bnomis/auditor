@@ -198,7 +198,7 @@ This is the cure for failure mode 2. When 24 architecture questions are split ac
 
 **Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The listed questions are A1, A4, A11, A17, A19, T1, T2, Doc1, Doc2, Doc4 and Doc5. For a listed question, run `checks/phaseb.py` (from the skill directory, with `<root>` the project root) in this order:
 
-1. `phaseb.py plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json`. A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again.
+1. `phaseb.py plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json` (which records the `--depth` it listed at; `merge` refuses a different one). A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again.
 2. Spawn one reviewer per batch, each given the question's brief (`phaseb/briefs/<Q>.md`, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
 3. `phaseb.py check <dir>` exits 1 and names each batch with a problem. Send a failing batch to a fresh reviewer, up to two retries per batch. A batch still failing after that is reported in the review, never merged.
 4. `phaseb.py merge <root> --question <Q> <dir>` writes the verified results into the project's ledger.

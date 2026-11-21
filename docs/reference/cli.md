@@ -168,6 +168,12 @@ The declaration errors, each exit `2`:
 The hooks treat any of these as a sweep that cannot run, and `phaseb.py`
 exits `2` with the same message.
 
+`phaseb.py plan` records the callee depth it listed at (`--depth`, default 3)
+in `plan.json`. `phaseb.py merge` exits `2`, naming both depths and writing
+nothing to the ledger, when its own `--depth` differs from the plan's: merge
+with the plan's depth, or plan again. A `plan.json` written before the depth
+was recorded is read as depth 3.
+
 The exit status does not reflect hits: callers read stdout.
 
 Environment: the checks run `ruff` and `uv` as subprocesses with the caller's
