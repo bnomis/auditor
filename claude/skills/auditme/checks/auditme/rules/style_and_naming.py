@@ -2,10 +2,13 @@
 
 import ast
 import collections
-import pathlib
 import re
+import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 # Public stdlib API spelt with a leading underscore, so not private access:
 # `os._exit` (https://docs.python.org/3/library/os.html#os._exit) and the

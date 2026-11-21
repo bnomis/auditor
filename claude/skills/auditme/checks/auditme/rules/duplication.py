@@ -2,10 +2,13 @@
 
 import ast
 import collections
-import pathlib
 import re
+import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 SET_CALL_NAMES = frozenset({'frozenset', 'set'})
 SINK_TOKENS = ('dump', 'emit', 'flush', 'log', 'persist', 'publish', 'register', 'save', 'upload', 'write')

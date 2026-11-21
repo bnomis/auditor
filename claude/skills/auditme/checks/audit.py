@@ -82,12 +82,15 @@ required finding.
 """
 
 import argparse
-import collections.abc
 import pathlib
 import sys
+import typing
 
 import auditme.core
 import auditme.registry
+
+if typing.TYPE_CHECKING:
+    import collections.abc
 
 DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditme.core.EXTRA_ROOT_NAMES)
 

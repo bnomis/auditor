@@ -3,10 +3,13 @@
 import ast
 import collections
 import collections.abc
-import pathlib
 import re
+import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 IMPORT_ERROR_NAMES = frozenset({'ImportError', 'ModuleNotFoundError'})
 

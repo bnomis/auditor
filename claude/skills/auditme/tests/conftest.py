@@ -7,7 +7,6 @@ directly rather than importing an installed package, which keeps the suite
 runnable wherever the skill is checked out.
 """
 
-import collections.abc
 import contextlib
 import io
 import json
@@ -15,6 +14,7 @@ import pathlib
 import subprocess
 import sys
 import textwrap
+import typing
 
 import pytest
 
@@ -33,6 +33,9 @@ if str(CHECKS_ROOT) not in sys.path:
 
 import auditme.core  # noqa: E402  sys.path is set up immediately above
 import auditme.phaseb  # noqa: E402  sys.path is set up above
+
+if typing.TYPE_CHECKING:
+    import collections.abc
 
 
 def make_candidate(candidate_id: str) -> auditme.phaseb.Candidate:

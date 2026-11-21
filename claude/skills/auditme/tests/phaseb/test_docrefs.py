@@ -1,12 +1,15 @@
 """Tests for docrefs: markdown sections and code-shaped names."""
 
-import pathlib
 import subprocess
 import textwrap
+import typing
 
 import auditme.phaseb
 import auditme.phaseb.docrefs
 import pytest
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 def read_sections(tmp_path: pathlib.Path, text: str, name: str = 'docs/guide.md') -> list[auditme.phaseb.docrefs.DocSection]:

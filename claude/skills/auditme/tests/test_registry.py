@@ -7,6 +7,7 @@ next audit even though nothing was found differently. Both failures are silent
 without a test.
 """
 
+import annotationlib
 import inspect
 import pathlib
 
@@ -65,7 +66,7 @@ def test_no_check_is_registered_twice() -> None:
 
 def test_every_check_takes_a_scope_and_a_source_root() -> None:
     for check in auditme.registry.CHECKS:
-        parameters = list(inspect.signature(check).parameters)
+        parameters = list(inspect.signature(check, annotation_format=annotationlib.Format.FORWARDREF).parameters)
         assert parameters == ['scope', 'src_root'], f'{check.__name__} takes {parameters}'
 
 

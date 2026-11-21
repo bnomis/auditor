@@ -3,10 +3,13 @@
 import collections.abc
 import pathlib
 import types
+import typing
 
 import auditme.core
 import auditme.rules.imports_and_surfaces
-import pytest
+
+if typing.TYPE_CHECKING:
+    import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]

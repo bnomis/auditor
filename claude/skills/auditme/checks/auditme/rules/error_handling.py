@@ -4,11 +4,13 @@ import ast
 import collections
 import collections.abc
 import contextlib
-import pathlib
 import re
 import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 BARE_HANDLER_MARK = '*bare*'
 ERRORS_MODULE_NAMES = frozenset({'__init__.py', 'errors.py'})

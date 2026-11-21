@@ -3,12 +3,15 @@
 import dataclasses
 import json
 import os
-import pathlib
+import typing
 
 import auditme.phaseb
 import auditme.phaseb.ledger
 import conftest
 import pytest
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 def make_ledger_verdict(candidate_id: str = 'src/pkg/mod.py::probe', **overrides) -> auditme.phaseb.Verdict:

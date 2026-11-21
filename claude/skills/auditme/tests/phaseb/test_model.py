@@ -1,13 +1,16 @@
 """Tests for the Phase B data model and question registry."""
 
-import collections.abc
 import dataclasses
-import pathlib
+import typing
 
 import auditme.phaseb
 import auditme.phaseb.candidates
 import conftest
 import pytest
+
+if typing.TYPE_CHECKING:
+    import collections.abc
+    import pathlib
 
 # auditme: accept[non-alphabetical-literal] the order Doc1 and Doc2 register their kinds in
 AGENTS_DOC_KINDS = ('stale', 'missing')

@@ -4,13 +4,16 @@ Most cases swap `changed.AUDIT_SCRIPT` for a stub that prints canned hits, so
 they exercise the runner and not the checker; one case runs the real `audit.py`.
 """
 
-import collections.abc
 import json
-import pathlib
+import typing
 
 import changed
 import conftest
 import pytest
+
+if typing.TYPE_CHECKING:
+    import collections.abc
+    import pathlib
 
 
 def commit_all(repo: pathlib.Path, message: str) -> None:

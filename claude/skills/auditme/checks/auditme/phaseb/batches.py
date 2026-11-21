@@ -11,7 +11,6 @@ instead of raising, so the orchestrator can retry the batch.
 import dataclasses
 import datetime
 import json
-import pathlib
 import typing
 
 import auditme.phaseb.errors
@@ -20,6 +19,9 @@ from auditme.phaseb.candidates import (
     Verdict,
     question_kinds,
 )  # auditme: accept[from-import] the package init imports this module while `auditme.phaseb` is not yet bound on `auditme`, so a qualified path fails at import
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 PLAN_NAME = 'plan.json'
 

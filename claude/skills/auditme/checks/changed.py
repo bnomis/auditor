@@ -16,17 +16,20 @@ Stdlib only, like the rest of the checker.
 """
 
 import argparse
-import collections.abc
 import json
 import pathlib
 import subprocess
 import sys
+import typing
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import auditme.core  # noqa: E402
 import auditme.rules.project_hygiene  # noqa: E402  sys.path is set up immediately above
+
+if typing.TYPE_CHECKING:
+    import collections.abc
 
 AUDIT_SCRIPT = HERE / 'audit.py'
 SWEEP_TIMEOUT = 600

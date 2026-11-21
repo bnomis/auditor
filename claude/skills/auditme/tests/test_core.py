@@ -10,9 +10,12 @@ import collections.abc
 import io
 import json
 import pathlib
+import typing
 
 import auditme.core
-import pytest
+
+if typing.TYPE_CHECKING:
+    import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 

@@ -7,7 +7,6 @@ match without an import is never evidence.
 """
 
 import ast
-import collections.abc
 import dataclasses
 import pathlib
 import typing
@@ -15,6 +14,9 @@ import typing
 import auditme.core
 import auditme.phaseb.candidates
 import auditme.phaseb.errors
+
+if typing.TYPE_CHECKING:
+    import collections.abc
 
 TEST_TREES = ('src/tests', 'tests')
 

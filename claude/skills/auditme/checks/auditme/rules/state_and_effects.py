@@ -1,13 +1,16 @@
 """Checks on mutation, side effects and hidden state."""
 
 import ast
-import collections.abc
 import contextlib
 import dataclasses
-import pathlib
 import re
+import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import collections.abc
+    import pathlib
 
 DISK_IO_NAMES = {
     'copy',

@@ -155,7 +155,7 @@ every later task's Definition of Done uses.
 
 ## Task 5: Enforce type-only imports with ruff
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F12
@@ -164,19 +164,19 @@ every later task's Definition of Done uses.
 
 **Subtasks:**
 
-- [ ] Select ruff's `TC` rules in `pyproject.toml`'s `[tool.ruff.lint]`
-- [ ] Run `ruff check --select TC` and fix every hit; keep `typing` itself imported where the guard needs it
-- [ ] Note the rule under the coding standards' enforcement in `AGENTS.md` if it lists the enforced ruff rules
+- [x] Select ruff's `TC` rules in `pyproject.toml`'s `[tool.ruff.lint]`
+- [x] Run `ruff check --select TC` and fix every hit; keep `typing` itself imported where the guard needs it
+- [x] Note the rule under the coding standards' enforcement in `AGENTS.md` if it lists the enforced ruff rules
 
 **Acceptance Criteria:**
 
-- [ ] `ruff check` passes with `TC` selected
-- [ ] The S4 sites in `agents/audit-reviews/review-1.md` are all fixed
+- [x] `ruff check` passes with `TC` selected
+- [x] The S4 sites in `agents/audit-reviews/review-1.md` are all fixed
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest` passes on the own test file of every module whose imports changed, named in the commit body
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest` passes on the own test file of every module whose imports changed, named in the commit body
 
 **Notes:**
 
