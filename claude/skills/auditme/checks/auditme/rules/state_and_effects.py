@@ -779,6 +779,7 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
     imports_of = auditme.core.reads_by_module_and_name(scope, src_root)
     for path, assign_node, value, name in candidates:
         module = module_name_of[path]
+        # auditme: accept[get-container-default-then-method-call] an internal mapping that never holds `None`
         importers = imports_of.get((module, name), [])
         # Only flag if imported from a DIFFERENT file
         external_importers = [(p, ln) for p, ln in importers if p != path]
@@ -863,6 +864,7 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
 
     imports_of = auditme.core.reads_by_module_and_name(scope, src_root)
     for path, assign_node, name, wrapper, hazards in candidates:
+        # auditme: accept[get-container-default-then-method-call] an internal mapping that never holds `None`
         readers = imports_of.get((module_name_of[path], name), [])
         if not [(p, ln) for p, ln in readers if p != path]:
             continue
@@ -1024,7 +1026,7 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
       - Method body calls `open`, `Path.open`, `.mkdir`, `.write_text`,
         `.write_bytes`.
       - The call is not inside an attribute-cache guard
-        (`if self._opened is None: ...`) - we can't verify that
+        (`if self._opened is None: ...`) - we can't verify that  # auditme: accept[leading-underscore-self] prose about the rule, not a use  # auditme: accept[leading-underscore-attribute-access] prose about the rule, not a use
         mechanically, so the check is coarse: any such call is flagged.
 
     One-time setup belongs in `__init__`; if the setup cannot move there

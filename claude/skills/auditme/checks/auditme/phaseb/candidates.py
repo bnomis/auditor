@@ -55,6 +55,7 @@ Lister = collections.abc.Callable[[pathlib.Path], list[Candidate]]
 
 DEFAULT_BATCH_SIZE = 48
 
+# auditme: accept[mutable-module-level-exported] filled by `@register_question` at import, and patched by a test
 REGISTRY: dict[str, tuple[Lister, pathlib.Path, int]] = {}
 KINDS: dict[str, tuple[str, ...]] = {}
 
@@ -460,6 +461,7 @@ def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.P
     return found
 
 
+# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
 @register_question('Doc4', DOC_BRIEFS / 'Doc4.md', ('drift',), batch_size=DOC_BATCH_SIZE)
 def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
     """List the (section, target) pairs of every implemented spec under `agents/specs/`.
@@ -478,6 +480,7 @@ def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
     return doc_candidates('Doc4', scope, specs)
 
 
+# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
 @register_question('Doc5', DOC_BRIEFS / 'Doc5.md', ('drift',), batch_size=DOC_BATCH_SIZE)
 def list_doc5_candidates(scope: pathlib.Path) -> list[Candidate]:
     """List the (section, target) pairs of every `docs/**/*.md` and the root `README.md`.
@@ -514,6 +517,7 @@ def tracked_directories(index: auditme.phaseb.docrefs.CorpusIndex) -> list[str]:
     return sorted(name for name in index.directories if name.count('/') < auditme.phaseb.docrefs.TREE_DEPTH)
 
 
+# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
 @register_question('Doc1', DOC_BRIEFS / 'Doc1.md', ('stale', 'missing'), batch_size=AGENTS_BATCH_SIZE)
 def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
     """List each `AGENTS.md` section that names a path or holds a fence, with the tracked directory tree.
@@ -630,6 +634,7 @@ def imported_modules(scope: pathlib.Path) -> set[str]:
     return modules
 
 
+# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
 @register_question('Doc2', DOC_BRIEFS / 'Doc2.md', ('stale', 'missing'), batch_size=AGENTS_BATCH_SIZE)
 def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
     """List each `AGENTS.md` section holding a backticked token, matched against the declared tools.
@@ -753,6 +758,7 @@ def is_overload(node: FunctionNode) -> bool:
     return any(ast.unparse(decorator).rpartition('.')[2] == 'overload' for decorator in node.decorator_list)
 
 
+# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
 @register_question('T1', T1_BRIEF, ('missing',))
 def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
     """List every function or method whose own body branches, with the tests that reach it.
@@ -979,6 +985,7 @@ def referenced_types(annotations: list[ast.expr], package_types: collections.abc
     return found
 
 
+# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
 @register_question('T2', T2_BRIEF, ('missing',))
 def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
     """List every function `is_t2_candidate` accepts, with its types, inverse pairs and tests.

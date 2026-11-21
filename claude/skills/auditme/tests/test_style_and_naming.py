@@ -405,12 +405,14 @@ def test_one_line_with_two_bare_annotations_reports_once(project: Builder, run_c
 
 
 def test_a_duplicated_word_in_a_comment_is_a_hit(project: Builder, run_check: Runner) -> None:
+    # auditme: accept[duplicated-word] the duplication is the fixture
     root = project({'src/probe/mod.py': '# resolve the the settings first\nvalue = 1\n'})
     hits = run_check(DUPLICATED_WORD, root)
     assert [(hit['rule'], hit['line']) for hit in hits] == [('duplicated-word', 1)]
 
 
 def test_a_duplicated_word_in_a_docstring_is_a_hit(project: Builder, run_check: Runner) -> None:
+    # auditme: accept[duplicated-word] the duplication is the fixture
     root = project({'src/probe/mod.py': '"""Resolve the the settings."""\n'})
     assert len(run_check(DUPLICATED_WORD, root)) == 1
 
@@ -422,7 +424,8 @@ def test_a_grammatical_repeat_is_not_a_hit(project: Builder, run_check: Runner) 
 
 
 def test_a_repeat_in_code_rather_than_prose_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    """`not not value` repeats a word, but the line is neither comment nor string."""
+    """`not not value` repeats a word, but the line is neither comment nor string."""  # auditme: accept[duplicated-word] the duplication is the fixture
+    # auditme: accept[duplicated-word] the duplication is the fixture
     root = project({'src/probe/mod.py': 'def f(value: object) -> bool:\n    return not not value\n'})
     assert run_check(DUPLICATED_WORD, root) == []
 

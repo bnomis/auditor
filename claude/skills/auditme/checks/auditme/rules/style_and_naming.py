@@ -17,7 +17,7 @@ ATTRIBUTE_ACCESS = re.compile(r'([a-zA-Z_]\w*)\.(_[a-zA-Z]\w*)')
 
 
 def is_stdlib_public_access_only(line: str) -> bool:
-    """Return True when every `obj._attr` on the line is documented public stdlib API."""
+    """Return True when every `obj._attr` on the line is documented public stdlib API."""  # auditme: accept[leading-underscore-attribute-access] prose about the rule, not a use
     return all(
         attr in STDLIB_PUBLIC_UNDERSCORE_ATTRIBUTES or f'{obj}.{attr}' in STDLIB_PUBLIC_UNDERSCORE_QUALIFIED for obj, attr in ATTRIBUTE_ACCESS.findall(line)
     )
@@ -895,7 +895,7 @@ def check_typing_deprecated_alias(scope: pathlib.Path, src_root: pathlib.Path) -
 
     The coding standard prefers the standard generics to their `typing`
     equivalents. `legacy-typing` reads that for the aliases of builtins -
-    `List[`, `Dict[` and the rest - and saw nothing else, so an audit
+    `List[`, `Dict[` and the rest - and saw nothing else, so an audit  # auditme: accept[legacy-typing] prose about the rule, not a use
     found `typing.Sequence` and `typing.Iterator` by hand under S4.
 
     Signal, on the AST so a string or a comment never fires:

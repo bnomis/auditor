@@ -96,6 +96,7 @@ def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None
     """Run one check, reporting a crash as a hit so the sweep continues."""
     try:
         check(scope, root)
+    # auditme: accept[silent-broad-except] reporting a crashing check as a hit is the handler's job
     except Exception as exc:
         auditme.core.emit(
             rule='auditme-check-crash',

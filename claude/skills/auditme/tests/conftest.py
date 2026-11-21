@@ -18,6 +18,7 @@ import textwrap
 
 import pytest
 
+# auditme: accept[non-alphabetical-literal] `-c` flag and value pairs, in order
 GIT_ENV_ARGS = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test']
 FUTURE_IMPORT = 'from __future__ import annotations\n'
 CHECKS_ROOT = pathlib.Path(__file__).resolve().parent.parent / 'checks'

@@ -465,7 +465,7 @@ helpers and full import paths.
 
 ## Task 14: Accept the approved lines, reach zero, restore the gates
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** small
 **Source Reference:** A1-A12; the TODO item's Fix direction
@@ -475,7 +475,7 @@ on, and the backlog item is closed.
 
 **Subtasks:**
 
-- [ ] Add a scoped `# auditme: accept[<rule>] <reason>` marker, with the review's reason, on each line items A1 to A12 name
+- [x] Add a scoped `# auditme: accept[<rule>] <reason>` marker, with the review's reason, on each line items A1 to A12 name
 - [ ] Run the sweep: if any unaccepted hit remains that no task or item covers, stop the list as `blocked`, listing each by rule and `path:line`; do not accept it
 - [ ] `.pre-commit-config.yaml`: restore `auditme-changed` to `stages: [pre-commit]` and `auditme-all` to `stages: [manual, pre-push]`, removing the pause comments
 - [ ] Move "Fix or accept this repository's audit backlog" to the end of `DONE.md`: heading and body unchanged, then `Done: <date> - agents/reviews/audit-backlog-2026-11-21.md and agents/tasks/reviews/tasks-1.md; the sweep reports no unaccepted hit, and both gates are back on.`

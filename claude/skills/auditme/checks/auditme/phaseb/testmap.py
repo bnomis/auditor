@@ -339,6 +339,7 @@ def build_index(root: pathlib.Path) -> TestIndex:
     return TestIndex(root, sites, direct, tests, conftests, reached, {site.id: site for site in site_list}, parsed_sources, aliases)
 
 
+# auditme: accept[passthrough-shim] public, documented and in `phaseb.__all__`
 def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ...]]:
     """Map each package function id to the tests that reach it, sorted by id.
 

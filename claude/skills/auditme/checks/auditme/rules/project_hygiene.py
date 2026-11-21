@@ -30,6 +30,7 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         ([ruff, 'format', '--check', str(src_root)], 'ruff-format'),
     ):
         try:
+            # auditme: accept[subprocess-without-memoisation] its arguments differ per root
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=scope)
         except FileNotFoundError:
             auditme.core.emit(

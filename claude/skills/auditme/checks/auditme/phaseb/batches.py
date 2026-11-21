@@ -141,18 +141,24 @@ def parse_result(line: str, kinds: tuple[str, ...]) -> dict[str, typing.Any]:
     """
     record = json.loads(line)
     if not isinstance(record, dict):
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError('not a JSON object')
     if set(record) != {'id', 'findings', 'reason'}:
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError('keys must be exactly id, findings and reason')
     if not isinstance(record['id'], str):
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError('id must be a string')
     findings = record['findings']
     if not isinstance(findings, dict) or set(findings) != set(kinds):
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError(f'findings must have exactly the kinds {list(kinds)}')
     for kind, names in findings.items():
         if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+            # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
             raise ValueError(f'findings {kind} must be a list of strings')
     if not isinstance(record['reason'], str):
+        # auditme: accept[layer-has-domain-error-raises-stdlib] it validates one result line as `json.loads` does; both land in one `except ValueError` that records a problem
         raise ValueError('reason must be a string')
     return record
 

@@ -30,6 +30,7 @@ import auditme.rules.project_hygiene  # noqa: E402  sys.path is set up immediate
 
 AUDIT_SCRIPT = HERE / 'audit.py'
 SWEEP_TIMEOUT = 600
+# auditme: accept[non-alphabetical-literal] the order is the priority in which a diff base is tried
 BASE_CANDIDATES = ('@{upstream}', 'origin/main', 'main')
 CRASH_RULE = 'auditme-check-crash'
 ACCEPT_HELP = 'Fix each hit, or accept one with a comment on its line or the line above:\n    # auditme: accept[<rule>] <reason>'
