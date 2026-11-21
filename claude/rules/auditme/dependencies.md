@@ -12,7 +12,7 @@ All dependencies are declared in `pyproject.toml` and managed via
 reproducibility.
 
 Before adding a new dependency, run through the checks in
-[tools-and-libraries.md](../tools-and-libraries.md) (prefer what's
+`~/.claude/rules/tools-and-libraries.md` (prefer what's
 already in the project, verify maintenance status).
 
 ## Commands

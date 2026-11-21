@@ -7,9 +7,11 @@ next to the rules the agents repository installs
 (`bnomis/agents`, <https://bnomis.github.io/agents/reference/rules/>).
 
 Each starts with `paths:` frontmatter, so Claude Code loads it only when
-Claude works with a matching file. Their links to rules that stay in agents
-(`../python/testing.md`, `../security.md`, ...) are relative to
-`~/.claude/rules/`, so they resolve once both repositories are installed.
+Claude works with a matching file. They name the rules that stay in agents
+by their installed path (`~/.claude/rules/python/testing.md`,
+`~/.claude/rules/security.md`, ...), not by a relative link: `~/.claude/rules/auditme`
+is a symlink into this repository, so a `../` link from it would be followed
+into this repository, where those rules are not.
 
 | File | Requires |
 |---|---|
