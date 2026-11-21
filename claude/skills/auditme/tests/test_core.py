@@ -42,6 +42,18 @@ def test_a_marker_inside_a_multi_line_node_accepts_it() -> None:
     assert auditme.core.accept_reason(lines, 1) is None
 
 
+TWO_MARKERS = ['x = obj.attr  # auditme: accept[rule-a] reason a  # auditme: accept[rule-b] reason b']
+
+
+def test_each_of_two_markers_on_one_line_answers_for_its_rule() -> None:
+    assert auditme.core.accept_reason(TWO_MARKERS, 1, rule='rule-a') == 'reason a'
+    assert auditme.core.accept_reason(TWO_MARKERS, 1, rule='rule-b') == 'reason b'
+
+
+def test_two_markers_on_one_line_do_not_accept_a_third_rule() -> None:
+    assert auditme.core.accept_reason(TWO_MARKERS, 1, rule='rule-c') is None
+
+
 def test_a_marker_with_no_reason_still_accepts() -> None:
     lines = ['x = 1  # auditme: accept']
     assert auditme.core.accept_reason(lines, 1) == 'no reason given'

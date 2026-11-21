@@ -17,7 +17,8 @@ import types
 # arrive silently pre-accepted: a marker weighed for one rule cannot have
 # considered a rule that did not exist when it was written. New markers should
 # name their rule.
-ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*(.*)$')
+# One marker; its reason ends where the next marker on the line begins.
+ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*((?:(?!#\s*auditme:).)*)')
 
 # Hits already printed this run, as their serialised form. The driver runs every
 # check once per package under src/, so the project-level checks - the lockfile
@@ -84,6 +85,9 @@ def accept_reason(
     unscoped marker answers for everything, which keeps every pre-existing
     marker working unchanged.
 
+    A line may carry several markers, one per rule; each one's reason ends
+    where the next marker begins.
+
     `rule=None` means the caller has not said which rule is asking, and every
     marker matches. Passing the rule is what makes scoping effective, so a new
     check should always pass it.
@@ -93,13 +97,11 @@ def accept_reason(
         candidates.extend(range(lineno + 1, end_lineno + 1))
     for candidate_lineno in candidates:
         if 1 <= candidate_lineno <= len(lines):
-            m = ACCEPT_COMMENT_RE.search(lines[candidate_lineno - 1])
-            if not m:
-                continue
-            scoped_to, reason = m.group(1), m.group(2)
-            if scoped_to and rule and scoped_to != rule:
-                continue
-            return reason.strip() or 'no reason given'
+            for m in ACCEPT_COMMENT_RE.finditer(lines[candidate_lineno - 1]):
+                scoped_to, reason = m.group(1), m.group(2)
+                if scoped_to and rule and scoped_to != rule:
+                    continue
+                return reason.strip() or 'no reason given'
     return None
 
 

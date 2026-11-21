@@ -143,6 +143,9 @@ line of a statement that spans several lines.
   from another rule on the same line stays unaccepted. The unscoped form,
   `# auditme: accept <reason>`, answers for every rule on the line, including
   rules added after it was written, so write new markers scoped.
+- **One marker per rule.** A line that two rules hit can carry two scoped
+  markers, `# auditme: accept[rule-a] <reason>  # auditme: accept[rule-b] <reason>`;
+  each reason ends where the next marker begins.
 - **Give a reason.** It is copied into `accepted_reason` and is what a
   reviewer reads instead of re-arguing the hit.
 - **Line-1 markers.** `src-loose-module` is reported at line 1, so its marker

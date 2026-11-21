@@ -291,6 +291,7 @@ The script treats a hit as `accepted: true` only when one of these exists:
 1. **Inline comment** on the hit line or the preceding line, optionally scoped to a single rule:
    - `# auditme: accept[<rule-name>] <reason>` - answers for that rule only
    - `# auditme: accept <reason>` - answers for every rule that fires on the line
+   - several markers on one line each answer for their own rule: `# auditme: accept[rule-a] <reason>  # auditme: accept[rule-b] <reason>`, each reason ending where the next marker begins
 2. **AGENTS.md table row** pairing the importer and imported module in backticks (for in-function imports). The importer module path is computed without a leading `src.` prefix (e.g. `pkg.config.structures`, not `src.pkg.config.structures`); AGENTS.md rows should use the same form.
 
 Nothing else acts as acceptance - not a decision note under `agents/audit-reviews/`, not a prior review that "agreed" the pattern is fine, not an assumption about HF / sklearn / PEP conventions.

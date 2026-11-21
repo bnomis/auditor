@@ -715,3 +715,28 @@ it), the hook runs that one instead; other projects keep the installed
 checker. Add a test to `tests/test_stop_hook.py` for both cases.
 
 Done: 2026-11-21 - `claude/hooks/auditme-stop.sh` runs a worktree's own `claude/skills/auditme/checks/changed.py` when it shares its git directory with the checkout the installed checker links into, and never another repository's copy; tests in `tests/test_stop_hook.py`; amendment 1.12 of `agents/specs/project-setup/spec.md`; `docs/setup.md`.
+
+## A second accept marker on one line is silently ignored
+
+Found on 2026-11-21 by Task 14 of `agents/tasks/reviews/tasks-1.md`: the
+docstring line `claude/skills/auditme/checks/auditme/rules/state_and_effects.py:1029`
+carried `# auditme: accept[leading-underscore-self] ...` followed by
+`# auditme: accept[leading-underscore-attribute-access] ...`, and the sweep
+still reported `leading-underscore-attribute-access` there as unaccepted
+(recorded in that task's Notes; the line was later reworded and both markers
+dropped in `57b7a4a`).
+
+Cause: `ACCEPT_COMMENT_RE` in `claude/skills/auditme/checks/auditme/core.py:20`
+is `#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*(.*)$`, matched once per
+line. The reason group `(.*)$` swallows any later marker, so only the first
+rule named on a line is accepted. Checked the same day:
+`accept[rule-a] reason a  # auditme: accept[rule-b] reason b` parses as rule
+`rule-a` with reason `reason a  # auditme: accept[rule-b] reason b`.
+
+Fix direction: small, a skill change made between audits. Either parse every
+marker on a line (the reason ends at the next `# auditme:`), or report a
+second marker on one line as its own hit so it cannot pass unnoticed;
+document the choice in `SKILL.md`'s acceptance mechanism, with a test in
+`claude/skills/auditme/tests/test_core.py`.
+
+Done: 2026-11-21 - `ACCEPT_COMMENT_RE` in `claude/skills/auditme/checks/auditme/core.py` ends a reason at the next marker and `accept_reason` reads every marker on a line; tests in `claude/skills/auditme/tests/test_core.py`; the acceptance mechanism in `claude/skills/auditme/SKILL.md` and `docs/guide/checker.md`.
