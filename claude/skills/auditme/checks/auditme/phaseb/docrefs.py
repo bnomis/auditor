@@ -175,6 +175,7 @@ class CorpusIndex:
 
         Raises:
             PhaseBError: `git ls-files` fails, as it does outside a work tree.
+            RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
         """
         files = tracked_files(scope)
         directories = frozenset(parent.as_posix() for name in files for parent in pathlib.PurePosixPath(name).parents if parent.as_posix() != '.')
@@ -286,7 +287,11 @@ def tracked_files(scope: pathlib.Path) -> frozenset[str]:
 
 
 def file_target(index: CorpusIndex, rel: str) -> DocTarget:
-    """The target of a tracked file, spanning all its lines."""
+    """The target of a tracked file, spanning all its lines.
+
+    Raises:
+        PhaseBError: the file cannot be read.
+    """
     try:
         lines = (index.scope / rel).read_bytes().count(b'\n') + 1
     except OSError as error:

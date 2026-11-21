@@ -75,7 +75,11 @@ def read_ledger(path: pathlib.Path) -> dict[str, Verdict]:
 
 
 def write_ledger(path: pathlib.Path, verdicts: dict[str, Verdict]) -> None:
-    """Write verdicts to path through a temporary file and a rename, so a failure keeps the old file."""
+    """Write verdicts to path through a temporary file and a rename, so a failure keeps the old file.
+
+    Raises:
+        PhaseBError: the ledger cannot be written.
+    """
     body = ''.join(json.dumps(dataclasses.asdict(verdicts[key]), sort_keys=True) + '\n' for key in sorted(verdicts))
     temporary: str | None = None
     try:

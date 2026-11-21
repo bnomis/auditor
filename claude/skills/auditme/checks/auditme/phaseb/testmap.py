@@ -87,6 +87,7 @@ def source_sites(root: pathlib.Path) -> tuple[list[auditme.phaseb.candidates.Sit
 
     Raises:
         PhaseBError: an audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     sites: list[auditme.phaseb.candidates.Site] = []
     parsed: dict[str, ParsedFile] = {}
@@ -297,6 +298,7 @@ def build_index(root: pathlib.Path) -> TestIndex:
 
     Raises:
         PhaseBError: a test file or audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     site_list, parsed_sources = source_sites(root)
     tests, conftests = parse_test_tree(root)
@@ -353,5 +355,6 @@ def build_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, .
 
     Raises:
         PhaseBError: a test file or audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     return build_index(root).refs(depth)

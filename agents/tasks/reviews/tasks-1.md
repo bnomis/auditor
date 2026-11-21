@@ -65,7 +65,7 @@ the pause visible in the config and in `TODO.md`.
 
 ## Task 2: Raises sections
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** "The plan the coding standards settle", Raises sections
@@ -75,18 +75,18 @@ including `RootsError` from `_audit_roots` (added 2026-11-21).
 
 **Subtasks:**
 
-- [ ] Add `RootsError` to the six `Raises:` sections `raises-section-drift` names (callers of `_audit_roots` in `checks/auditme/phaseb/`)
-- [ ] Add a `Raises:` section to `declared_roots`, `entry_point_targets`, `target_bytes`, `file_target`, `write_ledger` and `resolve_base`
-- [ ] Run the sweep: no `raises-section-drift` or `missing-raises-section` hit remains
+- [x] Add `RootsError` to the six `Raises:` sections `raises-section-drift` names (callers of `_audit_roots` in `checks/auditme/phaseb/`)
+- [x] Add a `Raises:` section to `declared_roots`, `entry_point_targets`, `target_bytes`, `file_target`, `write_ledger` and `resolve_base`
+- [x] Run the sweep: no `raises-section-drift` or `missing-raises-section` hit remains
 
 **Acceptance Criteria:**
 
-- [ ] The sweep reports neither rule
+- [x] The sweep reports neither rule
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 

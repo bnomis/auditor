@@ -180,9 +180,12 @@ def _inside(inner: pathlib.Path, outer: pathlib.Path) -> bool:
 def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None:
     """The roots `[tool.auditme]` declares, in order, or None when none are declared.
 
-    None when `pyproject.toml` or the table is absent. Raises `RootsError` for an
-    invalid declaration. Invalid TOML is an error only when the text mentions
-    `[tool.auditme`; otherwise the defaults apply.
+    None when `pyproject.toml` or the table is absent. Invalid TOML is an error
+    only when the text mentions `[tool.auditme`; otherwise the defaults apply.
+
+    Raises:
+        RootsError: the declaration is invalid (bad TOML, an unknown key, a
+            wrong type, a missing, empty or overlapping root).
     """
     pyproject = scope / 'pyproject.toml'
     if DECLARATION_IGNORED or not pyproject.is_file():

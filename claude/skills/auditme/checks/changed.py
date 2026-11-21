@@ -67,7 +67,11 @@ def git_lines(repo_root: pathlib.Path, *args: str) -> list[str]:
 
 
 def resolve_base(repo_root: pathlib.Path) -> str | None:
-    """The first of the candidate refs that resolves, or None."""
+    """The first of the candidate refs that resolves, or None.
+
+    Raises:
+        ChangedError: `git rev-parse` fails for a reason other than the ref not resolving.
+    """
     for candidate in BASE_CANDIDATES:
         result = run_git(repo_root, 'rev-parse', '--verify', '--quiet', candidate)
         if result.returncode == 0:

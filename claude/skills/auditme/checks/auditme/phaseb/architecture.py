@@ -76,6 +76,7 @@ def parse_audited_files(scope: pathlib.Path) -> list[ParsedSource]:
         PhaseBError: a file does not parse; the rules skip it, but a skipped
             file would hide its candidates and let `merge` drop their ledger
             entries as vanished.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     files: list[ParsedSource] = []
     for src_root in auditme.core._audit_roots(scope):
@@ -713,7 +714,11 @@ def dunder_all_names(tree: ast.Module) -> list[str] | None:
 
 
 def entry_point_targets(scope: pathlib.Path) -> list[tuple[str, str, str]]:
-    """Each `[project.scripts]` and `[project.entry-points]` target of `pyproject.toml` as (module, name, text)."""
+    """Each `[project.scripts]` and `[project.entry-points]` target of `pyproject.toml` as (module, name, text).
+
+    Raises:
+        PhaseBError: `pyproject.toml` cannot be read or parsed.
+    """
     pyproject = scope / 'pyproject.toml'
     if not pyproject.is_file():
         return []

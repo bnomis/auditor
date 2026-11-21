@@ -311,6 +311,9 @@ def list_a4_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     Each carries its section, its resolved callees to `depth` (resolving
     `<ClassName>.<method>(...)` too), its unresolved calls, and a sha256 over
     its source then its callees' source in id order, NUL-separated.
+
+    Raises:
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     return [candidate for src_root in auditme.core._audit_roots(scope) for candidate in root_candidates(scope, src_root, depth)]
 
@@ -374,7 +377,11 @@ def section_blocks(lines: list[str], start: int, end: int) -> list[tuple[int, in
 
 
 def target_bytes(target: auditme.phaseb.docrefs.DocTarget, index: auditme.phaseb.docrefs.CorpusIndex) -> bytes:
-    """The bytes a target's hash covers: its source lines, a file's content or a directory's sorted tracked entries."""
+    """The bytes a target's hash covers: its source lines, a file's content or a directory's sorted tracked entries.
+
+    Raises:
+        PhaseBError: the target's file cannot be read.
+    """
     if target.kind == 'directory':
         return '\n'.join(sorted(name for name in index.files if name.startswith(f'{target.path}/'))).encode('utf-8', errors='surrogateescape')
     try:
@@ -449,6 +456,7 @@ def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
 
     Raises:
         PhaseBError: a spec cannot be read.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     specs = [
         path
@@ -464,6 +472,7 @@ def list_doc5_candidates(scope: pathlib.Path) -> list[Candidate]:
 
     Raises:
         PhaseBError: a document cannot be read.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     documents = [
         path
@@ -499,6 +508,7 @@ def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
 
     Raises:
         PhaseBError: `AGENTS.md` cannot be read, or `git ls-files` fails.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     document = agents_document(scope)
     if document is None:
@@ -615,6 +625,7 @@ def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
     Raises:
         PhaseBError: `AGENTS.md`, `pyproject.toml` or `.pre-commit-config.yaml` exists but cannot be read
             or parsed, or `git ls-files` fails.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     document = agents_document(scope)
     if document is None:
@@ -742,6 +753,7 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
 
     Raises:
         PhaseBError: a test file or audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     index = auditme.phaseb.testmap.build_index(scope)
     refs = index.refs(depth)
@@ -964,6 +976,7 @@ def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
 
     Raises:
         PhaseBError: a test file or audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     index = auditme.phaseb.testmap.build_index(scope)
     refs = index.refs(depth)
