@@ -173,7 +173,7 @@ audit and the hooks cover my code.
 
 ## Task 5: Whole-branch checks
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Testing (1.11)
@@ -183,19 +183,19 @@ starts from a `main` that holds the mechanism.
 
 **Subtasks:**
 
-- [ ] Hoist anything the new code duplicates: grep `claude/skills/auditme/checks` for each constant and one-line helper Task 1 added, and import rather than copy
-- [ ] Confirm the spec's 1.11 Testing bullet is covered by `test_roots.py`, `test_driver.py`, `test_changed.py` and the Phase B tests
-- [ ] Leave the spec's `**Status:**` and the `TODO.md` item alone: `tasks-5.md` closes both
+- [x] Hoist anything the new code duplicates: grep `claude/skills/auditme/checks` for each constant and one-line helper Task 1 added, and import rather than copy
+- [x] Confirm the spec's 1.11 Testing bullet is covered by `test_roots.py`, `test_driver.py`, `test_changed.py` and the Phase B tests
+- [x] Leave the spec's `**Status:**` and the `TODO.md` item alone: `tasks-5.md` closes both
 
 **Acceptance Criteria:**
 
-- [ ] Every check below passes
+- [x] Every check below passes
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
 
 **Notes:**
 
