@@ -6,6 +6,7 @@ import re
 from collections import defaultdict
 from typing import Iterable
 
+import auditme.core
 from auditme.core import _accept_reason, _accepted_lazy_imports, _all_py_files, _emit, _relpath, _source_lines, _type_checking_linenos
 
 
@@ -107,7 +108,31 @@ _STDLIB = {
 }
 
 
+def declared_root_modules() -> set[str]:
+    """The top-level module names the declared roots (`[tool.auditme]`) provide.
+
+    A `package` root provides its own directory name; a `top-level` root
+    provides each module and package directly inside it. Empty when no root is
+    declared.
+    """
+    names: set[str] = set()
+    for root, mode in auditme.core.ROOT_MODULES.items():
+        if mode == auditme.core.TOP_LEVEL:
+            names.update(p.stem for p in root.glob('*.py'))
+            names.update(p.name for p in root.iterdir() if p.is_dir() and (p / '__init__.py').is_file())
+        else:
+            names.add(root.name)
+    return names
+
+
 def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag every import inside a function.
+
+    The variant labels the imported module `stdlib`, `first-party` or
+    `third-party`. Refinement (2026-11-21): a module under a declared root
+    (`[tool.auditme]`, either mode) is first-party, not only the importer's own
+    package, so an import between two declared roots is labelled as one.
+    """
     accepted_pairs = _accepted_lazy_imports(scope)
     for path in _all_py_files(src_root):
         if path.name == '__init__.py':
@@ -139,6 +164,7 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                             if hasattr(sub, 'lineno'):
                                 importerror_linenos.add(sub.lineno)
         importer_module = rel.replace('/', '.').removesuffix('.py').removeprefix('src.')
+        first_party = declared_root_modules() | {importer_module.split('.')[0]}
         for func in _walk_function_scopes(tree):
             for inner in ast.walk(func):
                 if not isinstance(inner, (ast.Import, ast.ImportFrom)):
@@ -157,7 +183,7 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
                     if pair_accepted:
                         accept = accept or f'AGENTS.md accepted ({importer_module} -> {imported})'
                     top = imported.split('.')[0]
-                    variant = 'stdlib' if top in _STDLIB else ('first-party' if importer_module.split('.')[0] == top else 'third-party')
+                    variant = 'stdlib' if top in _STDLIB else ('first-party' if top in first_party else 'third-party')
                     _emit(
                         rule='in-function-import',
                         variant=variant,

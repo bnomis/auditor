@@ -226,7 +226,7 @@ excludes.
 
 ## Task 7: R5 and R7 - sink pairs and first-party labels
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** R5, R7
@@ -236,20 +236,20 @@ misreads, and `in-function-import` labels declared-root modules first-party.
 
 **Subtasks:**
 
-- [ ] R5: ignore calls inside nested functions, ignore self-recursion, resolve the callee by qualified name, and compare keyword values rather than only keyword names
-- [ ] R7: a module under a declared root (`[tool.auditme]`, either mode) is labelled first-party in `in-function-import`'s variant
-- [ ] Tests for each misread and for the label
-- [ ] Document both in the rules' docstrings and SKILL.md's documented refinements, dated
-- [ ] Run the sweep and record the count in the commit body
+- [x] R5: ignore calls inside nested functions, ignore self-recursion, resolve the callee by qualified name, and compare keyword values rather than only keyword names
+- [x] R7: a module under a declared root (`[tool.auditme]`, either mode) is labelled first-party in `in-function-import`'s variant
+- [x] Tests for each misread and for the label
+- [x] Document both in the rules' docstrings and SKILL.md's documented refinements, dated
+- [x] Run the sweep and record the count in the commit body
 
 **Acceptance Criteria:**
 
-- [ ] The six `redundant-sink-caller-plus-callee` hits are gone
+- [x] The six `redundant-sink-caller-plus-callee` hits are gone
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_imports_and_surfaces.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest pytest claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_imports_and_surfaces.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

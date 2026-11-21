@@ -5,7 +5,7 @@ import pathlib
 import re
 from collections import defaultdict
 
-from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines
+from auditme.core import _accept_reason, _all_py_files, _emit, _relpath, _source_lines, _walk_within_scope
 
 
 def is_test_file(rel: str) -> bool:
@@ -283,51 +283,58 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
         calls S(args2).
       - args1 and args2 have the same **normalised argument tails**:
         for each positional arg, the trailing name (`config`, `run_dir`)
-        matches; for each keyword arg, the keyword matches.
+        matches; for each keyword arg, the keyword and its value's trailing
+        name match.
       - S's short name contains a sink token (`flush`, `write`, `save`,
         `persist`, `emit`, `dump`, `log`, `publish`, `upload`,
         `register`).
+
+    Refinements (2026-11-21), each removing a misread:
+      - A call inside a def nested in F (or in G) belongs to the nested def,
+        not to F, and is not counted for either.
+      - A call from F to F itself (self-recursion) is not a helper call.
+      - A helper is resolved by qualified name: `pipeline.tokenize` matches
+        only a function whose module path ends `pipeline.tokenize`, and a bare
+        `tokenize` matches the same module's function, else a single
+        project-wide function of that name; an ambiguous bare name matches
+        nothing.
+      - Keyword values are compared as well as keyword names, so
+        `write(path=a)` and `write(path=b)` are different calls.
     """
     package_root_name = src_root.name
     SINK_TOKENS = ('flush', 'write', 'save', 'persist', 'emit', 'dump', 'log', 'publish', 'upload', 'register')
 
+    def role_tail(expr: ast.expr) -> str:
+        """Reduce one argument expression to its role token."""
+        try:
+            tail = ast.unparse(expr)
+        except Exception:
+            return ''
+        if tail.startswith('self.'):
+            tail = tail[5:]
+        # If attribute access, take the last segment
+        tail = tail.rsplit('.', 1)[-1]
+        # If still contains underscores (e.g. `patched_config`,
+        # `new_run_dir`, `resolved_config`), keep a suffix that
+        # preserves the last two underscore-segments for `run_dir`
+        # style names, otherwise just the last segment.
+        parts = tail.split('_')
+        if len(parts) >= 2:
+            last_two = '_'.join(parts[-2:])
+            tail = last_two if last_two in {'run_dir', 'run_id', 'trial_id', 'split_id', 'split_name'} else parts[-1]
+        return tail
+
     def _arg_signature(call: ast.Call) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        """Normalise a call's arguments into (positional_tails, kwargs).
+        """Normalise a call's arguments into (positional_tails, keyword pairs).
 
         Normalisation keeps role tokens that survive renames: `patched_config`
         and `self.config` both normalise to `config`. The last underscore-
         separated token is the "role"; common prefixes (`patched_`, `new_`,
         `effective_`, `resolved_`) drop out, so `patched_config` == `config`.
+        A keyword is kept as `name=<value tail>`.
         """
-        positional: list[str] = []
-        for a in call.args:
-            try:
-                src = ast.unparse(a)
-            except Exception:
-                continue
-            tail = src
-            if tail.startswith('self.'):
-                tail = tail[5:]
-            # If attribute access, take the last segment
-            tail = tail.rsplit('.', 1)[-1]
-            # If still contains underscores (e.g. `patched_config`,
-            # `new_run_dir`, `resolved_config`), keep a suffix that
-            # preserves the last two underscore-segments for `run_dir`
-            # style names, otherwise just the last segment.
-            parts = tail.split('_')
-            if len(parts) >= 2:
-                # keep the last two segments if they look like `run_dir`,
-                # otherwise just the last one
-                last_two = '_'.join(parts[-2:])
-                if last_two in {'run_dir', 'run_id', 'trial_id', 'split_id', 'split_name'}:
-                    tail = last_two
-                else:
-                    tail = parts[-1]
-            positional.append(tail)
-        kwargs: list[str] = []
-        for kw in call.keywords:
-            if kw.arg is not None:
-                kwargs.append(kw.arg)
+        positional = [role_tail(a) for a in call.args if role_tail(a)]
+        kwargs = [f'{kw.arg}={role_tail(kw.value)}' for kw in call.keywords if kw.arg is not None]
         return tuple(positional), tuple(sorted(kwargs))
 
     # First pass: index every project function's sink calls with their signatures.
@@ -346,7 +353,7 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             key = f'{mod}.{node.name}'
-            for inner in ast.walk(node):
+            for inner in _walk_within_scope(node):
                 if not isinstance(inner, ast.Call):
                     continue
                 try:
@@ -367,6 +374,21 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
         short = key.rsplit('.', 1)[-1]
         short_to_full[short].add(key)
 
+    def resolve_helper(callee: str, module: str) -> list[str]:
+        """The project functions a call can mean, by qualified name.
+
+        A dotted callee matches keys ending in that dotted path. A bare name
+        matches the calling module's own function, else the single function of
+        that name in the project; an ambiguous bare name matches nothing.
+        """
+        short = callee.rsplit('.', 1)[-1]
+        candidates = short_to_full.get(short, set())
+        if '.' in callee:
+            return sorted(k for k in candidates if k == callee or k.endswith(f'.{callee}'))
+        if f'{module}.{callee}' in candidates:
+            return [f'{module}.{callee}']
+        return sorted(candidates) if len(candidates) == 1 else []
+
     # Second pass: walk each function. For each direct sink call, look for
     # a later helper call whose target (any full key matching its short name)
     # makes the SAME sink call with the SAME signature.
@@ -377,12 +399,15 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
             continue
         rel = _relpath(path, scope)
         lines = _source_lines(path)
+        rel_parts = path.relative_to(src_root).parts
+        module = '' if rel_parts[-1] == '__init__.py' else package_root_name + '.' + '.'.join(rel_parts)[:-3]
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
+            own_key = f'{module}.{node.name}'
             direct_sinks: list[tuple[int, str, tuple[tuple[str, ...], tuple[str, ...]]]] = []
-            helper_calls: list[tuple[int, str]] = []
-            for inner in ast.walk(node):
+            helper_calls: list[tuple[int, str, list[str]]] = []
+            for inner in _walk_within_scope(node):
                 if not isinstance(inner, ast.Call):
                     continue
                 try:
@@ -394,9 +419,9 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                 if any(tok in tail_parts for tok in SINK_TOKENS):
                     direct_sinks.append((inner.lineno, callee, _arg_signature(inner)))
                 else:
-                    short = callee.rsplit('.', 1)[-1]
-                    if short in short_to_full:
-                        helper_calls.append((inner.lineno, callee))
+                    targets = [k for k in resolve_helper(callee, module) if k != own_key]
+                    if targets:
+                        helper_calls.append((inner.lineno, callee, targets))
             if not direct_sinks or not helper_calls:
                 continue
             reported: set[tuple[int, str]] = set()
@@ -406,16 +431,14 @@ def check_redundant_sink_caller_plus_callee(scope: pathlib.Path, src_root: pathl
                 if dedup_key in reported:
                     continue
                 found_redundant = False
-                for helper_line, helper_callee in helper_calls:
+                for helper_line, helper_callee, targets in helper_calls:
                     if helper_line <= sink_line:
                         continue  # only forward-direction redundancy
-                    short = helper_callee.rsplit('.', 1)[-1]
-                    # sorted, not set order: several modules can define a
-                    # function with the same short name, the loop breaks on the
-                    # first match, and set iteration follows string hashing -
-                    # which is randomised per process. Unsorted, the same
-                    # unchanged tree reports a different qualname between runs.
-                    for full in sorted(short_to_full.get(short, set())):
+                    # sorted by resolve_helper, not set order: several modules can
+                    # define a function with the same short name, the loop breaks
+                    # on the first match, and set iteration follows string
+                    # hashing - which is randomised per process.
+                    for full in targets:
                         for inner_callee, sigs in function_sinks.get(full, {}).items():
                             if inner_callee.rsplit('.', 1)[-1] != sink_tail:
                                 continue
