@@ -1,7 +1,6 @@
 """Checks on mutation, side effects and hidden state."""
 
 import ast
-import contextlib
 import dataclasses
 import re
 import typing
@@ -552,8 +551,7 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
                     for sub in ast.walk(stmt):
                         if isinstance(sub, ast.Call):
                             src = ''
-                            with contextlib.suppress(Exception):
-                                src = ast.unparse(sub.func)
+                            src = ast.unparse(sub.func)
                             if 'assert_never' in src:
                                 has_assert_never = True
                                 break
@@ -1044,8 +1042,7 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
             # imports TrainerCallback (we just check the class bases).
             base_names = []
             for b in cls.bases:
-                with contextlib.suppress(Exception):
-                    base_names.append(ast.unparse(b))
+                base_names.append(ast.unparse(b))
             base_str = ' '.join(base_names)
             looks_like_callback = 'Callback' in base_str or 'TrainerCallback' in base_str
             # Also accept if any method in the class matches the callback pattern
@@ -1320,8 +1317,7 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
             decorators: set[str] = set()
             for dec in node.decorator_list:
                 target = dec.func if isinstance(dec, ast.Call) else dec
-                with contextlib.suppress(Exception):
-                    decorators.add(ast.unparse(target))
+                decorators.add(ast.unparse(target))
             if decorators & CACHE_DECORATORS:
                 continue
             # Scan body for subprocess calls
