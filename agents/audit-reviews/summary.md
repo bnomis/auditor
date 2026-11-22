@@ -25,23 +25,7 @@ Each group is described in full, with every site, in [review-1](review-1.md#phas
 
 | Finding | Question | Severity | First raised |
 |---|---|---|---|
-| F1 an unreadable file crashes a check instead of being reported | A1, A2 | medium | review-1 |
-| F3 other pure-named functions that do I/O | A9 | low | review-1 |
-| F4 helpers without a direct test | T1 | medium | review-1 |
-| F5 pure helpers without a property test | T2 | low | review-1 |
-| F6 specs name renamed helpers and moved settings | Doc4 | low | review-1 |
-| F7 user guides out of date | Doc5 | medium | review-1 |
-| F8 README and AGENTS.md disagree | Doc3 | low | review-1 |
-| F9 `list_candidates` omits `RootsError` | A4 | low | review-1 |
-| F10 `phaseb/__init__.py` exports names only tests use | A17 | low | review-1 |
-| F11 missing annotations in checker source | S1 | low | review-1 |
-| F12 type-only imports outside `TYPE_CHECKING` | S4 | low | review-1 |
-| F13 `merge` can hash at a different depth from the plan | A5 | medium | review-1 |
-| F14 construction duplicated or completed late | A8, A13, A15 | low | review-1 |
-| F17 arguments and declared roots not contained | Sec2, Sec4 | low | review-1 |
-| F18 Stop hook and installer lack an end-to-end test | T3 | low | review-1 |
-| F19 `pytest` not declared | D1 | low | review-1 |
-| F20 spec-template gaps (the five D6 keeps) | spec review | low | review-1 |
+| (none) | | | |
 
 Dismissed on review-1's page (2026-11-21): F2, the 68 A9 `check_*` sites (the registry's convention; a refinement is filed), F16 (the whole-tree sweep is by design), and 14 of F20's spec gaps (size and module location, from this repository's layout).
 
@@ -49,6 +33,23 @@ Dismissed on review-1's page (2026-11-21): F2, the 68 A9 `check_*` sites (the re
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 an unreadable file crashes a check instead of being reported | medium | review-1 | Task 6 of the review-1 task list |
+| F3 other pure-named functions that do I/O | low | review-1 | Task 12 of the review-1 task list |
+| F4 helpers without a direct test | medium | review-1 | Task 9 of the review-1 task list |
+| F5 pure helpers without a property test | low | review-1 | Task 11 of the review-1 task list |
+| F6 specs name renamed helpers and moved settings | low | review-1 | Task 3 of the review-1 task list |
+| F7 user guides out of date | medium | review-1 | Task 2 of the review-1 task list |
+| F8 README and AGENTS.md disagree | low | review-1 | Task 2 of the review-1 task list |
+| F9 `list_candidates` omits `RootsError` | low | review-1 | Task 4 of the review-1 task list |
+| F10 `phaseb/__init__.py` exports names only tests use | low | review-1 | Task 9 of the review-1 task list |
+| F11 missing annotations in checker source | low | review-1 | Task 4 of the review-1 task list |
+| F12 type-only imports outside `TYPE_CHECKING` | low | review-1 | Task 5 of the review-1 task list |
+| F13 `merge` can hash at a different depth from the plan | medium | review-1 | Task 7 of the review-1 task list |
+| F14 construction duplicated or completed late | low | review-1 | Task 12 of the review-1 task list |
+| F17 arguments and declared roots not contained | low | review-1 | Task 8 of the review-1 task list |
+| F18 Stop hook and installer lack an end-to-end test | low | review-1 | Task 10 of the review-1 task list |
+| F19 `pytest` not declared | low | review-1 | Task 1 of the review-1 task list |
+| F20 spec-template gaps (the five D6 keeps) | low | review-1 | Task 3 of the review-1 task list |
 | F15 repeated reads, parses and quadratic scans | low | review-1 | Task 13 of the review-1 task list (a per-run parse cache, shared corpus indexes, the length test before the LCS, one reverse call graph) |
 
 ## Recurring patterns
@@ -57,4 +58,4 @@ Dismissed on review-1's page (2026-11-21): F2, the 68 A9 `check_*` sites (the re
 
 ## Checker changes since the last review
 
-- (none since review-1)
+- 2026-11-21, the review-1 task list: an unreadable file is reported as a hit instead of crashing its check (Task 6); `phaseb.py merge` refuses a depth different from its plan (Task 7); arguments and declared roots must stay inside the project (Task 8); the sweep caches parses and shared indexes for the run (Task 13).
