@@ -103,13 +103,28 @@ def test_unchanged_findings_keep_the_dismissal(tmp_path: pathlib.Path) -> None:
     assert not merged.flagged
 
 
-def test_changed_findings_drop_the_dismissal(tmp_path: pathlib.Path) -> None:
+def test_changed_findings_and_code_drop_the_dismissal(tmp_path: pathlib.Path) -> None:
     path = tmp_path / 'Q1.jsonl'
     write_verdicts(path, [make_ledger_verdict('a', findings={'missing': ['ProbeError'], 'extra': []}, dismissed='2026-01-02: intended')])
-    auditme.phaseb.ledger.merge_verdicts(path, [conftest.make_candidate('a')], [make_ledger_verdict('a', findings={'missing': ['OtherError'], 'extra': []})])
+    auditme.phaseb.ledger.merge_verdicts(
+        path, [conftest.make_candidate('a')], [make_ledger_verdict('a', hash='new', findings={'missing': ['OtherError'], 'extra': []})]
+    )
     merged = auditme.phaseb.ledger.read_ledger(path)['a']
     assert merged.dismissed is None
     assert merged.flagged
+
+
+def test_unchanged_code_keeps_the_dismissal_across_a_brief_bump_and_reworded_findings(tmp_path: pathlib.Path) -> None:
+    """A re-judge under a new brief writes the findings afresh; the code is unchanged, so the dismissal stands."""
+    path = tmp_path / 'Q1.jsonl'
+    write_verdicts(path, [make_ledger_verdict('a', findings={'missing': ['ProbeError is never raised'], 'extra': []}, dismissed='2026-01-02: intended')])
+    reworded = make_ledger_verdict('a', brief_version=2, findings={'missing': ['the body never raises ProbeError'], 'extra': []})
+    auditme.phaseb.ledger.merge_verdicts(path, [conftest.make_candidate('a')], [reworded])
+    merged = auditme.phaseb.ledger.read_ledger(path)['a']
+    assert merged.brief_version == 2
+    assert merged.findings == reworded.findings
+    assert merged.dismissed == '2026-01-02: intended'
+    assert not merged.flagged
 
 
 def test_dismiss_records_date_and_reason(tmp_path: pathlib.Path) -> None:

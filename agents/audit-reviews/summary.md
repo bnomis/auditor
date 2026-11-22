@@ -94,3 +94,4 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 - 2026-11-22: `bin/check-foreign-names.sh` exits 2 with `check-foreign-names: cannot read <list>` when its list cannot be read (review-4 F7, Task 1).
 - 2026-11-22: `changed.py` refuses a `--base` value that starts with `-` (review-4 F6, Task 2).
 - 2026-11-22: `phaseb.py` re-exports `batches` from `auditme.phaseb` in the relative form (review-4 F2, Task 3).
+- 2026-11-22: a dismissal in the Phase B ledger survives a re-judge while the candidate's hash is unchanged, so a brief bump no longer brings back a dismissed finding (review-4 D2).

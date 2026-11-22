@@ -38,21 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Keep a dismissal across a brief bump while the code is unchanged
-
-- **Raised:** 2026-11-22, by this repository's fourth audit (review-4, decision D2).
-- **What happens:** a ledger verdict is current only while its candidate's
-  content hash and the brief version both match. A brief bump re-plans the
-  candidate, and the new verdict replaces the dismissal recorded with
-  `phaseb.py dismiss`, so a finding the operator dismissed comes back after
-  every bump. `core.py::cached_source` (A1) was dismissed on the review pages
-  of review-2, review-3 and review-4 for the same reason.
-- **Asked for:** in `checks/auditme/phaseb/ledger.py` (and `report`), keep a
-  dismissal while the candidate's content hash is unchanged, whatever the
-  brief version; a changed hash still re-plans it and drops the dismissal.
-  Test both cases, and say in the report that a carried dismissal was made
-  under an earlier brief version.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.

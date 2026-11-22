@@ -1,6 +1,6 @@
 # Repeatable Phase B
 
-**Version:** 1.5
+**Version:** 1.6
 **Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/2L2gApX1M8DNzL5ivQF3D7
@@ -195,8 +195,9 @@ def read_run_check(run_dir: pathlib.Path) -> RunCheck:
 def merge_verdicts(ledger_path: pathlib.Path, candidates: list[Candidate], verdicts: list[Verdict]) -> MergeResult:
     """Write the new verdicts into the ledger and drop entries whose id is no longer a candidate.
 
-    A new verdict for a dismissed candidate keeps the dismissal only if its
-    findings are unchanged. Writes atomically (temporary file, then rename).
+    A new verdict for a dismissed candidate keeps the dismissal while the
+    candidate's content hash is unchanged, or while its findings are
+    unchanged (amendment 1.6). Writes atomically (temporary file, then rename).
 
     Raises:
         PhaseBError: the ledger cannot be read or written.
@@ -342,6 +343,12 @@ ledger for current candidates: those judged in this run as new, those reused
 as carried. A carried finding is not a regression and is not "missed by" any
 review. When the operator dismisses one on the review page, the orchestrator
 runs `dismiss`, and the verdict stays dismissed while its hash is unchanged.
+Amendment 1.6 (2026-11-22, from review-4's decision D2 in
+`agents/audit-reviews/review-4.md`): `merge_verdicts` now does what this says.
+Before, it kept a dismissal only when the new findings text matched the old
+one, so a re-judge under a bumped brief, which writes the findings afresh,
+dropped it. It keeps a dismissal while the hash is unchanged, and still keeps
+one whose findings are unchanged after the code changed.
 
 ### Skill changes
 
@@ -364,7 +371,8 @@ In `claude/skills/auditme/tests/phaseb/`, on neutral fixtures (`pkg`,
 changing a callee changes the hash; `plan_batches` skips a current verdict
 and re-plans a changed hash and a bumped brief version; `read_run_check` reports
 each problem kind; `merge_verdicts` drops vanished ids, keeps an unchanged
-dismissal and drops a changed one; a malformed ledger raises `PhaseBError`.
+dismissal, keeps one whose hash is unchanged under a bumped brief and reworded
+findings (1.6), and drops one whose hash and findings both changed; a malformed ledger raises `PhaseBError`.
 For 1.2: for every registered question, a line in its brief's shape passes
 `read_run_check` and `read_run_verdicts` stores its kinds; a line with an
 unregistered kind, a missing kind, or A4's old top-level `missing` and

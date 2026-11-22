@@ -114,8 +114,11 @@ def write_ledger(path: pathlib.Path, verdicts: dict[str, Verdict]) -> None:
 def merge_verdicts(ledger_path: pathlib.Path, candidates: list[Candidate], verdicts: list[Verdict]) -> MergeResult:
     """Write the new verdicts into the ledger and drop entries whose id is no longer a candidate.
 
-    A new verdict for a dismissed candidate keeps the dismissal only if its
-    findings are unchanged. Writes atomically (temporary file, then rename).
+    A new verdict for a dismissed candidate keeps the dismissal while the
+    candidate's content hash is unchanged, whatever the brief version or the
+    wording of the findings, since a dismissal judges the code; it also keeps
+    it when the findings are unchanged though the code changed. Writes
+    atomically (temporary file, then rename).
 
     Raises:
         PhaseBError: the ledger cannot be read or written.
@@ -128,7 +131,7 @@ def merge_verdicts(ledger_path: pathlib.Path, candidates: list[Candidate], verdi
         if verdict.id not in live:
             continue
         earlier = current.get(verdict.id)
-        if earlier is not None and earlier.dismissed is not None and earlier.findings == verdict.findings:
+        if earlier is not None and earlier.dismissed is not None and (earlier.hash == verdict.hash or earlier.findings == verdict.findings):
             verdict = dataclasses.replace(verdict, dismissed=earlier.dismissed)
         merged[verdict.id] = verdict
     new_ids = {verdict.id for verdict in verdicts if verdict.id in live}
