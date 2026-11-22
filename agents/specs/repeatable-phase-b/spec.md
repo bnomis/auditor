@@ -300,7 +300,7 @@ Amendment 1.5 (operator, 2026-11-22, `agents/reviews/brief-thresholds-3-2026-11-
 brief up one version): a case the brief does not settle is judged not a
 finding, and the reviewer names it in its reply. Every batch gives such a case
 the same verdict, so settling a reported case is needed only when it should
-count, not for the verdicts to agree. The A4 brief is at version 7.
+count, not for the verdicts to agree. The A4 brief's `**Brief version:**` line holds its current version.
 
 Amendment 1.3 (operator, 2026-11-22, `agents/reviews/brief-thresholds-2026-11-22.md`;
 A4 brief version 5): a call dispatched through a registry lookup owes the

@@ -223,12 +223,12 @@ Without `--all`, the sweep is skipped (exit `0`, with a message) when:
 Each reported hit prints as `path:line  rule` with its variant indented
 beneath, then how to accept a hit (a `ruff` or `lockfile-drift` hit gets its own advice instead, as no accept marker applies to either) and how to skip the hook once
 (`SKIP=auditme-changed git commit`, or `SKIP=auditme-all git push` with
-`--all`). All output goes to stdout, except argparse's usage errors, which go to stderr.
+`--all`). All output goes to stdout, except argparse's usage errors and the no-diff-base message of `--scope`, which go to stderr.
 
 | Exit | Meaning |
 |---|---|
 | `0` | No unaccepted hit in scope; the sweep was skipped as above; or `--help` |
-| `1` | An unaccepted hit in scope; or any failure: argument error, `--base` refused, git failed, the sweep timed out, exited non-zero, printed a line that is not a JSON object, or reported a crashed check (even one outside the scope); or the audit sweep could not start, or the repository root could not be resolved |
+| `1` | An unaccepted hit in scope; or any failure: argument error, `--base` refused, git failed, `--scope` cannot read a changed Python file, the sweep timed out, exited non-zero, printed a line that is not a JSON object, or reported a crashed check (even one outside the scope); or the audit sweep could not start, or the repository root could not be resolved |
 
 Environment: none directly; git and `audit.py` inherit the caller's.
 

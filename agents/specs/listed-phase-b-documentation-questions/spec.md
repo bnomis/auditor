@@ -80,6 +80,9 @@ def read_name_targets(token: str, doc: pathlib.Path, index: CorpusIndex) -> list
     """Resolve one token: [] for nothing, one target, or several when ambiguous.
 
     Reads a matching file's bytes, through the per-run cache, for its line count.
+
+    Raises:
+        PhaseBError: a matching file cannot be read for its line count.
     """
 
 

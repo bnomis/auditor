@@ -16,7 +16,7 @@ candidate of its question in review-7.
 
 ## Task 1: Correct the doc and spec statements
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F3, F4, F5, F6, F7
@@ -26,23 +26,23 @@ no spec states a brief's version.
 
 **Subtasks:**
 
-- [ ] F3: in `agents/specs/listed-phase-b-architecture-questions/spec.md` (line 59 on 2026-11-22), `agents/specs/listed-phase-b-test-questions/spec.md` (line 259) and `agents/specs/repeatable-phase-b/spec.md` (line 303), remove each figure that gives a brief's current version, and say instead that each brief's `**Brief version:**` line holds it. A dated amendment that records the version a brief had on its date may keep the figure, worded as a record of that date
-- [ ] F3: `grep -rnE 'brief (is )?at version|at brief version|version [0-9]+ \(' agents/specs docs README.md AGENTS.md` and treat any other current-state version figure the same way
-- [ ] F4: in `agents/specs/listed-phase-b-documentation-questions/spec.md`'s API block (line 79), give `read_name_targets` the `Raises:` its docstring in `claude/skills/auditme/checks/auditme/phaseb/docrefs.py` declares
-- [ ] F5: in `docs/reference/cli.md`, say that `changed.py --scope` prints its no-diff-base message to stderr (line 226), and add `--scope` failing to read a changed Python file to the exit-1 list (line 231); read both from `claude/skills/auditme/checks/changed.py`
-- [ ] F6: in `docs/guide/checker.md`'s `silent-self-mutation` row (line 294), add `__post_init__` and `__setattr__`, read from `check_silent_self_mutation`
-- [ ] F7: in `AGENTS.md` (line 31), replace "both hook types" with wording that matches the command on line 33, without a count
-- [ ] Find each statement by its text; the line numbers are from 2026-11-22
+- [x] F3: in `agents/specs/listed-phase-b-architecture-questions/spec.md` (line 59 on 2026-11-22), `agents/specs/listed-phase-b-test-questions/spec.md` (line 259) and `agents/specs/repeatable-phase-b/spec.md` (line 303), remove each figure that gives a brief's current version, and say instead that each brief's `**Brief version:**` line holds it. A dated amendment that records the version a brief had on its date may keep the figure, worded as a record of that date
+- [x] F3: `grep -rnE 'brief (is )?at version|at brief version|version [0-9]+ \(' agents/specs docs README.md AGENTS.md` and treat any other current-state version figure the same way
+- [x] F4: in `agents/specs/listed-phase-b-documentation-questions/spec.md`'s API block (line 79), give `read_name_targets` the `Raises:` its docstring in `claude/skills/auditme/checks/auditme/phaseb/docrefs.py` declares
+- [x] F5: in `docs/reference/cli.md`, say that `changed.py --scope` prints its no-diff-base message to stderr (line 226), and add `--scope` failing to read a changed Python file to the exit-1 list (line 231); read both from `claude/skills/auditme/checks/changed.py`
+- [x] F6: in `docs/guide/checker.md`'s `silent-self-mutation` row (line 294), add `__post_init__` and `__setattr__`, read from `check_silent_self_mutation`
+- [x] F7: in `AGENTS.md` (line 31), replace "both hook types" with wording that matches the command on line 33, without a count
+- [x] Find each statement by its text; the line numbers are from 2026-11-22
 
 **Acceptance Criteria:**
 
-- [ ] Each statement matches the code it describes
-- [ ] No spec, doc or `AGENTS.md` line states a brief's current version
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] Each statement matches the code it describes
+- [x] No spec, doc or `AGENTS.md` line states a brief's current version
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 

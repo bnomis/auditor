@@ -56,7 +56,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
 - `claude/skills/auditme/checks/auditme/core.py` - the corpus read index moved from `rules/state_and_effects.py` (see Hoists)
 - `checks/auditme/rules/error_handling.py`, `rules/state_and_effects.py` -
   site finders made public (see Hoists)
-- `claude/skills/auditme/phaseb/briefs/{A11,A19,A1,A17}.md` - briefs, version 1 when written; the A1 brief is at version 5, the A17 brief at version 3, and the A11 and A19 briefs at version 2 (amendment 1.6: every brief carries the default verdict of [Repeatable Phase B](../repeatable-phase-b/spec.md) amendment 1.5; A1 also counts a standalone script's own `*Error` class as a domain error)
+- `claude/skills/auditme/phaseb/briefs/{A11,A19,A1,A17}.md` - briefs, version 1 when written; each brief's `**Brief version:**` line holds its current version (amendment 1.6: every brief carries the default verdict of [Repeatable Phase B](../repeatable-phase-b/spec.md) amendment 1.5; A1 also counts a standalone script's own `*Error` class as a domain error)
 - `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py` - tests
 - `claude/skills/auditme/SKILL.md` - names the new listed questions
 
