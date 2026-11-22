@@ -107,3 +107,19 @@ def test_an_unreadable_list_fails_and_names_it(tmp_path: pathlib.Path) -> None:
         result = run(tmp_path, None, *args, listing=listing)
         assert result.returncode == 2
         assert f'cannot read {listing}' in result.stderr
+
+
+def test_a_list_path_that_is_a_directory_exits_2(tmp_path: pathlib.Path) -> None:
+    (tmp_path / 'doc.md').write_text('clean\n')
+    listing = tmp_path / 'names'
+    listing.mkdir()
+    result = run(tmp_path, None, 'doc.md', listing=listing)
+    assert result.returncode == 2
+    assert f'cannot read {listing}' in result.stderr
+
+
+def test_a_missing_list_path_still_exits_0_with_the_notice(tmp_path: pathlib.Path) -> None:
+    (tmp_path / 'doc.md').write_text('clean\n')
+    result = run(tmp_path, None, 'doc.md', listing=tmp_path / 'absent')
+    assert result.returncode == 0
+    assert 'no list' in result.stderr

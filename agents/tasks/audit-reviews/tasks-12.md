@@ -17,7 +17,7 @@ a rule stated in place of a closed list.
 
 ## Task 1: Fix the names hook's directory list and state `phaseb.py`'s exit rule
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F2, F4
@@ -27,20 +27,20 @@ and the CLI reference states `phaseb.py`'s exit-2 rule rather than a list.
 
 **Subtasks:**
 
-- [ ] F2: write the failing tests first, in `tests/test_check_foreign_names.py`: a list path that is a directory exits 2 with "cannot read"; a list path where nothing exists still exits 0 with the "no list" notice
-- [ ] F2: in `bin/check-foreign-names.sh` (line 26 on 2026-11-22), test absence with `[ ! -e "$list" ]` for the exit-0 branch, so the existing exit-2 branch handles a path that exists but is not a readable regular file; update `docs/reference/cli.md`'s exit table for the hook (line 83) to say "nothing exists at the list path"
-- [ ] F4: in `docs/reference/cli.md` (the paragraph at line 176), replace the closed list of `phaseb.py`'s exit-2 causes with the rule: `phaseb.py` exits 2, printing the error's message, whenever a Phase B step fails; then give a few cases introduced by "for example" (an unregistered `--question`, a missing root, a merge for another question, a merge whose batches fail `check`). Grep `docs agents/specs` for any other closed list of `phaseb.py`'s exit causes and treat it the same way
+- [x] F2: write the failing tests first, in `tests/test_check_foreign_names.py`: a list path that is a directory exits 2 with "cannot read"; a list path where nothing exists still exits 0 with the "no list" notice
+- [x] F2: in `bin/check-foreign-names.sh` (line 26 on 2026-11-22), test absence with `[ ! -e "$list" ]` for the exit-0 branch, so the existing exit-2 branch handles a path that exists but is not a readable regular file; update `docs/reference/cli.md`'s exit table for the hook (line 83) to say "nothing exists at the list path"
+- [x] F4: in `docs/reference/cli.md` (the paragraph at line 176), replace the closed list of `phaseb.py`'s exit-2 causes with the rule: `phaseb.py` exits 2, printing the error's message, whenever a Phase B step fails; then give a few cases introduced by "for example" (an unregistered `--question`, a missing root, a merge for another question, a merge whose batches fail `check`). Grep `docs agents/specs` for any other closed list of `phaseb.py`'s exit causes and treat it the same way
 
 **Acceptance Criteria:**
 
-- [ ] The new tests fail before the change and pass after it
-- [ ] No doc or spec gives a closed list of `phaseb.py`'s exit-2 causes
+- [x] The new tests fail before the change and pass after it
+- [x] No doc or spec gives a closed list of `phaseb.py`'s exit-2 causes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_check_foreign_names.py -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_check_foreign_names.py -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
