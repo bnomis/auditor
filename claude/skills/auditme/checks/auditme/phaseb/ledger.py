@@ -12,12 +12,17 @@ import json
 import os
 import pathlib
 import tempfile
+import typing
 
 import auditme.phaseb.errors
 from auditme.phaseb.candidates import (
-    Candidate,
     Verdict,
 )  # auditme: accept[from-import] the package init imports this module while `auditme.phaseb` is not yet bound on `auditme`, so a qualified path fails at import
+
+if typing.TYPE_CHECKING:
+    from auditme.phaseb.candidates import (
+        Candidate,
+    )  # auditme: accept[from-import] same import cycle as the runtime import above
 
 REQUIRED = tuple(field.name for field in dataclasses.fields(Verdict) if field.default is dataclasses.MISSING)
 

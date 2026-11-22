@@ -56,7 +56,7 @@ list and the phaseb synopsis match the code.
 
 ## Task 2: Move the two annotation-only imports under TYPE_CHECKING
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F8
@@ -66,17 +66,17 @@ list and the phaseb synopsis match the code.
 
 **Subtasks:**
 
-- [ ] Move `import collections.abc` in `claude/skills/auditme/checks/auditme/core.py` (line 5 on 2026-11-22) and the `Candidate` import in `claude/skills/auditme/checks/auditme/phaseb/ledger.py` (line 18) under `if typing.TYPE_CHECKING:`; first grep each module for a runtime use of the name, and leave the import where it is if one exists
-- [ ] Confirm the sweep reports no new hit
+- [x] Move `import collections.abc` in `claude/skills/auditme/checks/auditme/core.py` (line 5 on 2026-11-22) and the `Candidate` import in `claude/skills/auditme/checks/auditme/phaseb/ledger.py` (line 18) under `if typing.TYPE_CHECKING:`; first grep each module for a runtime use of the name, and leave the import where it is if one exists
+- [x] Confirm the sweep reports no new hit
 
 **Acceptance Criteria:**
 
-- [ ] Neither name is imported at runtime in its module, unless a runtime use was found and noted
+- [x] Neither name is imported at runtime in its module, unless a runtime use was found and noted: `core.py` keeps `import collections.abc` because `collections.defaultdict` is used at runtime (`index_reads`) and the import binds the same name, so ruff TC004 rejects moving it; `Candidate` in `ledger.py` moved under `TYPE_CHECKING`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/phaseb/test_ledger.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/phaseb/test_ledger.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
