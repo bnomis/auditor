@@ -45,7 +45,7 @@ clean result.
 
 ## Task 2: Work out the roots and each function's flags once per listing
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F2, F4
@@ -55,21 +55,21 @@ A11 lister walks each function once.
 
 **Subtasks:**
 
-- [ ] Record `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for every listed question, outside the repository
-- [ ] F2: `grep -rn 'audit_roots(' claude/skills/auditme/checks/auditme/phaseb` and route every call through `auditme.core.cached_roots` (on 2026-11-22: `architecture.py:85`, `:619`, `:772`, `candidates.py:382`, `:611`, `testmap.py:312`); add a test in `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py` that one A1 listing scans the roots once (count calls to `auditme.core.audit_roots` with a monkeypatch)
-- [ ] F4: in `list_a11_candidates` (`claude/skills/auditme/checks/auditme/phaseb/architecture.py:297`), compute `flag_subjects` once per function rather than once per statement; add a test that it is called once per function
-- [ ] Run the listings again and diff them against the record
+- [x] Record `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for every listed question, outside the repository
+- [x] F2: `grep -rn 'audit_roots(' claude/skills/auditme/checks/auditme/phaseb` and route every call through `auditme.core.cached_roots` (on 2026-11-22: `architecture.py:85`, `:619`, `:772`, `candidates.py:382`, `:611`, `testmap.py:312`); add a test in `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py` that one A1 listing scans the roots once (count calls to `auditme.core.audit_roots` with a monkeypatch)
+- [x] F4: in `list_a11_candidates` (`claude/skills/auditme/checks/auditme/phaseb/architecture.py:297`), compute `flag_subjects` once per function rather than once per statement; add a test that it is called once per function
+- [x] Run the listings again and diff them against the record
 
 **Acceptance Criteria:**
 
-- [ ] Every listing is identical before and after
-- [ ] `grep -rn 'audit_roots(' claude/skills/auditme/checks/auditme/phaseb` prints nothing
-- [ ] Each new test fails before its change and passes after it
+- [x] Every listing is identical before and after
+- [x] `grep -rn 'audit_roots(' claude/skills/auditme/checks/auditme/phaseb` prints nothing
+- [x] Each new test fails before its change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 
