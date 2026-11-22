@@ -82,7 +82,7 @@ that the list itself is never committed. It is the entry of the
 |---|---|
 | `0` | No match; or no list file (a notice goes to stderr and nothing is checked); or the list is empty after comments and `--allow`; or no files given |
 | `1` | At least one match, even when another file is unreadable (a message naming it goes to stderr) |
-| `2` | No match, but a file could not be read (a message naming it goes to stderr) |
+| `2` | The list exists but cannot be read (`check-foreign-names: cannot read <list>` on stderr), whatever the files; or no match, but a file could not be read (a message naming it goes to stderr) |
 
 Environment: `AUDITOR_FOREIGN_NAMES` (path of the list), `HOME` (the default
 list is `~/.config/auditor/foreign-names`).

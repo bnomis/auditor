@@ -1,16 +1,21 @@
 """Tests for bin/check-foreign-names.sh, the hook that keeps project names out."""
 
+import os
 import pathlib
 import subprocess
+
+import pytest
 
 SCRIPT = pathlib.Path(__file__).resolve().parent.parent / 'bin' / 'check-foreign-names.sh'
 
 
-def run(tmp_path: pathlib.Path, names: str | None, *files: str) -> subprocess.CompletedProcess[str]:
+def run(tmp_path: pathlib.Path, names: str | None, *files: str, listing: pathlib.Path | None = None) -> subprocess.CompletedProcess[str]:
     env = {'PATH': '/usr/bin:/bin', 'HOME': str(tmp_path / 'home')}
     if names is not None:
         listing = tmp_path / 'names'
         listing.write_text(names)
+        env['AUDITOR_FOREIGN_NAMES'] = str(listing)
+    if listing is not None:
         env['AUDITOR_FOREIGN_NAMES'] = str(listing)
     return subprocess.run(['bash', str(SCRIPT), *files], capture_output=True, text=True, env=env, cwd=tmp_path, check=False)
 
@@ -83,3 +88,15 @@ def test_an_unreadable_file_alone_exits_2_naming_it(tmp_path: pathlib.Path) -> N
     result = run(tmp_path, 'acmeproj\n', 'missing.md')
     assert result.returncode == 2
     assert 'missing.md' in result.stderr
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason='root reads a mode 000 file')
+def test_an_unreadable_list_fails_and_names_it(tmp_path: pathlib.Path) -> None:
+    (tmp_path / 'doc.md').write_text('clean\n')
+    listing = tmp_path / 'names'
+    listing.write_text('acmeproj\n')
+    listing.chmod(0)
+    for args in (['doc.md'], []):
+        result = run(tmp_path, None, *args, listing=listing)
+        assert result.returncode == 2
+        assert f'cannot read {listing}' in result.stderr

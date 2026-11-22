@@ -17,7 +17,7 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 ## Task 1: Fail the no-project-names hook when its list cannot be read
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F7
@@ -27,19 +27,19 @@ hook with an error, so a commit is never passed unchecked because of it.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `tests/test_check_foreign_names.py`: with `AUDITOR_FOREIGN_NAMES` pointing at a list file that exists but cannot be read (mode `000`; skip the test when running as root, where the mode does not stop a read), the script exits 2 and names the list on stderr, whatever the files passed
-- [ ] In `bin/check-foreign-names.sh`, read the list so that a read failure is caught (test `-r` before reading, or check grep's status, which is 2 on a read error and 1 when it only filtered every line out) and exit 2 with `check-foreign-names: cannot read <list>`; a list whose lines are all blank or comments still exits 0
-- [ ] Update the exit table in `docs/reference/cli.md` (the `bin/check-foreign-names.sh` section)
+- [x] Write the failing test first, in `tests/test_check_foreign_names.py`: with `AUDITOR_FOREIGN_NAMES` pointing at a list file that exists but cannot be read (mode `000`; skip the test when running as root, where the mode does not stop a read), the script exits 2 and names the list on stderr, whatever the files passed
+- [x] In `bin/check-foreign-names.sh`, read the list so that a read failure is caught (test `-r` before reading, or check grep's status, which is 2 on a read error and 1 when it only filtered every line out) and exit 2 with `check-foreign-names: cannot read <list>`; a list whose lines are all blank or comments still exits 0
+- [x] Update the exit table in `docs/reference/cli.md` (the `bin/check-foreign-names.sh` section)
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] The existing tests in `tests/test_check_foreign_names.py` and `tests/test_published_hooks.py` pass unchanged
+- [x] The new test fails before the change and passes after it
+- [x] The existing tests in `tests/test_check_foreign_names.py` and `tests/test_published_hooks.py` pass unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_check_foreign_names.py tests/test_published_hooks.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_check_foreign_names.py tests/test_published_hooks.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
