@@ -249,7 +249,7 @@ Before writing the review file, confirm:
 - [ ] Phase B ran with per-question fan-out covering EVERY question in EVERY category (`--category` was NOT used unless the user explicitly asked for a partial verification)
 - [ ] Every Phase B subagent returned an explicit hit list (or "no hits") - no question silently skipped
 - [ ] Every listed question has a current verdict for every candidate, or the review names each id not judged
-- [ ] Every sampled question ran in its cadence's mode (changed files, or the whole tree on every third audit and on any audit with no previous `**Commit:**`), and the review records the mode
+- [ ] Every sampled question ran in its cadence's mode (the lines changed since the previous review, each widened to its enclosing function, or the whole tree on every third audit and on any audit with no previous `**Commit:**`), and the review records the mode
 - [ ] Every unresolved `summary.md` finding was re-verified
 - [ ] Every incomplete task file was re-verified against source
 - [ ] No new check was added to `checks/auditme/rules/` during this audit (script-coverage delta is zero)
@@ -436,7 +436,7 @@ For each Phase B question (subagent fan-out), one block. Include EVERY question 
 
 ### A2 (sampled): Except tuple coverage
 
-- **Mode:** <changed files since commit <hash>, or full>
+- **Mode:** <changed lines since commit <hash>, or full>
 - **Subagent ran on:** all 103 src files
 - **Hits:**
   - `path:line` - `except UnicodeDecodeError` body calls `read_text`; `OSError` missing

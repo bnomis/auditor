@@ -13,7 +13,7 @@ Answers section. No task changes a brief in
 
 ## Task 1: Correct the two doc statements
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1, F2
@@ -24,20 +24,20 @@ them.
 
 **Subtasks:**
 
-- [ ] F1: in `docs/reference/skills.md` (line 32 on 2026-11-22) and in the completion gate of `claude/skills/auditme/SKILL.md` (line 252), say a sampled question runs on the lines changed since the previous review, each widened to its enclosing function, as the Sampled cadence section of `SKILL.md` says
-- [ ] F1: `grep -rn 'files changed since\|changed files' docs README.md AGENTS.md claude/skills/auditme/SKILL.md agents/specs` and fix each other line that describes the sampled mode as whole files; leave dated records and lines about `changed.py`'s own file selection as they are
-- [ ] F2: in `docs/guide/checker.md`'s `silent-self-mutation` row (line 294), add that a method whose name is one of the listed words followed by `_` and more (`update_cache`) is exempt too, read from `check_silent_self_mutation` in `claude/skills/auditme/checks/auditme/rules/state_and_effects.py`
-- [ ] Find each statement by its text; the line numbers are from 2026-11-22
+- [x] F1: in `docs/reference/skills.md` (line 32 on 2026-11-22) and in the completion gate of `claude/skills/auditme/SKILL.md` (line 252), say a sampled question runs on the lines changed since the previous review, each widened to its enclosing function, as the Sampled cadence section of `SKILL.md` says
+- [x] F1: `grep -rn 'files changed since\|changed files' docs README.md AGENTS.md claude/skills/auditme/SKILL.md agents/specs` and fix each other line that describes the sampled mode as whole files; leave dated records and lines about `changed.py`'s own file selection as they are
+- [x] F2: in `docs/guide/checker.md`'s `silent-self-mutation` row (line 294), add that a method whose name is one of the listed words followed by `_` and more (`update_cache`) is exempt too, read from `check_silent_self_mutation` in `claude/skills/auditme/checks/auditme/rules/state_and_effects.py`
+- [x] Find each statement by its text; the line numbers are from 2026-11-22
 
 **Acceptance Criteria:**
 
-- [ ] Each statement matches the code it describes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] Each statement matches the code it describes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_briefs.py -q -p no:cacheprovider` passes (it reads `SKILL.md`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_briefs.py -q -p no:cacheprovider` passes (it reads `SKILL.md`)
 
 **Notes:**
 
