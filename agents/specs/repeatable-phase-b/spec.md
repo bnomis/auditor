@@ -156,6 +156,7 @@ def list_candidates(question: str, root: pathlib.Path, depth: int | None = None)
 
     Raises:
         PhaseBError: question has no registered lister.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
 
 
@@ -173,6 +174,9 @@ def plan_batches(candidates: list[Candidate], ledger: dict[str, Verdict], brief_
     A candidate needs one when the ledger has no verdict for its id, or the
     verdict's hash or brief_version differs from the current one, or rejudge
     is set.
+
+    Raises:
+        PhaseBError: size is not a positive number.
     """
 
 

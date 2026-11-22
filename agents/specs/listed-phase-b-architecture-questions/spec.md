@@ -16,7 +16,7 @@ thresholds the question's text in
 
 ## Motivation
 
-Every question but A4 is still sampled, so it still turns up sites earlier
+When this spec was written (2026-11-20), every question but A4 was still sampled, so it still turned up sites earlier
 audits missed in code nobody changed. Measured on 2026-11-20 on one project's
 last three full audits, counting the Phase B question each finding names: the
 documentation questions 13, T1 and T2 7, A1, A11, A17 and A19 9, A13 and A15
@@ -210,7 +210,8 @@ Each brief holds its question verbatim from `SKILL.md`, the input format,
 the output (one JSON line per candidate: `id`, `findings`, `reason`), the
 rules every brief carries (report an unsettled threshold, never decide it;
 never list environment variables or print an env file) and
-`**Brief version:** 1`. Thresholds:
+`**Brief version:** 1` when written (the current versions are in
+`grep -n 'Brief version' claude/skills/auditme/phaseb/briefs/*.md`). Thresholds:
 
 - **A11.** A hit when the subject is a `Literal` or `Enum` and the chain ends
   in `raise`, has no `else` and falls through, or ends in an `else` that

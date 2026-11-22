@@ -269,7 +269,7 @@ root.
 
 ## Task 8: Correct the specs
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F7, F14
@@ -280,24 +280,24 @@ or is worded as the record of its spec's change, and the test-questions spec's
 
 **Subtasks:**
 
-- [ ] Correct each site F7 lists in `agents/audit-reviews/review-2.md`:
+- [x] Correct each site F7 lists in `agents/audit-reviews/review-2.md`:
   - `listed-phase-b-architecture-questions/spec.md:19` and `listed-phase-b-test-questions/spec.md:17`: reword "every question but A4 is still sampled" and "only A4 is listed" as the state when the spec was written;
   - `listed-phase-b-architecture-questions/spec.md:213` and `listed-phase-b-documentation-questions/spec.md:177-179`: say "version 1 when written", or point at `grep -n 'Brief version' claude/skills/auditme/phaseb/briefs/*.md`;
   - `listed-phase-b-documentation-questions/spec.md:104-105`: say what the code does with `.pre-commit-config.yaml`, which it reads by regex and does not parse;
   - `project-setup/spec.md:260`: give the message `pyproject.toml: not valid TOML (<the parser's message>)`;
   - `project-setup/spec.md:752`: give the current ruff pin, `v0.17.4`, or reword it as the pin at the time;
   - `repeatable-phase-b/spec.md:157` and `:170`: add `RootsError` to `list_candidates`' `Raises:`, and `PhaseBError` (size below 1) to `plan_batches`.
-- [ ] Confirm after Task 2 that `listed-phase-b-architecture-questions/spec.md:271` matches the code; reword it only if the code now differs
-- [ ] F14: in `listed-phase-b-test-questions/spec.md:308`, give `--question` as `str`, required, with no default
-- [ ] Line numbers are from 2026-11-22; find each statement by its text
+- [x] Confirm after Task 2 that `listed-phase-b-architecture-questions/spec.md:271` matches the code; reword it only if the code now differs
+- [x] F14: in `listed-phase-b-test-questions/spec.md:308`, give `--question` as `str`, required, with no default
+- [x] Line numbers are from 2026-11-22; find each statement by its text
 
 **Acceptance Criteria:**
 
-- [ ] Each F7 statement is corrected or reworded as a record
+- [x] Each F7 statement is corrected or reworded as a record
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 
