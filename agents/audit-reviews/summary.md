@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-4
-**Total reviews conducted:** 4
+**Last review:** review-5
+**Total reviews conducted:** 5
 **Last script run hit count:** 46 (46 accepted)
-**Script version:** c38e0148741ae2f2371b2bd7c07640fd5ee7efab46f6d93e72c3b9c96df33496
+**Script version:** fc14e84b155f4e38e691282d6d45784a5c47fb88adf32f58411ea12bd463bec0
 
 ## How to reproduce the sweep
 
@@ -13,19 +13,26 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-5
+## Convergence note for review-6
 
-- **Sampled mode:** review-4's `**Commit:**` is `0a01580`. Review-5 samples the files changed since then; the sixth audit counted from review-1 runs the whole tree.
-- **Listed questions:** review-4 judged every candidate under the bumped briefs. Review-5 re-judges only candidates whose hash or brief version changed.
-- **Precondition:** review-5 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Sampled mode:** review-6 is the sixth audit counted from review-1, so every sampled question runs on the whole tree.
+- **Listed questions:** review-6 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-6 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 
 ## Unresolved findings
 
-Each group is described in full, with every site, in [review-4](review-4.md#phase-b-findings-consolidated).
+Each group is described in full, with every site, in [review-5](review-5.md#phase-b-findings-consolidated).
 
-None: every finding of review-4 shipped (F1 was dismissed, below).
+| Finding | Question | Severity | First raised |
+|---|---|---|---|
+| F1 the installer's exit-1 row leaves out two cases | Doc5 | low | review-5 |
+| F2 a troubleshooting cause left out | Doc5 | low | review-5 |
+| F3 the phaseb synopsis leaves out `--depth` | Doc4 | low | review-5 |
+| F5 `resolve_path` reads a file under a pure name | A9 | low | review-5 |
+| F6 the listers read, parse and resolve the same things repeatedly | A14, P3 | low | review-5 |
+| F8 two imports used only in annotations | S4 | low | review-5 |
 
-Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on review-2's page (F2), review-3's (F1) and review-4's (F1), as review-1's D2 chose.
+Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2, review-3 and review-4, as review-1's D2 chose. On review-5's page: F4 (two fixed doc statements whose verdicts the Doc hash defect kept open) and F7 (`t1_reasons`, not real-size).
 
 ## Recently resolved
 
@@ -88,10 +95,9 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 - A cache added for some callers, not all (A14, P3): review-1 F15, review-2 F12, review-3 F5, F6.
 - New brief thresholds after each settlement (D1): review-1, review-2 and review-3 each reported a fresh set.
 - A fix for one rule that moves the finding to another (A17 after S4): review-3 F8, review-4 F2.
+- A renaming or reshaping fix that brings a finding back (A9 after review-4's rename, A17 after review-3's import change): review-4 F2, review-5 F5.
+- A verdict that flips when a fresh reviewer reads the same text under the same brief: review-5 F2, F3.
 
 ## Checker changes since the last review
 
-- 2026-11-22: `bin/check-foreign-names.sh` exits 2 with `check-foreign-names: cannot read <list>` when its list cannot be read (review-4 F7, Task 1).
-- 2026-11-22: `changed.py` refuses a `--base` value that starts with `-` (review-4 F6, Task 2).
-- 2026-11-22: `phaseb.py` re-exports `batches` from `auditme.phaseb` in the relative form (review-4 F2, Task 3).
-- 2026-11-22: a dismissal in the Phase B ledger survives a re-judge while the candidate's hash is unchanged, so a brief bump no longer brings back a dismissed finding (review-4 D2).
+- (none since review-5)
