@@ -261,6 +261,10 @@ def relpath(p: pathlib.Path, root: pathlib.Path) -> str:
 
 
 def accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
+    return typing.cast('set[tuple[str, str]]', cached_per_run('accepted_lazy_imports', scope, scan_accepted_lazy_imports))
+
+
+def scan_accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     agents = scope / 'AGENTS.md'
     if not agents.exists():
         return set()

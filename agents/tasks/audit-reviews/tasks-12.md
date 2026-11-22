@@ -50,7 +50,7 @@ and the CLI reference states `phaseb.py`'s exit-2 rule rather than a list.
 
 ## Task 2: Name the root modes, cache the lazy-import table, test the per-run cache
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1, F3, F5
@@ -61,24 +61,25 @@ cache is tested where it is defined.
 
 **Subtasks:**
 
-- [ ] Record `python3 claude/skills/auditme/checks/audit.py .` and `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for A1, A17 and A4, outside the repository
-- [ ] F3: write a test first, in `claude/skills/auditme/tests/test_core.py`, that reads every `.py` file under `claude/skills/auditme/checks/` and fails if any `cached_roots(...)` call is subscripted (parse with `ast` and look for a `Subscript` whose value is a call to `cached_roots`); then unpack each site into named parts (`roots, _modes = ...`): `phaseb/architecture.py:85`, `:622`, `phaseb/candidates.py:382` on 2026-11-22
-- [ ] F5: route `accepted_lazy_imports` (`claude/skills/auditme/checks/auditme/core.py:263`) through `cached_per_run`; then `grep -rn "AGENTS.md\|pyproject.toml" claude/skills/auditme/checks/auditme` and confirm every helper that reads either file is cached per run, caching any that is not
-- [ ] F1: add direct tests of `cached_per_run` to `claude/skills/auditme/tests/test_core.py`: it computes once per name and scope in a run, computes again after the per-run cache is cleared, and keeps two names apart
-- [ ] Run the commands again and diff them against the record
+- [x] Record `python3 claude/skills/auditme/checks/audit.py .` and `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for A1, A17 and A4, outside the repository
+- [x] F3: write a test first, in `claude/skills/auditme/tests/test_core.py`, that reads every `.py` file under `claude/skills/auditme/checks/` and fails if any `cached_roots(...)` call is subscripted (parse with `ast` and look for a `Subscript` whose value is a call to `cached_roots`); then unpack each site into named parts (`roots, _modes = ...`): `phaseb/architecture.py:85`, `:622`, `phaseb/candidates.py:382` on 2026-11-22
+- [x] F5: route `accepted_lazy_imports` (`claude/skills/auditme/checks/auditme/core.py:263`) through `cached_per_run`; then `grep -rn "AGENTS.md\|pyproject.toml" claude/skills/auditme/checks/auditme` and confirm every helper that reads either file is cached per run, caching any that is not
+- [x] F1: add direct tests of `cached_per_run` to `claude/skills/auditme/tests/test_core.py`: it computes once per name and scope in a run, computes again after the per-run cache is cleared, and keeps two names apart
+- [x] Run the commands again and diff them against the record
 
 **Acceptance Criteria:**
 
-- [ ] Every output is identical before and after
-- [ ] The subscript test fails before the F3 change and passes after it
+- [x] Every output is identical before and after
+- [x] The subscript test fails before the F3 change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 
+- Every `AGENTS.md` / `pyproject.toml` reader checked: `accepted_lazy_imports` now cached; the others are already cached per run or run once per command, not per root.
 - Key files: `claude/skills/auditme/checks/auditme/core.py`, `phaseb/architecture.py`, `phaseb/candidates.py`
 
 ---

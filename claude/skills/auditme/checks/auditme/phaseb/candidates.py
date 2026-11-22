@@ -379,7 +379,8 @@ def list_a4_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     Raises:
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
-    return [candidate for src_root in auditme.core.cached_roots(scope)[0] for candidate in root_candidates(scope, src_root, depth)]
+    roots, _ = auditme.core.cached_roots(scope)
+    return [candidate for src_root in roots for candidate in root_candidates(scope, src_root, depth)]
 
 
 DOC_BATCH_SIZE = 24
