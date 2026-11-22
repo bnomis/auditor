@@ -50,7 +50,7 @@ and the names hook names a path it cannot read as a file.
 
 ## Task 2: Work out each project-level answer once per sweep
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F3
@@ -60,20 +60,20 @@ once per sweep, however many roots there are.
 
 **Subtasks:**
 
-- [ ] Record `python3 claude/skills/auditme/checks/audit.py .` outside the repository
-- [ ] List every helper under `claude/skills/auditme/checks/auditme/` that takes only `scope` and is called from a per-root `check_*` (`grep -n 'def [a-z_]*(scope: pathlib.Path)' -r claude/skills/auditme/checks/auditme`); on 2026-11-22 these include `project_has_all_guard` and `project_bans_as_imports` in `rules/imports_and_surfaces.py`
-- [ ] Cache each through the per-run cache the driver clears, so it is computed once per sweep; add a test in `claude/skills/auditme/tests/test_imports_and_surfaces.py` that one sweep over a project with two roots calls `project_has_all_guard`'s scan once
-- [ ] Run the audit again and diff it against the record
+- [x] Record `python3 claude/skills/auditme/checks/audit.py .` outside the repository
+- [x] List every helper under `claude/skills/auditme/checks/auditme/` that takes only `scope` and is called from a per-root `check_*` (`grep -n 'def [a-z_]*(scope: pathlib.Path)' -r claude/skills/auditme/checks/auditme`); on 2026-11-22 these include `project_has_all_guard` and `project_bans_as_imports` in `rules/imports_and_surfaces.py`
+- [x] Cache each through the per-run cache the driver clears, so it is computed once per sweep; add a test in `claude/skills/auditme/tests/test_imports_and_surfaces.py` that one sweep over a project with two roots calls `project_has_all_guard`'s scan once
+- [x] Run the audit again and diff it against the record
 
 **Acceptance Criteria:**
 
-- [ ] The audit output is identical before and after
-- [ ] The new test fails before the change and passes after it
+- [x] The audit output is identical before and after
+- [x] The new test fails before the change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_core.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_core.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

@@ -829,3 +829,19 @@ def test_declared_root_modules_are_listed_once_per_run(project: Builder, monkeyp
     second = auditme.rules.imports_and_surfaces.declared_root_modules()
     assert first == second == {'tool', 'pkg'}
     assert len(calls) == 1
+
+
+def test_the_all_guard_scan_runs_once_per_sweep_over_two_roots(project: Builder, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'src/probe/a.py': 'x = 1\n', 'src/probe/b.py': "y = getattr(m, '__all__')\n"})
+    auditme.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+    real = auditme.rules.imports_and_surfaces.scan_has_all_guard
+
+    def counting(scope: pathlib.Path) -> bool:
+        calls.append(scope)
+        return real(scope)
+
+    monkeypatch.setattr(auditme.rules.imports_and_surfaces, 'scan_has_all_guard', counting)
+    answers = [auditme.rules.imports_and_surfaces.project_has_all_guard(root) for _ in range(2)]
+    assert answers == [True, True]
+    assert calls == [root]
