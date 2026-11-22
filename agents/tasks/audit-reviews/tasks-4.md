@@ -250,7 +250,7 @@ does, so that I can rely on their failure lists and descriptions.
 
 ## Task 8: Run the whole-tree checks and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -260,19 +260,19 @@ merges, and the audit summary records what this list resolved.
 
 **Subtasks:**
 
-- [ ] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 7 fixed from Unresolved to Recently resolved, naming its task; leave any that did not ship, with the reason
-- [ ] Under "Checker changes since the last review", add a dated line for each behaviour change (the hook's exit 2 on an unreadable list, the `--base` check, the `batches` re-export)
+- [x] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 7 fixed from Unresolved to Recently resolved, naming its task; leave any that did not ship, with the reason
+- [x] Under "Checker changes since the last review", add a dated line for each behaviour change (the hook's exit 2 on an unreadable list, the `--base` check, the `batches` re-export)
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved table holds only findings that did not ship, each with its reason
+- [x] The Unresolved table holds only findings that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (`core.py` changed, and every checker test reaches it; Task 1 changes a script the top-level tests run)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (`core.py` changed, and every checker test reaches it; Task 1 changes a script the top-level tests run)
 
 **Notes:**
 
