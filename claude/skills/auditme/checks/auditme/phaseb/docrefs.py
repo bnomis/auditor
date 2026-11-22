@@ -168,6 +168,8 @@ class CorpusIndex:
     aliases: dict[str, str]
     classes: dict[str, list[ClassInfo]]
     options: dict[str, list[DocTarget]]
+    settings: frozenset[str]
+    line_counts: dict[str, int] = dataclasses.field(default_factory=dict, compare=False)
 
     @classmethod
     def build(cls, scope: pathlib.Path) -> 'CorpusIndex':
@@ -179,12 +181,12 @@ class CorpusIndex:
         """
         files = tracked_files(scope)
         directories = frozenset(parent.as_posix() for name in files for parent in pathlib.PurePosixPath(name).parents if parent.as_posix() != '.')
-        roots = auditme.core.audit_roots(scope)
+        roots, _ = auditme.core.cached_roots(scope)
         src_root = roots[0] if roots else scope / 'src'
         definitions = auditme.core.corpus_definitions(scope, src_root, classes=True)
         entries = IndexEntries()
         from_bindings: dict[str, dict[str, str]] = {}
-        for path in auditme.core.corpus_py_files(scope, src_root):
+        for path in auditme.core.cached_corpus_files(scope, src_root):
             try:
                 tree = ast.parse('\n'.join(auditme.core.source_lines(path)))
             except SyntaxError:
@@ -196,19 +198,21 @@ class CorpusIndex:
                 from_bindings[module] = auditme.core.from_import_bindings(tree, module, path.name == '__init__.py')
             entries.add_module(tree, path, rel, module)
         aliases = auditme.core.reexport_aliases(from_bindings, entries.by_dotted.keys())
-        return cls(scope, files, directories, definitions, entries.sites, entries.by_dotted, aliases, entries.classes, entries.options)
+        settings = settings_classes(entries.classes)
+        return cls(scope, files, directories, definitions, entries.sites, entries.by_dotted, aliases, entries.classes, entries.options, settings)
 
-    def settings_classes(self) -> set[str]:
-        """Names of the classes deriving, directly or through other corpus classes, from `BaseSettings`."""
-        found: set[str] = set()
-        changed = True
-        while changed:
-            changed = False
-            for name, infos in self.classes.items():
-                if name not in found and any(SETTINGS_BASE in info.bases or found & set(info.bases) for info in infos):
-                    found.add(name)
-                    changed = True
-        return found
+
+def settings_classes(classes: dict[str, list[ClassInfo]]) -> frozenset[str]:
+    """Names of the classes deriving, directly or through other corpus classes, from `BaseSettings`."""
+    found: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for name, infos in classes.items():
+            if name not in found and any(SETTINGS_BASE in info.bases or found & set(info.bases) for info in infos):
+                found.add(name)
+                changed = True
+    return frozenset(found)
 
 
 @dataclasses.dataclass
@@ -305,17 +309,23 @@ def tracked_files(scope: pathlib.Path) -> frozenset[str]:
 def file_target(index: CorpusIndex, rel: str) -> DocTarget:
     """The target of a tracked file, spanning all its lines.
 
+    The line count is read on the file's first lookup and kept on the index,
+    so resolving a name repeats no read.
+
     Raises:
         PhaseBError: the file cannot be read.
     """
-    try:
-        lines = (index.scope / rel).read_bytes().count(b'\n') + 1
-    except OSError as error:
-        raise auditme.phaseb.errors.PhaseBError(f'cannot read {rel}') from error
+    lines = index.line_counts.get(rel)
+    if lines is None:
+        try:
+            lines = (index.scope / rel).read_bytes().count(b'\n') + 1
+        except OSError as error:
+            raise auditme.phaseb.errors.PhaseBError(f'cannot read {rel}') from error
+        index.line_counts[rel] = lines
     return path_target('file', rel, lines)
 
 
-def read_path_targets(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
+def resolve_path(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
     """A tracked file or directory, relative to the repository root, then to the document's directory."""
     if '/' not in token and not token.endswith(PATH_EXTENSIONS):
         return []
@@ -357,7 +367,7 @@ def resolve_member(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[Do
 def resolve_setting(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
     """A dotted key: a field of a settings class, then a field of each field's class."""
     first, *rest = token.split('.')
-    owners = [(info, info.field_types.get(first, [])) for name in index.settings_classes() for info in index.classes[name] if first in info.members]
+    owners = [(info, info.field_types.get(first, [])) for name in index.settings for info in index.classes[name] if first in info.members]
     targets = {info.members[first] for info, _ in owners}
     for segment in rest:
         next_owners: list[tuple[ClassInfo, list[str]]] = []
@@ -384,7 +394,7 @@ def resolve_name(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocT
     aliases, a bare name, `Class.member`, a setting key, a command-line option.
     Each is positive evidence; nothing resolves by resemblance.
     """
-    for step in (read_path_targets, resolve_dotted, resolve_bare, resolve_member, resolve_setting, resolve_option):
+    for step in (resolve_path, resolve_dotted, resolve_bare, resolve_member, resolve_setting, resolve_option):
         found = step(token, doc, index)
         if found:
             return found

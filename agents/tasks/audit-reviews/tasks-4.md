@@ -144,7 +144,7 @@ reader of `ROOT_MODULES` and a reader of the per-run cache always agree.
 
 ## Task 5: Cut the reads and repeated work in docrefs
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** medium
 **Source Reference:** F4, F5
@@ -155,21 +155,21 @@ once.
 
 **Subtasks:**
 
-- [ ] Record the Doc4 and Doc5 listings first: `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4 > <scratch>/doc4-before.jsonl`, and the same for Doc5
-- [ ] F4: make `resolve_name` (`claude/skills/auditme/checks/auditme/phaseb/docrefs.py:380` on 2026-11-22) stop reading files through `read_path_targets` and `file_target` (`:312`): take the line count from a per-run cache built where files are read, or rename the reading functions after what they do, so the resolver stays a query
-- [ ] F5: in `CorpusIndex.build` (`:187`), take the roots and file list from the per-run cache (`auditme.core.corpus_index` or `cached_roots`) instead of calling `audit_roots`, `corpus_definitions` and `corpus_py_files` each again; compute `settings_classes()` once per index and reuse it in `resolve_setting` (`:360`)
-- [ ] Add a test in `claude/skills/auditme/tests/phaseb/test_docrefs.py` that one `CorpusIndex.build` calls `auditme.core.declared_roots` once
-- [ ] Run the two listings again and diff them against the recorded ones
+- [x] Record the Doc4 and Doc5 listings first: `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4 > <scratch>/doc4-before.jsonl`, and the same for Doc5
+- [x] F4: make `resolve_name` (`claude/skills/auditme/checks/auditme/phaseb/docrefs.py:380` on 2026-11-22) stop reading files through `read_path_targets` and `file_target` (`:312`): take the line count from a per-run cache built where files are read, or rename the reading functions after what they do, so the resolver stays a query
+- [x] F5: in `CorpusIndex.build` (`:187`), take the roots and file list from the per-run cache (`auditme.core.corpus_index` or `cached_roots`) instead of calling `audit_roots`, `corpus_definitions` and `corpus_py_files` each again; compute `settings_classes()` once per index and reuse it in `resolve_setting` (`:360`)
+- [x] Add a test in `claude/skills/auditme/tests/phaseb/test_docrefs.py` that one `CorpusIndex.build` calls `auditme.core.declared_roots` once
+- [x] Run the two listings again and diff them against the recorded ones
 
 **Acceptance Criteria:**
 
-- [ ] The Doc4 and Doc5 listings are identical before and after
-- [ ] The new test fails before the change and passes after it
+- [x] The Doc4 and Doc5 listings are identical before and after
+- [x] The new test fails before the change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_docrefs.py claude/skills/auditme/tests/phaseb/test_doc_candidates.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_docrefs.py claude/skills/auditme/tests/phaseb/test_doc_candidates.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
