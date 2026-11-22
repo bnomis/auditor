@@ -28,14 +28,16 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     --check` would reformat under `src_root`.
 
     Runs the ruff `ruff_executable` finds, in `scope`. A ruff that cannot run
-    is a hit (`ruff not installed`), as is `ruff check` output that is not
-    JSON. No accept marker applies: fix the code or silence a line with
-    `# noqa: <code>`.
+    is a hit (`ruff not installed`), as is output from either command that is
+    not JSON (`ruff-check-parse-error`, `ruff-format-parse-error`). Both commands
+    report in ruff's JSON output format, so a file `ruff format` would rewrite
+    is a `ruff-format` hit at the path and line ruff names. No accept marker
+    applies: fix the code, or silence a `ruff check` line with `# noqa: <code>`.
     """
     ruff, _ = ruff_executable(scope)
     for cmd, variant in (
         ([ruff, 'check', '--output-format=json', str(src_root)], 'ruff-check'),
-        ([ruff, 'format', '--check', str(src_root)], 'ruff-format'),
+        ([ruff, 'format', '--check', '--output-format=json', str(src_root)], 'ruff-format'),
     ):
         try:
             # auditme: accept[subprocess-without-memoisation] its arguments differ per root
@@ -51,28 +53,25 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 accepted_reason=None,
             )
             continue
-        if variant == 'ruff-check' and result.stdout.strip():
-            try:
-                for hit in json.loads(result.stdout):
-                    auditme.core.emit(
-                        rule='ruff',
-                        variant=hit.get('code', 'ruff-check'),
-                        path=auditme.core.relpath(pathlib.Path(hit['filename']), scope),
-                        line=hit['location']['row'],
-                        evidence=hit.get('message', ''),
-                        accepted=False,
-                        accepted_reason=None,
-                    )
-            except json.JSONDecodeError:
-                auditme.core.emit(
-                    rule='ruff', variant='ruff-check-parse-error', path=None, line=None, evidence=result.stdout[:200], accepted=False, accepted_reason=None
-                )
-        elif variant == 'ruff-format' and result.returncode != 0:
-            for ln in result.stdout.splitlines() + result.stderr.splitlines():
-                if 'Would reformat' in ln or ln.endswith('.py'):
-                    auditme.core.emit(
-                        rule='ruff', variant='ruff-format', path=ln.split(':')[0].strip(), line=None, evidence=ln.strip(), accepted=False, accepted_reason=None
-                    )
+        if not result.stdout.strip():
+            continue
+        try:
+            found = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            auditme.core.emit(
+                rule='ruff', variant=f'{variant}-parse-error', path=None, line=None, evidence=result.stdout[:200], accepted=False, accepted_reason=None
+            )
+            continue
+        for hit in found:
+            auditme.core.emit(
+                rule='ruff',
+                variant=hit.get('code', 'ruff-check') if variant == 'ruff-check' else 'ruff-format',
+                path=auditme.core.relpath(pathlib.Path(hit['filename']), scope),
+                line=hit['location']['row'],
+                evidence=hit.get('message', ''),
+                accepted=False,
+                accepted_reason=None,
+            )
 
 
 # `uv lock --check` exits non-zero both when the lockfile is genuinely stale

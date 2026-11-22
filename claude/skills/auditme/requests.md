@@ -66,25 +66,6 @@ found something new and no cycle converged.
   Recurring patterns); consider with them whether a general rule would
   settle a class of cases rather than one case each.
 
-### The `ruff format` half of the `ruff` rule never reports a file
-
-- **Raised:** 2026-11-22, by this repository's third audit (review-3), reproduced the same day.
-- **What happens:** `check_ruff` in `checks/auditme/rules/project_hygiene.py`
-  emits a `ruff-format` hit only for an output line that contains `Would
-  reformat` or ends in `.py`. Ruff 0.17.4 (the version this repository's
-  `.pre-commit-config.yaml` pins) and 0.17.6 print `unformatted: File would be
-  reformatted` and ` --> <path>:<line>:<col>` instead, so a sweep over a
-  project with an unformatted file reports no `ruff-format` hit. The parser
-  also takes the hit's `path` from the text before the first colon, which on
-  the older output would be `Would reformat ...`. No test feeds the parser real
-  `ruff format --check` output.
-- **Asked for:** read the files to reformat from a stable format (for
-  example `ruff format --check --output-format=json`, or one path per
-  ` --> ` line), set `path` to the file relative to the project and `line` to
-  the line ruff names, and test it against output captured from the pinned
-  ruff. The first sweep after it ships reports every unformatted file as
-  catch-up.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.

@@ -86,3 +86,4 @@ Dismissed on review-2's page (2026-11-22, F2) and again on review-3's (F1, after
 - 2026-11-22: `changed.py`'s entry translates an `OSError` (for example a removed working directory) to its `changed.py:` message and exit 1 (review-3 F3, Task 1).
 - 2026-11-22: every rule check takes its tree from the shared `read_and_parse` instead of parsing each file again; the sorted sweep is unchanged, and the median of three runs fell from 12.2 s to 6.55 s on this repository (review-3 F6, Tasks 6 and 7).
 - 2026-11-22: `phaseb/__init__.py` no longer re-exports `batches`; readers import `auditme.phaseb.batches` directly (review-3 F8, Task 4).
+- 2026-11-22: the `ruff` rule's `ruff format` half reads ruff's JSON output, so a file ruff would reformat is a `ruff-format` hit at its path and line; before, it never fired. Review-4 reports any unformatted file in scope as catch-up.

@@ -4,23 +4,6 @@ Open work only, in implementation order, nearest first. Finished items move to
 `DONE.md` unchanged. See the shared `todo-add` and `todo-review` skills for
 the shape of an item.
 
-## The `ruff format` half of the `ruff` rule never reports a file
-
-Found on 2026-11-22 by `agents/audit-reviews/review-3.md` (its Checker
-request section), reproduced the same day on a scratch project, and filed in
-`claude/skills/auditme/requests.md` ("The `ruff format` half of the `ruff`
-rule never reports a file"), which holds the full finding.
-
-Cause: `check_ruff` in `claude/skills/auditme/checks/auditme/rules/project_hygiene.py`
-matches only output lines containing `Would reformat` or ending in `.py`;
-ruff 0.17.4 prints `unformatted: File would be reformatted` and
-` --> <path>:<line>:<col>`, so no `ruff-format` hit is ever emitted.
-
-Fix direction: as the request asks - read a stable output form, set `path`
-and `line` from it, and test against output captured from the pinned ruff.
-Shipping it deletes the request entry; the first sweep after it reports any
-unformatted file as catch-up.
-
 ## Settle the thresholds review-3's reviewers left open
 
 Found on 2026-11-22 by `agents/audit-reviews/review-3.md` (decision D1) and

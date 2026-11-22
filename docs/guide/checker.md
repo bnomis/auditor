@@ -267,7 +267,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 
 | Rule id | Reports |
 |---|---|
-| `ruff` | A `ruff check` diagnostic (variant: the ruff code), a file `ruff format --check` would reformat, or ruff missing |
+| `ruff` | A `ruff check` diagnostic (variant: the ruff code), a file `ruff format --check` would reformat (variant `ruff-format`, at the line ruff names), ruff missing, or ruff output that is not JSON (`ruff-check-parse-error`, `ruff-format-parse-error`) |
 | `lockfile-drift` | `uv lock --check` failing: the lockfile is out of date, or could not be verified |
 | `ruff-version-drift` | The ruff the audit runs differs from the `ruff-pre-commit` `rev`, or either version cannot be read |
 | `phase-section-doc-reference` | A docstring or comment citing `Phase N` or `Section X.Y` of a spec |

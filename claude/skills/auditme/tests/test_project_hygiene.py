@@ -49,6 +49,45 @@ def test_clean_source_produces_no_ruff_hits(project: Builder, run_check: Runner)
     assert [hit for hit in run_check(RUFF, root) if hit['rule'] == 'ruff'] == []
 
 
+def test_an_unformatted_file_is_reported_at_its_path_and_line(project: Builder, run_check: Runner) -> None:
+    """The `ruff format --check` half reports each file it would reformat, by path."""
+    require_ruff()
+    root = project({'src/probe/mod.py': 'def f( a ):\n    return   a\n', 'src/probe/ok.py': 'VALUE = 1\n'})
+    hits = [hit for hit in run_check(RUFF, root) if hit['variant'] == 'ruff-format']
+    assert [hit['path'] for hit in hits] == ['src/probe/mod.py']
+    assert hits[0]['line'] == 1
+    assert hits[0]['evidence'] == 'File would be reformatted'
+
+
+# Captured from `ruff format --check --output-format=json` (ruff 0.17.4, the pinned version) on 2026-11-22.
+FORMAT_JSON = '[{"cell": null, "code": "unformatted", "end_location": {"column": 13, "row": 2}, "filename": "{root}/src/probe/mod.py", "fix": null, "location": {"column": 7, "row": 1}, "message": "File would be reformatted", "name": "unformatted", "noqa_row": null, "severity": "error", "url": null}]'
+
+
+def test_format_output_from_the_pinned_ruff_is_parsed(project: Builder, run_check: Runner, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'src/probe/mod.py': 'VALUE = 1\n'})
+
+    def fake(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if cmd[1] == 'format':
+            return subprocess.CompletedProcess(cmd, 1, FORMAT_JSON.replace('{root}', str(root)), '')
+        return subprocess.CompletedProcess(cmd, 0, '[]', '')
+
+    monkeypatch.setattr(subprocess, 'run', fake)
+    hits = run_check(RUFF, root)
+    assert [(hit['variant'], hit['path'], hit['line']) for hit in hits] == [('ruff-format', 'src/probe/mod.py', 1)]
+
+
+def test_format_output_that_is_not_json_is_a_hit(project: Builder, run_check: Runner, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'src/probe/mod.py': 'VALUE = 1\n'})
+
+    def fake(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if cmd[1] == 'format':
+            return subprocess.CompletedProcess(cmd, 1, 'Would reformat: src/probe/mod.py', '')
+        return subprocess.CompletedProcess(cmd, 0, '[]', '')
+
+    monkeypatch.setattr(subprocess, 'run', fake)
+    assert [hit['variant'] for hit in run_check(RUFF, root)] == ['ruff-format-parse-error']
+
+
 def test_a_missing_ruff_is_reported_rather_than_passing_silently(
     project: Builder,
     run_check: Runner,

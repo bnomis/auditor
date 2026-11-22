@@ -816,3 +816,22 @@ emitted-hit case goes with review-2's D2. Shipping it deletes the request
 entry; review-3 cannot start until it is shipped or rejected.
 
 Done: 2026-11-22 - agents/reviews/brief-thresholds-2-2026-11-22.md (answered 2026-11-22); briefs A1 4, A4 6, A17 2, Doc4 6 and Doc5 6 under `claude/skills/auditme/phaseb/briefs/`; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from `claude/skills/auditme/requests.md`.
+
+## The `ruff format` half of the `ruff` rule never reports a file
+
+Found on 2026-11-22 by `agents/audit-reviews/review-3.md` (its Checker
+request section), reproduced the same day on a scratch project, and filed in
+`claude/skills/auditme/requests.md` ("The `ruff format` half of the `ruff`
+rule never reports a file"), which holds the full finding.
+
+Cause: `check_ruff` in `claude/skills/auditme/checks/auditme/rules/project_hygiene.py`
+matches only output lines containing `Would reformat` or ending in `.py`;
+ruff 0.17.4 prints `unformatted: File would be reformatted` and
+` --> <path>:<line>:<col>`, so no `ruff-format` hit is ever emitted.
+
+Fix direction: as the request asks - read a stable output form, set `path`
+and `line` from it, and test against output captured from the pinned ruff.
+Shipping it deletes the request entry; the first sweep after it reports any
+unformatted file as catch-up.
+
+Done: 2026-11-22 - `check_ruff` in `claude/skills/auditme/checks/auditme/rules/project_hygiene.py` reads `ruff format --check --output-format=json`, as it reads `ruff check`; tests in `claude/skills/auditme/tests/test_project_hygiene.py` against the real ruff and against output captured from the pinned ruff 0.17.4; `docs/guide/checker.md`; the request entry removed from `claude/skills/auditme/requests.md`. The sweep of this repository reported no unformatted file.
