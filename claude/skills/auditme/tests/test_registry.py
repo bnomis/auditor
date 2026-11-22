@@ -64,6 +64,12 @@ def test_no_check_is_registered_twice() -> None:
     assert len(names) == len(set(names))
 
 
+def test_the_spec_signature_check_runs_once_per_sweep_not_once_per_root() -> None:
+    """It reads the specs and the whole corpus, never the root it is handed, so a per-root pass would repeat it."""
+    assert auditme.rules.project_hygiene.check_spec_api_signature_drift in auditme.registry.PROJECT_CHECKS
+    assert auditme.rules.project_hygiene.check_spec_api_signature_drift not in auditme.registry.CHECKS
+
+
 def test_every_check_takes_a_scope_and_a_source_root() -> None:
     for check in auditme.registry.CHECKS:
         parameters = list(inspect.signature(check, annotation_format=annotationlib.Format.FORWARDREF).parameters)
@@ -180,7 +186,7 @@ def test_exactly_the_cross_file_rules_emit_related(project, run_check) -> None:
         }
     )
     hits = []
-    for check in auditme.registry.CHECKS:
+    for check in (*auditme.registry.CHECKS, *auditme.registry.PROJECT_CHECKS):
         hits.extend(run_check(check, root))
     emitting = {hit['rule'] for hit in hits if 'related' in hit}
     assert emitting == CROSS_FILE_RULES

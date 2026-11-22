@@ -132,7 +132,7 @@ def test_a_crashing_project_level_check_with_no_root_is_reported(
 
 def test_the_project_level_checks_are_not_per_root_checks() -> None:
     """A per-root pass would repeat a check that reads only the project."""
-    assert {check.__name__ for check in auditme.registry.PROJECT_CHECKS} == {'check_lockfile', 'check_ruff_version'}
+    assert {check.__name__ for check in auditme.registry.PROJECT_CHECKS} == {'check_lockfile', 'check_ruff_version', 'check_spec_api_signature_drift'}
     assert not set(auditme.registry.PROJECT_CHECKS) & set(auditme.registry.CHECKS)
 
 

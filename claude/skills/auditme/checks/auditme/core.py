@@ -90,9 +90,14 @@ def corpus_index[T](kind: str, scope: pathlib.Path, src_root: pathlib.Path, buil
 
     A corpus-wide question has the same answer on every pass, so `build` runs
     again only when a file of the corpus has changed or the set of files has.
-    The result is shared, so a caller must not modify it."""
+    The corpus file list is listed once per run and then reused; only each
+    file's stat is read on a lookup. The result is shared, so a caller must
+    not modify it."""
+    files_key = ('corpus-files', scope, src_root)
+    if files_key not in INDEX_CACHE:
+        INDEX_CACHE[files_key] = corpus_py_files(scope, src_root)
     signature: list[tuple[pathlib.Path, int, int]] = []
-    for path in corpus_py_files(scope, src_root):
+    for path in typing.cast('list[pathlib.Path]', INDEX_CACHE[files_key]):
         try:
             stat = path.stat()
         except OSError:

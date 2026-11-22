@@ -328,13 +328,14 @@ A project-level check asks about the project, not a package, and runs once
   config or no `ruff-pre-commit` repo; a ruff that cannot run is a hit.
 - `lockfile-drift` runs only when both `pyproject.toml` and `uv.lock` exist,
   and reports a `uv` that cannot run as a hit.
+- `spec-api-signature-drift` reads every Markdown file in scope against the
+  whole corpus, so a per-root pass would repeat it. It fires only when the
+  name resolves to exactly one module-level definition.
 
 Every other check runs once per pass, over that pass's root. Among them,
 `layering-violation`, `as-import` and `in-function-import` read `AGENTS.md`
-for their gate or their acceptance tables, `spec-api-signature-drift` reads
-every Markdown file in scope against the whole corpus and fires only when the
-name resolves to exactly one module-level definition, and `ruff` runs over the
-pass's root. The driver prints identical hits once.
+for their gate or their acceptance tables, and `ruff` runs over the pass's
+root. The driver prints identical hits once.
 
 ## The pinned version and upgrades
 

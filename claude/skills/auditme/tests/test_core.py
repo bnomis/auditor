@@ -183,6 +183,24 @@ def test_corpus_definitions_default_keys_module_level_functions_only(project: Bu
     assert auditme.core.relpath(path, root) == 'src/pkg/mod.py'
 
 
+def test_a_corpus_index_lookup_does_not_list_the_corpus_again_within_a_run(project: Builder, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'src/pkg/mod.py': DEFINITIONS_SOURCE})
+    src_root = root / 'src' / 'pkg'
+    auditme.core.clear_source_cache()
+    listings: list[pathlib.Path] = []
+    real = auditme.core.corpus_py_files
+
+    def counting(scope: pathlib.Path, source_root: pathlib.Path) -> list[pathlib.Path]:
+        listings.append(source_root)
+        return real(scope, source_root)
+
+    monkeypatch.setattr(auditme.core, 'corpus_py_files', counting)
+    auditme.core.corpus_index('probe-a', root, src_root, lambda: 1)
+    auditme.core.corpus_index('probe-b', root, src_root, lambda: 2)
+    assert len(listings) == 1
+    auditme.core.clear_source_cache()
+
+
 def test_corpus_definitions_skips_a_file_with_a_syntax_error(project: Builder) -> None:
     root = project({'src/pkg/good.py': DEFINITIONS_SOURCE, 'src/pkg/bad.py': 'def broken(:\n'})
     assert list(auditme.core.corpus_definitions(root, root / 'src' / 'pkg')) == ['run']

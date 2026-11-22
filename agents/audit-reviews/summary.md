@@ -71,4 +71,4 @@ Dismissed on review-2's page (2026-11-22): F2, `cached_source` returning `None` 
 
 ## Checker changes since the last review
 
-- (none since review-2)
+- `check_spec_api_signature_drift` moved from `CHECKS` to `PROJECT_CHECKS`: it runs once per sweep, before the per-root passes, so its hits are emitted earlier in the output (review-2 F12, Task 6 of the review-2 task list). The set of hits is unchanged.

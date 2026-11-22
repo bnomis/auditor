@@ -202,7 +202,7 @@ listers build `Candidate` through one helper (A13, A15), as review-1's Task
 
 ## Task 6: Resolve the roots once per run, and run the spec check once
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** medium
 **Source Reference:** F12
@@ -213,21 +213,21 @@ root.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/testmap.py`, resolve `audit_roots` once in `load_test_index` and pass the roots to `source_sites`, `read_test_tree` and `test_tree_roots`, instead of each calling it again
-- [ ] In `claude/skills/auditme/checks/auditme/core.py`, make `corpus_index` take the corpus file list from the per-run cache instead of calling `corpus_py_files` on every lookup; clear it where the driver clears the parse cache
-- [ ] Move `check_spec_api_signature_drift` from `CHECKS` to `PROJECT_CHECKS` in `claude/skills/auditme/checks/auditme/registry.py`, adjusting its signature if `PROJECT_CHECKS` entries take a different one; this changes the emission order, so record it under "Checker changes since the last review" in `agents/audit-reviews/summary.md`
-- [ ] Add a test in `claude/skills/auditme/tests/test_registry.py` that `check_spec_api_signature_drift` is a project-level check, and one in `claude/skills/auditme/tests/test_core.py` that a corpus index lookup does not list the corpus again within a run
-- [ ] Compare the sweep of this repository before and after: the same hits, possibly in a different order
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/testmap.py`, resolve `audit_roots` once in `load_test_index` and pass the roots to `source_sites`, `read_test_tree` and `test_tree_roots`, instead of each calling it again
+- [x] In `claude/skills/auditme/checks/auditme/core.py`, make `corpus_index` take the corpus file list from the per-run cache instead of calling `corpus_py_files` on every lookup; clear it where the driver clears the parse cache
+- [x] Move `check_spec_api_signature_drift` from `CHECKS` to `PROJECT_CHECKS` in `claude/skills/auditme/checks/auditme/registry.py`, adjusting its signature if `PROJECT_CHECKS` entries take a different one; this changes the emission order, so record it under "Checker changes since the last review" in `agents/audit-reviews/summary.md`
+- [x] Add a test in `claude/skills/auditme/tests/test_registry.py` that `check_spec_api_signature_drift` is a project-level check, and one in `claude/skills/auditme/tests/test_core.py` that a corpus index lookup does not list the corpus again within a run
+- [x] Compare the sweep of this repository before and after: the same hits, possibly in a different order
 
 **Acceptance Criteria:**
 
-- [ ] `python3 claude/skills/auditme/checks/audit.py . | sort` is identical before and after
-- [ ] The new tests pass
+- [x] `python3 claude/skills/auditme/checks/audit.py . | sort` is identical before and after
+- [x] The new tests pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (`core.py` and the registry are reached by every test module)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (`core.py` and the registry are reached by every test module)
 
 **Notes:**
 
