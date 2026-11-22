@@ -210,7 +210,7 @@ three 2026-11-22 amendments link the spec they cite.
 
 ## Task 7: Correct the user docs
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F9
@@ -220,29 +220,31 @@ does, so that I can rely on their failure lists and descriptions.
 
 **Subtasks:**
 
-- [ ] Correct each site F9 lists in `agents/audit-reviews/review-4.md`, checking each against the code as it stands after Tasks 1 to 5:
+- [x] Correct each site F9 lists in `agents/audit-reviews/review-4.md`, checking each against the code as it stands after Tasks 1 to 5:
   - `docs/concepts.md:25`
   - `docs/guide/checker.md:70`
   - `docs/reference/cli.md:52`
   - `docs/reference/skills.md:33`, `:36` and `:73`
   - `docs/setup.md:22` and `:275`
-- [ ] For `docs/reference/cli.md:52`, judge the installer's exit cases against the pinned `install-in-claude` commit the repository names (`fa68deb` on 2026-11-22); if that version cannot be read, leave the row and say so in the task's Notes
-- [ ] Include the exit changes Tasks 1 and 2 made
-- [ ] Line numbers are from 2026-11-22; find each statement by its text
-- [ ] Run `uv run mkdocs build --strict`
+- [x] For `docs/reference/cli.md:52`, judge the installer's exit cases against the pinned `install-in-claude` commit the repository names (`fa68deb` on 2026-11-22); if that version cannot be read, leave the row and say so in the task's Notes
+- [x] Include the exit changes Tasks 1 and 2 made
+- [x] Line numbers are from 2026-11-22; find each statement by its text
+- [x] Run `uv run mkdocs build --strict`
 
 **Acceptance Criteria:**
 
-- [ ] Each F9 statement is corrected
-- [ ] `uv run mkdocs build --strict` exits 0
+- [x] Each F9 statement is corrected
+- [x] `uv run mkdocs build --strict` exits 0
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 
 - Depends on Tasks 1 to 5
+- `docs/reference/cli.md:52` (the installer exit-1 row) is left unchanged: the pinned `install-in-claude` commit `fa68deb` cannot be read here (the local checkout at `/Users/simonb/src/install-in-claude` is at a different commit, and this session may not run git outside the worktree). The local code suggests exit 1 also covers a non-object key on the edit path and a `hooks.Stop` that is not a list; confirm against `fa68deb` before changing the row.
+- `uv run mkdocs build --strict` was run as `uv run --group docs mkdocs build --strict -d /tmp/auditor-site-t7` (the docs group is not in the default sync); it built without warnings.
 
 ---
 

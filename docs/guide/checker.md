@@ -69,7 +69,7 @@ uv run --no-project python claude/skills/auditme/checks/changed.py --all     # e
 whole tree, so cross-file rules see every file, then keeps the unaccepted hits
 in scope. It exits 1 when any remain, or on any failure: an argument error, a
 `--base` that is a flag, git that cannot run, a diff or `rev-parse` that fails,
-or a sweep that cannot start, times out, exits non-zero, prints a line that is
+a repository root that cannot be resolved, or a sweep that cannot start, times out, exits non-zero, prints a line that is
 not a JSON object, or reports a crashed check. It exits 0 otherwise. A sweep that cannot run is never skipped.
 
 | Mode | Scope | Runs as |
