@@ -49,7 +49,7 @@ review-8's Answers section. No task changes a brief in
 
 ## Task 2: Run the whole-tree checks and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -59,23 +59,24 @@ merges, and the audit summary records what this list resolved.
 
 **Subtasks:**
 
-- [ ] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates that name a code file this list changed (`git diff --name-only <base>...HEAD`), and check their statements against the code by hand; fix any that no longer matches. Record what was checked in the task's Notes
-- [ ] In `agents/audit-reviews/summary.md`, move O1 to Recently resolved, naming Task 1; replace the Unresolved table with the sentence "No finding is unresolved: review-8 raised none, and its observation O1 shipped (below)." rather than an empty row
+- [x] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates that name a code file this list changed (`git diff --name-only <base>...HEAD`), and check their statements against the code by hand; fix any that no longer matches. Record what was checked in the task's Notes
+- [x] In `agents/audit-reviews/summary.md`, move O1 to Recently resolved, naming Task 1; replace the Unresolved table with the sentence "No finding is unresolved: review-8 raised none, and its observation O1 shipped (below)." rather than an empty row
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved section holds only items that did not ship, each with its reason
+- [x] The Unresolved section holds only items that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Task 1
+- Doc4 and Doc5 candidates checked: the only candidates naming `error_handling.py` or `state_and_effects.py` are spec/guide statements about function names, signatures and rule behaviour. Task 1 only removed `contextlib.suppress(Exception)` wrappers, and a grep of `docs`, `agents/specs` and the skill docs for `suppress(Exception)` and `ast.unparse` finds no statement about them, so none needed a fix
 
 ---
