@@ -78,7 +78,7 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 ## Task 3: Build docrefs' dataclasses complete
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F4
@@ -88,19 +88,19 @@ constructed once with their contents, not filled after construction.
 
 **Subtasks:**
 
-- [ ] Record the current output first: `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4 > <scratch>/before.jsonl`, and the same for Doc5
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/docrefs.py`, build the `members` and `field_types` dicts before constructing `ClassInfo` (line 227 on 2026-11-22), and make `CorpusIndex.build` (line 185) assemble its dicts, then construct the frozen index once; `add_module` then works on the dicts being assembled, not on the frozen instance
-- [ ] Run the same two listings again and diff them against the recorded ones
+- [x] Record the current output first: `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4 > <scratch>/before.jsonl`, and the same for Doc5
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/docrefs.py`, build the `members` and `field_types` dicts before constructing `ClassInfo` (line 227 on 2026-11-22), and make `CorpusIndex.build` (line 185) assemble its dicts, then construct the frozen index once; `add_module` then works on the dicts being assembled, not on the frozen instance
+- [x] Run the same two listings again and diff them against the recorded ones
 
 **Acceptance Criteria:**
 
-- [ ] The Doc4 and Doc5 listings are identical before and after
-- [ ] No `CorpusIndex` or `ClassInfo` field is assigned or mutated after construction (grep the module)
+- [x] The Doc4 and Doc5 listings are identical before and after
+- [x] No `CorpusIndex` or `ClassInfo` field is assigned or mutated after construction (grep the module)
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_docrefs.py claude/skills/auditme/tests/phaseb/test_doc_candidates.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_docrefs.py claude/skills/auditme/tests/phaseb/test_doc_candidates.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

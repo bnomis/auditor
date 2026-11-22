@@ -182,7 +182,7 @@ class CorpusIndex:
         roots = auditme.core.audit_roots(scope)
         src_root = roots[0] if roots else scope / 'src'
         definitions = auditme.core.corpus_definitions(scope, src_root, classes=True)
-        index = cls(scope, files, directories, definitions, {}, {}, {}, {}, {})
+        entries = IndexEntries()
         from_bindings: dict[str, dict[str, str]] = {}
         for path in auditme.core.corpus_py_files(scope, src_root):
             try:
@@ -194,8 +194,31 @@ class CorpusIndex:
             module = auditme.core.module_dotted(path, root) if root else None
             if module:
                 from_bindings[module] = auditme.core.from_import_bindings(tree, module, path.name == '__init__.py')
-            index.add_module(tree, path, rel, module)
-        return dataclasses.replace(index, aliases=auditme.core.reexport_aliases(from_bindings, index.by_dotted.keys()))
+            entries.add_module(tree, path, rel, module)
+        aliases = auditme.core.reexport_aliases(from_bindings, entries.by_dotted.keys())
+        return cls(scope, files, directories, definitions, entries.sites, entries.by_dotted, aliases, entries.classes, entries.options)
+
+    def settings_classes(self) -> set[str]:
+        """Names of the classes deriving, directly or through other corpus classes, from `BaseSettings`."""
+        found: set[str] = set()
+        changed = True
+        while changed:
+            changed = False
+            for name, infos in self.classes.items():
+                if name not in found and any(SETTINGS_BASE in info.bases or found & set(info.bases) for info in infos):
+                    found.add(name)
+                    changed = True
+        return found
+
+
+@dataclasses.dataclass
+class IndexEntries:
+    """The dicts `CorpusIndex.build` assembles module by module, before it freezes them into the index."""
+
+    sites: dict[tuple[pathlib.Path, int], DocTarget] = dataclasses.field(default_factory=dict)
+    by_dotted: dict[str, DocTarget] = dataclasses.field(default_factory=dict)
+    classes: dict[str, list[ClassInfo]] = dataclasses.field(default_factory=dict)
+    options: dict[str, list[DocTarget]] = dataclasses.field(default_factory=dict)
 
     def add_module(self, tree: ast.Module, path: pathlib.Path, rel: str, module: str | None) -> None:
         """Record a module's functions, classes and option literals."""
@@ -224,31 +247,20 @@ class CorpusIndex:
     def class_info(self, node: ast.ClassDef, target: DocTarget, path: pathlib.Path, rel: str, module: str | None) -> ClassInfo:
         """Collect a class's bases, methods and fields."""
         bases = [base.id if isinstance(base, ast.Name) else base.attr for base in node.bases if isinstance(base, (ast.Name, ast.Attribute))]
-        info = ClassInfo(target, bases, {}, {})
+        members: dict[str, DocTarget] = {}
+        field_types: dict[str, list[str]] = {}
         for member in node.body:
             if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 method = node_target('method', rel, f'{node.name}.{member.name}', member)
-                info.members[member.name] = method
+                members[member.name] = method
                 self.record(path, member, method, module, f'{node.name}.{member.name}')
             elif isinstance(member, ast.AnnAssign) and isinstance(member.target, ast.Name):
-                info.members[member.target.id] = field_target(node.name, rel, member.target.id, member)
-                info.field_types[member.target.id] = [n.id for n in ast.walk(member.annotation) if isinstance(n, ast.Name)]
+                members[member.target.id] = field_target(node.name, rel, member.target.id, member)
+                field_types[member.target.id] = [n.id for n in ast.walk(member.annotation) if isinstance(n, ast.Name)]
             elif isinstance(member, ast.Assign):
                 for name in (t.id for t in member.targets if isinstance(t, ast.Name)):
-                    info.members[name] = field_target(node.name, rel, name, member)
-        return info
-
-    def settings_classes(self) -> set[str]:
-        """Names of the classes deriving, directly or through other corpus classes, from `BaseSettings`."""
-        found: set[str] = set()
-        changed = True
-        while changed:
-            changed = False
-            for name, infos in self.classes.items():
-                if name not in found and any(SETTINGS_BASE in info.bases or found & set(info.bases) for info in infos):
-                    found.add(name)
-                    changed = True
-        return found
+                    members[name] = field_target(node.name, rel, name, member)
+        return ClassInfo(target, bases, members, field_types)
 
 
 def field_target(class_name: str, rel: str, name: str, node: ast.stmt) -> DocTarget:
