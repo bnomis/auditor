@@ -9,22 +9,28 @@ of listers; `PhaseBError` is defined in `errors.py` and re-exported here.
 import auditme.phaseb.architecture  # noqa: F401  registers the architecture listers
 from auditme.phaseb import batches
 from auditme.phaseb.candidates import (
+    DEFAULT_DEPTH,
     brief_version,
+    depth_questions,
     list_candidates,
     question_batch_size,
     question_brief,
+    registered_questions,
 )
 from auditme.phaseb.errors import PhaseBError
 from auditme.phaseb.ledger import dismiss_verdict, merge_verdicts, read_ledger
 
 __all__ = [
+    'DEFAULT_DEPTH',
     'PhaseBError',
     'batches',
     'brief_version',
+    'depth_questions',
     'dismiss_verdict',
     'list_candidates',
     'merge_verdicts',
     'question_batch_size',
     'question_brief',
     'read_ledger',
+    'registered_questions',
 ]

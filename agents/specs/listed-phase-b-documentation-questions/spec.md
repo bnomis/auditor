@@ -102,7 +102,9 @@ uses the registered batch size when `--batch-size` is not given.
 ## Error handling
 
 - `PhaseBError` when a listed document, `pyproject.toml` or
-  `.pre-commit-config.yaml` exists but cannot be read or parsed, and when
+  `.pre-commit-config.yaml` exists but cannot be read (`pyproject.toml` is
+  parsed as TOML; `.pre-commit-config.yaml` is read as text and its hook ids
+  found by regex, so it is never parsed), and when
   `git ls-files` fails (Doc1 and Doc2 need a work tree). A lister never
   skips an unreadable file: a vanished candidate is dropped from the ledger
   at the next merge, so a silent skip would delete verdicts.
@@ -176,7 +178,8 @@ canonical JSON of those tables, then the hook file's bytes.
 
 Each follows the A4 brief's form: the question verbatim from `SKILL.md`,
 thresholds, input and output format, the env-variable security rule, and
-`**Brief version:** 1`. Findings: `{'drift': [...]}` for Doc4 and Doc5,
+`**Brief version:** 1` when written (the current versions are in
+`grep -n 'Brief version' claude/skills/auditme/phaseb/briefs/*.md`). Findings: `{'drift': [...]}` for Doc4 and Doc5,
 `{'stale': [...], 'missing': [...]}` for Doc1 and Doc2. Thresholds:
 
 - Doc4, Doc5: drift is a statement the target's code contradicts - name,

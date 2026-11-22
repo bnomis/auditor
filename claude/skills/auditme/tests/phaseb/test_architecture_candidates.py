@@ -781,6 +781,15 @@ def test_a17_counts_a_project_script_target_as_a_consumer(project: Project) -> N
     assert run_a17(root)[A17_KEY].payload['consumers'] == {'Probe': ['pyproject.toml: probe = "pkg.sub:Probe"']}
 
 
+def test_a17_reports_an_unreadable_reader_as_a_phaseb_error(project: Project, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    root = write_a17_project(project)
+    reader = tmp_path / 'user.py'
+    reader.write_bytes(b'\xff\xfe not utf-8')
+    monkeypatch.setattr(auditme.core, 'reads_by_module_and_name', lambda scope, src_root: {('pkg.sub', 'Probe'): [(reader, 1)]})
+    with pytest.raises(auditme.phaseb.PhaseBError, match='user.py'):
+        run_a17(root)
+
+
 def test_a17_lists_reach_ins_for_an_empty_init(project: Project) -> None:
     root = write_a17_project(project, {'src/pkg/user.py': 'from pkg.sub.base import Probe\n'}, init='')
     assert run_a17(root)[A17_KEY].payload['reach_ins'] == ['src/pkg/user.py: from pkg.sub.base import Probe']

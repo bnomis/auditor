@@ -3,6 +3,7 @@
 import textwrap
 import typing
 
+import auditme.core
 import auditme.phaseb
 import auditme.phaseb.candidates
 import conftest
@@ -98,6 +99,7 @@ def root(tmp_path: pathlib.Path) -> pathlib.Path:
 
 
 def listed(root: pathlib.Path, question: str) -> dict[str, auditme.phaseb.candidates.Candidate]:
+    auditme.core.clear_source_cache()
     return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates(question, root)}
 
 

@@ -257,7 +257,7 @@ matches the other skills in `claude/skills/`, with
 | `audit.py`: `<scope-root>` is not a directory (1.2) | `ERROR: <scope> is not a directory`, exit 2 |
 | `audit.py`: no package under `src/` and no extra root (1.2, 1.8) | notice on stderr, the project-level checks run once, exit 0 |
 | `[tool.auditme]` is not a table, `roots` is not a list of tables, an entry has no `path`, an unknown key, or a `modules` other than `package` or `top-level` (1.11) | `ERROR: pyproject.toml [tool.auditme]: <what is wrong>`, exit 2; the hooks then fail as a sweep that cannot run |
-| `pyproject.toml` is not valid TOML (1.11) | `ERROR: pyproject.toml: <the parser's message>`, exit 2, but only when the file mentions `[tool.auditme]`; otherwise the defaults apply and the lockfile check reports the file as before |
+| `pyproject.toml` is not valid TOML (1.11) | `ERROR: pyproject.toml: not valid TOML (<the parser's message>)`, exit 2, but only when the file mentions `[tool.auditme]`; otherwise the defaults apply and the lockfile check reports the file as before |
 | a declared root that does not exist, or holds no `.py` file (1.11) | `ERROR: declared root <path> not found` or `... holds no .py file`, exit 2 |
 | two declared roots that would sweep a file twice (1.11) | `ERROR: declared roots <a> and <b> overlap`, exit 2 |
 | `audit.py`: a `.py` file directly in `src/` (1.2) | one unaccepted `src-loose-module` hit per file |
@@ -749,7 +749,7 @@ is and linking to `docs/setup.md`.
   `rev` fails `auditme-changed --all` with one `ruff-version-drift` hit until
   the versions match or the hit is accepted; a project whose versions match,
   or that has no `ruff-pre-commit` hook, gets no new hit; this repository's
-  own CI passes with its ruff hook at `rev: v0.17.1`.
+  own CI passes with its ruff hook at `rev: v0.17.1` when written (`.pre-commit-config.yaml` now pins `v0.17.4`).
 
 ## External dependencies
 

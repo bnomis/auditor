@@ -14,7 +14,7 @@ re-plans it. Each question gets a versioned brief that settles its thresholds.
 
 ## Motivation
 
-Only A4 is listed; every other question is sampled and keeps finding sites
+When this spec was written (2026-11-20), only A4 was listed; every other question was sampled and kept finding sites
 earlier audits missed in unchanged code. Measured on 2026-11-20 on one
 project's last three full audits, by the question each finding names: the
 documentation questions 13, T1 and T2 7, A1, A11, A17 and A19 9, A13 and A15
@@ -305,7 +305,8 @@ added to `Probe`, changes the hash; an unparseable test file raises
 
 ## Settings
 
-No new options: Repeatable Phase B's `--question` (`T1` or `T2`),
+No new options: Repeatable Phase B's `--question` (`str`, required, no
+default; `T1` or `T2` here),
 `--batch-size` (`int`, `48`), `--depth` (`int`, `3`; here also how far up
 callers are followed) and `--rejudge` (flag, off). The type set of T2 rule 2
 and the call names of rule 3 are lister constants, changed only with a brief

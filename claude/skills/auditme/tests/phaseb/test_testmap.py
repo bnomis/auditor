@@ -3,6 +3,7 @@
 import collections.abc
 import pathlib
 
+import auditme.core
 import auditme.phaseb
 import auditme.phaseb.testmap
 import hypothesis
@@ -263,7 +264,7 @@ def test_top_level_declared_root_names_test_module_without_root_name(project: Pr
             'scripts/test_x.py': 'def test_x():\n    pass\n',
         }
     )
-    (file,) = auditme.phaseb.testmap.read_test_tree(root)[0]
+    (file,) = auditme.phaseb.testmap.read_test_tree(root, auditme.core.audit_roots(root))[0]
     assert file.module == 'test_x'
 
 

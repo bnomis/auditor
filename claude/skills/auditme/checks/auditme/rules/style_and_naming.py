@@ -408,6 +408,13 @@ def bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> None:
 
 
 def check_duplicated_word(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag the same word twice in a row in a comment or string.
+
+    Signal: two identical words of two or more letters separated by
+    whitespace, on a line that is a comment or holds a quote character.
+    Carve-outs: `that`, `had`, `has`, `as`, `in` and `is`, which repeat
+    legitimately.
+    """
     dup_re = re.compile(r'\b([a-z]{2,})\s+\1\b', re.IGNORECASE)
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)

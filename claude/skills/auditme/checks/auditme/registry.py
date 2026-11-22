@@ -69,7 +69,6 @@ CHECKS = (
     auditme.rules.imports_and_surfaces.check_as_import,
     auditme.rules.state_and_effects.check_mutable_members_in_immutable_wrapper,
     auditme.rules.style_and_naming.check_leading_underscore_nested_def_class,
-    auditme.rules.project_hygiene.check_spec_api_signature_drift,
     auditme.rules.style_and_naming.check_leading_underscore_binding,
     auditme.rules.imports_and_surfaces.check_from_import,
     auditme.rules.style_and_naming.check_typing_deprecated_alias,
@@ -83,4 +82,5 @@ CHECKS = (
 PROJECT_CHECKS = (
     auditme.rules.project_hygiene.check_lockfile,
     auditme.rules.project_hygiene.check_ruff_version,
+    auditme.rules.project_hygiene.check_spec_api_signature_drift,
 )

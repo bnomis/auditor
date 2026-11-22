@@ -1,5 +1,6 @@
 """Tests for the `phaseb.py` command line, run as a subprocess on a fixture project."""
 
+import argparse
 import collections.abc
 import json
 import pathlib
@@ -9,6 +10,8 @@ import sys
 import auditme.phaseb
 import auditme.phaseb.candidates
 import conftest
+import hypothesis
+import hypothesis.strategies
 import phaseb
 import pytest
 
@@ -39,6 +42,7 @@ MOD = '''
         raise ProbeError('y')
 '''
 
+DEPTH_COMMANDS = ['candidates', 'plan']
 FIRST = 'src/pkg/mod.py::first'
 SECOND = 'src/pkg/mod.py::second'
 
@@ -74,6 +78,40 @@ def test_candidates_runs_for_listers_that_take_no_depth(root: pathlib.Path, ques
     conftest.git(root, 'init', '-q')
     conftest.git(root, 'add', '.')
     done = run('candidates', root, '--question', question)
+    assert done.returncode == 0, done.stderr
+
+
+@pytest.mark.parametrize('command', DEPTH_COMMANDS)
+@pytest.mark.parametrize('question', ['A11', 'Doc1', 'Doc2', 'Doc4', 'Doc5'])
+def test_depth_is_refused_for_a_question_that_takes_none(root: pathlib.Path, tmp_path: pathlib.Path, command: str, question: str) -> None:
+    extra = ['--out', str(tmp_path / 'run')] if command == 'plan' else []
+    done = run(command, root, '--question', question, '--depth', '3', *extra)
+    assert done.returncode == 2
+    assert 'usage:' in done.stderr
+    assert 'A4' in done.stderr
+    assert 'T1' in done.stderr
+    assert 'T2' in done.stderr
+    assert done.stdout == ''
+    assert 'Traceback' not in done.stderr
+
+
+@pytest.mark.parametrize('command', DEPTH_COMMANDS)
+@pytest.mark.parametrize('depth', ['0', '-1'])
+def test_a_depth_below_one_is_refused(root: pathlib.Path, tmp_path: pathlib.Path, command: str, depth: str) -> None:
+    extra = ['--out', str(tmp_path / 'run')] if command == 'plan' else []
+    done = run(command, root, '--question', 'A4', '--depth', depth, *extra)
+    assert done.returncode == 2
+    assert 'usage:' in done.stderr
+
+
+def test_candidates_still_lists_a4_at_a_depth(root: pathlib.Path) -> None:
+    done = run('candidates', root, '--question', 'A4', '--depth', '2')
+    assert done.returncode == 0, done.stderr
+    assert [json.loads(line)['id'] for line in done.stdout.splitlines()] == [FIRST, SECOND]
+
+
+def test_plan_still_plans_a4_at_a_depth(root: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    done = run('plan', root, '--question', 'A4', '--depth', '2', '--out', tmp_path / 'run')
     assert done.returncode == 0, done.stderr
 
 
@@ -332,3 +370,18 @@ def test_plan_reports_a_malformed_declaration_and_exits_2(project: Project, tmp_
     assert done.returncode == 2
     assert done.stderr.startswith('ERROR: ')
     assert done.stdout == ''
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(value=hypothesis.strategies.text(max_size=8))
+def test_registered_question_returns_its_input_exactly_when_registered(value: str) -> None:
+    if value in auditme.phaseb.registered_questions():
+        assert phaseb.registered_question(value) == value
+    else:
+        with pytest.raises(argparse.ArgumentTypeError):
+            phaseb.registered_question(value)
+
+
+@pytest.mark.parametrize('question', auditme.phaseb.registered_questions())
+def test_every_registered_question_is_accepted(question: str) -> None:
+    assert phaseb.registered_question(question) == question
