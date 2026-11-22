@@ -80,7 +80,7 @@ A11 lister walks each function once.
 
 ## Task 3: One `Verdict` builder for the tests
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F3
@@ -90,18 +90,18 @@ not three.
 
 **Subtasks:**
 
-- [ ] Add `make_verdict` to `claude/skills/auditme/tests/conftest.py`, beside `make_candidate`, with the defaults `make_ledger_verdict`, `make_model_verdict` and `make_batch_verdict` share, and keyword overrides for every field
-- [ ] Replace the three builders in `claude/skills/auditme/tests/phaseb/test_ledger.py`, `test_model.py` and `test_batches.py` with it; keep each test's arguments meaning the same
-- [ ] `grep -rn 'Verdict(' claude/skills/auditme/tests` and move any other test-local builder of the same shape to it
+- [x] Add `make_verdict` to `claude/skills/auditme/tests/conftest.py`, beside `make_candidate`, with the defaults `make_ledger_verdict`, `make_model_verdict` and `make_batch_verdict` share, and keyword overrides for every field
+- [x] Replace the three builders in `claude/skills/auditme/tests/phaseb/test_ledger.py`, `test_model.py` and `test_batches.py` with it; keep each test's arguments meaning the same
+- [x] `grep -rn 'Verdict(' claude/skills/auditme/tests` and move any other test-local builder of the same shape to it
 
 **Acceptance Criteria:**
 
-- [ ] No test file defines its own `Verdict` builder
+- [x] No test file defines its own `Verdict` builder
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_ledger.py claude/skills/auditme/tests/phaseb/test_model.py claude/skills/auditme/tests/phaseb/test_batches.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_ledger.py claude/skills/auditme/tests/phaseb/test_model.py claude/skills/auditme/tests/phaseb/test_batches.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
