@@ -83,7 +83,7 @@ once per sweep, however many roots there are.
 
 ## Task 3: One builder per shared test object
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F4
@@ -93,17 +93,17 @@ already has a builder for.
 
 **Subtasks:**
 
-- [ ] Give `make_candidate` in `claude/skills/auditme/tests/conftest.py` keyword overrides for every `Candidate` field, then replace `make_batch_candidate` in `claude/skills/auditme/tests/phaseb/test_batches.py` with it, keeping each test's meaning
-- [ ] `grep -rn 'Candidate(\|Verdict(' claude/skills/auditme/tests tests` and replace any other test-local construction of those classes in a helper with the shared builders
+- [x] Give `make_candidate` in `claude/skills/auditme/tests/conftest.py` keyword overrides for every `Candidate` field, then replace `make_batch_candidate` in `claude/skills/auditme/tests/phaseb/test_batches.py` with it, keeping each test's meaning
+- [x] `grep -rn 'Candidate(\|Verdict(' claude/skills/auditme/tests tests` and replace any other test-local construction of those classes in a helper with the shared builders
 
 **Acceptance Criteria:**
 
-- [ ] No test file defines its own builder for `Candidate` or `Verdict`
+- [x] No test file defines its own builder for `Candidate` or `Verdict`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 

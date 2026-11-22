@@ -10,24 +10,18 @@ import conftest
 import pytest
 
 
-def make_batch_candidate(name: str, hash_: str = 'h1') -> auditme.phaseb.candidates.Candidate:
-    return auditme.phaseb.candidates.Candidate(
-        question='Q1', id=f'src/pkg/mod.py::{name}', path='src/pkg/mod.py', start=1, end=2, payload={'raises': 'x'}, hash=hash_
-    )
-
-
 def candidate_names(plan: list[list[auditme.phaseb.candidates.Candidate]]) -> list[list[str]]:
     return [[candidate.id.split('::')[1] for candidate in batch] for batch in plan]
 
 
 def test_current_verdict_is_not_planned() -> None:
-    candidate = make_batch_candidate('a')
+    candidate = conftest.make_candidate('src/pkg/mod.py::a')
     ledger = {candidate.id: conftest.make_verdict(candidate.id, hash=candidate.hash)}
     assert auditme.phaseb.batches.plan_batches([candidate], ledger, 1, 10) == []
 
 
 def test_missing_changed_hash_and_older_brief_are_planned() -> None:
-    a, b, c = make_batch_candidate('a'), make_batch_candidate('b'), make_batch_candidate('c')
+    a, b, c = conftest.make_candidate('src/pkg/mod.py::a'), conftest.make_candidate('src/pkg/mod.py::b'), conftest.make_candidate('src/pkg/mod.py::c')
     ledger = {
         b.id: conftest.make_verdict(b.id, hash='old', brief_version=2),
         c.id: conftest.make_verdict(c.id, hash=c.hash, brief_version=1),
@@ -37,14 +31,14 @@ def test_missing_changed_hash_and_older_brief_are_planned() -> None:
 
 
 def test_current_brief_version_with_same_hash_is_reused() -> None:
-    a, b = make_batch_candidate('a'), make_batch_candidate('b')
+    a, b = conftest.make_candidate('src/pkg/mod.py::a'), conftest.make_candidate('src/pkg/mod.py::b')
     ledger = {a.id: conftest.make_verdict(a.id, hash=a.hash, brief_version=2)}
     assert candidate_names(auditme.phaseb.batches.plan_batches([a, b], ledger, 2, 10)) == [['b']]
 
 
 def test_replanned_candidate_carries_its_earlier_verdict_and_a_new_one_does_not(tmp_path: pathlib.Path) -> None:
-    changed, fresh = make_batch_candidate('a'), make_batch_candidate('b')
-    earlier = conftest.make_verdict(make_batch_candidate('a').id, hash='old', brief_version=1)
+    changed, fresh = conftest.make_candidate('src/pkg/mod.py::a'), conftest.make_candidate('src/pkg/mod.py::b')
+    earlier = conftest.make_verdict(conftest.make_candidate('src/pkg/mod.py::a').id, hash='old', brief_version=1)
     ledger = {changed.id: earlier}
     plan = auditme.phaseb.batches.plan_batches([changed, fresh], ledger, 1, 10)
     run = tmp_path / 'run'
@@ -56,25 +50,27 @@ def test_replanned_candidate_carries_its_earlier_verdict_and_a_new_one_does_not(
 
 
 def test_plan_without_a_ledger_writes_no_earlier(tmp_path: pathlib.Path) -> None:
-    plan = auditme.phaseb.batches.plan_batches([make_batch_candidate('a')], {}, 1, 10)
+    plan = auditme.phaseb.batches.plan_batches([conftest.make_candidate('src/pkg/mod.py::a')], {}, 1, 10)
     auditme.phaseb.batches.write_plan('Q1', pathlib.Path('briefs/Q1.md'), 1, plan, tmp_path / 'run')
     assert 'earlier' not in json.loads((tmp_path / 'run' / 'batch-01.jsonl').read_text(encoding='utf-8'))
 
 
 def test_rejudge_plans_every_candidate() -> None:
-    candidate = make_batch_candidate('a')
+    candidate = conftest.make_candidate('src/pkg/mod.py::a')
     ledger = {candidate.id: conftest.make_verdict(candidate.id, hash=candidate.hash)}
     assert candidate_names(auditme.phaseb.batches.plan_batches([candidate], ledger, 1, 10, rejudge=True)) == [['a']]
 
 
 def test_batches_keep_id_order_and_size() -> None:
-    candidates = [make_batch_candidate(name) for name in 'ecabd']
+    candidates = [conftest.make_candidate(f'src/pkg/mod.py::{name}') for name in 'ecabd']
     plan = auditme.phaseb.batches.plan_batches(candidates, {}, 1, 2)
     assert candidate_names(plan) == [['a', 'b'], ['c', 'd'], ['e']]
 
 
 def test_plan_json_and_batch_files(tmp_path: pathlib.Path) -> None:
-    plan = auditme.phaseb.batches.plan_batches([make_batch_candidate('a'), make_batch_candidate('b'), make_batch_candidate('c')], {}, 3, 2)
+    plan = auditme.phaseb.batches.plan_batches(
+        [conftest.make_candidate('src/pkg/mod.py::a'), conftest.make_candidate('src/pkg/mod.py::b'), conftest.make_candidate('src/pkg/mod.py::c')], {}, 3, 2
+    )
     auditme.phaseb.batches.write_plan('Q1', pathlib.Path('briefs/Q1.md'), 3, plan, tmp_path / 'run')
     run = tmp_path / 'run'
     document = json.loads((run / 'plan.json').read_text(encoding='utf-8'))
@@ -100,7 +96,7 @@ def make_result_line(candidate_id: str, **overrides) -> str:
 
 
 def planned_run(tmp_path: pathlib.Path) -> pathlib.Path:
-    plan = auditme.phaseb.batches.plan_batches([make_batch_candidate(name) for name in 'abcdef'], {}, 1, 2)
+    plan = auditme.phaseb.batches.plan_batches([conftest.make_candidate(f'src/pkg/mod.py::{name}') for name in 'abcdef'], {}, 1, 2)
     run = tmp_path / 'run'
     auditme.phaseb.batches.write_plan('A4', pathlib.Path('briefs/A4.md'), 1, plan, run)
     return run
@@ -166,7 +162,7 @@ def test_unreadable_plan_raises(tmp_path: pathlib.Path) -> None:
 
 
 def test_read_run_verdicts_stamps_hash_brief_version_and_date(tmp_path: pathlib.Path) -> None:
-    candidates = [make_batch_candidate(name, f'hash-{name}') for name in 'ab']
+    candidates = [conftest.make_candidate(f'src/pkg/mod.py::{name}', hash=f'hash-{name}') for name in 'ab']
     plan = auditme.phaseb.batches.plan_batches(candidates, {}, 4, 10)
     run = tmp_path / 'run'
     auditme.phaseb.batches.write_plan('A4', pathlib.Path('briefs/A4.md'), 4, plan, run)
@@ -196,7 +192,7 @@ def test_read_run_verdicts_refuses_a_run_with_problems(tmp_path: pathlib.Path) -
 
 def one_candidate_run(tmp_path: pathlib.Path, question: str) -> pathlib.Path:
     run = tmp_path / 'run'
-    auditme.phaseb.batches.write_plan(question, pathlib.Path('briefs/x.md'), 1, [[make_batch_candidate('a')]], run)
+    auditme.phaseb.batches.write_plan(question, pathlib.Path('briefs/x.md'), 1, [[conftest.make_candidate('src/pkg/mod.py::a')]], run)
     return run
 
 
@@ -214,7 +210,7 @@ def test_every_registered_questions_shape_passes_and_reads_back_sorted(tmp_path:
     result = auditme.phaseb.batches.read_run_check(run)
     assert result.problems == {}
     assert result.retry == []
-    verdicts = auditme.phaseb.batches.read_run_verdicts(run, [make_batch_candidate('a')], today='2026-02-03')
+    verdicts = auditme.phaseb.batches.read_run_verdicts(run, [conftest.make_candidate('src/pkg/mod.py::a')], today='2026-02-03')
     assert verdicts[0].findings == {**{kind: [] for kind in kinds}, kinds[0]: ['alpha', 'zeta']}
 
 
