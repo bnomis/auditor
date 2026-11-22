@@ -54,7 +54,7 @@ uv run --no-project python claude/skills/auditme/checks/audit.py <project-root> 
 `audit.py` prints every hit, accepted or not, and exits 0 whatever it finds.
 It exits 2 on a usage error from argparse (an unknown option or a missing value); when the root is not a directory; when `--package` is not a plain
 directory name; when a named extra root is outside the root or is not a
-directory; when the `--package` directory is missing; or when `[tool.auditme]`
+directory; when the `--package` directory is missing or is a file; or when `[tool.auditme]`
 in `pyproject.toml` is invalid. A project with no package and no extra root prints a note on stderr
 and exits 0.
 

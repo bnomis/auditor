@@ -411,6 +411,13 @@ def test_a_package_that_is_not_a_directory_under_src_is_an_error(
     assert 'directly under src/' in capsys.readouterr().err
 
 
+def test_a_package_that_is_a_file_is_an_error(project: Builder, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    root = project({'src/pkg': 'not a directory\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--package', 'pkg'])
+    assert audit.main() == 2
+    assert 'is not a directory' in capsys.readouterr().err
+
+
 def test_the_package_flag_drops_the_script_root_too(
     project: Builder,
     monkeypatch: pytest.MonkeyPatch,

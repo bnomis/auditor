@@ -13,7 +13,7 @@ review-14's Answers section. No task changes a brief in
 
 ## Task 1: Correct the exit-2 examples and refuse a file as `--package`
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1, F2
@@ -23,21 +23,21 @@ and `audit.py` refuses a package root that is not a directory.
 
 **Subtasks:**
 
-- [ ] F1: in `docs/reference/cli.md` (the paragraph at line 176 on 2026-11-22), drop the unregistered `--question` and the missing root from the examples of a failing Phase B step; line 174 already states those two argparse cases. Run each remaining example by hand and confirm it prints `phaseb.py: ` and its message and exits 2
-- [ ] F2: write the failing test first, in `claude/skills/auditme/tests/test_audit_cli.py` (or the test file that already tests `audit.py`'s `--package`, found with `grep -rln -- '--package' claude/skills/auditme/tests`): with `src/pkg` a plain file, `audit.py <root> --package pkg` exits 2 and says the path is not a directory
-- [ ] F2: in `claude/skills/auditme/checks/audit.py` (line 224), test `root.is_dir()` and print "not a directory" when the path exists but is not one, keeping "not found" for a missing path; add the case to `docs/reference/cli.md`'s `audit.py` exit table
-- [ ] `grep -rn '\.exists()' claude/skills/auditme/checks bin claude/hooks` and confirm no other check on a path that must be a directory or a file uses `exists()` alone
+- [x] F1: in `docs/reference/cli.md` (the paragraph at line 176 on 2026-11-22), drop the unregistered `--question` and the missing root from the examples of a failing Phase B step; line 174 already states those two argparse cases. Run each remaining example by hand and confirm it prints `phaseb.py: ` and its message and exits 2
+- [x] F2: write the failing test first, in `claude/skills/auditme/tests/test_audit_cli.py` (or the test file that already tests `audit.py`'s `--package`, found with `grep -rln -- '--package' claude/skills/auditme/tests`): with `src/pkg` a plain file, `audit.py <root> --package pkg` exits 2 and says the path is not a directory
+- [x] F2: in `claude/skills/auditme/checks/audit.py` (line 224), test `root.is_dir()` and print "not a directory" when the path exists but is not one, keeping "not found" for a missing path; add the case to `docs/reference/cli.md`'s `audit.py` exit table
+- [x] `grep -rn '\.exists()' claude/skills/auditme/checks bin claude/hooks` and confirm no other check on a path that must be a directory or a file uses `exists()` alone
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] Each example in the exit-2 paragraph is run and prints as stated
+- [x] The new test fails before the change and passes after it
+- [x] Each example in the exit-2 paragraph is run and prints as stated
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] The test file the F2 subtask names passes under `uv run pytest <file> -q -p no:cacheprovider`
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The test file the F2 subtask names passes under `uv run pytest <file> -q -p no:cacheprovider`
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
@@ -47,7 +47,7 @@ and `audit.py` refuses a package root that is not a directory.
 
 ## Task 2: Run the whole-tree checks, the doc listers, and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -58,23 +58,24 @@ records what this list resolved.
 
 **Subtasks:**
 
-- [ ] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand, running any command a statement describes; fix any that no longer matches. Record what was checked in the task's Notes
-- [ ] In `agents/audit-reviews/summary.md`, move each finding Task 1 fixed to Recently resolved, naming the task; when none is left, replace the Unresolved table and the line above it with the sentence "No finding is unresolved: every finding review-14 raised shipped (below)." rather than an empty row
+- [x] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand, running any command a statement describes; fix any that no longer matches. Record what was checked in the task's Notes
+- [x] In `agents/audit-reviews/summary.md`, move each finding Task 1 fixed to Recently resolved, naming the task; when none is left, replace the Unresolved table and the line above it with the sentence "No finding is unresolved: every finding review-14 raised shipped (below)." rather than an empty row
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved section holds only findings that did not ship, each with its reason
+- [x] The Unresolved section holds only findings that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Task 1
+- Doc4 and Doc5 candidates run on 2026-11-22. This list changed `docs/reference/cli.md` and the `is_file` and `is_dir` guards in `audit.py`, `core.py`, `imports_and_surfaces.py` and `project_hygiene.py`. Checked every statement about those guards, `--package` and exit 2 across the candidate sections and by grep: two stale statements found and fixed (`docs/guide/checker.md` exit-2 list and the `--package` row of `agents/specs/project-setup/spec.md`); `docs/reference/cli.md` exit table and exit-2 paragraph confirmed by running each example in Task 1
 
 ---

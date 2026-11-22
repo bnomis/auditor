@@ -22,12 +22,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 ## Unresolved findings
 
-Each finding is described in full in [review-14](review-14.md#phase-b-findings-consolidated).
-
-| Finding | Question | Severity | First raised |
-|---------|----------|----------|--------------|
-| F1 the exit-2 paragraph's examples include two argparse errors | Doc5 | low | review-14 |
-| F2 `audit.py --package` accepts a plain file | Sec2 | low | review-14 |
+No finding is unresolved: every finding review-14 raised shipped (below).
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small). On review-11's page: F5 (`all_py_files` listing its root on every call, about a twentieth of a sweep).
 
@@ -35,6 +30,8 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 the exit-2 paragraph's examples include two argparse errors | low | review-14 | Task 1 of the review-14 task list |
+| F2 `audit.py --package` accepts a plain file | low | review-14 | Task 1 of the review-14 task list |
 | F1 `cached_per_run` has no direct test | low | review-13 | Task 2 of the review-13 task list |
 | F2 the names hook passes a commit when its list path is a directory | medium | review-13 | Task 1 of the review-13 task list |
 | F3 three root lookups drop the modes with a bare subscript again | low | review-13 | Task 2 of the review-13 task list |

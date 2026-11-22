@@ -276,7 +276,7 @@ def scan_bans_as_imports(scope: pathlib.Path) -> bool:
     somewhere else is a rule the project has not stated here.
     """
     agents = scope / 'AGENTS.md'
-    if not agents.exists():
+    if not agents.is_file():
         return False
     text = auditme.core.read_source(agents)
     return text is not None and bool(AS_IMPORT_BAN_RE.search(text))
@@ -405,7 +405,7 @@ def scan_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str
     invert the layering.
     """
     agents = scope / 'AGENTS.md'
-    if not agents.exists():
+    if not agents.is_file():
         return [], set()
     text = auditme.core.read_source(agents)
     if text is None:

@@ -266,7 +266,7 @@ def accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
 
 def scan_accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     agents = scope / 'AGENTS.md'
-    if not agents.exists():
+    if not agents.is_file():
         return set()
     text = read_source(agents)
     if text is None:
