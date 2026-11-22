@@ -63,7 +63,7 @@ gets an empty test map.
 
 ## Task 2: Close the request and the TODO item, then run the whole-tree checks
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Amendment 1.5; Skill changes
@@ -73,23 +73,23 @@ precondition sees one entry fewer, and check the whole tree before the merge.
 
 **Subtasks:**
 
-- [ ] Delete the entry "The Phase B test index reads tests only from `src/tests/` and `tests/`" from the `## Open` section of `claude/skills/auditme/requests.md`
-- [ ] In `agents/audit-reviews/summary.md`, under "Checker changes since the last review", add a dated line: the T1 and T2 test index now reads tests from every audit root (amendment 1.5 of `agents/specs/listed-phase-b-test-questions/spec.md`), so review-2's T1 and T2 verdicts are re-judged where `test_files` grew; and remove that request from the Convergence note's precondition bullet
-- [ ] Move the `TODO.md` item "The Phase B test index reads tests only from `src/tests/` and `tests/`" to the end of `DONE.md`: append its heading and body unchanged, then `Done: <date> - amendment 1.5 of agents/specs/listed-phase-b-test-questions/spec.md and agents/tasks/listed-phase-b-test-questions/tasks-2.md; <the Task 1 commit hash>.`, and remove it from `TODO.md`
-- [ ] Set the spec's `**Status:**` to `implemented` in `agents/specs/listed-phase-b-test-questions/spec.md`
+- [x] Delete the entry "The Phase B test index reads tests only from `src/tests/` and `tests/`" from the `## Open` section of `claude/skills/auditme/requests.md`
+- [x] In `agents/audit-reviews/summary.md`, under "Checker changes since the last review", add a dated line: the T1 and T2 test index now reads tests from every audit root (amendment 1.5 of `agents/specs/listed-phase-b-test-questions/spec.md`), so review-2's T1 and T2 verdicts are re-judged where `test_files` grew; and remove that request from the Convergence note's precondition bullet
+- [x] Move the `TODO.md` item "The Phase B test index reads tests only from `src/tests/` and `tests/`" to the end of `DONE.md`: append its heading and body unchanged, then `Done: <date> - amendment 1.5 of agents/specs/listed-phase-b-test-questions/spec.md and agents/tasks/listed-phase-b-test-questions/tasks-2.md; <the Task 1 commit hash>.`, and remove it from `TODO.md`
+- [x] Set the spec's `**Status:**` to `implemented` in `agents/specs/listed-phase-b-test-questions/spec.md`
 
 **Acceptance Criteria:**
 
-- [ ] `requests.md`'s `## Open` section no longer holds the test-index entry, and the other two entries are unchanged
-- [ ] The spec's `**Status:**` is `implemented`
+- [x] `requests.md`'s `## Open` section no longer holds the test-index entry, and the other two entries are unchanged
+- [x] The spec's `**Status:**` is `implemented`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes (`candidates.py` imports `testmap.py`, and every test file under `phaseb/` reaches `candidates.py`)
-- [ ] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, where `<baseline>` is `TODO.md` at the commit that added this list: `git show $(git log --diff-filter=A --format=%H -- agents/tasks/listed-phase-b-test-questions/tasks-2.md):TODO.md > <scratch file>`
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes (`candidates.py` imports `testmap.py`, and every test file under `phaseb/` reaches `candidates.py`)
+- [x] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, where `<baseline>` is `TODO.md` at the commit that added this list: `git show $(git log --diff-filter=A --format=%H -- agents/tasks/listed-phase-b-test-questions/tasks-2.md):TODO.md > <scratch file>`
 
 **Notes:**
 

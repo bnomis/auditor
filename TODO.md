@@ -4,25 +4,6 @@ Open work only, in implementation order, nearest first. Finished items move to
 `DONE.md` unchanged. See the shared `todo-add` and `todo-review` skills for
 the shape of an item.
 
-## The Phase B test index reads tests only from `src/tests/` and `tests/`
-
-Found on 2026-11-21 by this repository's first full audit
-(`agents/audit-reviews/review-1.md`) and filed as an open request in
-`claude/skills/auditme/requests.md` ("The Phase B test index reads tests only
-from `src/tests/` and `tests/`"), which holds the full finding.
-
-Cause: `TEST_TREES` in `claude/skills/auditme/checks/auditme/phaseb/testmap.py`
-fixes where the T1 and T2 listers look for tests, so a test tree declared as
-an audit root in `[tool.auditme]` never reaches the index.
-
-Fix direction: as the request asks - read tests from every audit root as well
-as the default trees, deciding a test by `is_test_relpath`; amend
-`agents/specs/listed-phase-b-test-questions/spec.md` first. Shipping it
-deletes the request entry; review-2 cannot start until it is shipped or
-rejected.
-
-Spec: agents/specs/listed-phase-b-test-questions/spec.md (amendment 1.5); tasks: agents/tasks/listed-phase-b-test-questions/tasks-2.md.
-
 ## A9 reads a registered check's `check_` name as a purity promise
 
 Found on 2026-11-21 by `agents/audit-reviews/review-1.md` (decision D3) and

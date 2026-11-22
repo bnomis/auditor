@@ -17,7 +17,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 - **Sampled mode:** review-1's `**Commit:**` is `83e59c0`. Review-2 samples the files changed since then; the third audit counted from review-1 runs the whole tree.
 - **Listed questions:** review-1 judged every candidate and wrote the verdicts to `agents/audit-reviews/ledger/`. Review-2 re-judges only candidates whose hash or brief version changed; a carried finding is not a regression.
-- **Precondition:** review-1 files a checker request about the test index (it reads tests only from `src/tests/` and `tests/`). Review-2 cannot start until that is shipped or rejected, and its T1 and T2 verdicts will change once the index sees `claude/skills/auditme/tests/`.
+- **Precondition:** review-2 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 
 ## Unresolved findings
 
@@ -59,3 +59,4 @@ Dismissed on review-1's page (2026-11-21): F2, the 68 A9 `check_*` sites (the re
 ## Checker changes since the last review
 
 - 2026-11-21, the review-1 task list: an unreadable file is reported as a hit instead of crashing its check (Task 6); `phaseb.py merge` refuses a depth different from its plan (Task 7); arguments and declared roots must stay inside the project (Task 8); the sweep caches parses and shared indexes for the run (Task 13).
+- 2026-11-22, amendment 1.5 of `agents/specs/listed-phase-b-test-questions/spec.md`: the T1 and T2 test index now reads tests from every audit root, so review-2's T1 and T2 verdicts are re-judged where `test_files` grew.
