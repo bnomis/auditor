@@ -144,7 +144,7 @@ design, not the project:
 | `claude/skills/auditme/checks/auditme/core.py` | 1.2: `loose_src_modules()` (new) |
 | `claude/skills/auditme/tests/test_driver.py` | 1.2: the no-`src/` cases replace the two error tests |
 | `claude/skills/auditme/checks/auditme/rules/project_hygiene.py` | 1.4: `check_ruff_version()` (new) |
-| `claude/skills/auditme/checks/auditme/registry.py` | 1.4: `check_ruff_version` appended to `CHECKS` |
+| `claude/skills/auditme/checks/auditme/registry.py` | 1.4: `check_ruff_version` added to `PROJECT_CHECKS` (amendment 2026-11-21: not `CHECKS`) |
 | `claude/skills/auditme/tests/test_project_hygiene.py` | 1.4: the `ruff-version-drift` cases; 1.5: the `.venv` ruff cases |
 | `claude/skills/auditme/checks/auditme/rules/project_hygiene.py` | 1.5: `ruff_executable()` (new), used by `check_ruff` and `check_ruff_version` |
 
@@ -412,9 +412,10 @@ The first audit of this repository runs after that item is done.
 ### The ruff version check (1.4)
 
 `check_ruff_version` is a project-level check like `check_lockfile`: it looks
-at the project, not the root, so it emits the same hit on every pass and
-`emit()`'s de-duplication of identical lines leaves one. It is appended to
-`CHECKS` (never inserted, as the auditme skill requires).
+at the project, not the root. `registry.py` lists it in `PROJECT_CHECKS`,
+which the driver runs once before the per-root passes (amendment 2026-11-21:
+1.4 appended it to `CHECKS`, where `emit()`'s de-duplication of identical
+lines left one hit).
 
 1. **Find the pin** by scanning `.pre-commit-config.yaml` line by line - the
    checker stays stdlib-only, so no YAML parser. A repo entry is a line
@@ -604,6 +605,21 @@ committing) and never pushes.
 --repo bnomis/auditor --title <project>`; `gh secret set AUDITOR_DEPLOY_KEY --repo
 <owner>/<project> < <scratch>/auditor_deploy_key`; then delete both files. The
 private key is never printed.
+
+## Settings
+
+Command-line options and project configuration; the skill has no other
+configuration file.
+
+| Setting | Where | Type | Default | Description |
+|---------|-------|------|---------|-------------|
+| `--base` | `changed.py` | `str` | the first of `@{upstream}`, `origin/main`, `main` that resolves | Diff base for the changed files |
+| `--all` | `changed.py` | flag | off | Report every unaccepted hit, not only those in changed files |
+| `repo_root` | `changed.py` | path | the working directory's git top level | Repository to check |
+| `--package` | `audit.py` | `str` | every package | Audit only this package under `src/` |
+| `--extra-root` | `audit.py` | `str`, repeatable | the default extra roots, each used only when it exists and holds `.py` files | Audit this directory as its own pass; replaces the default set (and, as 1.11 sets out, the declared list for that run) |
+| `[tool.auditme] roots` | `pyproject.toml` | list of tables (`path`, `modules`) | none: `src/` packages plus the default extra roots | The declared audit roots; `modules` is `"package"` (default) or `"top-level"` |
+| Stop hook opt-in | `.pre-commit-config.yaml` | hook id | absent | The Stop hook runs only in a repository whose config lists `id: auditme-changed` |
 
 ## Documentation
 

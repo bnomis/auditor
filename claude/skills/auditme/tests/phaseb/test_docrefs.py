@@ -1,12 +1,17 @@
 """Tests for docrefs: markdown sections and code-shaped names."""
 
-import pathlib
 import subprocess
 import textwrap
+import typing
 
 import auditme.phaseb
 import auditme.phaseb.docrefs
+import hypothesis
+import hypothesis.strategies
 import pytest
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 def read_sections(tmp_path: pathlib.Path, text: str, name: str = 'docs/guide.md') -> list[auditme.phaseb.docrefs.DocSection]:
@@ -279,3 +284,56 @@ def test_each_target_carries_path_and_lines(indexed):
 def test_git_failure_raises(tmp_path):
     with pytest.raises(auditme.phaseb.PhaseBError):
         auditme.phaseb.docrefs.CorpusIndex.build(tmp_path)
+
+
+IDENT = hypothesis.strategies.from_regex(r'[A-Za-z_][A-Za-z0-9_]{0,8}', fullmatch=True)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    ident=IDENT, indent=hypothesis.strategies.text(alphabet=' ', max_size=4), kind=hypothesis.strategies.sampled_from(['def {}(', 'class {}(', 'class {}:'])
+)
+def test_api_fence_name_recovers_the_defined_name(ident: str, indent: str, kind: str) -> None:
+    assert auditme.phaseb.docrefs.api_fence_name(indent + kind.format(ident)) == ident
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(text=hypothesis.strategies.text(alphabet='abc xyz=()', max_size=15))
+def test_api_fence_name_is_none_for_other_lines(text: str) -> None:
+    hypothesis.assume(not text.lstrip().startswith(('def', 'class', 'async')))
+    assert auditme.phaseb.docrefs.api_fence_name(text) is None
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    lines=hypothesis.strategies.lists(
+        hypothesis.strategies.sampled_from(['plain', 'has `tok_a` here', '```', 'in `fenced_tok`', 'two `a.b` and ` c_d `', '`  `']), max_size=10
+    ),
+)
+def test_backticked_tokens_are_in_range_stripped_and_outside_fences(lines: list[str]) -> None:
+    found = auditme.phaseb.docrefs.backticked_tokens(lines, 1, len(lines))
+    numbers = [entry[0] for entry in found]
+    assert numbers == sorted(numbers)
+    fenced = False
+    inside = set()
+    for number, line in enumerate(lines, 1):
+        if line == '```':
+            fenced = not fenced
+        elif fenced:
+            inside.add(number)
+    for number, token in found:
+        assert 1 <= number <= len(lines)
+        assert token
+        assert token == token.strip()
+        assert number not in inside
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(token=hypothesis.strategies.text(alphabet='abcXYZ_./~-<> ()', max_size=14))
+def test_code_shaped_is_idempotent_and_has_no_space(token: str) -> None:
+    shaped = auditme.phaseb.docrefs.code_shaped(token)
+    if shaped is None:
+        return
+    assert ' ' not in shaped
+    assert '<' not in shaped
+    assert auditme.phaseb.docrefs.code_shaped(shaped) == shaped

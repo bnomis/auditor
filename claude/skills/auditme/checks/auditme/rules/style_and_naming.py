@@ -2,10 +2,13 @@
 
 import ast
 import collections
-import pathlib
 import re
+import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 # Public stdlib API spelt with a leading underscore, so not private access:
 # `os._exit` (https://docs.python.org/3/library/os.html#os._exit) and the
@@ -936,3 +939,20 @@ def check_typing_deprecated_alias(scope: pathlib.Path, src_root: pathlib.Path) -
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+
+__all__ = [
+    'check_bare_nonbuiltin_generic_annotation',
+    'check_bare_parametric_annotation',
+    'check_duplicated_word',
+    'check_leading_underscore_binding',
+    'check_leading_underscore_nested_def_class',
+    'check_non_alphabetical_dict_keys',
+    'check_nonalphabetical_literals',
+    'check_percent_formatting',
+    'check_text_patterns',
+    'check_typing_deprecated_alias',
+    'check_underscore_forloop_target_read',
+    'check_underscore_unpack_target_read',
+    'ruff_dunder_all_key',
+]

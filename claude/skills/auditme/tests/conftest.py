@@ -7,7 +7,6 @@ directly rather than importing an installed package, which keeps the suite
 runnable wherever the skill is checked out.
 """
 
-import collections.abc
 import contextlib
 import io
 import json
@@ -15,6 +14,7 @@ import pathlib
 import subprocess
 import sys
 import textwrap
+import typing
 
 import pytest
 
@@ -32,11 +32,14 @@ if str(CHECKS_ROOT) not in sys.path:
     sys.path.insert(0, str(CHECKS_ROOT))
 
 import auditme.core  # noqa: E402  sys.path is set up immediately above
-import auditme.phaseb  # noqa: E402  sys.path is set up above
+import auditme.phaseb.candidates  # noqa: E402  sys.path is set up above
+
+if typing.TYPE_CHECKING:
+    import collections.abc
 
 
-def make_candidate(candidate_id: str) -> auditme.phaseb.Candidate:
-    return auditme.phaseb.Candidate(question='Q1', id=candidate_id, path='src/pkg/mod.py', start=1, end=2, payload={}, hash='h')
+def make_candidate(candidate_id: str) -> auditme.phaseb.candidates.Candidate:
+    return auditme.phaseb.candidates.Candidate(question='Q1', id=candidate_id, path='src/pkg/mod.py', start=1, end=2, payload={}, hash='h')
 
 
 @pytest.fixture(autouse=True)
@@ -49,8 +52,10 @@ def clean_emitted() -> collections.abc.Iterator[None]:
     identical hit, making assertions depend on test order.
     """
     auditme.core.EMITTED.clear()
+    auditme.core.UNREADABLE.clear()
     yield
     auditme.core.EMITTED.clear()
+    auditme.core.UNREADABLE.clear()
 
 
 @pytest.fixture(autouse=True)

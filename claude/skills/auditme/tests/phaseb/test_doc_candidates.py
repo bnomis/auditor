@@ -1,12 +1,15 @@
 """Tests for the Doc4 and Doc5 listers: documents, pairs, unresolved names and hashes."""
 
-import pathlib
 import textwrap
+import typing
 
 import auditme.phaseb
 import auditme.phaseb.candidates
 import conftest
 import pytest
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 AGENTS_QUESTIONS = ['Doc1', 'Doc2']
 DRIFT_QUESTIONS = ['Doc4', 'Doc5']
@@ -94,7 +97,7 @@ def root(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
-def listed(root: pathlib.Path, question: str) -> dict[str, auditme.phaseb.Candidate]:
+def listed(root: pathlib.Path, question: str) -> dict[str, auditme.phaseb.candidates.Candidate]:
     return {candidate.id: candidate for candidate in auditme.phaseb.list_candidates(question, root)}
 
 

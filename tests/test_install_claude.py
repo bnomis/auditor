@@ -8,7 +8,10 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
+
+import pytest
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 WRAPPER = REPO / 'bin' / 'install-claude.sh'
@@ -44,3 +47,21 @@ def test_the_stop_hook_value_is_the_registered_command(tmp_path):
 def test_extra_arguments_pass_through(tmp_path):
     argv = run_with_stub_uvx(tmp_path, '--dry-run', '--target', '/x')
     assert argv[-3:] == ['--dry-run', '--target', '/x']
+
+
+def test_the_real_installer_links_the_files_and_registers_the_hook(tmp_path):
+    """Runs the pinned installer for real; offline, so it needs it in the uv cache."""
+    if shutil.which('uvx') is None:
+        pytest.skip('uvx not installed')
+    home = tmp_path / 'home'
+    home.mkdir()
+    env = {**os.environ, 'HOME': str(home), 'UV_OFFLINE': '1'}
+    result = subprocess.run(['bash', str(WRAPPER)], env=env, capture_output=True, text=True, check=False)
+    if result.returncode != 0 and 'offline' in (result.stdout + result.stderr).lower():
+        pytest.skip('the pinned installer is not in the uv cache and the test runs with no network')
+    assert result.returncode == 0, result.stderr
+    claude = home / '.claude'
+    assert (claude / 'hooks' / 'auditme-stop.sh').resolve() == (REPO / 'claude' / 'hooks' / 'auditme-stop.sh').resolve()
+    assert (claude / 'skills' / 'auditme').resolve() == (REPO / 'claude' / 'skills' / 'auditme').resolve()
+    settings = json.loads((claude / 'settings.json').read_text())
+    assert settings['hooks']['Stop'][0]['hooks'] == [{'type': 'command', 'command': 'bash "$HOME/.claude/hooks/auditme-stop.sh"'}]

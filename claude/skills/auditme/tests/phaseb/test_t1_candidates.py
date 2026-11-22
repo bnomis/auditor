@@ -167,7 +167,7 @@ BASE = {
 }
 
 
-def run_t1(root: pathlib.Path, depth: int | None = None) -> dict[str, auditme.phaseb.Candidate]:
+def run_t1(root: pathlib.Path, depth: int | None = None) -> dict[str, auditme.phaseb.candidates.Candidate]:
     found = auditme.phaseb.candidates.list_t1_candidates(root) if depth is None else auditme.phaseb.candidates.list_t1_candidates(root, depth=depth)
     return {candidate.id: candidate for candidate in found}
 

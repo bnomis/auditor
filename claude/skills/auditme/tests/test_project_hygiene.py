@@ -8,6 +8,8 @@ import subprocess
 
 import auditme.core
 import auditme.rules.project_hygiene
+import hypothesis
+import hypothesis.strategies
 import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
@@ -62,6 +64,20 @@ def test_a_missing_ruff_is_reported_rather_than_passing_silently(
     hits = run_check(RUFF, root)
     assert {hit['variant'] for hit in hits} == {'ruff-check', 'ruff-format'}
     assert all(hit['evidence'] == 'ruff not installed' for hit in hits)
+
+
+def test_a_ruff_that_cannot_be_executed_gets_the_same_report(
+    project: Builder,
+    run_check: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def denied(*args: object, **kwargs: object) -> None:
+        raise PermissionError('ruff')
+
+    monkeypatch.setattr(subprocess, 'run', denied)
+    root = project({'src/probe/mod.py': 'VALUE = 1\n'})
+    hits = run_check(RUFF, root)
+    assert {hit['variant'] for hit in hits} == {'ruff-check', 'ruff-format'}
 
 
 # --------------------------------------------------------------------------
@@ -437,3 +453,41 @@ def test_a_file_level_marker_excuses_the_whole_module(project: Builder, run_chec
         }
     )
     assert run_check(PHASE_SECTION, root) == []
+
+
+def test_spec_markdown_files_skip_records_and_hidden_directories(tmp_path: pathlib.Path) -> None:
+    for relative in ('README.md', 'docs/spec.md', 'tasks/list.md', 'audit-reviews/review.md', '.claude/worktrees/w/spec.md', 'docs/.hidden/x.md'):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('# x\n', encoding='utf-8')
+    found = auditme.rules.project_hygiene.spec_markdown_files(tmp_path)
+    assert [path.relative_to(tmp_path).as_posix() for path in found] == ['README.md', 'docs/spec.md']
+
+
+YAML_LINE = hypothesis.strategies.sampled_from(
+    [
+        'repos:',
+        '  - repo: https://github.com/astral-sh/ruff-pre-commit',
+        '  - repo: https://github.com/other/hooks',
+        '    rev: v0.1.2',
+        '    rev: abc123 # frozen: v0.4.5',
+        '    rev: abc123',
+        '    hooks:',
+        '      - id: ruff',
+        '',
+    ]
+)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(lines=hypothesis.strategies.lists(YAML_LINE, max_size=10))
+def test_ruff_hook_pin_reports_lines_inside_the_file(lines: list[str]) -> None:
+    pin = auditme.rules.project_hygiene.ruff_hook_pin(lines)
+    if pin is None:
+        return
+    repo_line, rev_line, version = pin
+    assert 1 <= repo_line <= len(lines)
+    if rev_line is None:
+        assert version is None
+    else:
+        assert repo_line < rev_line <= len(lines)

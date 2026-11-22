@@ -82,14 +82,36 @@ required finding.
 """
 
 import argparse
-import collections.abc
 import pathlib
 import sys
+import typing
 
 import auditme.core
 import auditme.registry
 
+if typing.TYPE_CHECKING:
+    import collections.abc
+
 DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditme.core.EXTRA_ROOT_NAMES)
+
+
+def report_unreadable(scope: pathlib.Path) -> None:
+    """Emit one `unreadable-file` hit per file a check could not read, then forget them."""
+    for path, error in sorted(auditme.core.UNREADABLE.items()):
+        try:
+            shown = path.relative_to(scope).as_posix()
+        except ValueError:
+            shown = path.as_posix()
+        auditme.core.emit(
+            rule='unreadable-file',
+            variant='a file a check could not read',
+            path=shown,
+            line=None,
+            evidence=error,
+            accepted=False,
+            accepted_reason=None,
+        )
+    auditme.core.UNREADABLE.clear()
 
 
 def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None], scope: pathlib.Path, root: pathlib.Path) -> None:
@@ -108,6 +130,8 @@ def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None
             accepted=False,
             accepted_reason=None,
         )
+    finally:
+        report_unreadable(scope)
 
 
 def main() -> int:
@@ -134,9 +158,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    auditme.core.clear_source_cache()
     scope = args.scope.resolve()
     if not scope.is_dir():
         print(f'ERROR: {scope} is not a directory', file=sys.stderr)
+        return 2
+
+    if args.package and (pathlib.Path(args.package).name != args.package or args.package in ('.', '..')):
+        print(f'ERROR: --package {args.package} is not a directory name directly under src/', file=sys.stderr)
         return 2
 
     if args.extra_root is not None:
@@ -146,6 +175,9 @@ def main() -> int:
         auditme.core.EXTRA_ROOT_NAMES = tuple(args.extra_root)
         auditme.core.DECLARATION_IGNORED = True
         for name in args.extra_root:
+            if not auditme.core.path_inside((scope / name).resolve(), scope):
+                print(f'ERROR: --extra-root {name} is outside {scope}', file=sys.stderr)
+                return 2
             if not (scope / name).is_dir():
                 print(f'ERROR: {scope / name} is not a directory', file=sys.stderr)
                 return 2

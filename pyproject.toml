@@ -18,6 +18,7 @@ quote-style = "single"
 # ICN: import convention
 # S: bandit
 # SIM: flake8-simplify
+# TC: flake8-type-checking
 # TID: tidy imports
 # UP: pyupgrade
 select = [
@@ -28,6 +29,7 @@ select = [
     "ICN",
     "S",
     "SIM",
+    "TC",
     "NPY201",
     "TID",
     # "UP",
@@ -81,5 +83,9 @@ exclude-newer = "14 days"
 prerelease = "disallow"
 
 [dependency-groups]
-dev = ["ruff==0.17.4"]
+dev = [
+    "hypothesis>=6.170.15",
+    "pytest>=9.2.0",
+    "ruff==0.17.4",
+]
 docs = ["mkdocs>=1.6.1", "mkdocs-material>=9.7.7"]

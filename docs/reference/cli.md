@@ -99,8 +99,8 @@ nothing.
 | Option | Effect |
 |---|---|
 | `scope` | Project root. |
-| `--package PACKAGE` | Audit only `src/PACKAGE`. Drops the extra roots and the loose-module check. For re-checking one package; a normal audit passes neither option. |
-| `--extra-root DIR` | Audit `DIR` (relative to `scope`) as its own pass, as a `package` root. Repeatable. Replaces the default extra root, `bin/`, and replaces any roots declared in `[tool.auditme]` for that run; each named directory must exist. |
+| `--package PACKAGE` | Audit only `src/PACKAGE`, which must be a directory name directly under `src/` (a path or `..` exits 2). Drops the extra roots and the loose-module check. For re-checking one package; a normal audit passes neither option. |
+| `--extra-root DIR` | Audit `DIR` (relative to `scope`) as its own pass, as a `package` root. Repeatable. Replaces the default extra root, `bin/`, and replaces any roots declared in `[tool.auditme]` for that run; each named directory must exist and resolve inside `scope` (one outside exits 2). |
 
 Without options it audits every package under `src/`, each in its own pass,
 then `bin/` when it exists and holds `.py` files. A `.py` file directly in
@@ -135,7 +135,7 @@ it is declared as a `package` root of its own.
 The declared list replaces the default roots, in the order given: a project
 that also has `src/` packages lists them. With no `[tool.auditme]` table, or
 no `pyproject.toml`, the defaults apply. `--extra-root` replaces the declared
-list for one run. No two `package` roots may nest, and no `top-level` root may
+list for one run. A declared root that resolves outside the project is an invalid declaration. No two `package` roots may nest, and no `top-level` root may
 sit inside a `package` root. The hooks and the Phase B listers read the same
 list.
 
@@ -148,13 +148,13 @@ hit, and the sweep continues.
 | Exit | Meaning |
 |---|---|
 | `0` | Sweep completed, whatever it found; also when there is no root to audit (a notice goes to stderr and only the project-level checks run) |
-| `2` | `scope`, a named `--extra-root` or the `--package` directory does not exist; an argument error; or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
+| `2` | `scope`, a named `--extra-root` or the `--package` directory does not exist; an argument error (argparse's usage message on stderr); or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
 
 The declaration errors, each exit `2`:
 
 | Message | Cause |
 |---|---|
-| `pyproject.toml: <parse error>` | `pyproject.toml` is not valid TOML and mentions `[tool.auditme` |
+| `pyproject.toml: not valid TOML (<parse error>)` | `pyproject.toml` is not valid TOML and mentions `[tool.auditme` |
 | `pyproject.toml [tool.auditme]: must be a table` | `[tool.auditme]` is not a table |
 | `pyproject.toml [tool.auditme]: unknown key '<key>'` | a key other than `roots` |
 | `pyproject.toml [tool.auditme]: roots must be a list of tables` | `roots` is not a list of tables |
@@ -164,9 +164,18 @@ The declaration errors, each exit `2`:
 | `declared root <path> not found` | the directory does not exist |
 | `declared root <path> holds no .py file` | no `.py` file (for `top-level`, none directly in it) |
 | `declared roots <a> and <b> overlap` | two roots would sweep a file twice |
+| `declared root <path> is outside the project` | the path resolves outside `scope`, as an absolute path or `..` does |
 
 The hooks treat any of these as a sweep that cannot run, and `phaseb.py`
 exits `2` with the same message.
+
+`phaseb.py` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path.
+
+`phaseb.py plan` records the callee depth it listed at (`--depth`, default 3)
+in `plan.json`. `phaseb.py merge` exits `2`, naming both depths and writing
+nothing to the ledger, when its own `--depth` differs from the plan's: merge
+with the plan's depth, or plan again. A `plan.json` written before the depth
+was recorded is read as depth 3.
 
 The exit status does not reflect hits: callers read stdout.
 
@@ -267,6 +276,12 @@ the repository root:
 ```shell
 python3 -I "$HOME/.claude/skills/auditme/checks/changed.py"
 ```
+
+The exception is a worktree of the auditor repository itself: when the
+installed checker links into the same git directory as the project and the
+project holds its own `claude/skills/auditme/checks/changed.py`, the hook runs
+that one instead, so a branch that changes the checker is judged by that
+branch. Any other repository's `changed.py` is never run.
 
 When that exits `1` it prints `{"decision": "block", "reason": "<report>"}`,
 and Claude Code keeps the turn going with the report as the reason. Since

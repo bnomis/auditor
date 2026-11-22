@@ -5,6 +5,8 @@ import collections.abc
 import pathlib
 
 import auditme.rules.state_and_effects
+import hypothesis
+import hypothesis.strategies
 import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
@@ -1047,3 +1049,20 @@ def test_if_chain_rejects_a_second_subject() -> None:
 
 def test_if_chain_rejects_a_test_the_callable_rejects() -> None:
     assert auditme.rules.state_and_effects.if_chain(first_if(THREE_ARMS), lambda test: None) is None
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    hazards=hypothesis.strategies.lists(
+        hypothesis.strategies.tuples(hypothesis.strategies.integers(1, 9999), hypothesis.strategies.from_regex(r'[a-z ]{1,12}', fullmatch=True)), max_size=6
+    )
+)
+def test_hazard_summary_has_one_located_entry_per_hazard(hazards: list[tuple[int, str]]) -> None:
+    summary = auditme.rules.state_and_effects.hazard_summary(hazards)
+    if not hazards:
+        assert summary == ''
+        return
+    parts = summary.split(', ')
+    assert len(parts) == len(hazards)
+    for part, hazard in zip(parts, hazards, strict=True):
+        assert part.endswith(f' at line {hazard[0]}')

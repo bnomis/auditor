@@ -1,13 +1,16 @@
 """Checks on mutation, side effects and hidden state."""
 
 import ast
-import collections.abc
 import contextlib
 import dataclasses
-import pathlib
 import re
+import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import collections.abc
+    import pathlib
 
 DISK_IO_NAMES = {
     'copy',
@@ -374,7 +377,7 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
 
             # Walk only the direct body (and its nested statements) but not
             # nested function definitions
-            def walk_non_nested(n):
+            def walk_non_nested(n: ast.AST) -> collections.abc.Iterator[ast.AST]:
                 for sub in ast.iter_child_nodes(n):
                     if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
                         continue
@@ -648,7 +651,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
             if not (node.name.startswith('build_') or node.name.startswith('compute_')):
                 continue
 
-            def walk_non_nested(n):
+            def walk_non_nested(n: ast.AST) -> collections.abc.Iterator[ast.AST]:
                 for sub in ast.iter_child_nodes(n):
                     if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
                         continue
@@ -974,11 +977,15 @@ def dataclass_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dic
     resolves no imports, so the alternative is to call a frozen class mutable
     on the strength of a same-named class somewhere else in the tree.
     """
+    return auditme.core.corpus_index('frozen', scope, src_root, lambda: build_frozen_by_name(scope, src_root))
+
+
+def build_frozen_by_name(scope: pathlib.Path, src_root: pathlib.Path) -> dict[str, bool]:
+    """The index `dataclass_frozen_by_name` shares: one scan of the corpus."""
     frozen_by_name: dict[str, bool] = {}
     for path in auditme.core.corpus_py_files(scope, src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
@@ -1351,3 +1358,23 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+
+__all__ = [
+    'check_assert_never_missing',
+    'check_build_name_has_side_effect',
+    'check_callback_hotpath_io',
+    'check_constructor_disk_io',
+    'check_dataclass_optional_always_set',
+    'check_dead_local_init',
+    'check_mutable_members_in_immutable_wrapper',
+    'check_mutable_module_level_exported',
+    'check_mutable_store_without_copy',
+    'check_parameter_mutation',
+    'check_pure_name_has_side_effect',
+    'check_return_value_shadows_instance_attr',
+    'check_silent_self_mutation',
+    'check_subprocess_without_memoisation',
+    'extract_string_eq_var',
+    'if_chain',
+]

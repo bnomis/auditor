@@ -155,3 +155,45 @@ def test_worktree_of_installed_repository_runs_its_own_checker(tmp_path: pathlib
     decision = json.loads(run(home, worktree, {}).stdout)
     assert decision['decision'] == 'block'
     assert decision['reason'] == OWN_REPORT.rstrip('\n')
+
+
+CHECKER = HOOK.parent.parent / 'skills' / 'auditme' / 'checks' / 'changed.py'
+FUTURE_IMPORT = 'from __future__ import annotations\n'
+
+
+def make_real_home(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A HOME whose installed checker is a link to this repository's real changed.py."""
+    home = tmp_path / 'home'
+    checker_path(home).parent.mkdir(parents=True)
+    checker_path(home).symlink_to(CHECKER)
+    return home
+
+
+def make_real_repo(tmp_path: pathlib.Path, new_source: str) -> pathlib.Path:
+    """An opted-in repository on branch `feature`, one commit after `main`, adding src/pkg/new.py."""
+    repo = tmp_path / 'project'
+    repo.mkdir()
+    git(repo, 'init', '-q', '-b', 'main')
+    (repo / '.pre-commit-config.yaml').write_text('repos:\n  - hooks:\n      - id: auditme-changed\n')
+    (repo / 'src' / 'pkg').mkdir(parents=True)
+    (repo / 'src' / 'pkg' / '__init__.py').write_text('')
+    git(repo, 'add', '-A')
+    git(repo, 'commit', '-q', '-m', 'base')
+    git(repo, 'checkout', '-q', '-b', 'feature')
+    (repo / 'src' / 'pkg' / 'new.py').write_text(new_source)
+    git(repo, 'add', '-A')
+    git(repo, 'commit', '-q', '-m', 'add new')
+    return repo
+
+
+def test_real_checker_blocks_on_an_unaccepted_hit(tmp_path: pathlib.Path) -> None:
+    result = run(make_real_home(tmp_path), make_real_repo(tmp_path, FUTURE_IMPORT), {})
+    assert result.returncode == 0
+    decision = json.loads(result.stdout)
+    assert decision['decision'] == 'block'
+    assert 'src/pkg/new.py:1  future-annotations' in decision['reason']
+
+
+def test_real_checker_is_silent_with_no_hit(tmp_path: pathlib.Path) -> None:
+    result = run(make_real_home(tmp_path), make_real_repo(tmp_path, 'value = 1\n'), {})
+    assert (result.returncode, result.stdout) == (0, '')

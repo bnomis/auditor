@@ -8,6 +8,7 @@ import pathlib
 import re
 import tomllib
 import types
+import typing
 
 # An accept marker may name the single rule it answers for:
 #     # auditme: accept[failure-as-absence] the caller reads batch.error
@@ -27,6 +28,12 @@ ACCEPT_COMMENT_RE = re.compile(r'#\s*auditme:\s*accept\b(?:\[([a-z0-9-]+)\])?\s*
 # record, so two genuinely different hits can never collide here.
 EMITTED: set[str] = set()  # auditme: accept[mutable-module-level-exported] process-lifetime state the driver fills and the tests clear
 
+# Files a check could not read this run, mapped to the error text. A check that
+# meets one skips it, so the driver drains this after each check and reports each
+# path as an `unreadable-file` hit instead of letting one vanished file crash
+# the check and hide its other hits.
+UNREADABLE: dict[pathlib.Path, str] = {}  # auditme: accept[mutable-module-level-exported] process-lifetime state the driver drains and the tests clear
+
 # Builtin generics that take type parameters: a bare annotation or an empty
 # constructor call of one names the type without its members.
 BARE_GENERIC_NAMES = frozenset({'dict', 'frozenset', 'list', 'set', 'tuple'})
@@ -38,7 +45,7 @@ def is_test_relpath(rel: str) -> bool:
     return 'tests' in path.parts[:-1] or path.name.startswith('test_') or path.name.endswith('_test.py') or path.name == 'conftest.py'
 
 
-def emit(related: list[str] | None = None, **kwargs) -> None:
+def emit(related: list[str] | None = None, **kwargs: object) -> None:
     """Print one hit. `related` names the other files a cross-file hit compares
     against (repository-relative, sorted, de-duplicated); it is omitted when
     empty so every other hit serialises as before."""
@@ -64,11 +71,93 @@ def describe_error(error: BaseException) -> str:
     return f'{error} ({cause})'
 
 
-def source_lines(path: pathlib.Path) -> list[str]:
+SOURCE_CACHE: dict[
+    tuple[pathlib.Path, int, int], tuple[str | None, ast.Module | None]
+] = {}  # auditme: accept[mutable-module-level-exported] per-run parse cache the driver clears and the tests reset
+
+
+INDEX_CACHE: dict[tuple[object, ...], object] = {}  # auditme: accept[mutable-module-level-exported] per-run index cache the driver clears and the tests reset
+
+
+def clear_source_cache() -> None:
+    """Forget every cached text, tree and corpus index; the driver calls it at the start of a run."""
+    SOURCE_CACHE.clear()
+    INDEX_CACHE.clear()
+
+
+def corpus_index[T](kind: str, scope: pathlib.Path, src_root: pathlib.Path, build: collections.abc.Callable[[], T]) -> T:
+    """The corpus-wide index `kind`, built once per run and shared by every root's pass.
+
+    A corpus-wide question has the same answer on every pass, so `build` runs
+    again only when a file of the corpus has changed or the set of files has.
+    The result is shared, so a caller must not modify it."""
+    signature: list[tuple[pathlib.Path, int, int]] = []
+    for path in corpus_py_files(scope, src_root):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        signature.append((path, stat.st_mtime_ns, stat.st_size))
+    key = (kind, scope, tuple(signature))
+    if key not in INDEX_CACHE:
+        INDEX_CACHE[key] = build()
+    return typing.cast('T', INDEX_CACHE[key])
+
+
+def cached_source(path: pathlib.Path) -> tuple[str | None, ast.Module | None]:
+    """The text and the syntax tree of `path`, each None when it cannot be had.
+
+    Each file is read and parsed once per run, whichever check asks first. The
+    key holds the file's modification time and size, so a file rewritten
+    during the run is read afresh. An unreadable file is recorded in
+    `UNREADABLE` on every call, because the driver drains that record after
+    each check."""
     try:
-        return path.read_text(encoding='utf-8').splitlines()
-    except UnicodeDecodeError:
-        return []
+        stat = path.stat()
+        key = (path, stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        key = None
+    if key is not None and key in SOURCE_CACHE:
+        cached = SOURCE_CACHE[key]
+        if cached[0] is None:
+            UNREADABLE[path] = f'cannot read {path.name}'
+        return cached
+    try:
+        text: str | None = path.read_text(encoding='utf-8')
+    except OSError, UnicodeDecodeError:
+        UNREADABLE[path] = f'cannot read {path.name}'
+        text = None
+    tree: ast.Module | None = None
+    if text is not None:
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            tree = None
+    if key is not None:
+        SOURCE_CACHE[key] = (text, tree)
+    return text, tree
+
+
+def read_source(path: pathlib.Path) -> str | None:
+    """The text of `path`, or None when it cannot be read.
+
+    An unreadable file (gone, denied, not UTF-8) is recorded in `UNREADABLE` so
+    the driver reports it by name."""
+    return cached_source(path)[0]
+
+
+def parse_source(path: pathlib.Path) -> ast.Module | None:
+    """The syntax tree of `path`, or None when it cannot be read or parsed.
+
+    A file that does not parse is skipped without a record, as before; one that
+    cannot be read is recorded by `read_source`. The tree is shared between
+    checks, so a caller must not modify it."""
+    return cached_source(path)[1]
+
+
+def source_lines(path: pathlib.Path) -> list[str]:
+    text = read_source(path)
+    return [] if text is None else text.splitlines()
 
 
 def accept_reason(
@@ -146,7 +235,9 @@ def accepted_lazy_imports(scope: pathlib.Path) -> set[tuple[str, str]]:
     agents = scope / 'AGENTS.md'
     if not agents.exists():
         return set()
-    text = agents.read_text(encoding='utf-8')
+    text = read_source(agents)
+    if text is None:
+        return set()
     pairs: set[tuple[str, str]] = set()
     for line in text.splitlines():
         if not line.startswith('|'):
@@ -213,7 +304,9 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
     pyproject = scope / 'pyproject.toml'
     if DECLARATION_IGNORED or not pyproject.is_file():
         return None
-    text = pyproject.read_text(encoding='utf-8')
+    text = read_source(pyproject)
+    if text is None:
+        return None
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
@@ -245,6 +338,8 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
         if mode not in (PACKAGE, TOP_LEVEL):
             raise RootsError(f"{where}: modules must be 'package' or 'top-level', not {mode!r}")
         root = scope / path
+        if not path_inside(root.resolve(), scope.resolve()):
+            raise RootsError(f'declared root {path} is outside the project')
         if not root.is_dir():
             raise RootsError(f'declared root {path} not found')
         if not py_files(root, mode):
@@ -524,11 +619,15 @@ def reads_by_module_and_name(
     The corpus is every root the sweep reads, not the one being swept: a
     reader in a sibling package, or in a script under `bin/`, is a reader.
     """
+    return corpus_index('reads', scope, src_root, lambda: build_reads(scope, src_root))
+
+
+def build_reads(scope: pathlib.Path, src_root: pathlib.Path) -> dict[tuple[str, str], list[tuple[pathlib.Path, int]]]:
+    """The index `reads_by_module_and_name` shares: one scan of the corpus."""
     reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = collections.defaultdict(list)
     for path in corpus_py_files(scope, src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = parse_source(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
@@ -570,11 +669,15 @@ def corpus_definitions(
     Phase B listers set it: they resolve names a document mentions, which may
     be a class or a method. A file with a syntax error is skipped.
     """
+    return corpus_index(f'definitions-{classes}', scope, src_root, lambda: build_definitions(scope, src_root, classes))
+
+
+def build_definitions(scope: pathlib.Path, src_root: pathlib.Path, classes: bool) -> dict[str, list[tuple[ast.AST, pathlib.Path]]]:
+    """The index `corpus_definitions` shares: one scan of the corpus."""
     out: dict[str, list[tuple[ast.AST, pathlib.Path]]] = {}
     for path in corpus_py_files(scope, src_root):
-        try:
-            tree = ast.parse('\n'.join(source_lines(path)))
-        except SyntaxError:
+        tree = parse_source(path)
+        if tree is None:
             continue
         for node in ast.iter_child_nodes(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -631,9 +734,8 @@ def all_names(path: pathlib.Path) -> set[str] | None:
     """The string members of the `__all__` in `path`, or None when it has none."""
     if not path.is_file():
         return None
-    try:
-        tree = ast.parse(path.read_text(encoding='utf-8'))
-    except SyntaxError, UnicodeDecodeError:
+    tree = parse_source(path)
+    if tree is None:
         return None
     names: set[str] | None = None
     for node in tree.body:
@@ -704,9 +806,8 @@ def script_entry_points(path: pathlib.Path) -> set[str] | None:
     """
     if not path.is_file() or path.name == '__init__.py' or (path.parent / '__init__.py').exists():
         return None
-    try:
-        tree = ast.parse(path.read_text(encoding='utf-8'))
-    except SyntaxError, UnicodeDecodeError:
+    tree = parse_source(path)
+    if tree is None:
         return None
     guards = [node for node in tree.body if is_main_guard(node)]
     if not guards:
@@ -741,6 +842,53 @@ def privacy(qualname: str, module: str, root: pathlib.Path) -> tuple[bool, str]:
     return any(s.startswith('_') and not (s.startswith('__') and s.endswith('__')) for s in segments), PRIVACY_UNDERSCORE
 
 
-def is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
+def read_is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
     """Whether the function or class qualname in module is private; see `privacy`."""
     return privacy(qualname, module, root)[0]
+
+
+__all__ = [
+    'BARE_GENERIC_NAMES',
+    'DECLARATION_IGNORED',
+    'EMITTED',
+    'EXTRA_ROOT_NAMES',
+    'PACKAGE',
+    'PRIVACY_ALL',
+    'PRIVACY_SCRIPT',
+    'PRIVACY_UNDERSCORE',
+    'ROOT_MODULES',
+    'RootsError',
+    'SIDE_EFFECT_CALL_NAMES',
+    'TOP_LEVEL',
+    'UNREADABLE',
+    'accept_reason',
+    'accepted_lazy_imports',
+    'all_py_files',
+    'audit_roots',
+    'call_bindings',
+    'clear_source_cache',
+    'corpus_definitions',
+    'corpus_index',
+    'corpus_py_files',
+    'declared_roots',
+    'describe_error',
+    'emit',
+    'from_import_bindings',
+    'is_dunder_all_assignment',
+    'is_test_relpath',
+    'loose_src_modules',
+    'module_dotted',
+    'packages_under',
+    'parse_source',
+    'path_inside',
+    'privacy',
+    'read_is_private',
+    'read_source',
+    'reads_by_module_and_name',
+    'reexport_aliases',
+    'relpath',
+    'resolve_call',
+    'source_lines',
+    'type_checking_linenos',
+    'walk_within_scope',
+]

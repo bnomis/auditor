@@ -4,13 +4,18 @@ Most cases swap `changed.AUDIT_SCRIPT` for a stub that prints canned hits, so
 they exercise the runner and not the checker; one case runs the real `audit.py`.
 """
 
-import collections.abc
 import json
-import pathlib
+import typing
 
 import changed
 import conftest
+import hypothesis
+import hypothesis.strategies
 import pytest
+
+if typing.TYPE_CHECKING:
+    import collections.abc
+    import pathlib
 
 
 def commit_all(repo: pathlib.Path, message: str) -> None:
@@ -325,3 +330,37 @@ def test_a_malformed_declaration_fails_the_sweep(tmp_path, capsys) -> None:
     root = start_script_project(tmp_path, {'pyproject.toml': '[tool.auditme]\nroots = "lib"\n', 'lib/a.py': 'A = 1\n'})
     assert changed.main(['--all', str(root)]) == 1
     assert 'ERROR: ' in capsys.readouterr().out
+
+
+ARGV_ITEM = hypothesis.strategies.sampled_from(['--all', 'x.py', '-q', '--base=main', '--base=-x', '--base', 'main', '-v'])
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(argv=hypothesis.strategies.lists(ARGV_ITEM, max_size=5))
+def test_option_value_is_flag_matches_the_first_base_occurrence(argv: list[str]) -> None:
+    expected = False
+    for index, arg in enumerate(argv):
+        if arg.startswith('--base='):
+            expected = arg.removeprefix('--base=').startswith('-')
+            break
+        if arg == '--base' and index + 1 < len(argv):
+            expected = argv[index + 1].startswith('-')
+            break
+    assert changed.option_value_is_flag(argv) == expected
+    if not any(arg == '--base' or arg.startswith('--base=') for arg in argv):
+        assert not changed.option_value_is_flag(argv)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    parts=hypothesis.strategies.lists(hypothesis.strategies.from_regex(r'[a-z]{1,4}', fullmatch=True), max_size=3),
+    stem=hypothesis.strategies.from_regex(r'[a-z]{1,5}', fullmatch=True),
+    dot=hypothesis.strategies.from_regex(r'\.[a-z]{1,4}', fullmatch=True),
+)
+def test_reportable_by_suffix_and_dot_directory(parts: list[str], stem: str, dot: str) -> None:
+    prefix = '/'.join(parts) + '/' if parts else ''
+    assert changed.reportable(f'{prefix}{stem}.py')
+    assert changed.reportable(f'{prefix}uv.lock')
+    other = f'{prefix}{stem}.txt'
+    assert not changed.reportable(other)
+    assert not changed.reportable(f'{prefix}{dot}/{stem}.md')

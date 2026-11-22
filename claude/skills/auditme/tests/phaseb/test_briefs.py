@@ -4,6 +4,7 @@ import pathlib
 import re
 
 import auditme.phaseb
+import auditme.phaseb.candidates
 import pytest
 
 SKILL = pathlib.Path(__file__).resolve().parents[2] / 'SKILL.md'
@@ -62,7 +63,7 @@ def test_doc_brief_holds_question_keys_and_security_rule(question: str) -> None:
     assert len(re.findall(rf'^\*\*Brief version:\*\* {version}$', text, re.MULTILINE)) == 1
     assert auditme.phaseb.brief_version(brief) == version
     assert question_line(question) in text
-    for key in auditme.phaseb.question_kinds(question):
+    for key in auditme.phaseb.candidates.question_kinds(question):
         assert f'`{key}`' in text, key
     for phrase in ('printenv', 'reason', DOC_BRIEF_PHRASES[question]):
         assert phrase in text, phrase

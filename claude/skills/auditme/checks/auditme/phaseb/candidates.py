@@ -148,6 +148,7 @@ def list_candidates(question: str, root: pathlib.Path, depth: int | None = None)
 
     Raises:
         PhaseBError: question has no registered lister.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     lister, _, _ = registered(question)
     found = lister(root) if depth is None else lister(root, depth)  # type: ignore[call-arg]
@@ -207,6 +208,31 @@ class Site:
         return '\n'.join(self.lines[self.start - 1 : self.end])
 
 
+def module_sites(module: str, tree: ast.Module, rel: str, lines: list[str]) -> list[Site]:
+    """Every top-level function and class method a parsed module defines."""
+    sites: list[Site] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            sites.append(Site(module, f'{module}.{node.name}', None, node, rel, lines))
+        elif isinstance(node, ast.ClassDef):
+            sites.extend(
+                Site(module, f'{module}.{node.name}.{member.name}', node.name, member, rel, lines)
+                for member in node.body
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+            )
+    return sites
+
+
+def site_candidate(question: str, site: Site, payload: dict[str, typing.Any], hash: str) -> Candidate:
+    """The candidate for one function or method."""
+    return Candidate(question=question, id=site.id, path=site.path, start=site.start, end=site.end, payload=payload, hash=hash)
+
+
+def section_candidate(question: str, id: str, section: auditme.phaseb.docrefs.DocSection, payload: dict[str, typing.Any], hash: str) -> Candidate:
+    """The candidate for one document section."""
+    return Candidate(question=question, id=id, path=section.doc, start=section.start, end=section.end, payload=payload, hash=hash)
+
+
 def is_stub(node: FunctionNode) -> bool:
     """True for an abstract or protocol body (D2): `...`, `pass`, a docstring alone or `raise NotImplementedError`."""
     body = node.body
@@ -247,16 +273,7 @@ def root_sites(scope: pathlib.Path, src_root: pathlib.Path) -> tuple[list[Site],
         module = auditme.core.module_dotted(path, src_root)
         trees[module] = tree
         is_package[module] = path.name == '__init__.py'
-        rel = auditme.core.relpath(path, scope)
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                sites.append(Site(module, f'{module}.{node.name}', None, node, rel, lines))
-            elif isinstance(node, ast.ClassDef):
-                sites.extend(
-                    Site(module, f'{module}.{node.name}.{member.name}', node.name, member, rel, lines)
-                    for member in node.body
-                    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
-                )
+        sites.extend(module_sites(module, tree, auditme.core.relpath(path, scope), lines))
     return sites, trees, is_package
 
 
@@ -301,18 +318,15 @@ def root_candidates(scope: pathlib.Path, src_root: pathlib.Path, depth: int) -> 
         ]
         digest = hashlib.sha256('\0'.join([site.source, *(callee.source for callee in callees)]).encode('utf-8')).hexdigest()
         found.append(
-            Candidate(
-                question='A4',
-                id=site.id,
-                path=site.path,
-                start=site.start,
-                end=site.end,
-                payload={
+            site_candidate(
+                'A4',
+                site,
+                {
                     'raises': doc[doc.index('Raises:') :],
                     'callees': [{'id': callee.id, 'path': callee.path, 'start': callee.start, 'end': callee.end} for callee in callees],
                     'unresolved': unresolved,
                 },
-                hash=digest,
+                digest,
             )
         )
     return found
@@ -432,33 +446,21 @@ def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.P
                 covering = sorted({block for block in blocks for number in numbers if block[0] <= number <= block[1]})
                 parts = ['\n'.join(lines[first - 1 : last]).encode('utf-8') for first, last in covering]
                 found.append(
-                    Candidate(
-                        question=question,
-                        id=prefix + target.id,
-                        path=section.doc,
-                        start=section.start,
-                        end=section.end,
-                        payload={
+                    section_candidate(
+                        question,
+                        prefix + target.id,
+                        section,
+                        {
                             'target': dataclasses.asdict(target),
                             'lines': [{'line': number, 'text': lines[number - 1].strip()} for number in sorted(set(numbers))],
                         },
-                        hash=digest([*parts, target_bytes(target, index)]),
+                        digest([*parts, target_bytes(target, index)]),
                     )
                 )
             if unresolved:
                 text = '\n'.join(lines[section.start - 1 : section.end]).encode('utf-8')
                 tokens = '\n'.join(sorted(entry['name'] for entry in unresolved)).encode('utf-8')
-                found.append(
-                    Candidate(
-                        question=question,
-                        id=prefix + UNRESOLVED,
-                        path=section.doc,
-                        start=section.start,
-                        end=section.end,
-                        payload={'tokens': unresolved},
-                        hash=digest([text, tokens]),
-                    )
-                )
+                found.append(section_candidate(question, prefix + UNRESOLVED, section, {'tokens': unresolved}, digest([text, tokens])))
     return found
 
 
@@ -541,18 +543,12 @@ def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
         if not named and not any(auditme.phaseb.docrefs.FENCE_RE.match(line) for line in text):
             continue
         paths = [
-            {'path': token, 'line': number, 'resolved': [target.id for target in auditme.phaseb.docrefs.resolve_path(token, path, index)]}
+            {'path': token, 'line': number, 'resolved': [target.id for target in auditme.phaseb.docrefs.read_path_targets(token, path, index)]}
             for number, token in named
         ]
         found.append(
-            Candidate(
-                question='Doc1',
-                id=f'{section.doc}::{section.heading_path}',
-                path=section.doc,
-                start=section.start,
-                end=section.end,
-                payload={'paths': paths, 'tree': tree},
-                hash=digest(['\n'.join(text).encode('utf-8'), tree_bytes]),
+            section_candidate(
+                'Doc1', f'{section.doc}::{section.heading_path}', section, {'paths': paths, 'tree': tree}, digest(['\n'.join(text).encode('utf-8'), tree_bytes])
             )
         )
     return found
@@ -675,14 +671,12 @@ def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
             else:
                 matched.append({'token': token, 'line': number, 'source': source})
         found.append(
-            Candidate(
-                question='Doc2',
-                id=f'{section.doc}::{section.heading_path}',
-                path=section.doc,
-                start=section.start,
-                end=section.end,
-                payload={'matched': matched, 'unmatched': sorted(unmatched)},
-                hash=digest(['\n'.join(lines[section.start - 1 : section.end]).encode('utf-8'), canonical, hook_bytes]),
+            section_candidate(
+                'Doc2',
+                f'{section.doc}::{section.heading_path}',
+                section,
+                {'matched': matched, 'unmatched': sorted(unmatched)},
+                digest(['\n'.join(lines[section.start - 1 : section.end]).encode('utf-8'), canonical, hook_bytes]),
             )
         )
     return found
@@ -775,7 +769,7 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
         PhaseBError: a test file or audited source file does not parse.
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
-    index = auditme.phaseb.testmap.build_index(scope)
+    index = auditme.phaseb.testmap.load_test_index(scope)
     refs = index.refs(depth)
     hidden = {module: auditme.core.type_checking_linenos(file.tree) for module, file in index.sources.items()}
     classes = {(module, node.name): node for module, file in index.sources.items() for node in file.tree.body if isinstance(node, ast.ClassDef)}
@@ -790,13 +784,10 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
         parts = [site.source.encode('utf-8'), *read_test_files(scope, test_files)]
         private, rule = auditme.core.privacy(site.qualname.removeprefix(f'{site.module}.'), site.module, scope)
         found.append(
-            Candidate(
-                question='T1',
-                id=site.id,
-                path=site.path,
-                start=site.start,
-                end=site.end,
-                payload={
+            site_candidate(
+                'T1',
+                site,
+                {
                     'reasons': reasons,
                     'tests': [dataclasses.asdict(ref) for ref in refs.get(site.id, ())],
                     'callers': index.callers(site.id, depth),
@@ -804,7 +795,7 @@ def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
                     'private': private,
                     'privacy': rule,
                 },
-                hash=digest(parts),
+                digest(parts),
             )
         )
     return found
@@ -1001,7 +992,7 @@ def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
         PhaseBError: a test file or audited source file does not parse.
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
-    index = auditme.phaseb.testmap.build_index(scope)
+    index = auditme.phaseb.testmap.load_test_index(scope)
     refs = index.refs(depth)
     hidden = {module: auditme.core.type_checking_linenos(file.tree) for module, file in index.sources.items()}
     class_sites: dict[str, tuple[auditme.phaseb.testmap.ParsedFile, ast.ClassDef]] = {}
@@ -1052,13 +1043,10 @@ def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
         parts = [site.source.encode('utf-8'), *(source for _, source in class_sources), *read_test_files(scope, test_files)]
         pairs = sorted(other for inverse in inverse_names(node.name) for other in by_name.get(inverse, ()))
         found.append(
-            Candidate(
-                question='T2',
-                id=site.id,
-                path=site.path,
-                start=site.start,
-                end=site.end,
-                payload={
+            site_candidate(
+                'T2',
+                site,
+                {
                     'params': [
                         {'name': name, 'annotation': ast.get_source_segment(text, annotation) or ast.unparse(annotation)} for name, annotation in annotated
                     ],
@@ -1068,7 +1056,7 @@ def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
                     'tests': [dataclasses.asdict(ref) for ref in refs.get(site.id, ())],
                     'test_files': test_files,
                 },
-                hash=digest(parts),
+                digest(parts),
             )
         )
     return found

@@ -4,11 +4,13 @@ import ast
 import collections
 import collections.abc
 import contextlib
-import pathlib
 import re
 import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 BARE_HANDLER_MARK = '*bare*'
 ERRORS_MODULE_NAMES = frozenset({'__init__.py', 'errors.py'})
@@ -278,9 +280,8 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     package_root_name = src_root.name
 
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         rel_parts = path.relative_to(src_root).parts
@@ -302,9 +303,8 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
     # key: callee full dotted path; value: list of (caller_path, lineno, is_wrapped)
 
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         # Track which nodes are inside a try block
@@ -442,9 +442,8 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
         # Build set of classes actually used in except clauses anywhere in the tree.
         caught_elsewhere: dict[str, set[str]] = collections.defaultdict(set)
         for src in auditme.core.all_py_files(src_root):
-            try:
-                other_tree = ast.parse(src.read_text(encoding='utf-8'))
-            except SyntaxError, UnicodeDecodeError:
+            other_tree = auditme.core.parse_source(src)
+            if other_tree is None:
                 continue
             for sub in ast.walk(other_tree):
                 if not isinstance(sub, ast.ExceptHandler):
@@ -662,9 +661,8 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
     for path in auditme.core.all_py_files(src_root):
         if path.name != 'errors.py':
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in tree.body:
             if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
@@ -742,9 +740,8 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
     function_raises: dict[str, set[str]] = collections.defaultdict(set)
     function_path_line: dict[str, tuple[str, int]] = {}
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         rel_parts = path.relative_to(src_root).parts
@@ -780,9 +777,8 @@ def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.
     translations: dict[str, dict[str, set[str]]] = collections.defaultdict(lambda: collections.defaultdict(set))
     # translations[callee_full][caught_error] = set of translated target classes
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.Try):
@@ -1145,9 +1141,8 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
     for path in auditme.core.all_py_files(src_root):
         if path.name != 'errors.py':
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in tree.body:
             if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
@@ -1166,9 +1161,8 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
         pkg = path.relative_to(src_root).parts[:-1]
         if pkg not in package_has_domain_error:
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in tree.body:
             if isinstance(node, ast.Assign):
@@ -2100,9 +2094,8 @@ def translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
     """
     envelopes: dict[str, set[str]] = collections.defaultdict(set)
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -2705,3 +2698,34 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+
+__all__ = [
+    'FILESYSTEM_TOUCHING_CALLS',
+    'callable_short_name',
+    'check_asymmetric_exception_translation',
+    'check_bare_except_in_module_with_narrow_errors',
+    'check_broad_except_wrong_level',
+    'check_cli_entry_missing_error_envelope',
+    'check_docstring_raises_mismatch',
+    'check_except_interpolation',
+    'check_failure_as_absence',
+    'check_filesystem_envelope_gap',
+    'check_filesystem_op_without_envelope',
+    'check_get_container_default_then_method_call',
+    'check_inconsistent_error_translation',
+    'check_layer_has_domain_error_but_raises_stdlib',
+    'check_logger_exception_graceful_degradation',
+    'check_missing_raises_section',
+    'check_mixed_raise_types',
+    'check_raises_section_drift',
+    'check_sibling_error_no_common_base',
+    'check_silent_broad_except',
+    'check_translator_envelope_gap',
+    'check_try_wrapping_with_too_broad',
+    'class_lineage',
+    'is_broad_handler',
+    'package_class_parents',
+    'raises_section_names',
+    'translator_envelopes',
+]

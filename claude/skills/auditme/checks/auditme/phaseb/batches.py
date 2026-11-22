@@ -4,22 +4,25 @@
 them as `batch-NN.jsonl` beside a `plan.json`. A reviewer writes one
 `result-NN.jsonl` per batch, one JSON line per candidate with `id`,
 `findings` (one list of strings per kind registered for the question) and
-`reason`. `check_run` reports each problem in those results
+`reason`. `read_run_check` reports each problem in those results
 instead of raising, so the orchestrator can retry the batch.
 """
 
 import dataclasses
 import datetime
 import json
-import pathlib
 import typing
 
 import auditme.phaseb.errors
 from auditme.phaseb.candidates import (
+    DEFAULT_DEPTH,
     Candidate,
     Verdict,
     question_kinds,
 )  # auditme: accept[from-import] the package init imports this module while `auditme.phaseb` is not yet bound on `auditme`, so a qualified path fails at import
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 PLAN_NAME = 'plan.json'
 
@@ -44,6 +47,7 @@ class Plan:
     brief: str
     brief_version: int
     batches: list[list[str]]
+    depth: int = DEFAULT_DEPTH
 
 
 def batch_path(run_dir: pathlib.Path, number: int) -> pathlib.Path:
@@ -81,8 +85,18 @@ def plan_batches(
     return [needed[start : start + size] for start in range(0, len(needed), size)]
 
 
-def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: list[list[Candidate]], run_dir: pathlib.Path) -> None:
+def write_plan(
+    question: str,
+    brief: pathlib.Path,
+    brief_version: int,
+    planned: list[list[Candidate]],
+    run_dir: pathlib.Path,
+    depth: int = DEFAULT_DEPTH,
+) -> None:
     """Write each batch as batch-NN.jsonl and the plan as plan.json in run_dir.
+
+    The plan records the callee `depth` the candidates were listed at, so a
+    merge can refuse to re-list at another.
 
     Raises:
         PhaseBError: a file cannot be written.
@@ -91,6 +105,7 @@ def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: 
         'question': question,
         'brief': str(brief),
         'brief_version': brief_version,
+        'depth': depth,
         'batches': [[candidate.id for candidate in batch] for batch in planned],
     }
     try:
@@ -105,6 +120,8 @@ def write_plan(question: str, brief: pathlib.Path, brief_version: int, planned: 
 
 def read_plan(run_dir: pathlib.Path) -> Plan:
     """Read run_dir's plan.json.
+
+    A plan written before it recorded its depth is read as the default depth, 3.
 
     Raises:
         PhaseBError: the plan is absent, cannot be read or is not a valid plan.
@@ -122,6 +139,7 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
             isinstance(document['question'], str)
             and isinstance(document['brief'], str)
             and isinstance(document['brief_version'], int)
+            and isinstance(document.get('depth', DEFAULT_DEPTH), int)
             and isinstance(planned, list)
             and all(isinstance(batch, list) and all(isinstance(item, str) for item in batch) for batch in planned)
         )
@@ -129,7 +147,7 @@ def read_plan(run_dir: pathlib.Path) -> Plan:
         raise auditme.phaseb.errors.PhaseBError(f'{path}: not a valid plan') from error
     if not valid:
         raise auditme.phaseb.errors.PhaseBError(f'{path}: not a valid plan')
-    return Plan(document['question'], document['brief'], document['brief_version'], planned)
+    return Plan(document['question'], document['brief'], document['brief_version'], planned, document.get('depth', DEFAULT_DEPTH))
 
 
 def parse_result(line: str, kinds: tuple[str, ...]) -> dict[str, typing.Any]:
@@ -163,7 +181,7 @@ def parse_result(line: str, kinds: tuple[str, ...]) -> dict[str, typing.Any]:
     return record
 
 
-def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple[str, ...]) -> tuple[list[str], list[dict[str, typing.Any]]]:
+def read_batch_check(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple[str, ...]) -> tuple[list[str], list[dict[str, typing.Any]]]:
     """Return a batch's problems and its valid result records."""
     path = result_path(run_dir, number)
     if not path.is_file():
@@ -198,7 +216,7 @@ def check_batch(run_dir: pathlib.Path, number: int, ids: list[str], kinds: tuple
     return problems, records
 
 
-def check_run(run_dir: pathlib.Path) -> RunCheck:
+def read_run_check(run_dir: pathlib.Path) -> RunCheck:
     """Check every planned batch has exactly one valid verdict per candidate.
 
     Returns the problems per batch (no output, unparseable line, missing,
@@ -212,7 +230,7 @@ def check_run(run_dir: pathlib.Path) -> RunCheck:
     kinds = question_kinds(plan.question)
     problems: dict[int, list[str]] = {}
     for number, ids in enumerate(plan.batches, start=1):
-        found, _ = check_batch(run_dir, number, ids, kinds)
+        found, _ = read_batch_check(run_dir, number, ids, kinds)
         if found:
             problems[number] = found
     return RunCheck(problems=problems)
@@ -229,7 +247,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
             planned id is not among candidates.
     """
     plan = read_plan(run_dir)
-    problems = check_run(run_dir).problems
+    problems = read_run_check(run_dir).problems
     if problems:
         raise auditme.phaseb.errors.PhaseBError(f'run in {run_dir} has problems in batches {sorted(problems)}; run check and retry them')
     kinds = question_kinds(plan.question)
@@ -237,7 +255,7 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
     stamp = today or datetime.date.today().isoformat()
     verdicts: list[Verdict] = []
     for number, ids in enumerate(plan.batches, start=1):
-        _, records = check_batch(run_dir, number, ids, kinds)
+        _, records = read_batch_check(run_dir, number, ids, kinds)
         for record in records:
             candidate = by_id.get(str(record['id']))
             if candidate is None:
@@ -256,4 +274,4 @@ def read_run_verdicts(run_dir: pathlib.Path, candidates: list[Candidate], today:
     return sorted(verdicts, key=lambda verdict: verdict.id)
 
 
-__all__ = ['Plan', 'RunCheck', 'check_run', 'plan_batches', 'read_plan', 'read_run_verdicts', 'write_plan']
+__all__ = ['Plan', 'RunCheck', 'plan_batches', 'read_plan', 'read_run_check', 'read_run_verdicts', 'write_plan']

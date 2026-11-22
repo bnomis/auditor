@@ -32,7 +32,7 @@ def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         try:
             # auditme: accept[subprocess-without-memoisation] its arguments differ per root
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=scope)
-        except FileNotFoundError:
+        except OSError:
             auditme.core.emit(
                 rule='ruff',
                 variant=variant,
@@ -93,7 +93,7 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         if result.returncode != 0 and USER_EXCLUDE_NEWER_MARKER in (result.stderr or '') + (result.stdout or ''):
             env = {**os.environ, 'UV_NO_CONFIG': '1'}
             result = subprocess.run(UV_LOCK_CHECK, capture_output=True, text=True, cwd=scope, env=env)
-    except FileNotFoundError:
+    except OSError:
         return
     if result.returncode == 0:
         return
@@ -196,7 +196,7 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         ruff, label = ruff_executable(scope)
         # auditme: accept[subprocess-without-memoisation] a PROJECT_CHECKS entry: the driver runs it once per sweep
         result = subprocess.run([ruff, '--version'], capture_output=True, text=True, cwd=scope)
-    except FileNotFoundError:
+    except OSError:
         return
     running = RUFF_VERSION_OUTPUT_RE.match(result.stdout.strip())
     if not running:
@@ -463,3 +463,16 @@ def check_spec_api_signature_drift(scope: pathlib.Path, src_root: pathlib.Path) 
                 accepted_reason=accept,
             )
             index = last_index + 1
+
+
+__all__ = [
+    'CLASS_LINE_RE',
+    'DEF_LINE_RE',
+    'SPEC_SKIP_PARTS',
+    'check_lockfile',
+    'check_phase_section_doc_reference',
+    'check_ruff',
+    'check_ruff_version',
+    'check_spec_api_signature_drift',
+    'spec_markdown_files',
+]

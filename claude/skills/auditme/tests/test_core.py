@@ -10,9 +10,14 @@ import collections.abc
 import io
 import json
 import pathlib
+import typing
 
 import auditme.core
-import pytest
+import hypothesis
+import hypothesis.strategies
+
+if typing.TYPE_CHECKING:
+    import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
@@ -227,7 +232,7 @@ def test_walk_within_scope_does_not_enter_nested_scopes() -> None:
     assert any(isinstance(n, ast.FunctionDef) and n.name == 'inner' for n in nodes)
 
 
-# is_private
+# read_is_private
 
 INIT_ALL = "__all__ = ['load', 'Probe']\n"
 NO_ALL = 'def load() -> None:\n    pass\n'
@@ -235,42 +240,42 @@ NO_ALL = 'def load() -> None:\n    pass\n'
 
 def test_is_private_a_name_in_the_package_all_is_public(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
-    assert not auditme.core.is_private('load', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('load', 'pkg.mod', root)
 
 
 def test_is_private_a_name_left_out_of_the_package_all_is_private(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
-    assert auditme.core.is_private('helper', 'pkg.mod', root)
+    assert auditme.core.read_is_private('helper', 'pkg.mod', root)
 
 
 def test_is_private_a_name_in_its_modules_own_all_is_public(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': "__all__ = ['helper']\n"})
-    assert not auditme.core.is_private('helper', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('helper', 'pkg.mod', root)
 
 
 def test_is_private_a_method_follows_its_class(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
-    assert not auditme.core.is_private('Probe.load', 'pkg.mod', root)
-    assert auditme.core.is_private('Other.load', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('Probe.load', 'pkg.mod', root)
+    assert auditme.core.read_is_private('Other.load', 'pkg.mod', root)
 
 
 def test_is_private_without_an_all_only_an_underscore_makes_private(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': NO_ALL, 'src/pkg/_mod.py': NO_ALL})
-    assert not auditme.core.is_private('load', 'pkg.mod', root)
-    assert auditme.core.is_private('_load', 'pkg.mod', root)
-    assert auditme.core.is_private('load', 'pkg._mod', root)
-    assert auditme.core.is_private('Probe._load', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('load', 'pkg.mod', root)
+    assert auditme.core.read_is_private('_load', 'pkg.mod', root)
+    assert auditme.core.read_is_private('load', 'pkg._mod', root)
+    assert auditme.core.read_is_private('Probe._load', 'pkg.mod', root)
 
 
 def test_is_private_an_underscore_name_in_an_all_is_public(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': "__all__ = ['_load']\n", 'src/pkg/mod.py': NO_ALL})
-    assert not auditme.core.is_private('_load', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('_load', 'pkg.mod', root)
 
 
 def test_is_private_reads_an_annotated_all(project: Builder) -> None:
     root = project({'src/pkg/__init__.py': "__all__: list[str] = ['load']\n", 'src/pkg/mod.py': NO_ALL})
-    assert not auditme.core.is_private('load', 'pkg.mod', root)
-    assert auditme.core.is_private('other', 'pkg.mod', root)
+    assert not auditme.core.read_is_private('load', 'pkg.mod', root)
+    assert auditme.core.read_is_private('other', 'pkg.mod', root)
 
 
 SCRIPT = (
@@ -344,3 +349,102 @@ def test_describe_error_appends_the_chained_cause() -> None:
 
 def test_describe_error_is_the_bare_message_without_a_cause() -> None:
     assert auditme.core.describe_error(auditme.core.RootsError('plain')) == 'plain'
+
+
+def test_from_import_bindings_resolve_absolute_and_relative_imports() -> None:
+    tree = ast.parse('from a.b import c\nfrom .d import e as f\nfrom ..g import h\nfrom . import i\nimport j\n')
+    assert auditme.core.from_import_bindings(tree, 'pkg.sub.mod', False) == {
+        'c': 'a.b.c',
+        'f': 'pkg.sub.d.e',
+        'h': 'pkg.g.h',
+        'i': 'pkg.sub.i',
+    }
+
+
+def test_from_import_bindings_resolve_a_package_init_against_itself() -> None:
+    tree = ast.parse('from .base import Foo\n')
+    assert auditme.core.from_import_bindings(tree, 'pkg.sub', True) == {'Foo': 'pkg.sub.base.Foo'}
+
+
+def test_call_bindings_add_aliased_plain_imports() -> None:
+    tree = ast.parse('from a import b\nimport c.d as e\nimport f.g\n')
+    assert auditme.core.call_bindings(tree, 'pkg.mod', False) == {'b': 'a.b', 'e': 'c.d'}
+
+
+def test_reexport_aliases_follow_a_re_export_of_a_re_export() -> None:
+    from_bindings = {
+        'pkg': {'run': 'pkg.base.run'},
+        'top': {'run': 'pkg.run'},
+        'other': {'unrelated': 'elsewhere.thing'},
+    }
+    assert auditme.core.reexport_aliases(from_bindings, {'pkg.base.run'}) == {
+        'pkg.run': 'pkg.base.run',
+        'top.run': 'pkg.base.run',
+    }
+
+
+def parse_call(source: str) -> ast.Call:
+    node = ast.parse(source, mode='eval').body
+    assert isinstance(node, ast.Call)
+    return node
+
+
+def test_resolve_call_reaches_a_same_module_name_an_import_and_an_alias() -> None:
+    known: dict[str, str | None] = {'pkg.mod.local': None, 'pkg.other.func': None, 'pkg.mod.Cls.method': 'Cls'}
+    imported = {'func': 'pkg.other.func', 'other': 'pkg.other'}
+    aliases = {'pkg.reexport.func': 'pkg.other.func'}
+    assert auditme.core.resolve_call(parse_call('local()'), 'pkg.mod', None, imported, known, aliases) == 'pkg.mod.local'
+    assert auditme.core.resolve_call(parse_call('func()'), 'pkg.mod', None, imported, known, aliases) == 'pkg.other.func'
+    assert auditme.core.resolve_call(parse_call('other.func()'), 'pkg.mod', None, imported, known, aliases) == 'pkg.other.func'
+    assert auditme.core.resolve_call(parse_call('pkg.reexport.func()'), 'pkg.mod', None, imported, known, aliases) == 'pkg.other.func'
+    assert auditme.core.resolve_call(parse_call('self.method()'), 'pkg.mod', 'Cls', imported, known, aliases) == 'pkg.mod.Cls.method'
+    assert auditme.core.resolve_call(parse_call('unknown()'), 'pkg.mod', None, imported, known, aliases) is None
+
+
+def test_resolve_call_resolves_a_class_method_only_when_asked() -> None:
+    known: dict[str, str | None] = {'pkg.mod.Cls.build': 'Cls'}
+    call = parse_call('Cls.build()')
+    assert auditme.core.resolve_call(call, 'pkg.mod', None, {}, known, {}) is None
+    assert auditme.core.resolve_call(call, 'pkg.mod', None, {}, known, {}, class_methods=True) == 'pkg.mod.Cls.build'
+
+
+def test_reads_by_module_and_name_counts_both_import_spellings(project: Builder) -> None:
+    root = project(
+        {
+            'src/pkg/__init__.py': '',
+            'src/pkg/a.py': 'from pkg.b import NAME\n',
+            'src/pkg/c.py': 'import pkg.b\n\nvalue = pkg.b.OTHER\n',
+        }
+    )
+    reads = auditme.core.reads_by_module_and_name(root, root / 'src')
+    assert [(path.name, line) for path, line in reads[('pkg.b', 'NAME')]] == [('a.py', 1)]
+    assert [(path.name, line) for path, line in reads[('pkg.b', 'OTHER')]] == [('c.py', 3)]
+
+
+PLAIN_LINE = hypothesis.strategies.text(alphabet=hypothesis.strategies.characters(blacklist_characters='#\n\r', blacklist_categories=['Cs']), max_size=30)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    lines=hypothesis.strategies.lists(PLAIN_LINE, max_size=6),
+    lineno=hypothesis.strategies.integers(-2, 9),
+    end=hypothesis.strategies.none() | hypothesis.strategies.integers(-2, 9),
+)
+def test_accept_reason_is_none_without_a_marker(lines: list[str], lineno: int, end: int | None) -> None:
+    assert auditme.core.accept_reason(lines, lineno, end) is None
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    reason=hypothesis.strategies.text(alphabet='abc xyz', min_size=0, max_size=12),
+    rule=hypothesis.strategies.from_regex(r'[a-z][a-z0-9]{0,8}', fullmatch=True),
+    other=hypothesis.strategies.from_regex(r'[a-z][a-z0-9]{0,8}', fullmatch=True),
+)
+def test_accept_reason_answers_with_a_string_and_ignores_another_rules_marker(reason: str, rule: str, other: str) -> None:
+    hypothesis.assume(rule != other)
+    lines = [f'x = 1  # auditme: accept[{other}] {reason}']
+    assert auditme.core.accept_reason(lines, 1, None, rule=rule) is None
+    answer = auditme.core.accept_reason(lines, 1, None, rule=other)
+    assert isinstance(answer, str)
+    assert answer
+    assert auditme.core.accept_reason(lines, 1, None) == answer

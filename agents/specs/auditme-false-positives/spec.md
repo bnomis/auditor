@@ -53,7 +53,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
 
 - `claude/skills/auditme/checks/auditme/rules/error_handling.py`:
   `check_raises_section_drift`, `check_missing_raises_section`,
-  `_handler_passes_on`
+  `handler_passes_on`
 - `claude/skills/auditme/checks/auditme/rules/imports_and_surfaces.py`:
   `check_passthrough_shim`
 - `claude/skills/auditme/checks/auditme/rules/style_and_naming.py`:
@@ -104,7 +104,7 @@ def unset_optional_guard(func: ast.FunctionDef | ast.AsyncFunctionDef, error: st
 
 
 def nested_call_sites(func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[tuple[ast.AST, tuple[HandlerLevel, ...]]]:
-    """`_reach_sites(func.body)` plus, for each call by bare name to a def
+    """`reach_sites(func.body)` plus, for each call by bare name to a def
     nested directly in `func`'s body, that def's own reach sites with the
     call's handler levels prepended. One level deep; a nested def that is
     never called contributes nothing.
@@ -147,9 +147,9 @@ a parameter without a default (`if not text.isdigit():`, the existing
 outside the guard.
 
 **2. `raises-section-drift`: nested functions.** Replace
-`_reach_sites(node.body)` with `nested_call_sites(node)`, so a raise or call
+`reach_sites(node.body)` with `nested_call_sites(node)`, so a raise or call
 in a nested def the subject calls reaches the subject under the call's
-levels. Change `_handler_passes_on` to look for a bare `raise` or
+levels. Change `handler_passes_on` to look for a bare `raise` or
 `raise <bound>` only within the handler's own scope (`walk_within_scope`),
 not inside a def or lambda defined in the handler. A bare `raise` under an
 `if` in the handler still passes the caught types on. The task starts with a
@@ -165,7 +165,7 @@ function at any depth), build its lineage table with `package_class_parents`
 over the package, and take its sites from `nested_call_sites`. A raise counts
 when its name passes today's test (`raise X(...)`/`raise mod.X(...)`, ends in
 `Error`, not in `STDLIB_ERRORS`) and no handler level at its site catches its
-`class_lineage` without passing it on (`_level_catches`, which also treats a
+`class_lineage` without passing it on (`level_catches`, which also treats a
 bare `except:`, `Exception` and `BaseException` as catching). A raise inside
 a nested def counts only through a call site, so a def that is returned and
 never called contributes nothing; it is still its own subject. The

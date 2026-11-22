@@ -9,7 +9,7 @@ The checker is stdlib-only and is invoked as a bare script, so the suite needs
 nothing installed beyond `pytest`:
 
 ```shell
-uv run --no-project --with pytest pytest claude/skills/auditme/tests
+uv run pytest claude/skills/auditme/tests
 ```
 
 Run it from the repository root. `conftest.py` puts `../checks` on `sys.path`,

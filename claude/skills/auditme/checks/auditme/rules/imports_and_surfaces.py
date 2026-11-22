@@ -3,10 +3,13 @@
 import ast
 import collections
 import collections.abc
-import pathlib
 import re
+import typing
 
 import auditme.core
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 IMPORT_ERROR_NAMES = frozenset({'ImportError', 'ModuleNotFoundError'})
 
@@ -254,10 +257,8 @@ def project_bans_as_imports(scope: pathlib.Path) -> bool:
     agents = scope / 'AGENTS.md'
     if not agents.exists():
         return False
-    try:
-        return bool(AS_IMPORT_BAN_RE.search(agents.read_text(encoding='utf-8')))
-    except OSError, UnicodeDecodeError:
-        return False
+    text = auditme.core.read_source(agents)
+    return text is not None and bool(AS_IMPORT_BAN_RE.search(text))
 
 
 def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -371,7 +372,7 @@ def check_from_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             )
 
 
-def parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
+def read_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
     """Parse AGENTS.md's Package Layering section.
 
     Returns (layer_order, accepted_exceptions). layer_order is a list of
@@ -382,7 +383,9 @@ def parse_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[st
     agents = scope / 'AGENTS.md'
     if not agents.exists():
         return [], set()
-    text = agents.read_text(encoding='utf-8')
+    text = auditme.core.read_source(agents)
+    if text is None:
+        return [], set()
     layer_order: list[str] = []
     accepted: set[tuple[str, str]] = set()
     in_layering_section = False
@@ -426,7 +429,7 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
     in the layering chain, flag unless the (importer, imported) pair is
     in AGENTS.md's accepted-exceptions table or the line carries an
     `# auditme: accept` marker."""
-    layer_order, accepted = parse_package_layering(scope)
+    layer_order, accepted = read_package_layering(scope)
     if not layer_order:
         return
     rank = {pkg: i for i, pkg in enumerate(layer_order)}
@@ -462,7 +465,16 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
                 maybe_emit_layering(rel, lines, node.lineno, importer_pkg, module_name, rank, accepted, package_root_name)
 
 
-def maybe_emit_layering(rel, lines, lineno, importer_pkg, module_name, rank, accepted, package_root_name):
+def maybe_emit_layering(
+    rel: str,
+    lines: list[str],
+    lineno: int,
+    importer_pkg: str,
+    module_name: str,
+    rank: dict[str, int],
+    accepted: set[tuple[str, str]],
+    package_root_name: str,
+) -> None:
     if not module_name.startswith(package_root_name + '.'):
         return
     parts = module_name.split('.')
@@ -565,9 +577,8 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
         # Skip the top-level package init (parent is src_root itself)
         if path.parent == src_root:
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         export_count = 0
         for node in tree.body:
@@ -628,9 +639,8 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     shims: dict[str, set[tuple[str, str]]] = collections.defaultdict(set)
 
     for path in auditme.core.all_py_files(src_root):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
         # mod path like 'pkg.models.settings'
@@ -664,9 +674,8 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     # symbol via the shim's module path.
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         # the consumer is itself a module; do not flag the canonical or shim
         rel_parts = path.relative_to(src_root).parts
@@ -727,9 +736,8 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
         if path.name == '__init__.py':
             continue
         rel = auditme.core.relpath(path, scope)
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-        except SyntaxError, UnicodeDecodeError:
+        tree = auditme.core.parse_source(path)
+        if tree is None:
             continue
         lines = auditme.core.source_lines(path)
         for node in tree.body:
@@ -775,9 +783,8 @@ def project_has_all_guard(scope: pathlib.Path) -> bool:
     if not src.is_dir():
         return False
     for path in sorted(src.rglob('*.py')):
-        try:
-            text = path.read_text(encoding='utf-8')
-        except OSError, UnicodeDecodeError:
+        text = auditme.core.read_source(path)
+        if text is None:
             continue
         if ALL_GUARD_RE.search(text):
             return True
@@ -828,3 +835,18 @@ def check_annotated_all_assignment(scope: pathlib.Path, src_root: pathlib.Path) 
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
+
+
+__all__ = [
+    'check_annotated_all_assignment',
+    'check_as_import',
+    'check_def_class_in_init',
+    'check_empty_init_with_exporting_siblings',
+    'check_from_import',
+    'check_in_function_imports',
+    'check_layering_violations',
+    'check_migration_shim_consumers',
+    'check_passthrough_shim',
+    'check_reexport_in_non_init',
+    'check_unused_submodule_imports',
+]

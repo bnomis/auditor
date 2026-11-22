@@ -5,6 +5,8 @@ import pathlib
 
 import auditme.phaseb
 import auditme.phaseb.testmap
+import hypothesis
+import hypothesis.strategies
 import pytest
 
 Project = collections.abc.Callable[[dict[str, str]], pathlib.Path]
@@ -35,7 +37,7 @@ def test_direct_call_after_import_gives_a_direct_ref(project: Project) -> None:
             """,
         }
     )
-    (ref,) = auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']
+    (ref,) = auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']
     assert ref.id == 'src/tests/test_mod.py::test_load'
     assert ref.path == 'src/tests/test_mod.py'
     assert (ref.start, ref.end) == (4, 5)
@@ -56,7 +58,7 @@ def test_module_attribute_call_is_found(project: Project) -> None:
             """,
         }
     )
-    assert [ref.id for ref in auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']] == ['src/tests/test_mod.py::test_load']
+    assert [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']] == ['src/tests/test_mod.py::test_load']
 
 
 def test_method_test_in_test_class_has_class_in_id(project: Project) -> None:
@@ -76,7 +78,7 @@ def test_method_test_in_test_class_has_class_in_id(project: Project) -> None:
             """,
         }
     )
-    assert [ref.id for ref in auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']] == ['src/tests/test_mod.py::TestProbe.test_load']
+    assert [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']] == ['src/tests/test_mod.py::TestProbe.test_load']
 
 
 def test_fixture_in_same_file_gives_a_direct_ref(project: Project) -> None:
@@ -98,7 +100,7 @@ def test_fixture_in_same_file_gives_a_direct_ref(project: Project) -> None:
             """,
         }
     )
-    assert [ref.id for ref in auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']] == ['src/tests/test_mod.py::test_uses_fixture']
+    assert [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']] == ['src/tests/test_mod.py::test_uses_fixture']
 
 
 def test_fixture_in_conftest_above_gives_a_direct_ref(project: Project) -> None:
@@ -120,7 +122,7 @@ def test_fixture_in_conftest_above_gives_a_direct_ref(project: Project) -> None:
             """,
         }
     )
-    assert [ref.id for ref in auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']] == ['src/tests/sub/test_mod.py::test_uses_fixture']
+    assert [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']] == ['src/tests/sub/test_mod.py::test_uses_fixture']
 
 
 def test_hypothesis_given_marks_a_property_test(project: Project) -> None:
@@ -142,7 +144,7 @@ def test_hypothesis_given_marks_a_property_test(project: Project) -> None:
             """,
         }
     )
-    flags = {ref.id: ref.property for ref in auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']}
+    flags = {ref.id: ref.property for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']}
     assert flags == {'src/tests/test_mod.py::test_plain': False, 'src/tests/test_mod.py::test_prop': True}
 
 
@@ -161,7 +163,7 @@ def test_hypothesis_module_attribute_given_is_recognised(project: Project) -> No
             """,
         }
     )
-    assert auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load'][0].property is True
+    assert auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load'][0].property is True
 
 
 def test_same_name_without_import_adds_no_ref(project: Project) -> None:
@@ -178,7 +180,7 @@ def test_same_name_without_import_adds_no_ref(project: Project) -> None:
             """,
         }
     )
-    assert auditme.phaseb.testmap.build_test_map(root, 3) == {}
+    assert auditme.phaseb.testmap.load_test_map(root, 3) == {}
 
 
 def test_unresolvable_call_is_left_out(project: Project) -> None:
@@ -196,13 +198,13 @@ def test_unresolvable_call_is_left_out(project: Project) -> None:
             """,
         }
     )
-    assert auditme.phaseb.testmap.build_test_map(root, 3) == {}
+    assert auditme.phaseb.testmap.load_test_map(root, 3) == {}
 
 
 @pytest.mark.parametrize('files', [{'src/pkg/__init__.py': '', 'src/pkg/mod.py': MOD}, {}])
 def test_project_without_test_tree_gives_empty_map(project: Project, files: dict[str, str]) -> None:
     root = project({**files, 'README.md': 'x'})
-    assert auditme.phaseb.testmap.build_test_map(root, 3) == {}
+    assert auditme.phaseb.testmap.load_test_map(root, 3) == {}
 
 
 def test_top_level_tests_directory_is_read(project: Project) -> None:
@@ -219,19 +221,19 @@ def test_top_level_tests_directory_is_read(project: Project) -> None:
             """,
         }
     )
-    assert [ref.id for ref in auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']] == ['tests/test_mod.py::test_load']
+    assert [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']] == ['tests/test_mod.py::test_load']
 
 
 def test_unparseable_test_file_raises_naming_the_file(project: Project) -> None:
     root = project({**BASE, 'src/tests/test_bad.py': 'def test_x(:\n'})
     with pytest.raises(auditme.phaseb.PhaseBError, match='test_bad.py'):
-        auditme.phaseb.testmap.build_test_map(root, 3)
+        auditme.phaseb.testmap.load_test_map(root, 3)
 
 
 def test_unparseable_source_file_raises_naming_the_file(project: Project) -> None:
     root = project({**BASE, 'src/pkg/broken.py': 'def f(:\n'})
     with pytest.raises(auditme.phaseb.PhaseBError, match='broken.py'):
-        auditme.phaseb.testmap.build_test_map(root, 3)
+        auditme.phaseb.testmap.load_test_map(root, 3)
 
 
 def test_refs_come_back_sorted_by_id(project: Project) -> None:
@@ -258,7 +260,7 @@ def test_refs_come_back_sorted_by_id(project: Project) -> None:
             """,
         }
     )
-    ids = [ref.id for ref in auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']]
+    ids = [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']]
     assert ids == sorted(ids)
     assert len(ids) == 3
 
@@ -281,14 +283,14 @@ def test_each_test_file_is_parsed_once(project: Project, monkeypatch: pytest.Mon
         }
     )
     parsed: list[pathlib.Path] = []
-    original = auditme.phaseb.testmap.parse_file
+    original = auditme.phaseb.testmap.read_test_file
 
     def counting(path: pathlib.Path, base: pathlib.Path, project_root: pathlib.Path) -> auditme.phaseb.testmap.ParsedFile:
         parsed.append(path)
         return original(path, base, project_root)
 
-    monkeypatch.setattr(auditme.phaseb.testmap, 'parse_file', counting)
-    auditme.phaseb.testmap.build_test_map(root, 3)
+    monkeypatch.setattr(auditme.phaseb.testmap, 'read_test_file', counting)
+    auditme.phaseb.testmap.load_test_map(root, 3)
     assert parsed.count(root / 'src/tests/test_mod.py') == 1
 
 
@@ -333,7 +335,7 @@ def test_caller_route_gives_a_caller_ref_with_via(project: Project) -> None:
             """,
         }
     )
-    (ref,) = auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']
+    (ref,) = auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']
     assert ref.route == 'caller'
     assert ref.via == 'src/pkg/mid.py::run'
     assert ref.id == 'src/tests/test_mid.py::test_run'
@@ -352,9 +354,9 @@ def test_caller_route_is_bounded_by_depth(project: Project) -> None:
             """,
         }
     )
-    assert 'src/pkg/mod.py::load' in auditme.phaseb.testmap.build_test_map(root, 3)
-    assert 'src/pkg/mod.py::load' not in auditme.phaseb.testmap.build_test_map(root, 2)
-    assert 'src/pkg/mid.py::run' in auditme.phaseb.testmap.build_test_map(root, 2)
+    assert 'src/pkg/mod.py::load' in auditme.phaseb.testmap.load_test_map(root, 3)
+    assert 'src/pkg/mod.py::load' not in auditme.phaseb.testmap.load_test_map(root, 2)
+    assert 'src/pkg/mid.py::run' in auditme.phaseb.testmap.load_test_map(root, 2)
 
 
 def test_direct_and_caller_refs_are_both_kept(project: Project) -> None:
@@ -375,7 +377,7 @@ def test_direct_and_caller_refs_are_both_kept(project: Project) -> None:
             """,
         }
     )
-    refs = auditme.phaseb.testmap.build_test_map(root, 3)['src/pkg/mod.py::load']
+    refs = auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']
     assert [(ref.id.split('::')[1], ref.route) for ref in refs] == [('test_load', 'direct'), ('test_run', 'caller')]
 
 
@@ -401,14 +403,14 @@ def test_a_call_cycle_terminates(project: Project) -> None:
             """,
         }
     )
-    refs = auditme.phaseb.testmap.build_test_map(root, 10)
+    refs = auditme.phaseb.testmap.load_test_map(root, 10)
     assert refs['src/pkg/cyc.py::ping'][0].route == 'direct'
     assert refs['src/pkg/cyc.py::pong'][0].route == 'caller'
 
 
 def test_callers_lists_functions_reaching_the_target_within_depth(project: Project) -> None:
     root = project(CHAIN)
-    index = auditme.phaseb.testmap.build_index(root)
+    index = auditme.phaseb.testmap.load_test_index(root)
     found = index.callers('src/pkg/mod.py::load', 2)
     assert [caller['id'] for caller in found] == ['src/pkg/mid.py::run', 'src/pkg/top.py::start']
     assert found[0] == {'id': 'src/pkg/mid.py::run', 'path': 'src/pkg/mid.py', 'start': 4, 'end': 5}
@@ -426,7 +428,7 @@ def test_test_files_holds_mirror_importers_and_caller_importers(project: Project
             'src/tests/test_other.py': 'from pkg import top\n\n\ndef test_z():\n    pass\n',
         }
     )
-    index = auditme.phaseb.testmap.build_index(root)
+    index = auditme.phaseb.testmap.load_test_index(root)
     assert index.test_files('src/pkg/mod.py::load', 1) == [
         'src/tests/pkg/test_mod.py',
         'src/tests/test_caller.py',
@@ -447,8 +449,32 @@ def test_test_files_hold_a_file_importing_only_the_package_re_export(project: Pr
             'src/tests/test_unrelated.py': 'from pkg import other\n\n\ndef test_other():\n    assert other.other() == 1\n',
         }
     )
-    index = auditme.phaseb.testmap.build_index(root)
+    index = auditme.phaseb.testmap.load_test_index(root)
     assert index.test_files('src/pkg/mod.py::load', 1) == [
         'src/tests/test_from_package.py',
         'src/tests/test_import_package.py',
     ]
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    edges=hypothesis.strategies.dictionaries(
+        hypothesis.strategies.sampled_from('abcde'), hypothesis.strategies.lists(hypothesis.strategies.sampled_from('abcde'), max_size=3), max_size=5
+    ),
+    start=hypothesis.strategies.lists(hypothesis.strategies.sampled_from('abcde'), min_size=1, max_size=2, unique=True),
+    depth=hypothesis.strategies.integers(0, 4),
+)
+def test_reach_matches_a_breadth_first_search_and_grows_with_depth(edges: dict[str, list[str]], start: list[str], depth: int) -> None:
+    reached = auditme.phaseb.testmap.reach(edges, start, depth)
+    expected = dict.fromkeys(start, 0)
+    queue = list(start)
+    while queue:
+        name = queue.pop(0)
+        for callee in edges.get(name, []):
+            if callee not in expected and expected[name] < depth:
+                expected[callee] = expected[name] + 1
+                queue.append(callee)
+    assert reached == expected
+    assert all(0 <= distance <= depth for distance in reached.values())
+    deeper = auditme.phaseb.testmap.reach(edges, start, depth + 1)
+    assert all(deeper[name] == distance for name, distance in reached.items())
