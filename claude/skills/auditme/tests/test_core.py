@@ -360,6 +360,23 @@ def test_privacy_names_the_all_rule(project: Builder) -> None:
     assert auditme.core.privacy('helper', 'pkg.mod', root) == (True, auditme.core.PRIVACY_ALL)
 
 
+def test_privacy_resolves_the_audit_roots_once_across_many_functions(project: Builder, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'src/pkg/__init__.py': INIT_ALL, 'src/pkg/mod.py': NO_ALL})
+    auditme.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+    real = auditme.core.audit_roots
+
+    def counting(scope: pathlib.Path) -> list[pathlib.Path]:
+        calls.append(scope)
+        return real(scope)
+
+    monkeypatch.setattr(auditme.core, 'audit_roots', counting)
+    for name in ('load', 'helper', 'other', 'more', 'extra'):
+        auditme.core.privacy(name, 'pkg.mod', root)
+    assert len(calls) <= 1
+    auditme.core.clear_source_cache()
+
+
 def test_privacy_a_script_is_public_only_through_its_main_guard(project: Builder) -> None:
     root = project({'bin/probe-run.py': SCRIPT})
     assert auditme.core.privacy('main', 'bin.probe-run', root) == (False, auditme.core.PRIVACY_SCRIPT)

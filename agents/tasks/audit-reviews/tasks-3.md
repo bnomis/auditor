@@ -145,7 +145,7 @@ constructed once with their contents, not filled after construction.
 
 ## Task 5: Resolve the roots once in surface_files' callers
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F5
@@ -155,19 +155,19 @@ number of times, not once per candidate.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `claude/skills/auditme/tests/test_core.py`: with `auditme.core.audit_roots` wrapped to count its calls, listing T1 candidates for a fixture project with several functions calls it no more than a small fixed number of times (not once per candidate)
-- [ ] Make `surface_files` (`claude/skills/auditme/checks/auditme/core.py:771` on 2026-11-22) take the roots from the per-run cache review-2's Task 6 added, or from its caller through `privacy`, instead of calling `audit_roots` itself
-- [ ] Confirm the T1 and A1 listings of this repository are unchanged: run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for T1 and A1 before and after and diff them
+- [x] Write the failing test first, in `claude/skills/auditme/tests/test_core.py`: with `auditme.core.audit_roots` wrapped to count its calls, listing T1 candidates for a fixture project with several functions calls it no more than a small fixed number of times (not once per candidate)
+- [x] Make `surface_files` (`claude/skills/auditme/checks/auditme/core.py:771` on 2026-11-22) take the roots from the per-run cache review-2's Task 6 added, or from its caller through `privacy`, instead of calling `audit_roots` itself
+- [x] Confirm the T1 and A1 listings of this repository are unchanged: run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for T1 and A1 before and after and diff them
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] The T1 and A1 listings are identical before and after
+- [x] The new test fails before the change and passes after it
+- [x] The T1 and A1 listings are identical before and after
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (`core.py` is reached by every test module)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (`core.py` is reached by every test module)
 
 **Notes:**
 
