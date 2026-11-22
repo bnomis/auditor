@@ -235,6 +235,28 @@ def test_drift_that_remains_without_the_user_config_is_reported(
     assert 'out of date' in hits[0]['variant']
 
 
+def test_a_missing_uv_is_a_hit(
+    project: Builder,
+    run_check: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing(*args: object, **kwargs: object) -> None:
+        raise FileNotFoundError(2, 'No such file or directory', 'uv')
+
+    monkeypatch.setattr(subprocess, 'run', missing)
+    root = project(
+        {
+            'src/probe/mod.py': 'VALUE = 1\n',
+            'pyproject.toml': '[project]\nname = "probe"\n',
+            'uv.lock': 'version = 1\n',
+        }
+    )
+    hits = run_check(LOCKFILE, root)
+    assert len(hits) == 1
+    assert hits[0]['rule'] == 'lockfile-drift'
+    assert 'uv' in hits[0]['variant']
+
+
 # --------------------------------------------------------------------------
 # check_ruff_version
 # --------------------------------------------------------------------------
@@ -337,9 +359,11 @@ def test_a_config_without_the_ruff_hook_gives_no_hit(project: Builder, run_check
     assert drift_hits(run_check, root) == []
 
 
-def test_no_ruff_on_path_gives_no_hit(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
+def test_no_ruff_on_path_is_a_hit(project: Builder, run_check: Runner, stub_ruff: StubRuff) -> None:
     stub_ruff(None)
-    assert drift_hits(run_check, project(hook_config())) == []
+    hits = drift_hits(run_check, project(hook_config()))
+    assert len(hits) == 1
+    assert 'could not run' in hits[0]['variant']
 
 
 @pytest.mark.parametrize('placement', ['same-line', 'line-above'])

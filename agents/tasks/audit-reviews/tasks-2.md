@@ -91,7 +91,7 @@ usage error.
 
 ## Task 3: Report a missing uv or ruff as a hit
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F3, D2
@@ -102,22 +102,22 @@ emit a hit naming the missing tool when `uv` or `ruff` cannot run, as
 
 **Subtasks:**
 
-- [ ] Write the failing tests first, in `claude/skills/auditme/tests/test_project_hygiene.py`:
+- [x] Write the failing tests first, in `claude/skills/auditme/tests/test_project_hygiene.py`:
   - a project with `pyproject.toml` and `uv.lock`, and no `uv` on `PATH`, gets one `lockfile` hit whose variant names `uv`;
   - a project with a `ruff-pre-commit` rev and no ruff to run gets one `ruff-version-drift` hit whose variant says ruff could not run
-- [ ] In `claude/skills/auditme/checks/auditme/rules/project_hygiene.py`, replace each `except OSError: return` in `check_lockfile` and `check_ruff_version` with an emitted hit. Use the rule's own name, a variant naming the tool and the error, and the path and line the rule already reports at
-- [ ] Say in each function's docstring that a tool that cannot run is reported as a hit
-- [ ] Update `docs/guide/checker.md:327-330`, which says the checks are silent with no ruff and with no `uv`, and the `changed.py` advice for `lockfile-drift` hits in `docs/reference/cli.md` if it names the case
+- [x] In `claude/skills/auditme/checks/auditme/rules/project_hygiene.py`, replace each `except OSError: return` in `check_lockfile` and `check_ruff_version` with an emitted hit. Use the rule's own name, a variant naming the tool and the error, and the path and line the rule already reports at
+- [x] Say in each function's docstring that a tool that cannot run is reported as a hit
+- [x] Update `docs/guide/checker.md:327-330`, which says the checks are silent with no ruff and with no `uv`, and the `changed.py` advice for `lockfile-drift` hits in `docs/reference/cli.md` if it names the case
 
 **Acceptance Criteria:**
 
-- [ ] The new tests fail before the change and pass after it
-- [ ] With `uv` and `ruff` present, the sweep of this repository reports the same hits as before
+- [x] The new tests fail before the change and pass after it
+- [x] With `uv` and `ruff` present, the sweep of this repository reports the same hits as before
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

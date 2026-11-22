@@ -78,6 +78,10 @@ LOCKFILE_TIMESTAMP_RE = re.compile(r'\d{4}-\d{2}-\d{2}T[\d:.]+Z?')
 
 
 def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Emit a `lockfile-drift` hit when `uv lock --check` reports the lockfile
+    out of date or cannot verify it; runs only when `pyproject.toml` and
+    `uv.lock` both exist. A `uv` that cannot run is reported as a hit, since
+    the question went unanswered."""
     pyproject = scope / 'pyproject.toml'
     uvlock = scope / 'uv.lock'
     if not pyproject.exists() or not uvlock.exists():
@@ -93,7 +97,16 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         if result.returncode != 0 and USER_EXCLUDE_NEWER_MARKER in (result.stderr or '') + (result.stdout or ''):
             env = {**os.environ, 'UV_NO_CONFIG': '1'}
             result = subprocess.run(UV_LOCK_CHECK, capture_output=True, text=True, cwd=scope, env=env)
-    except OSError:
+    except OSError as error:
+        auditme.core.emit(
+            rule='lockfile-drift',
+            variant='uv could not run, so the lockfile was not checked',
+            path='uv.lock',
+            line=None,
+            evidence=error.strerror or type(error).__name__,
+            accepted=False,
+            accepted_reason=None,
+        )
         return
     if result.returncode == 0:
         return
@@ -166,7 +179,8 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
 
     Project-level: reads `<scope>/.pre-commit-config.yaml` and runs
     `ruff --version` in `scope`; `src_root` is unused. Silent when the file is
-    absent, holds no `ruff-pre-commit` repo, or ruff is not installed.
+    absent or holds no `ruff-pre-commit` repo. A ruff that cannot run is
+    reported as a hit.
     """
     config = scope / '.pre-commit-config.yaml'
     if not config.exists():
@@ -196,7 +210,8 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         ruff, label = ruff_executable(scope)
         # auditme: accept[subprocess-without-memoisation] a PROJECT_CHECKS entry: the driver runs it once per sweep
         result = subprocess.run([ruff, '--version'], capture_output=True, text=True, cwd=scope)
-    except OSError:
+    except OSError as error:
+        emit('ruff could not run, so its version was not compared', error.strerror or type(error).__name__)
         return
     running = RUFF_VERSION_OUTPUT_RE.match(result.stdout.strip())
     if not running:

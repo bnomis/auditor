@@ -325,9 +325,9 @@ A project-level check asks about the project, not a package, and runs once
 
 - `ruff-version-drift` reads `.pre-commit-config.yaml` and is anchored at the
   `ruff-pre-commit` `rev:` line, where its marker goes. It is silent with no
-  config, no `ruff-pre-commit` repo, or no ruff to run.
+  config or no `ruff-pre-commit` repo; a ruff that cannot run is a hit.
 - `lockfile-drift` runs only when both `pyproject.toml` and `uv.lock` exist,
-  and is silent when `uv` is missing.
+  and reports a `uv` that cannot run as a hit.
 
 Every other check runs once per pass, over that pass's root. Among them,
 `layering-violation`, `as-import` and `in-function-import` read `AGENTS.md`
