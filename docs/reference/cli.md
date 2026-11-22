@@ -107,7 +107,8 @@ Without options it audits every package under `src/`, each in its own pass,
 then `bin/` when it exists and holds `.py` files. A `.py` file directly in
 `src/` is reported as `src-loose-module`. A project with neither, such as one
 with no Python, still gets the project-level checks, once: the lockfile
-(`lockfile-drift`) and the ruff pin (`ruff-version-drift`).
+(`lockfile-drift`), the ruff pin (`ruff-version-drift`) and
+`spec-api-signature-drift` over the project's Markdown.
 
 ### Declared roots
 
@@ -221,12 +222,12 @@ Without `--all`, the sweep is skipped (exit `0`, with a message) when:
 Each reported hit prints as `path:line  rule` with its variant indented
 beneath, then how to accept a hit (a `ruff` or `lockfile-drift` hit gets its own advice instead, as no accept marker applies to either) and how to skip the hook once
 (`SKIP=auditme-changed git commit`, or `SKIP=auditme-all git push` with
-`--all`). All output goes to stdout.
+`--all`). All output goes to stdout, except argparse's usage errors, which go to stderr.
 
 | Exit | Meaning |
 |---|---|
 | `0` | No unaccepted hit in scope; the sweep was skipped as above; or `--help` |
-| `1` | An unaccepted hit in scope; or any failure: argument error, `--base` refused, git failed, the sweep timed out, exited non-zero, printed a line that is not a JSON object, or reported a crashed check (even one outside the scope) |
+| `1` | An unaccepted hit in scope; or any failure: argument error, `--base` refused, git failed, the sweep timed out, exited non-zero, printed a line that is not a JSON object, or reported a crashed check (even one outside the scope); or the audit sweep could not start, or the repository root could not be resolved |
 
 Environment: none directly; git and `audit.py` inherit the caller's.
 

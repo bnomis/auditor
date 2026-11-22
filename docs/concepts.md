@@ -17,12 +17,12 @@ flowchart LR
 ## The checker in a project
 
 The checker is `claude/skills/auditme/checks/`: a Python script with no dependencies outside the
-standard library, plus `ruff` and `uv` for the hygiene checks. A project pins it through
+standard library, plus `ruff` and `uv` for the hygiene checks and `git` for the commit hook's diff. A project pins it through
 `.pre-commit-hooks.yaml`:
 
 | Where | Hook | Scope | Fails on |
 |---|---|---|---|
-| `git commit` | `auditme-changed` | the whole tree is swept, hits are reported for files changed on the branch (`<base>...HEAD`) or in the index or working tree | an unaccepted hit in a changed file, or in a file a cross-file hit links to one |
+| `git commit` | `auditme-changed` | the whole tree is swept, hits are reported for files changed on the branch (`<base>...HEAD`) or in the index or working tree; the sweep is skipped when no diff base resolves or no reportable file changed | an unaccepted hit in a changed file, or in a file a cross-file hit links to one; or a failure: git cannot run, or the sweep cannot start, times out, exits non-zero, prints a line that is not a hit or reports a crashed check |
 | `git push` | `auditme-all` (a `manual`-stage hook: the project's config adds `pre-push` to run it at push) | the whole tree | any unaccepted hit |
 | CI | `auditme-all` | the whole tree | any unaccepted hit |
 

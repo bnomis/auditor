@@ -277,7 +277,7 @@ or is worded as a record of its spec's change.
 
 ## Task 9: Correct the user docs
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F10
@@ -287,18 +287,18 @@ does, so that I can rely on their lists of failures, exemptions and rules.
 
 **Subtasks:**
 
-- [ ] Correct each site F10 lists in `agents/audit-reviews/review-3.md`, in `docs/concepts.md`, `docs/guide/checker.md`, `docs/reference/cli.md` and `docs/setup.md`, checking each against the code as it stands after Tasks 1 to 7. Include the two review-2 left stale: the failure list at `docs/reference/cli.md:229` and `docs/concepts.md:25`
-- [ ] Where a list is only examples, say "for example"; otherwise make it complete
-- [ ] Run `uv run mkdocs build --strict`
+- [x] Correct each site F10 lists in `agents/audit-reviews/review-3.md`, in `docs/concepts.md`, `docs/guide/checker.md`, `docs/reference/cli.md` and `docs/setup.md`, checking each against the code as it stands after Tasks 1 to 7. Include the two review-2 left stale: the failure list at `docs/reference/cli.md:229` and `docs/concepts.md:25`
+- [x] Where a list is only examples, say "for example"; otherwise make it complete
+- [x] Run `uv run mkdocs build --strict`
 
 **Acceptance Criteria:**
 
-- [ ] Each F10 statement is corrected
-- [ ] `uv run mkdocs build --strict` exits 0
+- [x] Each F10 statement is corrected
+- [x] `uv run mkdocs build --strict` exits 0
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 

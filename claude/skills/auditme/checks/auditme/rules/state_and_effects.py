@@ -84,7 +84,8 @@ def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
 
 def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag methods (other than __init__ / __post_init__ / setters / setX-named
-    methods / clear / reset / load) that reassign `self.<attr>` where `<attr>`
+    methods / clear / reset / update / mutate / merge / replace / apply / patch /
+    override) that reassign `self.<attr>` where `<attr>`
     was set from a constructor argument of the same name in __init__.
 
     The pattern is: a method whose name signals a non-mutating operation
