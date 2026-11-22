@@ -76,8 +76,11 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
     """
 
 
-def resolve_name(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
-    """Resolve one token: [] for nothing, one target, or several when ambiguous."""
+def read_name_targets(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
+    """Resolve one token: [] for nothing, one target, or several when ambiguous.
+
+    Reads a matching file's bytes, through the per-run cache, for its line count.
+    """
 
 
 def corpus_definitions(scope: pathlib.Path, src_root: pathlib.Path, *, classes: bool = False) -> dict[str, list[tuple[ast.AST, pathlib.Path]]]:
@@ -139,7 +142,7 @@ counts too (`DEF_LINE_RE`, `CLASS_LINE_RE`).
 
 ### Resolution
 
-`resolve_name` tries, in order: a tracked path relative to the repository
+`read_name_targets` tries, in order: a tracked path relative to the repository
 root, then to the document's directory; a dotted name through the alias
 table, so a re-export resolves to its definition; a bare name in
 `corpus_definitions(..., classes=True)`, unique or ambiguous as there;
@@ -154,9 +157,10 @@ resemblance.
 
 One candidate per (section, target) pair, id `<doc>::<heading
 path>::<target id>`, span the section's, payload the target and each line
-naming it. Hash: sha256, NUL-separated, over each block (paragraph, list
-item, table row or fence) of the section naming the target, once, in line
-order; then the target's source - the whole source lines from the first decorator's line to the end line
+naming it. Hash: sha256, NUL-separated, over the whole section's text
+(amendment 2026-11-22, review-5: not only the blocks naming the target, so an
+edit to any statement a reviewer can report under the candidate re-plans it);
+then the target's source - the whole source lines from the first decorator's line to the end line
 for a def or class (amendment 2026-11-21: not `ast.get_source_segment`), the statement for a field or option call, a file's
 bytes, a directory's sorted tracked entries. A section with unresolved or
 ambiguous tokens also gets `<doc>::<heading path>::(unresolved)`: payload

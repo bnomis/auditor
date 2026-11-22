@@ -51,7 +51,7 @@ def question_line(question: str) -> str:
     return next(line for line in skill.splitlines() if line.startswith(f'- **{question}.')).removeprefix('- ')
 
 
-DOC_BRIEF_VERSIONS = {'Doc1': 4, 'Doc2': 3, 'Doc4': 7, 'Doc5': 7}
+DOC_BRIEF_VERSIONS = {'Doc1': 5, 'Doc2': 4, 'Doc4': 8, 'Doc5': 8}
 DOC_BRIEF_PHRASES = {'Doc1': 'tracked', 'Doc2': 'declared', 'Doc4': 'unresolved', 'Doc5': 'unresolved'}
 
 
@@ -83,7 +83,7 @@ def test_doc5_question_covers_readme() -> None:
 def test_test_brief_holds_question_keys_and_security_rule(question: str, keys: tuple[str, ...]) -> None:
     brief = auditme.phaseb.question_brief(question)
     text = brief.read_text(encoding='utf-8')
-    version = {'T1': 5, 'T2': 2}[question]
+    version = {'T1': 6, 'T2': 3}[question]
     assert len(re.findall(rf'^\*\*Brief version:\*\* {version}$', text, re.MULTILINE)) == 1
     assert auditme.phaseb.brief_version(brief) == version
     assert question_line(question) in text
@@ -110,8 +110,16 @@ def test_every_brief_output_asks_for_findings_with_its_registered_kinds() -> Non
                 assert top in ('id', 'findings', 'reason'), (question, top)
 
 
+def test_every_brief_input_names_the_earlier_verdict() -> None:
+    for question in auditme.phaseb.candidates.REGISTRY:
+        text = auditme.phaseb.question_brief(question).read_text(encoding='utf-8')
+        input_section = text[text.index('## Input') : text.index('## Thresholds')]
+        assert '`earlier`' in input_section, question
+        assert 'what changed your judgement' in input_section, question
+
+
 def test_brief_versions_after_the_findings_shape() -> None:
-    expected = {'A4': 7, 'Doc1': 4, 'Doc2': 3, 'Doc4': 7, 'Doc5': 7, 'T1': 5, 'T2': 2, 'A1': 5, 'A11': 2, 'A17': 3, 'A19': 2}
+    expected = {'A4': 8, 'Doc1': 5, 'Doc2': 4, 'Doc4': 8, 'Doc5': 8, 'T1': 6, 'T2': 3, 'A1': 6, 'A11': 3, 'A17': 4, 'A19': 3}
     assert set(expected) == set(auditme.phaseb.candidates.REGISTRY)
     for question, version in expected.items():
         assert auditme.phaseb.brief_version(auditme.phaseb.question_brief(question)) == version, question

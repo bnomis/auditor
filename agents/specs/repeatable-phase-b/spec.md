@@ -211,11 +211,11 @@ its parameter `run_dir`.
 Command line, run from the project root:
 
 ```text
-phaseb.py candidates <root> --question A4             # JSONL to stdout
-phaseb.py plan <root> --question A4 --out <dir> [--batch-size 48] [--rejudge]
+phaseb.py candidates <root> --question A4 [--depth N]   # JSONL to stdout
+phaseb.py plan <root> --question A4 --out <dir> [--batch-size 48] [--depth N] [--rejudge]
 phaseb.py check <dir>                                  # exit 1 on any problem; lists batches to retry
-phaseb.py merge <root> --question A4 <dir>             # into the project's ledger
-phaseb.py report <root> --question A4                  # open findings, new and carried
+phaseb.py merge <root> --question A4 <dir> [--depth N]   # into the project's ledger
+phaseb.py report <root> --question A4 [--depth N]    # open findings, new and carried
 phaseb.py dismiss <root> --question A4 <id> --reason <text>
 ```
 
@@ -224,6 +224,15 @@ brief path, brief version, the callee `depth` it listed at and each batch's
 ids, which `check` and `merge` read. `merge` refuses a `--depth` that differs
 from the plan's, naming both; a plan without a `depth` is read as the default,
 3.
+
+Amendment 2026-11-22 (review-5, decision D3): a candidate the ledger already
+holds a verdict for, and which `plan` plans again (its hash changed, its
+brief version is older, or `--rejudge` is set), has an `earlier` object in its
+batch line: the ledger verdict's `findings`, `reason`, `brief_version` and
+`judged`. A candidate new to the ledger has none. `check` and `merge` ignore
+`earlier`. Every brief's Input section says a reviewer whose verdict differs
+from `earlier` gives what changed its judgement in `reason`; that bumped every
+brief's version by one.
 
 ## Error handling
 

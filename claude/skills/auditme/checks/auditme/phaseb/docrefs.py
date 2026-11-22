@@ -84,7 +84,7 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
         PhaseBError: the file cannot be read or decoded as UTF-8.
     """
     try:
-        text = path.read_text(encoding='utf-8')
+        text = auditme.core.cached_bytes(path).decode('utf-8')
     except (OSError, UnicodeDecodeError) as error:
         raise auditme.phaseb.errors.PhaseBError(f'cannot read {path}') from error
     doc = path.relative_to(root).as_posix()
@@ -157,7 +157,7 @@ class ClassInfo:
 
 @dataclasses.dataclass(frozen=True)
 class CorpusIndex:
-    """Everything `resolve_name` looks names up in, built once per lister call."""
+    """Everything `read_name_targets` looks names up in, built once per lister call."""
 
     scope: pathlib.Path
     files: frozenset[str]
@@ -169,7 +169,6 @@ class CorpusIndex:
     classes: dict[str, list[ClassInfo]]
     options: dict[str, list[DocTarget]]
     settings: frozenset[str]
-    line_counts: dict[str, int] = dataclasses.field(default_factory=dict, compare=False)
 
     @classmethod
     def build(cls, scope: pathlib.Path) -> 'CorpusIndex':
@@ -187,9 +186,8 @@ class CorpusIndex:
         entries = IndexEntries()
         from_bindings: dict[str, dict[str, str]] = {}
         for path in auditme.core.cached_corpus_files(scope, src_root):
-            try:
-                tree = ast.parse('\n'.join(auditme.core.source_lines(path)))
-            except SyntaxError:
+            tree = auditme.core.read_and_parse(path)
+            if tree is None:
                 continue
             rel = auditme.core.relpath(path, scope)
             root = next((r for r in roots if path.is_relative_to(r)), None)
@@ -306,27 +304,28 @@ def tracked_files(scope: pathlib.Path) -> frozenset[str]:
     return frozenset(name for name in result.stdout.decode('utf-8', errors='surrogateescape').split('\0') if name)
 
 
-def file_target(index: CorpusIndex, rel: str) -> DocTarget:
+def read_file_target(index: CorpusIndex, rel: str) -> DocTarget:
     """The target of a tracked file, spanning all its lines.
 
-    The line count is read on the file's first lookup and kept on the index,
-    so resolving a name repeats no read.
+    The file is read through the per-run byte cache, so a file read for its
+    line count is not read again for its hash.
 
     Raises:
         PhaseBError: the file cannot be read.
     """
-    lines = index.line_counts.get(rel)
-    if lines is None:
-        try:
-            lines = (index.scope / rel).read_bytes().count(b'\n') + 1
-        except OSError as error:
-            raise auditme.phaseb.errors.PhaseBError(f'cannot read {rel}') from error
-        index.line_counts[rel] = lines
+    try:
+        lines = auditme.core.cached_bytes(index.scope / rel).count(b'\n') + 1
+    except OSError as error:
+        raise auditme.phaseb.errors.PhaseBError(f'cannot read {rel}') from error
     return path_target('file', rel, lines)
 
 
-def resolve_path(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
-    """A tracked file or directory, relative to the repository root, then to the document's directory."""
+def read_path_targets(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
+    """A tracked file or directory, relative to the repository root, then to the document's directory.
+
+    Raises:
+        PhaseBError: a matching file cannot be read for its line count.
+    """
     if '/' not in token and not token.endswith(PATH_EXTENSIONS):
         return []
     doc_dir = doc.parent.relative_to(index.scope).as_posix()
@@ -335,7 +334,7 @@ def resolve_path(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocT
         if rel.startswith('..') or rel == '.':
             continue
         if rel in index.files:
-            return [file_target(index, rel)]
+            return [read_file_target(index, rel)]
         if rel in index.directories:
             return [path_target('directory', rel, 1)]
     return []
@@ -387,14 +386,17 @@ def resolve_option(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[Do
     return sorted(set(index.options.get(token, [])), key=lambda target: target.id)
 
 
-def resolve_name(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
+def read_name_targets(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
     """Resolve one token: [] for nothing, one target, or several when ambiguous.
 
     Tries, in order: a tracked path, a dotted name through the re-export
     aliases, a bare name, `Class.member`, a setting key, a command-line option.
     Each is positive evidence; nothing resolves by resemblance.
+
+    Raises:
+        PhaseBError: a matching file cannot be read for its line count.
     """
-    for step in (resolve_path, resolve_dotted, resolve_bare, resolve_member, resolve_setting, resolve_option):
+    for step in (read_path_targets, resolve_dotted, resolve_bare, resolve_member, resolve_setting, resolve_option):
         found = step(token, doc, index)
         if found:
             return found

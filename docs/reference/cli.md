@@ -49,7 +49,7 @@ What the installer does, in short (its README has the detail):
 | Exit | Meaning |
 |---|---|
 | `0` | Installed, or nothing to do |
-| `1` | `settings.json` is not valid JSON or not a JSON object; nothing changed |
+| `1` | `settings.json` is not valid JSON or not a JSON object, a key on the edit path is not an object, or `hooks.Stop` is not a list; nothing changed |
 | `2` | A bad argument; nothing changed |
 
 Environment: `HOME`.
@@ -194,7 +194,7 @@ environment, finding them through `PATH` (ruff from the project's
 ## `claude/skills/auditme/checks/changed.py`
 
 ```text
-changed.py [-h] [--all] [--base BASE] [repo_root]
+changed.py [-h] [--all] [--scope] [--base BASE] [repo_root]
 ```
 
 The entry of the `auditme-changed` and `auditme-all` hooks. Runs `audit.py`
@@ -205,6 +205,7 @@ reports every unaccepted hit in scope. It writes nothing.
 |---|---|
 | `repo_root` | Repository root. Default: `git rev-parse --show-toplevel` of the working directory. |
 | `--all` | Report every unaccepted hit, not only those in changed files. |
+| `--scope` | Run no sweep. Print one JSON line per changed `.py` or `.sh` file, `{"path": ..., "ranges": [[start, end], ...]}`: the lines changed since the merge base of `BASE` and `HEAD` (index and working tree included), each Python hunk widened to its enclosing function, else its enclosing class; shell hunks are kept as they are. A deleted file is not listed. Exit `0`; with no diff base, a message on stderr and exit `0`. |
 | `--base BASE` | Diff base. Default: the first of `@{upstream}`, `origin/main`, `main` that resolves. A value starting with `-` is refused, whatever spelling of the option gave it (an abbreviation such as `--bas=`, or a repeat), and git is told where options end before it is passed the range. |
 
 Without `--all`, the scope is the files changed in `BASE...HEAD` plus those

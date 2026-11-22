@@ -85,6 +85,20 @@ def plan_batches(
     return [needed[start : start + size] for start in range(0, len(needed), size)]
 
 
+def batch_line(candidate: Candidate, ledger: dict[str, Verdict]) -> dict[str, typing.Any]:
+    """Return a candidate's batch line: its fields, and `earlier` when the ledger holds a verdict for it."""
+    line: dict[str, typing.Any] = dataclasses.asdict(candidate)
+    verdict = ledger.get(candidate.id)
+    if verdict is not None:
+        line['earlier'] = {
+            'findings': verdict.findings,
+            'reason': verdict.reason,
+            'brief_version': verdict.brief_version,
+            'judged': verdict.judged,
+        }
+    return line
+
+
 def write_plan(
     question: str,
     brief: pathlib.Path,
@@ -92,11 +106,15 @@ def write_plan(
     planned: list[list[Candidate]],
     run_dir: pathlib.Path,
     depth: int = DEFAULT_DEPTH,
+    ledger: dict[str, Verdict] | None = None,
 ) -> None:
     """Write each batch as batch-NN.jsonl and the plan as plan.json in run_dir.
 
     The plan records the callee `depth` the candidates were listed at, so a
-    merge can refuse to re-list at another.
+    merge can refuse to re-list at another. A candidate the `ledger` already
+    holds a verdict for carries it as `earlier` (`findings`, `reason`,
+    `brief_version`, `judged`) so its reviewer sees what it last was judged;
+    `check` and `merge` ignore the field.
 
     Raises:
         PhaseBError: a file cannot be written.
@@ -111,7 +129,7 @@ def write_plan(
     try:
         run_dir.mkdir(parents=True, exist_ok=True)
         for number, batch in enumerate(planned, start=1):
-            body = ''.join(json.dumps(dataclasses.asdict(candidate), sort_keys=True) + '\n' for candidate in batch)
+            body = ''.join(json.dumps(batch_line(candidate, ledger or {}), sort_keys=True) + '\n' for candidate in batch)
             batch_path(run_dir, number).write_text(body, encoding='utf-8')
         (run_dir / PLAN_NAME).write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
     except OSError as error:

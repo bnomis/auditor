@@ -38,52 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Sample a changed file's changed lines between whole-tree audits
-
-- **Raised:** 2026-11-22, by this repository's fifth audit (review-5, decision D1).
-- **What happens:** every audit runs each sampled question on each changed file
-  whole, so a two-line edit reopens the whole file: review-4 changed two lines
-  of `checks/auditme/phaseb/candidates.py`, and review-5 found ten P1, P3 and
-  A14 sites in its unchanged code. The whole-tree pass every third audit is
-  already the one meant to catch older code.
-- **Asked for:** between whole-tree audits, give each sampled reviewer the
-  changed lines of each changed file (the diff hunks `checks/changed.py`
-  resolves, widened to the enclosing function or class) and have it judge only
-  those; keep the whole-tree cadence as it is. Change the cadence's text in
-  `SKILL.md` to match.
-
-### Show a re-judged candidate's earlier verdict to its reviewer
-
-- **Raised:** 2026-11-22, by this repository's fifth audit (review-5, decision D3).
-- **What happens:** a candidate re-planned because its hash changed is judged
-  afresh, and a fresh reviewer can read the same unchanged statement under the
-  same brief version differently. Review-5's F2 (`docs/setup.md:268`) and F3
-  (`agents/specs/repeatable-phase-b/spec.md:214-219`) each flipped from not
-  flagged to flagged that way.
-- **Asked for:** `phaseb.py plan` adds a re-planned candidate's earlier
-  verdict (findings and reason) to its batch line; every brief's Input section
-  says a reviewer whose verdict differs from the earlier one gives the reason
-  for the change in its `reason`. That is a version bump of every brief.
-
-### A Doc candidate's hash leaves out the statements a reviewer reports under it
-
-- **Raised:** 2026-11-22, by this repository's fifth audit (review-5, its Checker request section), reproduced the same day.
-- **What happens:** for a Doc4 or Doc5 candidate with a named target,
-  `doc_candidates` in `checks/auditme/phaseb/candidates.py` hashes only the
-  blocks of the section that name that target, plus the target's file. A
-  reviewer reports a drift under the candidate whose target it is about, or
-  under the first candidate of the section, and the drift's statement can lie
-  outside the hashed blocks. Fixing it leaves the hash unchanged, so the
-  candidate is never judged again and the finding stays open. Seen on
-  `agents/specs/project-setup/spec.md`'s candidate for
-  `claude/skills/auditme-project-setup/SKILL.md`: hash `d014b790` at both
-  `0a01580` (before its fix) and `dbb9780` (after).
-- **Asked for:** hash the whole section's text in every candidate of the
-  section (as the `(unresolved)` candidate already does), plus the target's
-  file, so any edit in the section re-plans its candidates; test that editing a
-  line that names no target changes the hash of a named-target candidate in
-  the same section.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.

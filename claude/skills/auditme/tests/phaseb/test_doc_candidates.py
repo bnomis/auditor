@@ -1,16 +1,13 @@
 """Tests for the Doc4 and Doc5 listers: documents, pairs, unresolved names and hashes."""
 
+import pathlib
 import textwrap
-import typing
 
 import auditme.core
 import auditme.phaseb
 import auditme.phaseb.candidates
 import conftest
 import pytest
-
-if typing.TYPE_CHECKING:
-    import pathlib
 
 AGENTS_QUESTIONS = ['Doc1', 'Doc2']
 DRIFT_QUESTIONS = ['Doc4', 'Doc5']
@@ -130,6 +127,24 @@ def test_pair_id_span_and_payload(root: pathlib.Path) -> None:
     assert candidate.payload['lines'] == [{'line': 6, 'text': 'Call `run_it` to start.'}]
 
 
+def test_doc4_reads_a_target_file_once(root: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write(
+        root,
+        'agents/specs/probe/spec.md',
+        textwrap.dedent(SPEC) + '\n## Again\n\nThe `run_it` function again, and `Probe.load`.\n\n## Third\n\nOnce more `run_it`.\n',
+    )
+    reads: list[str] = []
+    original = pathlib.Path.read_bytes
+
+    def counting(self: pathlib.Path) -> bytes:
+        reads.append(self.name)
+        return original(self)
+
+    monkeypatch.setattr(pathlib.Path, 'read_bytes', counting)
+    listed(root, 'Doc4')
+    assert reads.count('mod.py') == 1
+
+
 def test_file_target_is_a_pair_too(root: pathlib.Path) -> None:
     assert 'docs/guide.md::Guide > Usage::docs/guide.md' in listed(root, 'Doc5')
 
@@ -151,11 +166,11 @@ def test_block_naming_the_target_changes_the_hash(root: pathlib.Path) -> None:
     assert listed(root, 'Doc4')[pair].hash != before
 
 
-def test_block_not_naming_the_target_leaves_the_hash(root: pathlib.Path) -> None:
+def test_line_naming_no_target_changes_the_hash(root: pathlib.Path) -> None:
     pair = 'agents/specs/probe/spec.md::Probe > Run::src/pkg/mod.py::run_it'
     before = listed(root, 'Doc4')[pair].hash
     write(root, 'agents/specs/probe/spec.md', SPEC.replace('Nothing else happens', 'Something else happens'))
-    assert listed(root, 'Doc4')[pair].hash == before
+    assert listed(root, 'Doc4')[pair].hash != before
 
 
 def test_undefined_name_gets_an_unresolved_candidate_until_defined(root: pathlib.Path) -> None:

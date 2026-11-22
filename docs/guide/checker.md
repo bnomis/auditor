@@ -83,6 +83,18 @@ gave it, so it is never read by git as an option. With none, or with no reportab
 it prints why and exits 0 without sweeping. `<repo-root>` defaults to the
 working directory's git top level.
 
+To see which lines changed rather than which hits remain, `--scope` runs no
+sweep and prints one JSON line per changed `.py` or `.sh` file:
+
+```shell
+uv run --no-project python claude/skills/auditme/checks/changed.py --scope --base <commit>
+```
+
+Each line is `{"path": ..., "ranges": [[start, end], ...]}`. A Python range is
+a diff hunk widened to its enclosing function, else its enclosing class; a shell
+range is the hunk. The audit skill gives these ranges to its sampled reviewers
+between whole-tree audits, so a small edit does not reopen a whole file.
+
 The same runs through pre-commit:
 
 ```shell

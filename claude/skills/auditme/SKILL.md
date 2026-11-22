@@ -198,7 +198,7 @@ This is the cure for failure mode 2. When 24 architecture questions are split ac
 
 **Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The listed questions are A1, A4, A11, A17, A19, T1, T2, Doc1, Doc2, Doc4 and Doc5. For a listed question, run `checks/phaseb.py` (from the skill directory, with `<root>` the project root) in this order:
 
-1. `phaseb.py plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json` (which records the `--depth` it listed at; `merge` refuses a different one). A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again.
+1. `phaseb.py plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json` (which records the `--depth` it listed at; `merge` refuses a different one). A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again. A candidate planned again that the ledger holds a verdict for carries it as `earlier` in its batch line.
 2. Spawn one reviewer per batch, each given the question's brief (`phaseb/briefs/<Q>.md`, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
 3. `phaseb.py check <dir>` exits 1 and names each batch with a problem. Send a failing batch to a fresh reviewer, up to two retries per batch. A batch still failing after that is reported in the review, never merged.
 4. `phaseb.py merge <root> --question <Q> <dir>` writes the verified results into the project's ledger.
@@ -210,7 +210,7 @@ A listed question's findings are its flagged ledger verdicts, new or carried. A 
 
 Every other question is sampled: mark it `(sampled)` in the review. A new site found by a sampled question is coverage, not drift: it goes under "Coverage (sampled)" and is never marked "missed by" a review.
 
-**Sampled cadence.** Every audit runs each sampled question on the files changed since the previous review's `**Commit:**`, using the diff base `checks/changed.py` resolves. Every third audit, counted from the first audit after the Doc questions were listed, and any audit with no previous `**Commit:**`, runs it on the whole tree. The review records each sampled question's mode: changed files since a named commit, or full.
+**Sampled cadence.** Between whole-tree audits, each sampled reviewer is given the changed lines of each changed file since the previous review's `**Commit:**` (`checks/changed.py --scope --base <commit>` prints them, each hunk widened to its enclosing function or class) and judges only those lines. Every third audit, counted from the first audit after the Doc questions were listed, and any audit with no previous `**Commit:**`, runs it on the whole tree. The review records each sampled question's mode: "changed lines since <commit>", or full.
 
 **First audit after the Doc questions were listed.** It judges every Doc candidate. Its findings in unchanged code are catch-up, not regressions; this includes README findings, because Doc5's predicate now covers `README.md` as well as `docs/`. Its Convergence note names the newly listed questions.
 

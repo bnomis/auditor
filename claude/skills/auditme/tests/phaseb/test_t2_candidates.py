@@ -382,20 +382,3 @@ def test_t2_is_registered_with_its_brief_path() -> None:
 def test_inverse_names_are_symmetric(name: str) -> None:
     inverses = auditme.phaseb.candidates.inverse_names(name)
     assert all(name in auditme.phaseb.candidates.inverse_names(other) for other in inverses)
-
-
-@hypothesis.settings(max_examples=20, deadline=10000)
-@hypothesis.given(
-    lines=hypothesis.strategies.lists(hypothesis.strategies.sampled_from(['', 'text', '- item', '| a | b |', '```', '~~~', '  more', '1. one']), max_size=12),
-    start=hypothesis.strategies.integers(0, 3),
-)
-def test_section_blocks_are_ordered_disjoint_and_inside_the_section(lines: list[str], start: int) -> None:
-    end = len(lines)
-    hypothesis.assume(start <= end)
-    blocks = auditme.phaseb.candidates.section_blocks(lines, start, end)
-    previous_last = start
-    for first, last in blocks:
-        assert first <= last
-        assert first > previous_last
-        assert last <= end
-        previous_last = last

@@ -295,6 +295,15 @@ with the gaps closed. It is stdlib-only, like the rest of the checker.
   (`SKIP=auditme-changed git commit`; with `--all`, which runs on push and in
   CI, `SKIP=auditme-all git push`, 1.3).
 
+- **`--scope`** (amended 2026-11-22, citing review-5 decision D1): prints, and
+  runs no sweep, one JSON line per changed `.py` or `.sh` file,
+  `{"path": ..., "ranges": [[start, end], ...]}`. The ranges are the diff hunks
+  against the merge base of the diff base and `HEAD` (index and working tree
+  included), each Python hunk widened by `ast` to its enclosing function, else
+  its enclosing class; shell hunks stay as they are; deleted files are omitted.
+  Exit 0. The audit skill gives them to sampled reviewers between whole-tree
+  audits.
+
 **Cross-file hits carry `related`.** `emit()` takes an optional
 `related: list[str]` of repository-relative paths, omitted when empty so a hit
 without it is byte-identical to today's. Every rule whose predicate compares

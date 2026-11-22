@@ -1,6 +1,6 @@
 # Doc2 brief
 
-**Brief version:** 3
+**Brief version:** 4
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -26,6 +26,11 @@ imports, plus the tokens that matched none.
 
 Read the section and compare it with those inventories. Look in the
 project's own files for a token that matched none.
+
+A line may also have `earlier`, the verdict this candidate last had
+(`findings`, `reason`, `brief_version`, `judged`). Judge the candidate on its
+own, then compare: if your verdict differs from `earlier`, say in `reason`
+what changed your judgement.
 
 ## Thresholds
 
