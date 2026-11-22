@@ -22,8 +22,8 @@ standard library, plus `ruff` and `uv` for the hygiene checks. A project pins it
 
 | Where | Hook | Scope | Fails on |
 |---|---|---|---|
-| `git commit` | `auditme-changed` | the whole tree is swept, hits are reported for changed files only | an unaccepted hit in a file the commit changes, or in a file a cross-file hit links to one |
-| `git push` | `auditme-all` | the whole tree | any unaccepted hit |
+| `git commit` | `auditme-changed` | the whole tree is swept, hits are reported for files changed on the branch (`<base>...HEAD`) or in the index or working tree | an unaccepted hit in a changed file, or in a file a cross-file hit links to one |
+| `git push` | `auditme-all` (a `manual`-stage hook: the project's config adds `pre-push` to run it at push) | the whole tree | any unaccepted hit |
 | CI | `auditme-all` | the whole tree | any unaccepted hit |
 
 The commit hook ignores hits in files you did not touch, so an old hit never blocks an unrelated

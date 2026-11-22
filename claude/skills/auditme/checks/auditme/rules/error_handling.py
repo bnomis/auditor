@@ -34,6 +34,13 @@ def is_broad_handler(handler: ast.ExceptHandler) -> bool:
 
 
 def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag a broad `except` handler that neither logs nor raises.
+
+    Signal: a handler for a bare `except:`, `Exception` or `BaseException`
+    (alone or in a tuple) whose body holds no `logger.`, `loguru.logger.` or
+    `logging.` text and no `raise` statement anywhere inside it. Carve-outs:
+    a handler naming only narrower exceptions; a file that does not parse.
+    """
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)

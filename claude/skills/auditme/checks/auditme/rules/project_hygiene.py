@@ -24,6 +24,14 @@ def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:
 
 
 def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Emit a `ruff` hit for each `ruff check` finding and each file `ruff format
+    --check` would reformat under `src_root`.
+
+    Runs the ruff `ruff_executable` finds, in `scope`. A ruff that cannot run
+    is a hit (`ruff not installed`), as is `ruff check` output that is not
+    JSON. No accept marker applies: fix the code or silence a line with
+    `# noqa: <code>`.
+    """
     ruff, _ = ruff_executable(scope)
     for cmd, variant in (
         ([ruff, 'check', '--output-format=json', str(src_root)], 'ruff-check'),

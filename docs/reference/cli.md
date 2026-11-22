@@ -33,7 +33,7 @@ What the installer does, in short (its README has the detail):
   file that is not a valid JSON object stops it, exit `1`, before anything is
   linked or written.
 - For each top-level entry of `claude/` (dotfiles skipped): a file becomes a
-  symlink in `~/.claude/`; a directory (`hooks/`, `skills/`) becomes a real
+  symlink in `~/.claude/`; a directory (`hooks/`, `rules/`, `skills/`) becomes a real
   directory in `~/.claude/` whose entries are symlinks, so
   `~/.claude/skills/auditme` links to `claude/skills/auditme/`. Links are
   relative. An existing symlink is replaced; an existing file is renamed with
@@ -149,7 +149,7 @@ hit, and the sweep continues.
 | Exit | Meaning |
 |---|---|
 | `0` | Sweep completed, whatever it found; also when there is no root to audit (a notice goes to stderr and only the project-level checks run) |
-| `2` | `scope`, a named `--extra-root` or the `--package` directory does not exist; an argument error (argparse's usage message on stderr); or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
+| `2` | `scope` is not a directory; `--package` is not a plain directory name or its directory does not exist; a named `--extra-root` is outside `scope` or is not a directory; an argument error (argparse's usage message on stderr); or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
 
 The declaration errors, each exit `2`:
 
@@ -219,7 +219,7 @@ Without `--all`, the sweep is skipped (exit `0`, with a message) when:
   `__pycache__`, `audit-reviews` and `tasks`.
 
 Each reported hit prints as `path:line  rule` with its variant indented
-beneath, then how to accept a hit and how to skip the hook once
+beneath, then how to accept a hit (a `ruff` or `lockfile-drift` hit gets its own advice instead, as no accept marker applies to either) and how to skip the hook once
 (`SKIP=auditme-changed git commit`, or `SKIP=auditme-all git push` with
 `--all`). All output goes to stdout.
 

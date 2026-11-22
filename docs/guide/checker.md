@@ -31,10 +31,10 @@ Every path is relative to the project root passed as the first argument.
   `spec-api-signature-drift`, except those in a hidden directory or in a
   `.git`, `.venv`, `node_modules`, `__pycache__`, `audit-reviews` or `tasks`
   directory.
-- **Project files**: `pyproject.toml` with `uv.lock`, `.pre-commit-config.yaml`
-  and `AGENTS.md` are read by the project-level checks (see
-  [Project-level checks](#project-level-checks)); `AGENTS.md` is also read by
-  the per-root checks named there.
+- **Project files**: `pyproject.toml` with `uv.lock` and `.pre-commit-config.yaml`
+  are read by the project-level checks (see
+  [Project-level checks](#project-level-checks)); `AGENTS.md` is read only by
+  per-root checks (the *gated* rules and the import rules).
 
 No other directory is swept.
 
@@ -52,8 +52,10 @@ uv run --no-project python claude/skills/auditme/checks/audit.py <project-root> 
 | `--extra-root <dir>` | Audit `<dir>` (relative to the root) as its own pass. Repeatable. Replaces the default set (`bin/`). A named root that does not exist is an error, not an empty pass. |
 
 `audit.py` prints every hit, accepted or not, and exits 0 whatever it finds.
-It exits 2 when the root, a named extra root or the `--package` directory is
-missing. A project with no package and no extra root prints a note on stderr
+It exits 2 when the root is not a directory; when `--package` is not a plain
+directory name; when a named extra root is outside the root or is not a
+directory; when the `--package` directory is missing; or when `[tool.auditme]`
+in `pyproject.toml` is invalid. A project with no package and no extra root prints a note on stderr
 and exits 0.
 
 ### `changed.py`: the gate
@@ -65,9 +67,10 @@ uv run --no-project python claude/skills/auditme/checks/changed.py --all     # e
 
 `changed.py [--all] [--base <ref>] [<repo-root>]` runs `audit.py` over the
 whole tree, so cross-file rules see every file, then keeps the unaccepted hits
-in scope. It exits 1 when any remain, or when the sweep cannot run (a timeout,
-a non-zero exit, a line that is not JSON, or a crashed check), and 0
-otherwise. A sweep that cannot run is never skipped.
+in scope. It exits 1 when any remain, or on any failure: an argument error, a
+`--base` that is a flag, git that cannot run, a diff or `rev-parse` that fails,
+or a sweep that cannot start, times out, exits non-zero, prints a line that is
+not a JSON object, or reports a crashed check. It exits 0 otherwise. A sweep that cannot run is never skipped.
 
 | Mode | Scope | Runs as |
 |---|---|---|
@@ -105,8 +108,8 @@ To let one commit or push through, `SKIP=auditme-changed git commit` or
 | `path` | Repository-relative path, or `null` for a hit with no file |
 | `line` | 1-based line, or `null` |
 | `evidence` | The source snippet or identifier that matched |
-| `accepted` | `true` when an accept marker or, for `as-import` and `in-function-import`, an `AGENTS.md` row covers the hit; an `AGENTS.md` row for `layering-violation` makes the check print no hit at all |
-| `accepted_reason` | The marker's reason; `no reason given` for a marker with none |
+| `accepted` | `true` when an accept marker or, for `in-function-import` only, an `AGENTS.md` row covers the hit; an `AGENTS.md` row for `layering-violation` makes the check print no hit at all |
+| `accepted_reason` | The marker's reason, `no reason given` for a marker with none, or `AGENTS.md accepted (<importer> -> <imported>)` for an `in-function-import` hit an `AGENTS.md` row covers |
 | `related` | Only on a hit that compares files: the other files' paths, sorted, never the hit's own |
 
 Identical hits are printed once, so a hit that several passes would each
@@ -325,7 +328,8 @@ A project-level check asks about the project, not a package, and runs once
 
 - `ruff-version-drift` reads `.pre-commit-config.yaml` and is anchored at the
   `ruff-pre-commit` `rev:` line, where its marker goes. It is silent with no
-  config or no `ruff-pre-commit` repo; a ruff that cannot run is a hit.
+  config or no `ruff-pre-commit` repo; a `rev` that names no version, and a
+  ruff that cannot run, are hits.
 - `lockfile-drift` runs only when both `pyproject.toml` and `uv.lock` exist,
   and reports a `uv` that cannot run as a hit.
 - `spec-api-signature-drift` reads every Markdown file in scope against the

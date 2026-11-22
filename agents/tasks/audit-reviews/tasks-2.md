@@ -308,7 +308,7 @@ or is worded as the record of its spec's change, and the test-questions spec's
 
 ## Task 9: Correct the user docs and give every check a docstring
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** F9
@@ -318,21 +318,21 @@ does, so that I can rely on their exit codes, failure lists and rules.
 
 **Subtasks:**
 
-- [ ] Correct each site F9 lists in `agents/audit-reviews/review-2.md`, in `docs/concepts.md`, `docs/guide/checker.md`, `docs/reference/cli.md`, `docs/reference/skills.md` and `docs/setup.md`, checking each against the code as it stands after Tasks 1 to 6
-- [ ] Add a docstring stating the predicate and its carve-outs to each of these checks, so `docs/guide/checker.md:191-193` holds: `check_paired_sibling_helpers`, `check_silent_broad_except`, `check_def_class_in_init`, `check_unused_submodule_imports`, `check_ruff`, `check_lockfile`, `check_duplicated_word`
-- [ ] Make every list of exit or failure conditions complete; where a list is only examples, write "for example"
-- [ ] Run `uv run mkdocs build --strict`
+- [x] Correct each site F9 lists in `agents/audit-reviews/review-2.md`, in `docs/concepts.md`, `docs/guide/checker.md`, `docs/reference/cli.md`, `docs/reference/skills.md` and `docs/setup.md`, checking each against the code as it stands after Tasks 1 to 6
+- [x] Add a docstring stating the predicate and its carve-outs to each of these checks, so `docs/guide/checker.md:191-193` holds: `check_paired_sibling_helpers`, `check_silent_broad_except`, `check_def_class_in_init`, `check_unused_submodule_imports`, `check_ruff`, `check_lockfile`, `check_duplicated_word`
+- [x] Make every list of exit or failure conditions complete; where a list is only examples, write "for example"
+- [x] Run `uv run mkdocs build --strict`
 
 **Acceptance Criteria:**
 
-- [ ] Each F9 statement is corrected
-- [ ] Every registered check has a docstring: `python3 -c` over `auditme.registry.CHECKS + PROJECT_CHECKS` finds no function whose `__doc__` is empty
-- [ ] `uv run mkdocs build --strict` exits 0
+- [x] Each F9 statement is corrected
+- [x] Every registered check has a docstring: `python3 -c` over `auditme.registry.CHECKS + PROJECT_CHECKS` finds no function whose `__doc__` is empty
+- [x] `uv run mkdocs build --strict` exits 0
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_registry.py claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_style_and_naming.py claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_error_handling.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_registry.py claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_style_and_naming.py claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_imports_and_surfaces.py claude/skills/auditme/tests/test_error_handling.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
