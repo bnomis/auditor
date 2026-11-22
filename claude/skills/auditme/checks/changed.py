@@ -208,7 +208,11 @@ def format_hits(hits: collections.abc.Sequence[dict[str, object]]) -> str:
 
 
 def main(argv: collections.abc.Sequence[str] | None = None) -> int:
-    """0 when no unaccepted hit is in scope, 1 otherwise or on any failure."""
+    """0 when no unaccepted hit is in scope, 1 otherwise or on any failure.
+
+    A `ChangedError`, including an `OSError` from finding the repository root,
+    is printed as one line and returns 1.
+    """
     argv = list(sys.argv[1:] if argv is None else argv)
     if option_value_is_flag(argv):
         print('changed.py: --base must be a ref, not an option')
@@ -219,9 +223,12 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
         return 0 if exc.code == 0 else 1
     try:
         repo_root = args.repo_root
-        if repo_root is None:
-            repo_root = pathlib.Path(git_lines(pathlib.Path.cwd(), 'rev-parse', '--show-toplevel')[0])
-        repo_root = repo_root.resolve()
+        try:
+            if repo_root is None:
+                repo_root = pathlib.Path(git_lines(pathlib.Path.cwd(), 'rev-parse', '--show-toplevel')[0])
+            repo_root = repo_root.resolve()
+        except OSError as exc:
+            raise ChangedError(f'cannot resolve the repository root: {exc}') from exc
         scope: frozenset[str] | None = None
         if not args.all:
             base = args.base or read_base_ref(repo_root)

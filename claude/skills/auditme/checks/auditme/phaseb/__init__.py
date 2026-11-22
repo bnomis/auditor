@@ -6,9 +6,8 @@ or the brief changes. `candidates.py` holds the data model and the registry
 of listers; `PhaseBError` is defined in `errors.py` and re-exported here.
 """
 
-import auditme.phaseb.architecture  # noqa: F401  registers the architecture listers
-from auditme.phaseb import batches
-from auditme.phaseb.candidates import (
+from . import architecture  # noqa: F401  registers the architecture listers
+from .candidates import (
     DEFAULT_DEPTH,
     brief_version,
     depth_questions,
@@ -17,13 +16,12 @@ from auditme.phaseb.candidates import (
     question_brief,
     registered_questions,
 )
-from auditme.phaseb.errors import PhaseBError
-from auditme.phaseb.ledger import dismiss_verdict, merge_verdicts, read_ledger
+from .errors import PhaseBError
+from .ledger import dismiss_verdict, merge_verdicts, read_ledger
 
 __all__ = [
     'DEFAULT_DEPTH',
     'PhaseBError',
-    'batches',
     'brief_version',
     'depth_questions',
     'dismiss_verdict',

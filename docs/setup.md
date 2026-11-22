@@ -271,6 +271,8 @@ and that the `Install the audit deploy key` step ran before `pre-commit`.
   `id: auditme-changed`.
 - `jq` is missing: `command -v jq`.
 - The installer has not run: `grep -n 'auditme-stop.sh' ~/.claude/settings.json`.
+- No diff base resolves (no upstream, `origin/main` or `main`): `changed.py` prints that and passes without sweeping. Check `git rev-parse --verify origin/main`.
+- The directory is not a git repository: `changed.py` cannot find the repository root and fails.
 
 **Hits appear only after an upgrade.** Expected: the new checker has new rules.
 See [Upgrading the checker](#upgrading-the-checker).

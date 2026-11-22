@@ -86,6 +86,7 @@ def load_test_map(root: pathlib.Path, depth: int) -> dict[str, tuple[TestRef, ..
 
     Raises:
         PhaseBError: a test file or audited source file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
 
 
@@ -119,7 +120,8 @@ def is_t2_candidate(node: ast.FunctionDef, package_types: collections.abc.Mappin
 Listers register as `T1` and `T2` with `register_question` and take the A4
 lister's arguments, `--depth` included. Payloads: T1 has `reasons`, `tests`
 (each `TestRef` as a dict), `callers` (package functions reaching it within
-`--depth`, as `{id, path, start, end}`) and `test_files`; T2 has `params`
+`--depth`, as `{id, path, start, end}`), `test_files`, `private` and
+`privacy` (whether the function is private and the rule that says so); T2 has `params`
 (`[{name, annotation}]`), `returns`, `types` (package classes the
 annotations name, as `{id, path, start, end}`), `pairs`, `tests` and
 `test_files`.

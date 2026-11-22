@@ -257,9 +257,8 @@ def check_phase_section_doc_reference(scope: pathlib.Path, src_root: pathlib.Pat
         # `# auditme: accept phase-section ...`, skip the file.
         if any(file_level_accept_re.search(raw) for raw in lines):
             continue
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         # Collect docstring line ranges
         docstring_ranges: list[tuple[int, int]] = []

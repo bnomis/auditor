@@ -52,7 +52,7 @@ uv run --no-project python claude/skills/auditme/checks/audit.py <project-root> 
 | `--extra-root <dir>` | Audit `<dir>` (relative to the root) as its own pass. Repeatable. Replaces the default set (`bin/`). A named root that does not exist is an error, not an empty pass. |
 
 `audit.py` prints every hit, accepted or not, and exits 0 whatever it finds.
-It exits 2 when the root is not a directory; when `--package` is not a plain
+It exits 2 on a usage error from argparse (an unknown option or a missing value); when the root is not a directory; when `--package` is not a plain
 directory name; when a named extra root is outside the root or is not a
 directory; when the `--package` directory is missing; or when `[tool.auditme]`
 in `pyproject.toml` is invalid. A project with no package and no extra root prints a note on stderr
@@ -78,7 +78,7 @@ not a JSON object, or reports a crashed check. It exits 0 otherwise. A sweep tha
 | `--all` | Every file | The `auditme-all` hook: the push gate and CI |
 
 `--base` defaults to the first of `@{upstream}`, `origin/main` and `main` that
-resolves. With none, or with no changed `.py`, `.md` or `uv.lock` file in scope,
+resolves. With none, or with no reportable file changed (a `.py` file, a `uv.lock`, or a `.md` file outside hidden directories and outside `audit-reviews` and `tasks`, among others),
 it prints why and exits 0 without sweeping. `<repo-root>` defaults to the
 working directory's git top level.
 
@@ -109,7 +109,7 @@ To let one commit or push through, `SKIP=auditme-changed git commit` or
 | `line` | 1-based line, or `null` |
 | `evidence` | The source snippet or identifier that matched |
 | `accepted` | `true` when an accept marker or, for `in-function-import` only, an `AGENTS.md` row covers the hit; an `AGENTS.md` row for `layering-violation` makes the check print no hit at all |
-| `accepted_reason` | The marker's reason, `no reason given` for a marker with none, or `AGENTS.md accepted (<importer> -> <imported>)` for an `in-function-import` hit an `AGENTS.md` row covers |
+| `accepted_reason` | `null` for a hit that is not accepted; otherwise the marker's reason, `no reason given` for a marker with none, or `AGENTS.md accepted (<importer> -> <imported>)` for an `in-function-import` hit an `AGENTS.md` row covers |
 | `related` | Only on a hit that compares files: the other files' paths, sorted, never the hit's own |
 
 Identical hits are printed once, so a hit that several passes would each
@@ -183,8 +183,8 @@ line of a statement that spans several lines.
 
 !!! note "Hits a marker cannot accept"
     `ruff` hits come from ruff and are silenced the ruff way (`# noqa: <code>`
-    or the project's ruff config). `lockfile-drift` and `auditme-check-crash`
-    have no marker either: regenerate the lockfile, or fix the checker.
+    or the project's ruff config). `lockfile-drift`, `auditme-check-crash` and `unreadable-file`
+    have no marker either: regenerate the lockfile, fix the checker, or make the file readable.
 
 Nothing else counts as acceptance: not a prior review, a decision note, or a
 belief that the pattern is intentional.
@@ -193,7 +193,8 @@ belief that the pattern is intentional.
 
 Each rule's predicate, and every carve-out that keeps it from firing, is in
 the docstring of its `check_*` function under
-`claude/skills/auditme/checks/auditme/rules/`. Rules marked *gated* fire only
+`claude/skills/auditme/checks/auditme/rules/`; the hits `audit.py` emits itself
+(see Driver below) have no such docstring. Rules marked *gated* fire only
 when the project's `AGENTS.md` declares the standard they enforce.
 
 Which shared rule each checker rule enforces is listed under "Rules enforced
@@ -207,7 +208,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | Rule id | Reports |
 |---|---|
 | `src-loose-module` | A `.py` file directly in `src/`, outside any package |
-| `unreadable-file` | A file a check could not read (gone, denied or not UTF-8); `path` names it and `evidence` the reason. The check skips it and reports its other hits. |
+| `unreadable-file` | A file a check could not read (gone, denied or not UTF-8); `path` names it and `evidence` is always `cannot read <name>`, without the reason. The check skips it and reports its other hits. |
 | `auditme-check-crash` | A check raised; `variant` names it and `evidence` the exception. `changed.py` fails on it. |
 
 ### `duplication.py`
@@ -277,7 +278,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | Rule id | Reports |
 |---|---|
 | `constructor-disk-io` | Disk I/O inside `__init__` |
-| `silent-self-mutation` | A method other than a setter, `clear`, `reset` or `load` reassigning an attribute set from a constructor argument |
+| `silent-self-mutation` | A method other than a setter, `clear`, `reset`, `update`, `mutate`, `merge`, `replace`, `apply`, `patch` or `override` reassigning an attribute set from a constructor argument |
 | `return-shadows-instance-attr` | A method returning a value named like an instance attribute, leaving the caller to reassign it |
 | `parameter-mutation-in-pure-function` | A function named or documented as a check that mutates a parameter |
 | `pure-name-has-side-effect` | A function with a query-like name calling a write or I/O side effect |
@@ -294,7 +295,9 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 ### `style_and_naming.py`
 
 The rules from `wildcard-imports` to `leading-underscore-attribute-access`,
-`legacy-formatting-percent` aside, are regex matches on each non-comment line.
+`legacy-formatting-percent` aside, are regex matches on each non-comment line,
+except the form of `leading-underscore-def-class` that finds a `def` or `class`
+nested in a function, which comes from an AST check.
 
 | Rule id | Reports |
 |---|---|

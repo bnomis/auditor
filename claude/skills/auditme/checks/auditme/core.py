@@ -524,7 +524,7 @@ def resolve_call(
     head, _, rest = dotted.partition('.')
     if head in imported:
         dotted = imported[head] + (f'.{rest}' if rest else '')
-    elif isinstance(func, ast.Name) or (class_methods and isinstance(func.value, ast.Name)):
+    elif isinstance(func, ast.Name) or (class_methods and isinstance(func.value, ast.Name) and f'{module}.{dotted}' in known):
         dotted = f'{module}.{dotted}'
     dotted = aliases.get(dotted, dotted)
     if dotted not in known:
@@ -756,6 +756,19 @@ PRIVACY_SCRIPT = 'script'
 PRIVACY_UNDERSCORE = 'underscore'
 
 
+def cached_roots(scope: pathlib.Path) -> tuple[list[pathlib.Path], collections.abc.Mapping[pathlib.Path, str]]:
+    """The audit roots of scope and each root's mode, resolved once per run.
+
+    `audit_roots` reads `pyproject.toml` and lists `src/`; a listing that asks
+    for the roots once per candidate would repeat that work for every one.
+    """
+    key = ('audit-roots', scope)
+    if key not in INDEX_CACHE:
+        roots = audit_roots(scope)
+        INDEX_CACHE[key] = (roots, ROOT_MODULES)
+    return typing.cast('tuple[list[pathlib.Path], collections.abc.Mapping[pathlib.Path, str]]', INDEX_CACHE[key])
+
+
 def surface_files(module: str, root: pathlib.Path) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
     """The files whose `__all__` count for module, and module's own candidate files.
 
@@ -768,8 +781,9 @@ def surface_files(module: str, root: pathlib.Path) -> tuple[list[pathlib.Path], 
     first, *rest = module.split('.')
     files: list[pathlib.Path] = []
     own: list[pathlib.Path] = []
-    for src_root in audit_roots(root):
-        if ROOT_MODULES.get(src_root) == TOP_LEVEL:
+    roots, modes = cached_roots(root)
+    for src_root in roots:
+        if modes.get(src_root) == TOP_LEVEL:
             if not rest:
                 files.append(src_root / f'{first}.py')
                 own.append(src_root / f'{first}.py')

@@ -17,7 +17,7 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 ## Task 1: Translate an OSError in changed.py's entry
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F3
@@ -27,18 +27,18 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `claude/skills/auditme/tests/test_changed.py`: with `pathlib.Path.cwd` patched to raise `OSError`, `changed.main([...])` exits non-zero and prints an `ERROR:` line naming the error, with no traceback
-- [ ] In `claude/skills/auditme/checks/changed.py`, translate `OSError` from the `Path.cwd()` call (line 224 on 2026-11-22) and the `repo_root.resolve()` call (line 225) to `ChangedError`, so `main`'s existing handler reports it
-- [ ] Add `ChangedError` to any `Raises:` section the change affects
+- [x] Write the failing test first, in `claude/skills/auditme/tests/test_changed.py`: with `pathlib.Path.cwd` patched to raise `OSError`, `changed.main([...])` exits non-zero and prints an `ERROR:` line naming the error, with no traceback
+- [x] In `claude/skills/auditme/checks/changed.py`, translate `OSError` from the `Path.cwd()` call (line 224 on 2026-11-22) and the `repo_root.resolve()` call (line 225) to `ChangedError`, so `main`'s existing handler reports it
+- [x] Add `ChangedError` to any `Raises:` section the change affects
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
+- [x] The new test fails before the change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -48,7 +48,7 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 ## Task 2: Add a property test for positive_int
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F2
@@ -57,27 +57,28 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/tests/phaseb/test_cli.py`, add a test with `@settings(max_examples=20, deadline=10000)` over text and integers: `positive_int(value)` returns `int(value)` exactly when `value` parses as an integer of 1 or more, and raises `argparse.ArgumentTypeError` otherwise. Call `phaseb.positive_int` directly, not through a local alias
+- [x] In `claude/skills/auditme/tests/phaseb/test_cli.py`, add a test with `@settings(max_examples=20, deadline=10000)` over text and integers: `positive_int(value)` returns `int(value)` exactly when `value` parses as an integer of 1 or more, and raises `argparse.ArgumentTypeError` otherwise. Call `phaseb.positive_int` directly, not through a local alias
 
 **Acceptance Criteria:**
 
-- [ ] The test passes
-- [ ] `python3 claude/skills/auditme/checks/phaseb.py candidates . --question T2` lists a property test for `phaseb.py::positive_int`
+- [x] The test passes
+- [x] `python3 claude/skills/auditme/checks/phaseb.py candidates . --question T2` lists a property test for `phaseb.py::positive_int`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
+- Also fixed `auditme.core.resolve_call`: with `class_methods=True` it prefixed a plainly imported top-level module call (`phaseb.positive_int`) with the test module, so no test reached the function; it now does so only when that name is known. Regression test in `test_core.py`.
 - Key files: `claude/skills/auditme/checks/phaseb.py` (`positive_int`), `claude/skills/auditme/tests/phaseb/test_cli.py`
 
 ---
 
 ## Task 3: Build docrefs' dataclasses complete
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F4
@@ -87,19 +88,19 @@ constructed once with their contents, not filled after construction.
 
 **Subtasks:**
 
-- [ ] Record the current output first: `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4 > <scratch>/before.jsonl`, and the same for Doc5
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/docrefs.py`, build the `members` and `field_types` dicts before constructing `ClassInfo` (line 227 on 2026-11-22), and make `CorpusIndex.build` (line 185) assemble its dicts, then construct the frozen index once; `add_module` then works on the dicts being assembled, not on the frozen instance
-- [ ] Run the same two listings again and diff them against the recorded ones
+- [x] Record the current output first: `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4 > <scratch>/before.jsonl`, and the same for Doc5
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/docrefs.py`, build the `members` and `field_types` dicts before constructing `ClassInfo` (line 227 on 2026-11-22), and make `CorpusIndex.build` (line 185) assemble its dicts, then construct the frozen index once; `add_module` then works on the dicts being assembled, not on the frozen instance
+- [x] Run the same two listings again and diff them against the recorded ones
 
 **Acceptance Criteria:**
 
-- [ ] The Doc4 and Doc5 listings are identical before and after
-- [ ] No `CorpusIndex` or `ClassInfo` field is assigned or mutated after construction (grep the module)
+- [x] The Doc4 and Doc5 listings are identical before and after
+- [x] No `CorpusIndex` or `ClassInfo` field is assigned or mutated after construction (grep the module)
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_docrefs.py claude/skills/auditme/tests/phaseb/test_doc_candidates.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_docrefs.py claude/skills/auditme/tests/phaseb/test_doc_candidates.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -110,7 +111,7 @@ constructed once with their contents, not filled after construction.
 
 ## Task 4: Name the local constants and make phaseb's imports relative
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F7, F8
@@ -121,20 +122,20 @@ constructed once with their contents, not filled after construction.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/checks/auditme/rules/error_handling.py`, rename `stdlib_excs` (line 249 on 2026-11-22) and `safe_attrs` (line 92) to UPPER_SNAKE and update their uses
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/__init__.py`, replace the absolute `from auditme.phaseb... import` lines (10, 11, 20, 21) with `from .candidates import ...`, `from .errors import ...` and `from .ledger import ...`
-- [ ] For `batches`: every reader imports `auditme.phaseb.batches` itself (`checks/phaseb.py`, `tests/phaseb/test_batches.py`), so drop `batches` from `phaseb/__init__.py`'s import and `__all__`; grep for `auditme.phaseb.batches` reached through the package attribute before removing it, and keep the side-effect import of `auditme.phaseb.architecture`
-- [ ] Run the sweep and confirm no new hit (`python3 claude/skills/auditme/checks/audit.py .`)
+- [x] In `claude/skills/auditme/checks/auditme/rules/error_handling.py`, rename `stdlib_excs` (line 249 on 2026-11-22) and `safe_attrs` (line 92) to UPPER_SNAKE and update their uses
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/__init__.py`, replace the absolute `from auditme.phaseb... import` lines (10, 11, 20, 21) with `from .candidates import ...`, `from .errors import ...` and `from .ledger import ...`
+- [x] For `batches`: every reader imports `auditme.phaseb.batches` itself (`checks/phaseb.py`, `tests/phaseb/test_batches.py`), so drop `batches` from `phaseb/__init__.py`'s import and `__all__`; grep for `auditme.phaseb.batches` reached through the package attribute before removing it, and keep the side-effect import of `auditme.phaseb.architecture`
+- [x] Run the sweep and confirm no new hit (`python3 claude/skills/auditme/checks/audit.py .`)
 
 **Acceptance Criteria:**
 
-- [ ] `grep -n '^from auditme' claude/skills/auditme/checks/auditme/phaseb/__init__.py` prints nothing
-- [ ] The sweep reports no unaccepted hit
+- [x] `grep -n '^from auditme' claude/skills/auditme/checks/auditme/phaseb/__init__.py` prints nothing
+- [x] The sweep reports no unaccepted hit
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -144,7 +145,7 @@ constructed once with their contents, not filled after construction.
 
 ## Task 5: Resolve the roots once in surface_files' callers
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F5
@@ -154,19 +155,19 @@ number of times, not once per candidate.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `claude/skills/auditme/tests/test_core.py`: with `auditme.core.audit_roots` wrapped to count its calls, listing T1 candidates for a fixture project with several functions calls it no more than a small fixed number of times (not once per candidate)
-- [ ] Make `surface_files` (`claude/skills/auditme/checks/auditme/core.py:771` on 2026-11-22) take the roots from the per-run cache review-2's Task 6 added, or from its caller through `privacy`, instead of calling `audit_roots` itself
-- [ ] Confirm the T1 and A1 listings of this repository are unchanged: run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for T1 and A1 before and after and diff them
+- [x] Write the failing test first, in `claude/skills/auditme/tests/test_core.py`: with `auditme.core.audit_roots` wrapped to count its calls, listing T1 candidates for a fixture project with several functions calls it no more than a small fixed number of times (not once per candidate)
+- [x] Make `surface_files` (`claude/skills/auditme/checks/auditme/core.py:771` on 2026-11-22) take the roots from the per-run cache review-2's Task 6 added, or from its caller through `privacy`, instead of calling `audit_roots` itself
+- [x] Confirm the T1 and A1 listings of this repository are unchanged: run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for T1 and A1 before and after and diff them
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] The T1 and A1 listings are identical before and after
+- [x] The new test fails before the change and passes after it
+- [x] The T1 and A1 listings are identical before and after
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (`core.py` is reached by every test module)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (`core.py` is reached by every test module)
 
 **Notes:**
 
@@ -176,7 +177,7 @@ number of times, not once per candidate.
 
 ## Task 6: Move the error-handling and duplication checks onto the shared parse
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** F6
@@ -187,19 +188,19 @@ take each file's tree from `auditme.core.read_and_parse` rather than calling
 
 **Subtasks:**
 
-- [ ] Record the sweep first: `python3 claude/skills/auditme/checks/audit.py . | sort > <scratch>/sweep-before.jsonl`, and time three runs (`time python3 claude/skills/auditme/checks/audit.py . > /dev/null`)
-- [ ] In `claude/skills/auditme/checks/auditme/rules/error_handling.py` and `duplication.py`, replace each `ast.parse('\n'.join(lines))` of a file's own lines with the tree `read_and_parse` returns for that path, keeping each check's handling of a file that does not parse (it is skipped, as before; an unreadable one is the driver's `unreadable-file` hit). Leave an `ast.parse` of a string that is not a file's content (a snippet, a docstring) as it is
-- [ ] Sort the sweep again and diff it with the recorded one
+- [x] Record the sweep first: `python3 claude/skills/auditme/checks/audit.py . | sort > <scratch>/sweep-before.jsonl`, and time three runs (`time python3 claude/skills/auditme/checks/audit.py . > /dev/null`)
+- [x] In `claude/skills/auditme/checks/auditme/rules/error_handling.py` and `duplication.py`, replace each `ast.parse('\n'.join(lines))` of a file's own lines with the tree `read_and_parse` returns for that path, keeping each check's handling of a file that does not parse (it is skipped, as before; an unreadable one is the driver's `unreadable-file` hit). Leave an `ast.parse` of a string that is not a file's content (a snippet, a docstring) as it is
+- [x] Sort the sweep again and diff it with the recorded one
 
 **Acceptance Criteria:**
 
-- [ ] The sorted sweep is identical before and after
-- [ ] `grep -n "ast.parse('\\\\n'.join(lines))" claude/skills/auditme/checks/auditme/rules/error_handling.py claude/skills/auditme/checks/auditme/rules/duplication.py` prints nothing
+- [x] The sorted sweep is identical before and after
+- [x] `grep -n "ast.parse('\\\\n'.join(lines))" claude/skills/auditme/checks/auditme/rules/error_handling.py claude/skills/auditme/checks/auditme/rules/duplication.py` prints nothing
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_get_container_default.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_get_container_default.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -210,7 +211,7 @@ take each file's tree from `auditme.core.read_and_parse` rather than calling
 
 ## Task 7: Move the remaining checks onto the shared parse, and measure
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** F6
@@ -221,29 +222,33 @@ review-3 recorded.
 
 **Subtasks:**
 
-- [ ] Do the same as Task 6 for `state_and_effects.py`, `imports_and_surfaces.py`, `style_and_naming.py` and `project_hygiene.py`
-- [ ] Sort the sweep and diff it with Task 6's recorded one
-- [ ] Time three runs and record the median in the task's Notes, beside review-3's figure (12.2 s for a sweep of this repository, of which 5.4 s in `ast.parse`, measured on 2026-11-22)
+- [x] Do the same as Task 6 for `state_and_effects.py`, `imports_and_surfaces.py`, `style_and_naming.py` and `project_hygiene.py`
+- [x] Sort the sweep and diff it with Task 6's recorded one
+- [x] Time three runs and record the median in the task's Notes, beside review-3's figure (12.2 s for a sweep of this repository, of which 5.4 s in `ast.parse`, measured on 2026-11-22)
 
 **Acceptance Criteria:**
 
-- [ ] The sorted sweep is identical to Task 6's record
-- [ ] No rule module calls `ast.parse` on a file's own lines
+- [x] The sorted sweep is identical to Task 6's record
+- [x] No rule module calls `ast.parse` on a file's own lines
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (the four modules' own tests are spread across most test modules)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (the four modules' own tests are spread across most test modules)
 
 **Notes:**
 
 - Depends on Task 6, whose recorded sweep it diffs against
+- Sorted sweep before and after is identical once the `line` field is dropped (the edits moved lines in `state_and_effects.py` and `style_and_naming.py`)
+- Median of three runs on 2026-11-22: 6.55 s, against review-3's 12.2 s (measured on the same date)
+- `project_hygiene.py` keeps one `ast.parse` of a reassembled signature snippet, which is not a file's own lines
+- `mask_string_literals`, `literal_format_lines` and the two `*_in_file` annotation helpers now take the tree as a parameter
 
 ---
 
 ## Task 8: Correct the specs
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F9
@@ -253,16 +258,16 @@ or is worded as a record of its spec's change.
 
 **Subtasks:**
 
-- [ ] Correct each site F9 lists in `agents/audit-reviews/review-3.md`, checking each against the code as it stands after Tasks 1 to 7: the nine in `agents/specs/project-setup/spec.md`, and one each in the architecture-, documentation- and test-questions specs (the test-questions spec has two)
-- [ ] Line numbers are from 2026-11-22; find each statement by its text
+- [x] Correct each site F9 lists in `agents/audit-reviews/review-3.md`, checking each against the code as it stands after Tasks 1 to 7: the nine in `agents/specs/project-setup/spec.md`, and one each in the architecture-, documentation- and test-questions specs (the test-questions spec has two)
+- [x] Line numbers are from 2026-11-22; find each statement by its text
 
 **Acceptance Criteria:**
 
-- [ ] Each F9 statement is corrected or reworded as a record
+- [x] Each F9 statement is corrected or reworded as a record
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 
@@ -272,7 +277,7 @@ or is worded as a record of its spec's change.
 
 ## Task 9: Correct the user docs
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F10
@@ -282,18 +287,18 @@ does, so that I can rely on their lists of failures, exemptions and rules.
 
 **Subtasks:**
 
-- [ ] Correct each site F10 lists in `agents/audit-reviews/review-3.md`, in `docs/concepts.md`, `docs/guide/checker.md`, `docs/reference/cli.md` and `docs/setup.md`, checking each against the code as it stands after Tasks 1 to 7. Include the two review-2 left stale: the failure list at `docs/reference/cli.md:229` and `docs/concepts.md:25`
-- [ ] Where a list is only examples, say "for example"; otherwise make it complete
-- [ ] Run `uv run mkdocs build --strict`
+- [x] Correct each site F10 lists in `agents/audit-reviews/review-3.md`, in `docs/concepts.md`, `docs/guide/checker.md`, `docs/reference/cli.md` and `docs/setup.md`, checking each against the code as it stands after Tasks 1 to 7. Include the two review-2 left stale: the failure list at `docs/reference/cli.md:229` and `docs/concepts.md:25`
+- [x] Where a list is only examples, say "for example"; otherwise make it complete
+- [x] Run `uv run mkdocs build --strict`
 
 **Acceptance Criteria:**
 
-- [ ] Each F10 statement is corrected
-- [ ] `uv run mkdocs build --strict` exits 0
+- [x] Each F10 statement is corrected
+- [x] `uv run mkdocs build --strict` exits 0
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 
@@ -303,7 +308,7 @@ does, so that I can rely on their lists of failures, exemptions and rules.
 
 ## Task 10: Run the whole-tree checks and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -313,19 +318,19 @@ merges, and the audit summary records what this list resolved.
 
 **Subtasks:**
 
-- [ ] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 9 fixed from Unresolved to Recently resolved, naming its task; leave any that did not ship, with the reason
-- [ ] Under "Checker changes since the last review", add a dated line for each behaviour change (the `OSError` translation in `changed.py`, the shared parse and its measured run time, the dropped `batches` re-export)
+- [x] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 9 fixed from Unresolved to Recently resolved, naming its task; leave any that did not ship, with the reason
+- [x] Under "Checker changes since the last review", add a dated line for each behaviour change (the `OSError` translation in `changed.py`, the shared parse and its measured run time, the dropped `batches` re-export)
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved table holds only findings that did not ship, each with its reason
+- [x] The Unresolved table holds only findings that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (`core.py` and every rule module changed, and every checker test reaches them)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (`core.py` and every rule module changed, and every checker test reaches them)
 
 **Notes:**
 

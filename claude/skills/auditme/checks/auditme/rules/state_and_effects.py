@@ -49,9 +49,8 @@ def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for cls in ast.walk(tree):
             if not isinstance(cls, ast.ClassDef):
@@ -85,7 +84,8 @@ def check_constructor_disk_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
 
 def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag methods (other than __init__ / __post_init__ / setters / setX-named
-    methods / clear / reset / load) that reassign `self.<attr>` where `<attr>`
+    methods / clear / reset / update / mutate / merge / replace / apply / patch /
+    override) that reassign `self.<attr>` where `<attr>`
     was set from a constructor argument of the same name in __init__.
 
     The pattern is: a method whose name signals a non-mutating operation
@@ -109,9 +109,8 @@ def check_silent_self_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> N
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for cls in ast.walk(tree):
             if not isinstance(cls, ast.ClassDef):
@@ -191,9 +190,8 @@ def check_return_value_shadows_instance_attr(scope: pathlib.Path, src_root: path
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for cls in ast.walk(tree):
             if not isinstance(cls, ast.ClassDef):
@@ -286,9 +284,8 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -365,9 +362,8 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -426,9 +422,8 @@ def check_mutable_store_without_copy(scope: pathlib.Path, src_root: pathlib.Path
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for cls in ast.walk(tree):
             if not isinstance(cls, ast.ClassDef):
@@ -538,9 +533,8 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.If):
@@ -641,9 +635,8 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -762,9 +755,8 @@ def check_mutable_module_level_exported(scope: pathlib.Path, src_root: pathlib.P
     for path in auditme.core.all_py_files(src_root):
         module_name_of[path] = auditme.core.module_dotted(path, src_root)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in tree.body:
             name, value = module_level_binding(node)
@@ -846,9 +838,8 @@ def check_mutable_members_in_immutable_wrapper(scope: pathlib.Path, src_root: pa
     module_name_of: dict[pathlib.Path, str] = {}
     for path in auditme.core.all_py_files(src_root):
         module_name_of[path] = auditme.core.module_dotted(path, src_root)
-        try:
-            tree = ast.parse('\n'.join(auditme.core.source_lines(path)))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in tree.body:
             name, value = module_level_binding(node)
@@ -1043,9 +1034,8 @@ def check_callback_hotpath_io(scope: pathlib.Path, src_root: pathlib.Path) -> No
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for cls in ast.walk(tree):
             if not isinstance(cls, ast.ClassDef):
@@ -1106,9 +1096,8 @@ def check_dataclass_optional_always_set(scope: pathlib.Path, src_root: pathlib.P
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for cls in ast.walk(tree):
             if not isinstance(cls, ast.ClassDef):
@@ -1234,9 +1223,8 @@ def check_dead_local_init(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for func in ast.walk(tree):
             if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1320,9 +1308,8 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
