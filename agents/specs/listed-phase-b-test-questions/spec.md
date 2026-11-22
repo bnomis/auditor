@@ -1,7 +1,7 @@
 # Listed Phase B test questions
 
 **Version:** 1.5
-**Status:** proposed
+**Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/A2jYW6bvHGhR3JxqhppKuW (amendment 1.5)
 

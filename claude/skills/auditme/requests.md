@@ -38,22 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### The Phase B test index reads tests only from `src/tests/` and `tests/`
-
-- **Raised:** 2026-11-21, by this repository's own first full audit (review-1).
-- **What happens:** `TEST_TREES = ('src/tests', 'tests')` in
-  `checks/auditme/phaseb/testmap.py` fixes where the T1 and T2 listers look
-  for tests. A project whose tests sit elsewhere, and are declared as an audit
-  root in `[tool.auditme]`, gets an empty test map: every T1 and T2 candidate
-  carries empty `tests` and `test_files`, so the reviewers either judge from
-  test files the lister never named or rule each candidate untested. In that
-  audit every candidate of the first T1 batch had both lists empty, though the
-  tests under the declared root import those modules.
-- **Asked for:** read test files from every audit root as well as the default
-  trees (a file is a test by `is_test_relpath`, as the sweep already decides),
-  so a declared test root reaches the index; leave the defaults for a project
-  that declares nothing.
-
 ### Settle the thresholds review-1's reviewers left open
 
 - **Raised:** 2026-11-21, by this repository's own first full audit (review-1, decision D1).

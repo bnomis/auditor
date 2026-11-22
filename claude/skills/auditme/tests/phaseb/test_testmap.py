@@ -224,6 +224,108 @@ def test_top_level_tests_directory_is_read(project: Project) -> None:
     assert [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']] == ['tests/test_mod.py::test_load']
 
 
+PKG_ROOTS = '[tool.auditme]\nroots = [{path = "pkg"}, {path = "checks/tests"}]\n'
+LOAD_TEST = """
+    from pkg.mod import load
+
+
+    def test_load():
+        load()
+"""
+
+
+def test_declared_root_holding_tests_is_read(project: Project) -> None:
+    root = project(
+        {
+            'pyproject.toml': PKG_ROOTS,
+            'pkg/__init__.py': '',
+            'pkg/mod.py': MOD,
+            'checks/tests/__init__.py': '',
+            'checks/tests/test_mod.py': """
+                import pkg.mod
+
+
+                def test_load():
+                    pkg.mod.load()
+            """,
+        }
+    )
+    index = auditme.phaseb.testmap.load_test_index(root)
+    (ref,) = index.refs(3)['pkg/mod.py::load']
+    assert ref.path == 'checks/tests/test_mod.py'
+    assert 'checks/tests/test_mod.py' in index.test_files('pkg/mod.py::load', 3)
+
+
+def test_top_level_declared_root_names_test_module_without_root_name(project: Project) -> None:
+    root = project(
+        {
+            'pyproject.toml': '[tool.auditme]\nroots = [{path = "scripts", modules = "top-level"}]\n',
+            'scripts/test_x.py': 'def test_x():\n    pass\n',
+        }
+    )
+    (file,) = auditme.phaseb.testmap.read_test_tree(root)[0]
+    assert file.module == 'test_x'
+
+
+def test_file_under_two_roots_gives_one_ref(project: Project) -> None:
+    root = project(
+        {
+            'pyproject.toml': '[tool.auditme]\nroots = [{path = "pkg"}, {path = "tests"}]\n',
+            'pkg/__init__.py': '',
+            'pkg/mod.py': MOD,
+            'tests/test_mod.py': LOAD_TEST,
+        }
+    )
+    assert [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['pkg/mod.py::load']] == ['tests/test_mod.py::test_load']
+
+
+def test_conftest_chain_stops_at_the_declared_test_root(project: Project) -> None:
+    root = project(
+        {
+            'pyproject.toml': PKG_ROOTS,
+            'pkg/__init__.py': '',
+            'pkg/mod.py': MOD,
+            'pkg/other.py': 'def other():\n    return 3\n',
+            'checks/conftest.py': """
+                import pytest
+                from pkg.other import other
+
+
+                @pytest.fixture()
+                def above():
+                    return other()
+            """,
+            'checks/tests/conftest.py': """
+                import pytest
+                from pkg.mod import load
+
+
+                @pytest.fixture()
+                def inside():
+                    return load()
+            """,
+            'checks/tests/test_a.py': 'def test_a(inside):\n    pass\n',
+            'checks/tests/test_b.py': 'def test_b(above):\n    pass\n',
+        }
+    )
+    found = auditme.phaseb.testmap.load_test_map(root, 3)
+    assert [ref.id for ref in found['pkg/mod.py::load']] == ['checks/tests/test_a.py::test_a']
+    assert 'pkg/other.py::other' not in found
+
+
+def test_undeclared_project_reads_package_tests_and_src_tests(project: Project) -> None:
+    root = project(
+        {
+            'src/pkg/__init__.py': '',
+            'src/pkg/mod.py': MOD,
+            'src/pkg/tests/test_mod.py': LOAD_TEST,
+            'src/tests/test_other.py': LOAD_TEST,
+        }
+    )
+    ids = [ref.id for ref in auditme.phaseb.testmap.load_test_map(root, 3)['src/pkg/mod.py::load']]
+    assert ids == ['src/pkg/tests/test_mod.py::test_load', 'src/tests/test_other.py::test_load']
+
+
 def test_unparseable_test_file_raises_naming_the_file(project: Project) -> None:
     root = project({**BASE, 'src/tests/test_bad.py': 'def test_x(:\n'})
     with pytest.raises(auditme.phaseb.PhaseBError, match='test_bad.py'):

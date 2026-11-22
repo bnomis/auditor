@@ -740,3 +740,24 @@ document the choice in `SKILL.md`'s acceptance mechanism, with a test in
 `claude/skills/auditme/tests/test_core.py`.
 
 Done: 2026-11-21 - `ACCEPT_COMMENT_RE` in `claude/skills/auditme/checks/auditme/core.py` ends a reason at the next marker and `accept_reason` reads every marker on a line; tests in `claude/skills/auditme/tests/test_core.py`; the acceptance mechanism in `claude/skills/auditme/SKILL.md` and `docs/guide/checker.md`.
+
+## The Phase B test index reads tests only from `src/tests/` and `tests/`
+
+Found on 2026-11-21 by this repository's first full audit
+(`agents/audit-reviews/review-1.md`) and filed as an open request in
+`claude/skills/auditme/requests.md` ("The Phase B test index reads tests only
+from `src/tests/` and `tests/`"), which holds the full finding.
+
+Cause: `TEST_TREES` in `claude/skills/auditme/checks/auditme/phaseb/testmap.py`
+fixes where the T1 and T2 listers look for tests, so a test tree declared as
+an audit root in `[tool.auditme]` never reaches the index.
+
+Fix direction: as the request asks - read tests from every audit root as well
+as the default trees, deciding a test by `is_test_relpath`; amend
+`agents/specs/listed-phase-b-test-questions/spec.md` first. Shipping it
+deletes the request entry; review-2 cannot start until it is shipped or
+rejected.
+
+Spec: agents/specs/listed-phase-b-test-questions/spec.md (amendment 1.5); tasks: agents/tasks/listed-phase-b-test-questions/tasks-2.md.
+
+Done: 2026-11-22 - amendment 1.5 of agents/specs/listed-phase-b-test-questions/spec.md and agents/tasks/listed-phase-b-test-questions/tasks-2.md; b72fe1b.
