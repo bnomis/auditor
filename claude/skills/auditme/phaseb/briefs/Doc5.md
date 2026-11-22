@@ -1,6 +1,6 @@
 # Doc5 brief
 
-**Brief version:** 4
+**Brief version:** 5
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -63,6 +63,13 @@ against the code.
   judged against the code like any other.
 - A drift that falls under several candidates of one section is reported
   once, under the first of them in the batch's order whose span holds it.
+- A parenthetical list, and a list of the conditions under which a command
+  fails or exits, present themselves as complete unless written with "for
+  example", "such as", "including" or "e.g.": a case the code also has is
+  drift.
+- A claim broader than the code is drift: a statement that a command acts on
+  "any existing file" when the code checks named files only is one the code
+  contradicts.
 
 A threshold that this brief does not settle is not yours to decide: report
 it in your reply, name the candidate, and judge the rest as the brief says.

@@ -1,6 +1,6 @@
 # Listed Phase B test questions
 
-**Version:** 1.5
+**Version:** 1.6
 **Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/A2jYW6bvHGhR3JxqhppKuW (amendment 1.5)
@@ -254,7 +254,7 @@ brief says so, and `--rejudge` covers it.
 
 Each has the question verbatim, its thresholds, the input format, the output
 (one JSON line per candidate with `id`, `findings`, `reason`, none left out)
-and `**Brief version:** N` (1 when written; T1 is at 3, amendment 1.4), plus the rule that an unsettled threshold is
+and `**Brief version:** N` (1 when written; T1 is at 4, amendment 1.6), plus the rule that an unsettled threshold is
 reported, not decided, and the security rule every subagent brief carries.
 
 - `T1.md`: findings `{"missing": ["test case"]}` or `{"missing": []}`.
@@ -264,7 +264,12 @@ reported, not decided, and the security rule every subagent brief carries.
   decided it; the reason names the rule whenever it decides the verdict
   (brief version 3, amendment 1.4). An
   unconditionally skipped or `xfail` test does not count. The reason names
-  the covering test's id.
+  the covering test's id. Amendment 1.6 (operator, 2026-11-22,
+  `agents/reviews/brief-thresholds-2026-11-22.md`; brief version 4): a test
+  that runs a script's path as a subprocess is a caller test like a `runpy`
+  load; a fixture the test requests, names in `usefixtures` or gets as
+  `autouse` is part of the test; passing the candidate as an argument covers
+  it when the receiving package function calls that argument.
 - `T2.md`: findings `{"missing": ["property test"]}` or `{"missing": []}`.
   Covered when a test with `property: true` calls it directly. Flagged only
   when the reason states a property the domain supports (a round trip with

@@ -1,6 +1,6 @@
 # Doc4 brief
 
-**Brief version:** 4
+**Brief version:** 5
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -52,6 +52,18 @@ against the code.
   judged against the code like any other.
 - A drift that falls under several candidates of one section is reported
   once, under the first of them in the batch's order whose span holds it.
+- A spec's header `**Date:**` is when the spec was written; it does not
+  date the sections, which are judged unless one states its own date.
+- A statement worded as what the spec's own change did ("version 1 when
+  written", "puts T1 and T2 on the listed path") is a record of that change,
+  not drift. A statement worded as the current state ("the brief is at
+  version 1", "the listed questions are ...") is judged.
+- A reference to a `TODO.md` item is not drift while its heading is in
+  `TODO.md` or `DONE.md`; it is drift only when the heading is in neither.
+- A bullet or paragraph that opens with a date ("found on <date>",
+  "measured on <date>") is a record of that day for every sentence in it.
+- A table whose caption or lead sentence names the change or amendment it
+  records is a record of that change, like a dated table.
 
 A threshold that this brief does not settle is not yours to decide: report
 it in your reply, name the candidate, and judge the rest as the brief says.

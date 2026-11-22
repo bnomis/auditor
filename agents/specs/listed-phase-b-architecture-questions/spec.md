@@ -1,6 +1,6 @@
 # Listed Phase B architecture questions
 
-**Version:** 1.3
+**Version:** 1.4
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -56,7 +56,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
 - `claude/skills/auditme/checks/auditme/core.py` - the corpus read index moved from `rules/state_and_effects.py` (see Hoists)
 - `checks/auditme/rules/error_handling.py`, `rules/state_and_effects.py` -
   site finders made public (see Hoists)
-- `claude/skills/auditme/phaseb/briefs/{A11,A19,A1,A17}.md` - briefs, version 1 when written; the A1 brief is at version 2 (amendment 1.3)
+- `claude/skills/auditme/phaseb/briefs/{A11,A19,A1,A17}.md` - briefs, version 1 when written; the A1 brief is at version 3 (amendment 1.4)
 - `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py` - tests
 - `claude/skills/auditme/SKILL.md` - names the new listed questions
 
@@ -182,7 +182,12 @@ names), and for a call in a private or nested helper `callers` (each
 resolved call site of the helper with its enclosing envelope, or null) and
 `privacy`, why the function counts as a helper: `nested`, or the rule of the
 test-questions spec's `privacy` that marks it private (`all`, `script` or
-`underscore`; amendment 1.3, 2026-11-21, A1 brief version 2).
+`underscore`; amendment 1.3, 2026-11-21, A1 brief version 2). Amendment 1.4
+(operator, 2026-11-22, `agents/reviews/brief-thresholds-2026-11-22.md`; A1
+brief version 3): a `subprocess` call with `check` false or unset and no
+`timeout` can raise only `OSError`, so a handler for it alone covers the
+call; a handler that returns the error is translation when the function's
+return annotation or docstring says it returns failures.
 Hash: the enclosing function's source, each envelope's source, the domain
 error names, and each listed caller's source.
 

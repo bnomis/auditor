@@ -51,7 +51,7 @@ def question_line(question: str) -> str:
     return next(line for line in skill.splitlines() if line.startswith(f'- **{question}.')).removeprefix('- ')
 
 
-DOC_BRIEF_VERSIONS = {'Doc1': 3, 'Doc2': 2, 'Doc4': 4, 'Doc5': 4}
+DOC_BRIEF_VERSIONS = {'Doc1': 3, 'Doc2': 2, 'Doc4': 5, 'Doc5': 5}
 DOC_BRIEF_PHRASES = {'Doc1': 'tracked', 'Doc2': 'declared', 'Doc4': 'unresolved', 'Doc5': 'unresolved'}
 
 
@@ -83,7 +83,7 @@ def test_doc5_question_covers_readme() -> None:
 def test_test_brief_holds_question_keys_and_security_rule(question: str, keys: tuple[str, ...]) -> None:
     brief = auditme.phaseb.question_brief(question)
     text = brief.read_text(encoding='utf-8')
-    version = {'T1': 3, 'T2': 1}[question]
+    version = {'T1': 4, 'T2': 1}[question]
     assert len(re.findall(rf'^\*\*Brief version:\*\* {version}$', text, re.MULTILINE)) == 1
     assert auditme.phaseb.brief_version(brief) == version
     assert question_line(question) in text
@@ -111,7 +111,7 @@ def test_every_brief_output_asks_for_findings_with_its_registered_kinds() -> Non
 
 
 def test_brief_versions_after_the_findings_shape() -> None:
-    expected = {'A4': 4, 'Doc1': 3, 'Doc2': 2, 'Doc4': 4, 'Doc5': 4, 'T1': 3, 'T2': 1, 'A1': 2, 'A11': 1, 'A17': 1, 'A19': 1}
+    expected = {'A4': 5, 'Doc1': 3, 'Doc2': 2, 'Doc4': 5, 'Doc5': 5, 'T1': 4, 'T2': 1, 'A1': 3, 'A11': 1, 'A17': 1, 'A19': 1}
     assert set(expected) == set(auditme.phaseb.candidates.REGISTRY)
     for question, version in expected.items():
         assert auditme.phaseb.brief_version(auditme.phaseb.question_brief(question)) == version, question
@@ -137,6 +137,12 @@ def test_brief_versions_after_the_findings_shape() -> None:
         ('A4', ('registered implementations', 'invariant guard')),
         ('Doc4', ('A dated sentence inside an undated section', '"Today" in an implemented spec', 'reported\n  once')),
         ('Doc5', ('names more than one\n  keyword', 'A dated sentence inside an undated section', '"Today" in an implemented spec', 'reported\n  once')),
+        # The rulings of agents/reviews/brief-thresholds-2026-11-22.md.
+        ('A1', ('pass no `timeout`', 'says it returns failures')),
+        ('A4', ('registry lookup',)),
+        ('T1', ('as a subprocess', 'usefixtures', 'passes the candidate as an argument')),
+        ('Doc4', ('header `**Date:**`', "what the spec's own change did", '`TODO.md` or `DONE.md`', 'opens with a date', 'names the change or amendment')),
+        ('Doc5', ('A parenthetical list', 'A claim broader than the code')),
     ],
 )
 def test_brief_settles_its_thresholds(question: str, phrases: tuple[str, ...]) -> None:

@@ -38,38 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Settle the thresholds review-1's reviewers left open
-
-- **Raised:** 2026-11-21, by this repository's own first full audit (review-1, decision D1).
-- **What happens:** each brief tells its reviewer to report, not decide, a
-  threshold it does not settle, and the reviewers of that audit reported
-  these, so each is judged case by case and can be judged differently in
-  another batch:
-  - A1: whether a handler that catches only `OSError` covers a
-    `subprocess.run(..., check=False)` call with no timeout, which can raise
-    nothing else; and whether a function that turns a read failure into a
-    problem it returns to its caller, by design, translates it.
-  - A4: whether an error reaches a caller through a call dispatched by a
-    registry lookup (`REGISTRY[question](...)`), as it does through a
-    `functools.singledispatch` generic.
-  - T1: whether a test that runs a script by path as a subprocess counts as
-    a caller test for a `script` candidate (the brief names only `runpy` and
-    `spec_from_file_location`); whether a call made inside a `conftest.py`
-    fixture is the test's own call; and whether passing a function as a
-    callable argument to the code under test covers it.
-  - Doc4: whether a spec's header `**Date:**` dates its sections; whether an
-    implemented spec's account of its own change (its briefs at "version 1",
-    its list of listed questions) drifts once later changes move on; whether
-    a statement that work is part of a `TODO.md` item drifts once the item
-    moves to `DONE.md`; whether a present-tense sentence in a bullet that
-    starts "found <date>" is dated; and whether a table recording one
-    change's version bumps is a dated record.
-  - Doc5: whether a parenthetical list or a list of exit conditions claims
-    to be complete, and whether a broad "any existing file" claim drifts
-    when the code asks about named files only.
-- **Asked for:** settle each in its brief, bumping the brief's version, so
-  every reviewer applies the same threshold.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.

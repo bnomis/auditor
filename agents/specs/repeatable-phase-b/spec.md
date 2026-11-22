@@ -1,6 +1,6 @@
 # Repeatable Phase B
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/2L2gApX1M8DNzL5ivQF3D7
@@ -281,6 +281,13 @@ brief, version 1, settles:
 A threshold a reviewer raises in its reply that the brief does not settle is
 reported to the operator, never settled by the orchestrator mid-run, and the
 answer lands as a brief version bump.
+
+Amendment 1.3 (operator, 2026-11-22, `agents/reviews/brief-thresholds-2026-11-22.md`;
+A4 brief version 5): a call dispatched through a registry lookup owes the
+domain errors of the functions the registry holds when the registry is a
+module-level literal mapping, or one a registering decorator fills, of the
+package's own functions; a mapping built at run time or passed in counts as a
+callable passed in.
 
 ### The result line (1.2)
 

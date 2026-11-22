@@ -779,3 +779,20 @@ narrowing names the registration as its positive evidence. Shipping it deletes
 the request entry.
 
 Done: 2026-11-22 - A9's predicate in `claude/skills/auditme/SKILL.md` no longer reads `check_` as pure for a registered check, listed under Documented refinements; the request entry is removed from `claude/skills/auditme/requests.md`.
+
+## Settle the thresholds review-1's reviewers left open
+
+Found on 2026-11-21 by `agents/audit-reviews/review-1.md` (decision D1) and
+filed as an open request in `claude/skills/auditme/requests.md` ("Settle the
+thresholds review-1's reviewers left open"), which lists each threshold for
+the A1, A4, T1, Doc4 and Doc5 briefs.
+
+Cause: each brief tells its reviewer to report, not decide, a threshold it
+does not settle, so the same case can be judged differently in another batch.
+
+Fix direction: settle each threshold in its brief under
+`claude/skills/auditme/phaseb/briefs/`, bumping that brief's
+version and the expectation in `claude/skills/auditme/tests/phaseb/test_briefs.py`. Shipping it
+deletes the request entry.
+
+Done: 2026-11-22 - agents/reviews/brief-thresholds-2026-11-22.md (answered 2026-11-22); briefs A1 3, A4 5, T1 4, Doc4 5 and Doc5 5 under `claude/skills/auditme/phaseb/briefs/`; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from `claude/skills/auditme/requests.md`.

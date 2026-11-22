@@ -1,6 +1,6 @@
 # Listed Phase B documentation questions
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -33,7 +33,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
 - `claude/skills/auditme/checks/auditme/core.py` - gains
   `corpus_definitions`, hoisted from `_source_definitions` in
   `rules/project_hygiene.py`
-- `claude/skills/auditme/phaseb/briefs/{Doc1,Doc2,Doc4,Doc5}.md` - version 1
+- `claude/skills/auditme/phaseb/briefs/{Doc1,Doc2,Doc4,Doc5}.md` - version 1 when written
 - `claude/skills/auditme/tests/phaseb/` and `claude/skills/auditme/SKILL.md`
 
 **Prerequisite:** `agents/tasks/repeatable-phase-b/tasks-1.md` has merged
@@ -206,6 +206,16 @@ printed output that leaves out a line the code prints is drift, and a list of
 a field's values written without "for example", "such as" or "including"
 presents itself as complete; in Doc1 a named path the section calls ignored,
 and that `.gitignore` ignores, is not stale.
+
+Amendment 1.3 (operator, 2026-11-22, `agents/reviews/brief-thresholds-2026-11-22.md`;
+briefs Doc4 and Doc5 at version 5): a spec's header date does not date its
+sections; a statement worded as what the spec's own change did is a record,
+one worded as the current state is judged; a `TODO.md` reference holds while
+its heading is in `TODO.md` or `DONE.md`; a bullet that opens with a date is a
+record of that day; a table naming the change it records is a record of that
+change. In Doc5 a parenthetical list and a list of failure or exit conditions
+present themselves as complete unless marked "for example", "such as",
+"including" or "e.g.", and a claim broader than the code is drift.
 
 Registered batch sizes, unmeasured: 24 for Doc4 and Doc5 (a section and its
 code per candidate), 12 for Doc1 and Doc2 (the tree or the inventories).
