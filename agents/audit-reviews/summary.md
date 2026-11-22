@@ -1,8 +1,8 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-10
-**Total reviews conducted:** 10
+**Last review:** review-11
+**Total reviews conducted:** 11
 **Last script run hit count:** 48 (48 accepted)
 **Script version:** 1bb90d0b792eb64d904d311e8e5b2ca4e8c3b4088081ef14384e5bd4ef22a28d
 
@@ -13,18 +13,25 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-11
+## Convergence note for review-12
 
-- **Sampled mode:** review-11 is not a whole-tree audit (review-12 is), so each sampled question judges only the changed lines since review-10's commit, from `checks/changed.py --scope`.
-- **Listed questions:** review-11 re-judges only candidates whose hash or brief version changed.
-- **Precondition:** review-11 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
-- **Since review-10:** no code changed after its commit, so review-11 has nothing to judge until the next change lands.
+- **Sampled mode:** review-12 is the twelfth audit counted from review-1, so every sampled question runs on the whole tree (review-11 also ran on the whole tree, at the operator's request).
+- **Listed questions:** review-12 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-12 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Tell the whole-tree reviewers:** the dismissed sampled findings below, so they report them again only if their code changed.
 
 ## Unresolved findings
 
-No finding is unresolved: every finding review-9 raised shipped (below), and review-10 raised none.
+Each finding is described in full in [review-11](review-11.md#phase-b-findings-consolidated).
 
-Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small).
+| Finding | Question | Severity | First raised |
+|---------|----------|----------|--------------|
+| F1 `phaseb.py` accepts a root that does not exist | Sec2 | medium | review-11 |
+| F2 the audit roots are worked out again in one listing | A14 | low | review-11 |
+| F3 one test builder copied into three files | A15 | low | review-11 |
+| F4 the A11 lister walks a function once per statement in it | P1 | low | review-11 |
+
+Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small). On review-11's page: F5 (`all_py_files` listing its root on every call, about a twentieth of a sweep).
 
 ## Recently resolved
 
