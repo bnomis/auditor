@@ -264,7 +264,7 @@ matches the other skills in `claude/skills/`, with
 | a declared root that does not exist, or holds no `.py` file (1.11) | `ERROR: declared root <path> not found` or `... holds no .py file`, exit 2 |
 | two declared roots that would sweep a file twice (1.11) | `ERROR: declared roots <a> and <b> overlap`, exit 2 |
 | `audit.py`: a `.py` file directly in `src/` (1.2) | one unaccepted `src-loose-module` hit per file |
-| `audit.py --package <name>` naming a missing package | unchanged: `ERROR: <root> not found`, exit 2 |
+| `audit.py --package <name>` naming a missing package | unchanged: `ERROR: <root> not found`, exit 2; a plain file instead of a directory gives `ERROR: <root> is not a directory`, exit 2 |
 | `ruff-version-drift`: no `.pre-commit-config.yaml`, or no `ruff-pre-commit` repo in it (1.4) | no hit |
 | `ruff-version-drift`: no ruff to run, neither `.venv/bin/ruff` nor one on `PATH` (1.4, 1.5) | one unaccepted hit, variant `ruff could not run, so its version was not compared` |
 | `ruff-version-drift`: the repo has no `rev:`, or a `rev:` that is neither a version nor carries a `# frozen: <version>` comment (1.4) | one unaccepted hit, variant `the ruff-pre-commit rev names no version` |

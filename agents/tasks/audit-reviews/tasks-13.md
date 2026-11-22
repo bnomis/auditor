@@ -47,7 +47,7 @@ and `audit.py` refuses a package root that is not a directory.
 
 ## Task 2: Run the whole-tree checks, the doc listers, and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -58,23 +58,24 @@ records what this list resolved.
 
 **Subtasks:**
 
-- [ ] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand, running any command a statement describes; fix any that no longer matches. Record what was checked in the task's Notes
-- [ ] In `agents/audit-reviews/summary.md`, move each finding Task 1 fixed to Recently resolved, naming the task; when none is left, replace the Unresolved table and the line above it with the sentence "No finding is unresolved: every finding review-14 raised shipped (below)." rather than an empty row
+- [x] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand, running any command a statement describes; fix any that no longer matches. Record what was checked in the task's Notes
+- [x] In `agents/audit-reviews/summary.md`, move each finding Task 1 fixed to Recently resolved, naming the task; when none is left, replace the Unresolved table and the line above it with the sentence "No finding is unresolved: every finding review-14 raised shipped (below)." rather than an empty row
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved section holds only findings that did not ship, each with its reason
+- [x] The Unresolved section holds only findings that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Task 1
+- Doc4 and Doc5 candidates run on 2026-11-22. This list changed `docs/reference/cli.md` and the `is_file` and `is_dir` guards in `audit.py`, `core.py`, `imports_and_surfaces.py` and `project_hygiene.py`. Checked every statement about those guards, `--package` and exit 2 across the candidate sections and by grep: two stale statements found and fixed (`docs/guide/checker.md` exit-2 list and the `--package` row of `agents/specs/project-setup/spec.md`); `docs/reference/cli.md` exit table and exit-2 paragraph confirmed by running each example in Task 1
 
 ---
