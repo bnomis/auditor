@@ -70,20 +70,6 @@ found something new and no cycle converged.
 - **Asked for:** settle each in its brief, bumping the brief's version, so
   every reviewer applies the same threshold.
 
-### A9 should not read a registered check's `check_` name as a purity promise
-
-- **Raised:** 2026-11-21, by this repository's own first full audit (review-1, decision D3).
-- **What happens:** A9 lists `check_` among the pure prefixes. In the
-  checker's registry (`checks/auditme/registry.py`) `check_` is the naming
-  convention for a check, and every check reads the tree and prints hits, so
-  that audit's A9 reported every registered check (68 sites), all dismissed
-  for that one reason. Any project whose `check_*` functions validate by
-  reading meets the same conflict.
-- **Asked for:** a refinement (a narrowing): a function registered as a
-  check, by the project's registry or a decorator that registers it, is not
-  read as pure-named. The refinement names the positive evidence (the
-  registration), not the prefix alone.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.

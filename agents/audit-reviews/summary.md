@@ -60,3 +60,4 @@ Dismissed on review-1's page (2026-11-21): F2, the 68 A9 `check_*` sites (the re
 
 - 2026-11-21, the review-1 task list: an unreadable file is reported as a hit instead of crashing its check (Task 6); `phaseb.py merge` refuses a depth different from its plan (Task 7); arguments and declared roots must stay inside the project (Task 8); the sweep caches parses and shared indexes for the run (Task 13).
 - 2026-11-22, amendment 1.5 of `agents/specs/listed-phase-b-test-questions/spec.md`: the T1 and T2 test index now reads tests from every audit root, so review-2's T1 and T2 verdicts are re-judged where `test_files` grew.
+- 2026-11-22, A9's predicate in `claude/skills/auditme/SKILL.md`: a function the project registers as a check is no longer read as pure-named by its `check_` prefix, so review-2's A9 does not re-raise the registered checks review-1 dismissed.
