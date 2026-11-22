@@ -171,7 +171,7 @@ The declaration errors, each exit `2`:
 The hooks treat any of these as a sweep that cannot run, and `phaseb.py`
 exits `2` with the same message.
 
-`phaseb.py` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path.
+`phaseb.py` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path, and for a `<root>` that does not exist or is not a directory, so a mistyped root never reads as an empty listing.
 
 `phaseb.py plan` records the callee depth it listed at (`--depth`, default 3)
 in `plan.json`. `phaseb.py merge` exits `2`, naming both depths and writing

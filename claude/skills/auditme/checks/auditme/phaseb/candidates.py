@@ -379,7 +379,7 @@ def list_a4_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     Raises:
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
-    return [candidate for src_root in auditme.core.audit_roots(scope) for candidate in root_candidates(scope, src_root, depth)]
+    return [candidate for src_root in auditme.core.cached_roots(scope)[0] for candidate in root_candidates(scope, src_root, depth)]
 
 
 DOC_BATCH_SIZE = 24
@@ -608,7 +608,7 @@ def read_hook_file(scope: pathlib.Path) -> bytes:
 
 def imported_modules(scope: pathlib.Path) -> set[str]:
     """The top-level module names the corpus imports; a file with a syntax error is skipped."""
-    roots = auditme.core.audit_roots(scope)
+    roots, _ = auditme.core.cached_roots(scope)
     src_root = roots[0] if roots else scope / 'src'
     modules: set[str] = set()
     for path in auditme.core.corpus_py_files(scope, src_root):

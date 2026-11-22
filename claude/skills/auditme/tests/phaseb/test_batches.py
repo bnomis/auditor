@@ -6,6 +6,7 @@ import pathlib
 import auditme.phaseb
 import auditme.phaseb.batches
 import auditme.phaseb.candidates
+import conftest
 import pytest
 
 
@@ -15,33 +16,21 @@ def make_batch_candidate(name: str, hash_: str = 'h1') -> auditme.phaseb.candida
     )
 
 
-def make_batch_verdict(candidate: auditme.phaseb.candidates.Candidate, brief_version: int = 1) -> auditme.phaseb.candidates.Verdict:
-    return auditme.phaseb.candidates.Verdict(
-        question='Q1',
-        id=candidate.id,
-        hash=candidate.hash,
-        brief_version=brief_version,
-        findings={'missing': [], 'extra': []},
-        reason='ok',
-        judged='2026-01-01',
-    )
-
-
 def candidate_names(plan: list[list[auditme.phaseb.candidates.Candidate]]) -> list[list[str]]:
     return [[candidate.id.split('::')[1] for candidate in batch] for batch in plan]
 
 
 def test_current_verdict_is_not_planned() -> None:
     candidate = make_batch_candidate('a')
-    ledger = {candidate.id: make_batch_verdict(candidate)}
+    ledger = {candidate.id: conftest.make_verdict(candidate.id, hash=candidate.hash)}
     assert auditme.phaseb.batches.plan_batches([candidate], ledger, 1, 10) == []
 
 
 def test_missing_changed_hash_and_older_brief_are_planned() -> None:
     a, b, c = make_batch_candidate('a'), make_batch_candidate('b'), make_batch_candidate('c')
     ledger = {
-        b.id: make_batch_verdict(make_batch_candidate('b', 'old'), brief_version=2),
-        c.id: make_batch_verdict(c, brief_version=1),
+        b.id: conftest.make_verdict(b.id, hash='old', brief_version=2),
+        c.id: conftest.make_verdict(c.id, hash=c.hash, brief_version=1),
     }
     plan = auditme.phaseb.batches.plan_batches([a, b, c], ledger, 2, 10)
     assert candidate_names(plan) == [['a', 'b', 'c']]
@@ -49,13 +38,13 @@ def test_missing_changed_hash_and_older_brief_are_planned() -> None:
 
 def test_current_brief_version_with_same_hash_is_reused() -> None:
     a, b = make_batch_candidate('a'), make_batch_candidate('b')
-    ledger = {a.id: make_batch_verdict(a, brief_version=2)}
+    ledger = {a.id: conftest.make_verdict(a.id, hash=a.hash, brief_version=2)}
     assert candidate_names(auditme.phaseb.batches.plan_batches([a, b], ledger, 2, 10)) == [['b']]
 
 
 def test_replanned_candidate_carries_its_earlier_verdict_and_a_new_one_does_not(tmp_path: pathlib.Path) -> None:
     changed, fresh = make_batch_candidate('a'), make_batch_candidate('b')
-    earlier = make_batch_verdict(make_batch_candidate('a', 'old'), brief_version=1)
+    earlier = conftest.make_verdict(make_batch_candidate('a').id, hash='old', brief_version=1)
     ledger = {changed.id: earlier}
     plan = auditme.phaseb.batches.plan_batches([changed, fresh], ledger, 1, 10)
     run = tmp_path / 'run'
@@ -74,7 +63,7 @@ def test_plan_without_a_ledger_writes_no_earlier(tmp_path: pathlib.Path) -> None
 
 def test_rejudge_plans_every_candidate() -> None:
     candidate = make_batch_candidate('a')
-    ledger = {candidate.id: make_batch_verdict(candidate)}
+    ledger = {candidate.id: conftest.make_verdict(candidate.id, hash=candidate.hash)}
     assert candidate_names(auditme.phaseb.batches.plan_batches([candidate], ledger, 1, 10, rejudge=True)) == [['a']]
 
 

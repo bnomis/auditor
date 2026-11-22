@@ -42,6 +42,20 @@ def make_candidate(candidate_id: str) -> auditme.phaseb.candidates.Candidate:
     return auditme.phaseb.candidates.Candidate(question='Q1', id=candidate_id, path='src/pkg/mod.py', start=1, end=2, payload={}, hash='h')
 
 
+def make_verdict(candidate_id: str = 'src/pkg/mod.py::probe', **overrides) -> auditme.phaseb.candidates.Verdict:
+    fields = {
+        'question': 'Q1',
+        'id': candidate_id,
+        'hash': 'abc',
+        'brief_version': 1,
+        'findings': {'missing': [], 'extra': []},
+        'reason': 'ok',
+        'judged': '2026-01-01',
+    }
+    fields.update(overrides)
+    return auditme.phaseb.candidates.Verdict(**fields)
+
+
 @pytest.fixture(autouse=True)
 def clean_emitted() -> collections.abc.Iterator[None]:
     """Clear the checker's duplicate suppressor around every test.

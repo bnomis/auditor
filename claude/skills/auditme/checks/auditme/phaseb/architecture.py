@@ -82,7 +82,7 @@ def read_audited_files(scope: pathlib.Path) -> list[ParsedSource]:
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     files: list[ParsedSource] = []
-    for src_root in auditme.core.audit_roots(scope):
+    for src_root in auditme.core.cached_roots(scope)[0]:
         for path in auditme.core.all_py_files(src_root):
             try:
                 text = path.read_text(encoding='utf-8')
@@ -288,13 +288,16 @@ def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
         scopes = scope_nodes(file.tree)
         else_ifs = else_if_nodes(file.tree)
         counter = SiteCounter()
+        flags_by_scope: dict[str, dict[str, str]] = {}
         for qualname, node in walk_with_qualname(file.tree):
             if id(node) in else_ifs or not isinstance(node, ast.stmt):
                 continue
             function = scopes.get(qualname)
             if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 function = None
-            site = a11_site(node, flag_subjects(function) if function is not None else {})
+            if function is not None and qualname not in flags_by_scope:
+                flags_by_scope[qualname] = flag_subjects(function)
+            site = a11_site(node, flags_by_scope.get(qualname, {}))
             if site is None or hit_on_anchor(hits, file.rel, [node.lineno], A11_RULES):
                 continue
             kind, subject = site
@@ -616,7 +619,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     hits = capture_hits(scope, A1_CHECKS)
     domain_errors = package_domain_errors(files)
     catches: dict[str, frozenset[str]] = {}
-    for src_root in auditme.core.audit_roots(scope):
+    for src_root in auditme.core.cached_roots(scope)[0]:
         for name, caught in auditme.rules.error_handling.translator_envelopes(src_root).items():
             catches[name] = catches.get(name, frozenset()) | caught
     envelope_sources: dict[str, list[str]] = collections.defaultdict(list)
@@ -769,7 +772,7 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     files = read_audited_files(scope)
-    roots = auditme.core.audit_roots(scope)
+    roots, _ = auditme.core.cached_roots(scope)
     if not roots:
         return []
     hits = capture_hits(scope, A17_CHECKS)

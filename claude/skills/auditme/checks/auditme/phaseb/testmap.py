@@ -309,7 +309,7 @@ def load_test_index(root: pathlib.Path) -> TestIndex:
         PhaseBError: a test file or audited source file does not parse.
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
-    roots = auditme.core.audit_roots(root)
+    roots, _ = auditme.core.cached_roots(root)
     site_list, parsed_sources = source_sites(root, roots)
     tests, conftests = read_test_tree(root, roots)
     sites = {site.qualname: site for site in site_list}

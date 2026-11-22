@@ -917,3 +917,42 @@ def test_capture_hits_resolves_the_audit_roots_once_for_all_its_checks(project: 
     monkeypatch.setattr(auditme.core, 'audit_roots', counting)
     auditme.phaseb.architecture.capture_hits(root, [first, second])
     assert len(calls) == 1
+
+
+def test_a1_listing_resolves_the_audit_roots_once(project: Project, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': SILENT})
+    auditme.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+    original = auditme.core.audit_roots
+
+    def counting(scope: pathlib.Path) -> list[pathlib.Path]:
+        calls.append(scope)
+        return original(scope)
+
+    monkeypatch.setattr(auditme.core, 'audit_roots', counting)
+    auditme.phaseb.list_candidates('A1', root)
+    assert len(calls) == 1
+
+
+def test_a11_computes_flag_subjects_once_per_function(project: Project, monkeypatch: pytest.MonkeyPatch) -> None:
+    body = """
+    def run(mode):
+        if mode == 'a':
+            return 1
+        else:
+            return 2
+        if mode == 'b':
+            return 3
+        else:
+            return 4
+    """
+    calls: list[ast.AST] = []
+    original = auditme.phaseb.architecture.flag_subjects
+
+    def counting(function: ast.AST) -> dict[str, str]:
+        calls.append(function)
+        return original(function)
+
+    monkeypatch.setattr(auditme.phaseb.architecture, 'flag_subjects', counting)
+    run_a11(write_a11_project(project, body))
+    assert len(calls) == 1

@@ -16,20 +16,6 @@ if typing.TYPE_CHECKING:
 AGENTS_DOC_KINDS = ('stale', 'missing')
 
 
-def make_model_verdict(**overrides) -> auditme.phaseb.candidates.Verdict:
-    fields = {
-        'question': 'Q1',
-        'id': 'src/pkg/mod.py::probe',
-        'hash': 'abc',
-        'brief_version': 1,
-        'findings': {'missing': [], 'extra': []},
-        'reason': 'ok',
-        'judged': '2026-01-01',
-    }
-    fields.update(overrides)
-    return auditme.phaseb.candidates.Verdict(**fields)
-
-
 @pytest.fixture
 def isolated_registry() -> collections.abc.Iterator[None]:
     """Run a test against an empty registry and restore the real one after."""
@@ -45,23 +31,23 @@ def isolated_registry() -> collections.abc.Iterator[None]:
 
 
 def test_flagged_when_any_findings_list_is_non_empty() -> None:
-    assert make_model_verdict(findings={'missing': ['ProbeError'], 'extra': []}).flagged
-    assert make_model_verdict(findings={'missing': [], 'extra': ['ProbeError']}).flagged
+    assert conftest.make_verdict(findings={'missing': ['ProbeError'], 'extra': []}).flagged
+    assert conftest.make_verdict(findings={'missing': [], 'extra': ['ProbeError']}).flagged
 
 
 def test_not_flagged_when_all_findings_lists_are_empty() -> None:
-    assert not make_model_verdict().flagged
+    assert not conftest.make_verdict().flagged
 
 
 def test_not_flagged_when_dismissed() -> None:
-    assert not make_model_verdict(findings={'missing': ['ProbeError'], 'extra': []}, dismissed='2026-01-02: intended').flagged
+    assert not conftest.make_verdict(findings={'missing': ['ProbeError'], 'extra': []}, dismissed='2026-01-02: intended').flagged
 
 
 def test_candidate_and_verdict_are_frozen() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
         conftest.make_candidate('a').hash = 'x'  # type: ignore[misc]
     with pytest.raises(dataclasses.FrozenInstanceError):
-        make_model_verdict().reason = 'x'  # type: ignore[misc]
+        conftest.make_verdict().reason = 'x'  # type: ignore[misc]
 
 
 def test_register_question_records_lister_and_brief(isolated_registry: None, tmp_path: pathlib.Path) -> None:
