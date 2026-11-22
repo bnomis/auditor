@@ -201,6 +201,59 @@ def test_a_corpus_index_lookup_does_not_list_the_corpus_again_within_a_run(proje
     auditme.core.clear_source_cache()
 
 
+def test_a_corpus_index_is_built_once_per_kind_within_a_run(project: Builder) -> None:
+    root = project({'src/pkg/mod.py': DEFINITIONS_SOURCE})
+    src_root = root / 'src' / 'pkg'
+    auditme.core.clear_source_cache()
+    builds: list[str] = []
+
+    def build(kind: str) -> collections.abc.Callable[[], str]:
+        def run() -> str:
+            builds.append(kind)
+            return kind
+
+        return run
+
+    assert auditme.core.corpus_index('kind-a', root, src_root, build('kind-a')) == 'kind-a'
+    assert auditme.core.corpus_index('kind-a', root, src_root, build('kind-a')) == 'kind-a'
+    assert auditme.core.corpus_index('kind-b', root, src_root, build('kind-b')) == 'kind-b'
+    assert builds == ['kind-a', 'kind-b']
+    auditme.core.clear_source_cache()
+
+
+def test_a_corpus_index_is_rebuilt_after_a_corpus_file_changes(project: Builder) -> None:
+    root = project({'src/pkg/mod.py': DEFINITIONS_SOURCE})
+    src_root = root / 'src' / 'pkg'
+    auditme.core.clear_source_cache()
+    builds: list[int] = []
+
+    def build() -> int:
+        builds.append(1)
+        return len(builds)
+
+    assert auditme.core.corpus_index('probe', root, src_root, build) == 1
+    (src_root / 'mod.py').write_text(DEFINITIONS_SOURCE + '\n\ndef extra() -> None:\n    pass\n', encoding='utf-8')
+    assert auditme.core.corpus_index('probe', root, src_root, build) == 2
+    auditme.core.clear_source_cache()
+
+
+def test_a_corpus_index_is_rebuilt_once_a_file_is_added_in_a_later_run(project: Builder) -> None:
+    root = project({'src/pkg/mod.py': DEFINITIONS_SOURCE})
+    src_root = root / 'src' / 'pkg'
+    auditme.core.clear_source_cache()
+    builds: list[int] = []
+
+    def build() -> int:
+        builds.append(1)
+        return len(builds)
+
+    assert auditme.core.corpus_index('probe', root, src_root, build) == 1
+    (src_root / 'added.py').write_text(DEFINITIONS_SOURCE, encoding='utf-8')
+    auditme.core.clear_source_cache()
+    assert auditme.core.corpus_index('probe', root, src_root, build) == 2
+    auditme.core.clear_source_cache()
+
+
 def test_corpus_definitions_skips_a_file_with_a_syntax_error(project: Builder) -> None:
     root = project({'src/pkg/good.py': DEFINITIONS_SOURCE, 'src/pkg/bad.py': 'def broken(:\n'})
     assert list(auditme.core.corpus_definitions(root, root / 'src' / 'pkg')) == ['run']

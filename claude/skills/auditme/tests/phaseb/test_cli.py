@@ -1,5 +1,6 @@
 """Tests for the `phaseb.py` command line, run as a subprocess on a fixture project."""
 
+import argparse
 import collections.abc
 import json
 import pathlib
@@ -9,6 +10,8 @@ import sys
 import auditme.phaseb
 import auditme.phaseb.candidates
 import conftest
+import hypothesis
+import hypothesis.strategies
 import phaseb
 import pytest
 
@@ -367,3 +370,18 @@ def test_plan_reports_a_malformed_declaration_and_exits_2(project: Project, tmp_
     assert done.returncode == 2
     assert done.stderr.startswith('ERROR: ')
     assert done.stdout == ''
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(value=hypothesis.strategies.text(max_size=8))
+def test_registered_question_returns_its_input_exactly_when_registered(value: str) -> None:
+    if value in auditme.phaseb.registered_questions():
+        assert phaseb.registered_question(value) == value
+    else:
+        with pytest.raises(argparse.ArgumentTypeError):
+            phaseb.registered_question(value)
+
+
+@pytest.mark.parametrize('question', auditme.phaseb.registered_questions())
+def test_every_registered_question_is_accepted(question: str) -> None:
+    assert phaseb.registered_question(question) == question

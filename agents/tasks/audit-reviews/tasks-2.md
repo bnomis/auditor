@@ -238,7 +238,7 @@ root.
 
 ## Task 7: Add the two missing tests
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F5
@@ -248,18 +248,18 @@ root.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/tests/test_core.py`, test `corpus_index` directly: it builds each kind of index once per run, and rebuilds it after a corpus file changes or a file is added
-- [ ] In `claude/skills/auditme/tests/phaseb/test_cli.py`, add a hypothesis test, `@settings(max_examples=20, deadline=10000)`, over arbitrary strings: `registered_question` returns its input unchanged exactly when it is a registered question, and raises `argparse.ArgumentTypeError` otherwise
+- [x] In `claude/skills/auditme/tests/test_core.py`, test `corpus_index` directly: it builds each kind of index once per run, and rebuilds it after a corpus file changes or a file is added
+- [x] In `claude/skills/auditme/tests/phaseb/test_cli.py`, add a hypothesis test, `@settings(max_examples=20, deadline=10000)`, over arbitrary strings: `registered_question` returns its input unchanged exactly when it is a registered question, and raises `argparse.ArgumentTypeError` otherwise
 
 **Acceptance Criteria:**
 
-- [ ] Both tests pass
-- [ ] `python3 claude/skills/auditme/checks/phaseb.py candidates . --question T1` lists a `direct` test for `core.py::corpus_index`
+- [x] Both tests pass
+- [x] `python3 claude/skills/auditme/checks/phaseb.py candidates . --question T1` lists a `direct` test for `core.py::corpus_index`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
