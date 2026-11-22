@@ -157,9 +157,10 @@ resemblance.
 
 One candidate per (section, target) pair, id `<doc>::<heading
 path>::<target id>`, span the section's, payload the target and each line
-naming it. Hash: sha256, NUL-separated, over each block (paragraph, list
-item, table row or fence) of the section naming the target, once, in line
-order; then the target's source - the whole source lines from the first decorator's line to the end line
+naming it. Hash: sha256, NUL-separated, over the whole section's text
+(amendment 2026-11-22, review-5: not only the blocks naming the target, so an
+edit to any statement a reviewer can report under the candidate re-plans it);
+then the target's source - the whole source lines from the first decorator's line to the end line
 for a def or class (amendment 2026-11-21: not `ast.get_source_segment`), the statement for a field or option call, a file's
 bytes, a directory's sorted tracked entries. A section with unresolved or
 ambiguous tokens also gets `<doc>::<heading path>::(unresolved)`: payload

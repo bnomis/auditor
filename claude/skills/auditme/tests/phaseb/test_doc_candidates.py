@@ -166,11 +166,11 @@ def test_block_naming_the_target_changes_the_hash(root: pathlib.Path) -> None:
     assert listed(root, 'Doc4')[pair].hash != before
 
 
-def test_block_not_naming_the_target_leaves_the_hash(root: pathlib.Path) -> None:
+def test_line_naming_no_target_changes_the_hash(root: pathlib.Path) -> None:
     pair = 'agents/specs/probe/spec.md::Probe > Run::src/pkg/mod.py::run_it'
     before = listed(root, 'Doc4')[pair].hash
     write(root, 'agents/specs/probe/spec.md', SPEC.replace('Nothing else happens', 'Something else happens'))
-    assert listed(root, 'Doc4')[pair].hash == before
+    assert listed(root, 'Doc4')[pair].hash != before
 
 
 def test_undefined_name_gets_an_unresolved_candidate_until_defined(root: pathlib.Path) -> None:

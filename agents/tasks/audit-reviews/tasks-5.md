@@ -122,7 +122,7 @@ one listing reads, parses and resolves each thing once.
 
 ## Task 4: Hash every statement a Doc candidate's findings can name
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** request "A Doc candidate's hash leaves out the statements a reviewer reports under it" (review-5 D2)
@@ -132,20 +132,20 @@ that section, so a fixed statement is judged again.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `claude/skills/auditme/tests/phaseb/test_doc_candidates.py`: in a spec section that names a target on one line and holds another line naming no target, editing the second line changes the hash of the named-target candidate
-- [ ] In `doc_candidates` (`claude/skills/auditme/checks/auditme/phaseb/candidates.py:479-489` on 2026-11-22), hash the whole section's text in every candidate of the section, plus the target's file, as the `(unresolved)` candidate already does
-- [ ] Amend the hash description in `agents/specs/listed-phase-b-documentation-questions/spec.md` (its Content hash section), dated, citing review-5
-- [ ] Delete the request's entry from `claude/skills/auditme/requests.md`
+- [x] Write the failing test first, in `claude/skills/auditme/tests/phaseb/test_doc_candidates.py`: in a spec section that names a target on one line and holds another line naming no target, editing the second line changes the hash of the named-target candidate
+- [x] In `doc_candidates` (`claude/skills/auditme/checks/auditme/phaseb/candidates.py:479-489` on 2026-11-22), hash the whole section's text in every candidate of the section, plus the target's file, as the `(unresolved)` candidate already does
+- [x] Amend the hash description in `agents/specs/listed-phase-b-documentation-questions/spec.md` (its Content hash section), dated, citing review-5
+- [x] Delete the request's entry from `claude/skills/auditme/requests.md`
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] The listings' candidate ids are unchanged; only Doc4 and Doc5 hashes change
+- [x] The new test fails before the change and passes after it
+- [x] The listings' candidate ids are unchanged; only Doc4 and Doc5 hashes change
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_doc_candidates.py claude/skills/auditme/tests/phaseb/test_docrefs.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_doc_candidates.py claude/skills/auditme/tests/phaseb/test_docrefs.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

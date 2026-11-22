@@ -386,8 +386,6 @@ DOC_BATCH_SIZE = 24
 DOC_BRIEFS = A4_BRIEF.parent
 UNRESOLVED = '(unresolved)'
 IMPLEMENTED_RE = re.compile(r'^\*\*Status:\*\*\s*implemented\s*$', re.MULTILINE)
-LIST_ITEM_RE = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s')
-TABLE_ROW_RE = re.compile(r'^\s*\|')
 
 
 def read_text(path: pathlib.Path) -> str:
@@ -400,44 +398,6 @@ def read_text(path: pathlib.Path) -> str:
         return auditme.core.cached_bytes(path).decode('utf-8')
     except (OSError, UnicodeDecodeError) as error:
         raise auditme.phaseb.errors.PhaseBError(f'cannot read {path}') from error
-
-
-def section_blocks(lines: list[str], start: int, end: int) -> list[tuple[int, int]]:
-    """The (first, last) lines of each paragraph, list item, table row and fence between a heading and the section's end."""
-    blocks: list[tuple[int, int]] = []
-    first: int | None = None
-    in_fence = False
-    for number in range(start + 1, end + 1):
-        line = lines[number - 1]
-        if auditme.phaseb.docrefs.FENCE_RE.match(line):
-            if in_fence:
-                blocks.append((first or number, number))
-                first = None
-            else:
-                if first is not None:
-                    blocks.append((first, number - 1))
-                first = number
-            in_fence = not in_fence
-        elif in_fence:
-            continue
-        elif not line.strip():
-            if first is not None:
-                blocks.append((first, number - 1))
-                first = None
-        elif TABLE_ROW_RE.match(line):
-            if first is not None:
-                blocks.append((first, number - 1))
-            blocks.append((number, number))
-            first = None
-        elif LIST_ITEM_RE.match(line):
-            if first is not None:
-                blocks.append((first, number - 1))
-            first = number
-        elif first is None:
-            first = number
-    if first is not None:
-        blocks.append((first, end))
-    return blocks
 
 
 def target_bytes(target: auditme.phaseb.docrefs.DocTarget, index: auditme.phaseb.docrefs.CorpusIndex) -> bytes:
@@ -468,7 +428,7 @@ def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.P
     for document in documents:
         lines = read_text(document).splitlines()
         for section in auditme.phaseb.docrefs.read_sections(document, scope):
-            blocks = section_blocks(lines, section.start, section.end)
+            text = '\n'.join(lines[section.start - 1 : section.end]).encode('utf-8')
             named: dict[str, tuple[auditme.phaseb.docrefs.DocTarget, list[int]]] = {}
             unresolved: list[dict[str, typing.Any]] = []
             for number, token in section.names:
@@ -479,8 +439,6 @@ def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.P
                     unresolved.append({'name': token, 'line': number, 'definitions': [dataclasses.asdict(target) for target in targets]})
             prefix = f'{section.doc}::{section.heading_path}::'
             for target, numbers in named.values():
-                covering = sorted({block for block in blocks for number in numbers if block[0] <= number <= block[1]})
-                parts = ['\n'.join(lines[first - 1 : last]).encode('utf-8') for first, last in covering]
                 found.append(
                     section_candidate(
                         question,
@@ -490,11 +448,10 @@ def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.P
                             'target': dataclasses.asdict(target),
                             'lines': [{'line': number, 'text': lines[number - 1].strip()} for number in sorted(set(numbers))],
                         },
-                        digest([*parts, target_bytes(target, index)]),
+                        digest([text, target_bytes(target, index)]),
                     )
                 )
             if unresolved:
-                text = '\n'.join(lines[section.start - 1 : section.end]).encode('utf-8')
                 tokens = '\n'.join(sorted(entry['name'] for entry in unresolved)).encode('utf-8')
                 found.append(section_candidate(question, prefix + UNRESOLVED, section, {'tokens': unresolved}, digest([text, tokens])))
     return found

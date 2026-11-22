@@ -65,25 +65,6 @@ found something new and no cycle converged.
   says a reviewer whose verdict differs from the earlier one gives the reason
   for the change in its `reason`. That is a version bump of every brief.
 
-### A Doc candidate's hash leaves out the statements a reviewer reports under it
-
-- **Raised:** 2026-11-22, by this repository's fifth audit (review-5, its Checker request section), reproduced the same day.
-- **What happens:** for a Doc4 or Doc5 candidate with a named target,
-  `doc_candidates` in `checks/auditme/phaseb/candidates.py` hashes only the
-  blocks of the section that name that target, plus the target's file. A
-  reviewer reports a drift under the candidate whose target it is about, or
-  under the first candidate of the section, and the drift's statement can lie
-  outside the hashed blocks. Fixing it leaves the hash unchanged, so the
-  candidate is never judged again and the finding stays open. Seen on
-  `agents/specs/project-setup/spec.md`'s candidate for
-  `claude/skills/auditme-project-setup/SKILL.md`: hash `d014b790` at both
-  `0a01580` (before its fix) and `dbb9780` (after).
-- **Asked for:** hash the whole section's text in every candidate of the
-  section (as the `(unresolved)` candidate already does), plus the target's
-  file, so any edit in the section re-plans its candidates; test that editing a
-  line that names no target changes the hash of a named-target candidate in
-  the same section.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.
