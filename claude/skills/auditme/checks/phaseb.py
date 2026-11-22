@@ -54,12 +54,27 @@ def add_question(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def positive_int(value: str) -> int:
+    """Return `value` as an integer of at least 1.
+
+    Raises:
+        argparse.ArgumentTypeError: value is not an integer, or is below 1.
+    """
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'not an integer: {value!r}') from None
+    if number < 1:
+        raise argparse.ArgumentTypeError(f'must be at least 1: {value!r}')
+    return number
+
+
 def add_depth(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--depth',
-        type=int,
+        type=positive_int,
         default=None,
-        help='How far callees are followed, for questions that follow callees (default 3)',
+        help='How far callees are followed, at least 1; only for the questions that follow callees (default 3)',
     )
 
 
@@ -67,15 +82,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='Phase B driver for listed audit questions.',
     )
-    commands = parser.add_subparsers(dest='command', required=True)
+    commands = parser.add_subparsers(
+        dest='command',
+        required=True,
+    )
 
-    candidates = commands.add_parser('candidates', help='Print every candidate as a JSON line')
-    candidates.add_argument('root', type=pathlib.Path)
+    candidates = commands.add_parser(
+        'candidates',
+        help='Print every candidate as a JSON line',
+    )
+    candidates.add_argument(
+        'root',
+        type=pathlib.Path,
+    )
     add_question(candidates)
     add_depth(candidates)
 
-    plan = commands.add_parser('plan', help='Write the batches that need a verdict')
-    plan.add_argument('root', type=pathlib.Path)
+    plan = commands.add_parser(
+        'plan',
+        help='Write the batches that need a verdict',
+    )
+    plan.add_argument(
+        'root',
+        type=pathlib.Path,
+    )
     add_question(plan)
     add_depth(plan)
     plan.add_argument(
@@ -96,24 +126,56 @@ def build_parser() -> argparse.ArgumentParser:
         help='Plan every candidate, ignoring the ledger',
     )
 
-    check = commands.add_parser('check', help='Check a run; exit 1 on any problem')
-    check.add_argument('run_dir', type=pathlib.Path, metavar='dir')
+    check = commands.add_parser(
+        'check',
+        help='Check a run; exit 1 on any problem',
+    )
+    check.add_argument(
+        'run_dir',
+        type=pathlib.Path,
+        metavar='dir',
+    )
 
-    merge = commands.add_parser('merge', help="Merge a checked run into the project's ledger")
-    merge.add_argument('root', type=pathlib.Path)
+    merge = commands.add_parser(
+        'merge',
+        help="Merge a checked run into the project's ledger",
+    )
+    merge.add_argument(
+        'root',
+        type=pathlib.Path,
+    )
     add_question(merge)
     add_depth(merge)
-    merge.add_argument('run_dir', type=pathlib.Path, metavar='dir')
+    merge.add_argument(
+        'run_dir',
+        type=pathlib.Path,
+        metavar='dir',
+    )
 
-    report = commands.add_parser('report', help='Print the open findings, new and carried')
-    report.add_argument('root', type=pathlib.Path)
+    report = commands.add_parser(
+        'report',
+        help='Print the open findings, new and carried',
+    )
+    report.add_argument(
+        'root',
+        type=pathlib.Path,
+    )
     add_question(report)
     add_depth(report)
 
-    dismiss = commands.add_parser('dismiss', help="Record the operator's dismissal of a finding")
-    dismiss.add_argument('root', type=pathlib.Path)
+    dismiss = commands.add_parser(
+        'dismiss',
+        help="Record the operator's dismissal of a finding",
+    )
+    dismiss.add_argument(
+        'root',
+        type=pathlib.Path,
+    )
     add_question(dismiss)
-    dismiss.add_argument('candidate_id', metavar='id')
+    dismiss.add_argument(
+        'candidate_id',
+        metavar='id',
+    )
     dismiss.add_argument(
         '--reason',
         required=True,
@@ -204,7 +266,10 @@ COMMANDS = {
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
+    if getattr(args, 'depth', None) is not None and args.question not in auditme.phaseb.candidates.TAKES_DEPTH:
+        parser.error(f'--depth is only for the questions {sorted(auditme.phaseb.candidates.TAKES_DEPTH)}, not {args.question}')
     try:
         return COMMANDS[args.command](args)
     except auditme.phaseb.PhaseBError as error:

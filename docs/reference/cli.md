@@ -178,6 +178,11 @@ nothing to the ledger, when its own `--depth` differs from the plan's: merge
 with the plan's depth, or plan again. A `plan.json` written before the depth
 was recorded is read as depth 3.
 
+`--depth` is accepted by `candidates`, `plan`, `merge` and `report`, only for
+the questions that follow callees (A4, T1 and T2), and must be at least 1.
+For any other question, or a value below 1, the command exits `2` with a
+usage error.
+
 The exit status does not reflect hits: callers read stdout.
 
 Environment: the checks run `ruff` and `uv` as subprocesses with the caller's

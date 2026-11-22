@@ -50,7 +50,7 @@ cannot pass because another file is unreadable.
 
 ## Task 2: Pass --depth only to listers that take it, and refuse a bad one
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F6, F13
@@ -63,25 +63,25 @@ usage error.
 
 **Subtasks:**
 
-- [ ] Write the failing tests first, in `claude/skills/auditme/tests/phaseb/test_cli.py`:
+- [x] Write the failing tests first, in `claude/skills/auditme/tests/phaseb/test_cli.py`:
   - `phaseb.py candidates <probe> --question A11 --depth 3` exits 2 with a usage error naming the questions that take a depth;
   - `--depth 0` and `--depth -1` exit 2;
   - `--question A4 --depth 2` still lists, as before;
   - `plan` behaves the same as `candidates`
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/candidates.py`, `list_candidates` passes `depth` only to a lister registered as taking one; record that in the registry entry rather than inspecting the lister's signature
-- [ ] In `claude/skills/auditme/checks/phaseb.py`, give `--depth` a type that refuses a value below 1, and refuse it for a question whose lister takes no depth
-- [ ] F13: add the trailing comma to each argparse call in `claude/skills/auditme/checks/phaseb.py` (lines 70, 72, 73, 77, 78, 99, 100, 102, 103, 106, 108, 109, 113, 114 and 116 on 2026-11-22), so `ruff format` puts one argument per line, as `~/.claude/rules/python/argparse.md` asks
-- [ ] Update `docs/reference/cli.md`'s `phaseb.py` section with the `--depth` rule
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/candidates.py`, `list_candidates` passes `depth` only to a lister registered as taking one; record that in the registry entry rather than inspecting the lister's signature
+- [x] In `claude/skills/auditme/checks/phaseb.py`, give `--depth` a type that refuses a value below 1, and refuse it for a question whose lister takes no depth
+- [x] F13: add the trailing comma to each argparse call in `claude/skills/auditme/checks/phaseb.py` (lines 70, 72, 73, 77, 78, 99, 100, 102, 103, 106, 108, 109, 113, 114 and 116 on 2026-11-22), so `ruff format` puts one argument per line, as `~/.claude/rules/python/argparse.md` asks
+- [x] Update `docs/reference/cli.md`'s `phaseb.py` section with the `--depth` rule
 
 **Acceptance Criteria:**
 
-- [ ] The new tests fail before the change and pass after it
-- [ ] No argparse call in `phaseb.py` takes more than one argument on one line
+- [x] The new tests fail before the change and pass after it
+- [x] No argparse call in `phaseb.py` takes more than one argument on one line
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py claude/skills/auditme/tests/phaseb/test_a4_candidates.py claude/skills/auditme/tests/phaseb/test_t1_candidates.py claude/skills/auditme/tests/phaseb/test_t2_candidates.py claude/skills/auditme/tests/phaseb/test_model.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py claude/skills/auditme/tests/phaseb/test_a4_candidates.py claude/skills/auditme/tests/phaseb/test_t1_candidates.py claude/skills/auditme/tests/phaseb/test_t2_candidates.py claude/skills/auditme/tests/phaseb/test_model.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

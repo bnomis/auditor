@@ -59,6 +59,8 @@ DEFAULT_BATCH_SIZE = 48
 REGISTRY: dict[str, tuple[Lister, pathlib.Path, int]] = {}
 # auditme: accept[mutable-module-level-exported] filled by `@register_question` at import beside `REGISTRY`, and patched by a test
 KINDS: dict[str, tuple[str, ...]] = {}
+# auditme: accept[mutable-module-level-exported] filled by `@register_question(takes_depth=True)` at import beside `REGISTRY`
+TAKES_DEPTH: set[str] = set()
 
 
 def read_test_files(scope: pathlib.Path, names: collections.abc.Iterable[str]) -> list[bytes]:
@@ -74,7 +76,11 @@ def read_test_files(scope: pathlib.Path, names: collections.abc.Iterable[str]) -
 
 
 def register_question(
-    question: str, brief: pathlib.Path, kinds: tuple[str, ...], batch_size: int = DEFAULT_BATCH_SIZE
+    question: str,
+    brief: pathlib.Path,
+    kinds: tuple[str, ...],
+    batch_size: int = DEFAULT_BATCH_SIZE,
+    takes_depth: bool = False,
 ) -> collections.abc.Callable[[Lister], Lister]:
     """Register a candidate lister for a Phase B question, with its brief, finding kinds and batch size.
 
@@ -82,7 +88,8 @@ def register_question(
     line, in the order the brief names them. The batch size is how many
     candidates one reviewer judges when `phaseb.py plan` is not given
     `--batch-size`; a question whose candidates are costly to judge registers
-    a smaller one.
+    a smaller one. A question whose lister follows callees registers
+    `takes_depth`, and only then is a depth handed to its lister.
 
     Raises:
         PhaseBError: kinds is empty or names a kind twice.
@@ -95,6 +102,10 @@ def register_question(
     def decorate(lister: Lister) -> Lister:
         REGISTRY[question] = (lister, brief, batch_size)
         KINDS[question] = tuple(kinds)
+        if takes_depth:
+            TAKES_DEPTH.add(question)
+        else:
+            TAKES_DEPTH.discard(question)
         return lister
 
     return decorate
@@ -143,15 +154,21 @@ def question_batch_size(question: str) -> int:
 def list_candidates(question: str, root: pathlib.Path, depth: int | None = None) -> list[Candidate]:
     """List every candidate for question under root, sorted by id.
 
-    A depth is handed to the lister, which follows callees that far; without
-    one the lister uses its own default.
+    A depth is handed to a lister registered as taking one, which follows
+    callees that far; without one the lister uses its own default.
 
     Raises:
-        PhaseBError: question has no registered lister.
+        PhaseBError: question has no registered lister, or a depth is given for
+            a question whose lister takes none.
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     lister, _, _ = registered(question)
-    found = lister(root) if depth is None else lister(root, depth)  # type: ignore[call-arg]
+    if depth is None:
+        found = lister(root)
+    elif question in TAKES_DEPTH:
+        found = lister(root, depth)  # type: ignore[call-arg]
+    else:
+        raise auditme.phaseb.errors.PhaseBError(f'question {question!r} takes no depth; only {sorted(TAKES_DEPTH)} do')
     return sorted(found, key=lambda candidate: candidate.id)
 
 
@@ -332,7 +349,7 @@ def root_candidates(scope: pathlib.Path, src_root: pathlib.Path, depth: int) -> 
     return found
 
 
-@register_question('A4', A4_BRIEF, ('missing', 'extra'))
+@register_question('A4', A4_BRIEF, ('missing', 'extra'), takes_depth=True)
 def list_a4_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
     """List every function or method with a `Raises:` section under the audited roots, minus D2's stubs.
 
@@ -754,7 +771,7 @@ def is_overload(node: FunctionNode) -> bool:
 
 
 # auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
-@register_question('T1', T1_BRIEF, ('missing',))
+@register_question('T1', T1_BRIEF, ('missing',), takes_depth=True)
 def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
     """List every function or method whose own body branches, with the tests that reach it.
 
@@ -981,7 +998,7 @@ def referenced_types(annotations: list[ast.expr], package_types: collections.abc
 
 
 # auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
-@register_question('T2', T2_BRIEF, ('missing',))
+@register_question('T2', T2_BRIEF, ('missing',), takes_depth=True)
 def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
     """List every function `is_t2_candidate` accepts, with its types, inverse pairs and tests.
 
