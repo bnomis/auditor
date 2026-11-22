@@ -762,11 +762,14 @@ def cached_roots(scope: pathlib.Path) -> tuple[list[pathlib.Path], collections.a
     `audit_roots` reads `pyproject.toml` and lists `src/`; a listing that asks
     for the roots once per candidate would repeat that work for every one.
     """
+    global ROOT_MODULES
     key = ('audit-roots', scope)
     if key not in INDEX_CACHE:
         roots = audit_roots(scope)
         INDEX_CACHE[key] = (roots, ROOT_MODULES)
-    return typing.cast('tuple[list[pathlib.Path], collections.abc.Mapping[pathlib.Path, str]]', INDEX_CACHE[key])
+    cached = typing.cast('tuple[list[pathlib.Path], types.MappingProxyType[pathlib.Path, str]]', INDEX_CACHE[key])
+    ROOT_MODULES = cached[1]
+    return cached
 
 
 def surface_files(module: str, root: pathlib.Path) -> tuple[list[pathlib.Path], list[pathlib.Path]]:

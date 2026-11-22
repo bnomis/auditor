@@ -113,7 +113,7 @@ package's public surface, without the absolute from-import S4 forbids.
 
 ## Task 4: Keep one copy of the root modes
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F3
@@ -123,18 +123,18 @@ reader of `ROOT_MODULES` and a reader of the per-run cache always agree.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `claude/skills/auditme/tests/test_core.py`: resolve the roots of scope A, then of scope B, then of A again from the cache; after the third call, the mode `py_files` uses for A's roots is A's
-- [ ] In `claude/skills/auditme/checks/auditme/core.py`, make `cached_roots` (line 759 on 2026-11-22) set `ROOT_MODULES` on a cache hit too, or make the readers (`core.py:222`, `core.py:230`, `rules/imports_and_surfaces.py:129`) take the mode from the cache; choose whichever leaves one place that holds the mapping
+- [x] Write the failing test first, in `claude/skills/auditme/tests/test_core.py`: resolve the roots of scope A, then of scope B, then of A again from the cache; after the third call, the mode `py_files` uses for A's roots is A's
+- [x] In `claude/skills/auditme/checks/auditme/core.py`, make `cached_roots` (line 759 on 2026-11-22) set `ROOT_MODULES` on a cache hit too, or make the readers (`core.py:222`, `core.py:230`, `rules/imports_and_surfaces.py:129`) take the mode from the cache; choose whichever leaves one place that holds the mapping
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] The sorted sweep of this repository is unchanged (`python3 claude/skills/auditme/checks/audit.py . | sort`, before and after)
+- [x] The new test fails before the change and passes after it
+- [x] The sorted sweep of this repository is unchanged (`python3 claude/skills/auditme/checks/audit.py . | sort`, before and after)
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (`core.py` is reached by every test module)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (`core.py` is reached by every test module)
 
 **Notes:**
 
