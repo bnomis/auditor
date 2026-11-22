@@ -75,8 +75,14 @@ def is_test_path(path: pathlib.Path, root: pathlib.Path) -> bool:
 
 
 def test_tree_roots(root: pathlib.Path) -> list[pathlib.Path]:
-    """The test directories that exist, `src/tests` then `tests`."""
-    return [root / tree for tree in TEST_TREES if (root / tree).is_dir()]
+    """The directories tests are read from: every audit root, then `src/tests` and `tests` where they exist and are not already listed.
+
+    Raises:
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
+    """
+    roots = auditme.core.audit_roots(root)
+    roots.extend(root / tree for tree in TEST_TREES if (root / tree).is_dir() and root / tree not in roots)
+    return roots
 
 
 def source_sites(root: pathlib.Path) -> tuple[list[auditme.phaseb.candidates.Site], dict[str, ParsedFile]]:
@@ -103,6 +109,7 @@ def read_test_tree(root: pathlib.Path) -> tuple[list[ParsedFile], dict[pathlib.P
 
     Raises:
         PhaseBError: a test file does not parse.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     tests: dict[pathlib.Path, ParsedFile] = {}
     conftests: dict[pathlib.Path, ParsedFile] = {}
