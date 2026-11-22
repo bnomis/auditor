@@ -69,7 +69,7 @@ uv run --no-project python claude/skills/auditme/checks/changed.py --all     # e
 whole tree, so cross-file rules see every file, then keeps the unaccepted hits
 in scope. It exits 1 when any remain, or on any failure: an argument error, a
 `--base` that is a flag, git that cannot run, a diff or `rev-parse` that fails,
-or a sweep that cannot start, times out, exits non-zero, prints a line that is
+a repository root that cannot be resolved, or a sweep that cannot start, times out, exits non-zero, prints a line that is
 not a JSON object, or reports a crashed check. It exits 0 otherwise. A sweep that cannot run is never skipped.
 
 | Mode | Scope | Runs as |
@@ -78,7 +78,8 @@ not a JSON object, or reports a crashed check. It exits 0 otherwise. A sweep tha
 | `--all` | Every file | The `auditme-all` hook: the push gate and CI |
 
 `--base` defaults to the first of `@{upstream}`, `origin/main` and `main` that
-resolves. With none, or with no reportable file changed (a `.py` file, a `uv.lock`, or a `.md` file outside hidden directories and outside `audit-reviews` and `tasks`, among others),
+resolves. A value starting with `-` is refused, whichever spelling of the option
+gave it, so it is never read by git as an option. With none, or with no reportable file changed (a `.py` file, a `uv.lock`, or a `.md` file outside hidden directories and outside `audit-reviews` and `tasks`, among others),
 it prints why and exits 0 without sweeping. `<repo-root>` defaults to the
 working directory's git top level.
 

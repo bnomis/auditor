@@ -20,8 +20,8 @@ existing one.
 The checker audits the packages under `src/<package>/` and the scripts in
 `bin/`. `src/` is optional: a project with only `bin/` is audited over `bin/`,
 and a project with no Python at all gets only the project-level checks: its
-`uv.lock` against `pyproject.toml`, and its `ruff-pre-commit` pin against the
-ruff the audit runs. A `.py` file directly in `src/`
+`uv.lock` against `pyproject.toml`, its `ruff-pre-commit` pin against the
+ruff the audit runs, and its Markdown (`spec-api-signature-drift`). A `.py` file directly in `src/`
 belongs to no package, so it is reported as a `src-loose-module` hit; move it
 into a package, or accept it with a line-1 marker. No other directory's Python
 is swept.
@@ -272,7 +272,7 @@ and that the `Install the audit deploy key` step ran before `pre-commit`.
 - `jq` is missing: `command -v jq`.
 - The installer has not run: `grep -n 'auditme-stop.sh' ~/.claude/settings.json`.
 - No diff base resolves (no upstream, `origin/main` or `main`): `changed.py` prints that and passes without sweeping. Check `git rev-parse --verify origin/main`.
-- The directory is not a git repository: `changed.py` cannot find the repository root and fails.
+- The directory is not a git repository: the Stop hook finds no repository root and exits 0 itself, without running `changed.py`.
 
 **Hits appear only after an upgrade.** Expected: the new checker has new rules.
 See [Upgrading the checker](#upgrading-the-checker).

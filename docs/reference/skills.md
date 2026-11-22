@@ -30,11 +30,13 @@ file path, a spec slug, or the docs. `--category` (`standards`,
   `python3 ~/.claude/skills/auditme/checks/audit.py <project-root>`, then a
   fixed checklist (a listed question runs one reviewer per batch of its
   candidates; a sampled question runs on the files changed since the previous
-  review, and on the whole tree every third audit), then a spec review and re-verification of earlier findings.
+  review, and on the whole tree every third audit and on any audit with no previous
+  `**Commit:**`), then a spec review and re-verification of earlier findings.
 - **Refuses to start** while `claude/skills/auditme/requests.md` has open
   checker change requests.
 - **Writes:** `agents/audit-reviews/review-N.md`,
-  `agents/audit-reviews/summary.md`, `agents/audit-reviews/index.md`, and
+  `agents/audit-reviews/summary.md`, `agents/audit-reviews/index.md`, the Phase B
+  ledger (`agents/audit-reviews/ledger/<question>.jsonl`), and
   marks shipped tasks done in `agents/tasks/audit-reviews/`.
 - **Then:** runs `/taskdev agents/audit-reviews/review-N.md` if there are
   findings.
@@ -70,7 +72,9 @@ Path defaults to the current repository root. Templates are in
   the public key as a read-only deploy key on this repository, set it
   as the `AUDITOR_DEPLOY_KEY` secret on the project, then delete the files.
   The private key is never printed.
-- **Stops for:** the project name and test command; each deploy-key and
-  secret command; commit. Never pushes.
+- **Stops for:** the project name and test command; a failing
+  `git ls-remote` of the auditor repository (no SSH access); overwriting an
+  existing project file (`new`); removing a project-local hook (`adopt`);
+  each deploy-key and secret command; commit. Never pushes.
 
 See [Setup](../setup.md) for the full walk-through.

@@ -6,7 +6,10 @@ or the brief changes. `candidates.py` holds the data model and the registry
 of listers; `PhaseBError` is defined in `errors.py` and re-exported here.
 """
 
-from . import architecture  # noqa: F401  registers the architecture listers
+from . import (
+    architecture,  # noqa: F401  registers the architecture listers
+    batches,
+)
 from .candidates import (
     DEFAULT_DEPTH,
     brief_version,
@@ -22,6 +25,7 @@ from .ledger import dismiss_verdict, merge_verdicts, read_ledger
 __all__ = [
     'DEFAULT_DEPTH',
     'PhaseBError',
+    'batches',
     'brief_version',
     'depth_questions',
     'dismiss_verdict',

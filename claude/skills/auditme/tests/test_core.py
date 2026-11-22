@@ -542,3 +542,21 @@ def test_accept_reason_answers_with_a_string_and_ignores_another_rules_marker(re
     assert isinstance(answer, str)
     assert answer
     assert auditme.core.accept_reason(lines, 1, None) == answer
+
+
+def test_a_cached_scope_restores_its_own_root_modes(project: Builder) -> None:
+    root = project(
+        {
+            'a/pyproject.toml': "[tool.auditme]\nroots = [{path = 'lib', modules = 'top-level'}]\n",
+            'a/lib/mod.py': 'X = 1\n',
+            'b/src/pkg/mod.py': 'X = 1\n',
+        }
+    )
+    scope_a = root / 'a'
+    scope_b = root / 'b'
+    auditme.core.clear_source_cache()
+    roots_a, _ = auditme.core.cached_roots(scope_a)
+    auditme.core.cached_roots(scope_b)
+    auditme.core.cached_roots(scope_a)
+    assert auditme.core.ROOT_MODULES.get(roots_a[0]) == auditme.core.TOP_LEVEL
+    auditme.core.clear_source_cache()

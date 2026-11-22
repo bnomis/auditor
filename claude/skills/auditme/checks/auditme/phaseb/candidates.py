@@ -575,7 +575,7 @@ def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
         if not named and not any(auditme.phaseb.docrefs.FENCE_RE.match(line) for line in text):
             continue
         paths = [
-            {'path': token, 'line': number, 'resolved': [target.id for target in auditme.phaseb.docrefs.read_path_targets(token, path, index)]}
+            {'path': token, 'line': number, 'resolved': [target.id for target in auditme.phaseb.docrefs.resolve_path(token, path, index)]}
             for number, token in named
         ]
         found.append(

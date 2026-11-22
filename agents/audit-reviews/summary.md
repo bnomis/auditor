@@ -23,17 +23,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 Each group is described in full, with every site, in [review-4](review-4.md#phase-b-findings-consolidated).
 
-| Finding | Question | Severity | First raised |
-|---|---|---|---|
-| F2 `phaseb.py` reads `auditme.phaseb.batches` outside `__all__` | A17 | low | review-4 |
-| F3 a second copy of the root modes in the per-run cache | A5 | low | review-4 |
-| F4 `resolve_name` reads a whole file to count its lines | A9 | low | review-4 |
-| F5 repeated work in `docrefs` | A14, P3 | low | review-4 |
-| F6 `changed.py`'s `--base` guard can be got past | Sec3 | medium | review-4 |
-| F7 the `no-project-names` hook passes when its list cannot be read | Doc5 | medium | review-4 |
-| F8 two spec statements that no longer match the code | Doc4 | low | review-4 |
-| F9 user docs that no longer match the code | Doc5 | medium | review-4 |
-| F10 spec cross-references written as paths | spec review | low | review-4 |
+None: every finding of review-4 shipped (F1 was dismissed, below).
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on review-2's page (F2), review-3's (F1) and review-4's (F1), as review-1's D2 chose.
 
@@ -41,6 +31,15 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F2 `phaseb.py` reads `auditme.phaseb.batches` outside `__all__` | low | review-4 | Task 3 of the review-4 task list |
+| F3 a second copy of the root modes in the per-run cache | low | review-4 | Task 4 of the review-4 task list |
+| F4 `resolve_name` reads a whole file to count its lines | low | review-4 | Task 5 of the review-4 task list |
+| F5 repeated work in `docrefs` | low | review-4 | Task 5 of the review-4 task list |
+| F6 `changed.py`'s `--base` guard can be got past | medium | review-4 | Task 2 of the review-4 task list |
+| F7 the `no-project-names` hook passes when its list cannot be read | medium | review-4 | Task 1 of the review-4 task list |
+| F8 two spec statements that no longer match the code | low | review-4 | Task 6 of the review-4 task list |
+| F9 user docs that no longer match the code | medium | review-4 | Task 7 of the review-4 task list |
+| F10 spec cross-references written as paths | low | review-4 | Task 6 of the review-4 task list |
 | F2 `positive_int` has no property test | low | review-3 | Task 2 of the review-3 task list |
 | F3 `changed.py`'s entry envelope misses `OSError` | low | review-3 | Task 1 of the review-3 task list |
 | F4 two dataclasses filled after construction | low | review-3 | Task 3 of the review-3 task list |
@@ -92,4 +91,6 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 ## Checker changes since the last review
 
-- (none since review-4)
+- 2026-11-22: `bin/check-foreign-names.sh` exits 2 with `check-foreign-names: cannot read <list>` when its list cannot be read (review-4 F7, Task 1).
+- 2026-11-22: `changed.py` refuses a `--base` value that starts with `-` (review-4 F6, Task 2).
+- 2026-11-22: `phaseb.py` re-exports `batches` from `auditme.phaseb` in the relative form (review-4 F2, Task 3).

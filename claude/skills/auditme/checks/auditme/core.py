@@ -85,6 +85,14 @@ def clear_source_cache() -> None:
     INDEX_CACHE.clear()
 
 
+def cached_corpus_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib.Path]:
+    """`corpus_py_files`, listed once per run."""
+    key = ('corpus-files', scope, src_root)
+    if key not in INDEX_CACHE:
+        INDEX_CACHE[key] = corpus_py_files(scope, src_root)
+    return typing.cast('list[pathlib.Path]', INDEX_CACHE[key])
+
+
 def corpus_index[T](kind: str, scope: pathlib.Path, src_root: pathlib.Path, build: collections.abc.Callable[[], T]) -> T:
     """The corpus-wide index `kind`, built once per run and shared by every root's pass.
 
@@ -93,11 +101,8 @@ def corpus_index[T](kind: str, scope: pathlib.Path, src_root: pathlib.Path, buil
     The corpus file list is listed once per run and then reused; only each
     file's stat is read on a lookup. The result is shared, so a caller must
     not modify it."""
-    files_key = ('corpus-files', scope, src_root)
-    if files_key not in INDEX_CACHE:
-        INDEX_CACHE[files_key] = corpus_py_files(scope, src_root)
     signature: list[tuple[pathlib.Path, int, int]] = []
-    for path in typing.cast('list[pathlib.Path]', INDEX_CACHE[files_key]):
+    for path in cached_corpus_files(scope, src_root):
         try:
             stat = path.stat()
         except OSError:
@@ -407,6 +412,18 @@ def extra_roots(scope: pathlib.Path, names: collections.abc.Sequence[str] | None
     return roots
 
 
+def cached_declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None:
+    """`declared_roots`, read once per run.
+
+    Raises:
+        RootsError: as `declared_roots` does; a failure is not cached.
+    """
+    key = ('declared-roots', scope)
+    if key not in INDEX_CACHE:
+        INDEX_CACHE[key] = declared_roots(scope)
+    return typing.cast('list[tuple[pathlib.Path, str]] | None', INDEX_CACHE[key])
+
+
 def audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
     """Every root the sweep passes over: the packages under `src/`, then the extras.
 
@@ -418,7 +435,7 @@ def audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
     while reading like an answer about the whole.
     """
     global ROOT_MODULES
-    declared = declared_roots(scope)
+    declared = cached_declared_roots(scope)
     if declared is not None:
         ROOT_MODULES = types.MappingProxyType({root: mode for root, mode in declared})
         return [root for root, _ in declared]
@@ -552,7 +569,7 @@ def corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib
     nor an extra root, which only happens when a check is called directly
     rather than by the driver.
     """
-    declared = declared_roots(scope)
+    declared = cached_declared_roots(scope)
     if declared is not None:
         return sorted(path for root, mode in declared for path in py_files(root, mode))
     roots = extra_roots(scope)
@@ -630,7 +647,7 @@ def reads_by_module_and_name(
 def index_reads(scope: pathlib.Path, src_root: pathlib.Path) -> dict[tuple[str, str], list[tuple[pathlib.Path, int]]]:
     """The index `reads_by_module_and_name` shares: one scan of the corpus."""
     reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = collections.defaultdict(list)
-    for path in corpus_py_files(scope, src_root):
+    for path in cached_corpus_files(scope, src_root):
         tree = read_and_parse(path)
         if tree is None:
             continue
@@ -680,7 +697,7 @@ def corpus_definitions(
 def index_definitions(scope: pathlib.Path, src_root: pathlib.Path, classes: bool) -> dict[str, list[tuple[ast.AST, pathlib.Path]]]:
     """The index `corpus_definitions` shares: one scan of the corpus."""
     out: dict[str, list[tuple[ast.AST, pathlib.Path]]] = {}
-    for path in corpus_py_files(scope, src_root):
+    for path in cached_corpus_files(scope, src_root):
         tree = read_and_parse(path)
         if tree is None:
             continue
@@ -762,11 +779,14 @@ def cached_roots(scope: pathlib.Path) -> tuple[list[pathlib.Path], collections.a
     `audit_roots` reads `pyproject.toml` and lists `src/`; a listing that asks
     for the roots once per candidate would repeat that work for every one.
     """
+    global ROOT_MODULES
     key = ('audit-roots', scope)
     if key not in INDEX_CACHE:
         roots = audit_roots(scope)
         INDEX_CACHE[key] = (roots, ROOT_MODULES)
-    return typing.cast('tuple[list[pathlib.Path], collections.abc.Mapping[pathlib.Path, str]]', INDEX_CACHE[key])
+    cached = typing.cast('tuple[list[pathlib.Path], types.MappingProxyType[pathlib.Path, str]]', INDEX_CACHE[key])
+    ROOT_MODULES = cached[1]
+    return cached
 
 
 def surface_files(module: str, root: pathlib.Path) -> tuple[list[pathlib.Path], list[pathlib.Path]]:

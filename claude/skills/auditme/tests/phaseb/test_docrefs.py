@@ -4,6 +4,7 @@ import subprocess
 import textwrap
 import typing
 
+import auditme.core
 import auditme.phaseb
 import auditme.phaseb.docrefs
 import hypothesis
@@ -205,6 +206,21 @@ def indexed(tmp_path: pathlib.Path) -> tuple[pathlib.Path, auditme.phaseb.docref
 def resolve_token(indexed, token: str, doc: str = 'docs/guide.md') -> list[auditme.phaseb.docrefs.DocTarget]:
     root, index = indexed
     return auditme.phaseb.docrefs.resolve_name(token, root / doc, index)
+
+
+def test_one_index_build_resolves_the_roots_once(indexed, monkeypatch):
+    root, _ = indexed
+    auditme.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+    real = auditme.core.declared_roots
+
+    def counting(scope):
+        calls.append(scope)
+        return real(scope)
+
+    monkeypatch.setattr(auditme.core, 'declared_roots', counting)
+    auditme.phaseb.docrefs.CorpusIndex.build(root)
+    assert len(calls) == 1
 
 
 def test_tracked_path_relative_to_root(indexed):

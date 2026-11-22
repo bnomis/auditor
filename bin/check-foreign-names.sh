@@ -28,7 +28,17 @@ if [ ! -f "$list" ]; then
     exit 0
 fi
 
-patterns=$(grep -v -E '^[[:space:]]*(#|$)' "$list" || true)
+if [ ! -r "$list" ]; then
+    echo "check-foreign-names: cannot read $list" >&2
+    exit 2
+fi
+
+status=0
+patterns=$(grep -v -E '^[[:space:]]*(#|$)' "$list") || status=$?
+if [ "$status" -ge 2 ]; then
+    echo "check-foreign-names: cannot read $list" >&2
+    exit 2
+fi
 for name in "${allowed[@]+"${allowed[@]}"}"; do
     patterns=$(printf '%s\n' "$patterns" | grep -v -i -x -F -e "$name" || true)
 done
