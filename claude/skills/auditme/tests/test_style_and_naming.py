@@ -654,12 +654,20 @@ def test_stdlib_public_access_only_is_false_once_an_unlisted_underscore_access_i
 @hypothesis.settings(max_examples=20, deadline=10000)
 @hypothesis.given(lines=hypothesis.strategies.lists(CODE_LINE, max_size=6))
 def test_literal_format_lines_stay_inside_the_file(lines: list[str]) -> None:
-    found = auditme.rules.style_and_naming.literal_format_lines(lines)
-    assert all(1 <= number <= len(lines) for number in found)
     try:
-        ast.parse('\n'.join(lines))
+        tree = ast.parse('\n'.join(lines))
     except SyntaxError, ValueError:
-        assert found == set()
+        assert auditme.rules.style_and_naming.literal_format_lines(None) == set()
+        return
+    found = auditme.rules.style_and_naming.literal_format_lines(tree)
+    assert all(1 <= number <= len(lines) for number in found)
+
+
+def parse_or_none(lines: list[str]) -> ast.Module | None:
+    try:
+        return ast.parse('\n'.join(lines))
+    except SyntaxError:
+        return None
 
 
 MASK_SOURCES = hypothesis.strategies.lists(
@@ -673,12 +681,12 @@ MASK_SOURCES = hypothesis.strategies.lists(
 @hypothesis.settings(max_examples=20, deadline=10000)
 @hypothesis.given(lines=MASK_SOURCES)
 def test_mask_string_literals_keeps_shape_only_blanks_and_is_idempotent(lines: list[str]) -> None:
-    masked = auditme.rules.style_and_naming.mask_string_literals(lines)
+    masked = auditme.rules.style_and_naming.mask_string_literals(lines, parse_or_none(lines))
     assert len(masked) == len(lines)
     for before, after in zip(lines, masked, strict=True):
         assert len(before) == len(after)
         assert all(new == old or new == ' ' for old, new in zip(before, after, strict=True))
-    assert auditme.rules.style_and_naming.mask_string_literals(masked) == masked
+    assert auditme.rules.style_and_naming.mask_string_literals(masked, parse_or_none(masked)) == masked
 
 
 @hypothesis.settings(max_examples=20, deadline=10000)

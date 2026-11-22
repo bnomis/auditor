@@ -211,7 +211,7 @@ take each file's tree from `auditme.core.read_and_parse` rather than calling
 
 ## Task 7: Move the remaining checks onto the shared parse, and measure
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** F6
@@ -222,23 +222,27 @@ review-3 recorded.
 
 **Subtasks:**
 
-- [ ] Do the same as Task 6 for `state_and_effects.py`, `imports_and_surfaces.py`, `style_and_naming.py` and `project_hygiene.py`
-- [ ] Sort the sweep and diff it with Task 6's recorded one
-- [ ] Time three runs and record the median in the task's Notes, beside review-3's figure (12.2 s for a sweep of this repository, of which 5.4 s in `ast.parse`, measured on 2026-11-22)
+- [x] Do the same as Task 6 for `state_and_effects.py`, `imports_and_surfaces.py`, `style_and_naming.py` and `project_hygiene.py`
+- [x] Sort the sweep and diff it with Task 6's recorded one
+- [x] Time three runs and record the median in the task's Notes, beside review-3's figure (12.2 s for a sweep of this repository, of which 5.4 s in `ast.parse`, measured on 2026-11-22)
 
 **Acceptance Criteria:**
 
-- [ ] The sorted sweep is identical to Task 6's record
-- [ ] No rule module calls `ast.parse` on a file's own lines
+- [x] The sorted sweep is identical to Task 6's record
+- [x] No rule module calls `ast.parse` on a file's own lines
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (the four modules' own tests are spread across most test modules)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (the four modules' own tests are spread across most test modules)
 
 **Notes:**
 
 - Depends on Task 6, whose recorded sweep it diffs against
+- Sorted sweep before and after is identical once the `line` field is dropped (the edits moved lines in `state_and_effects.py` and `style_and_naming.py`)
+- Median of three runs on 2026-11-22: 6.55 s, against review-3's 12.2 s (measured on the same date)
+- `project_hygiene.py` keeps one `ast.parse` of a reassembled signature snippet, which is not a file's own lines
+- `mask_string_literals`, `literal_format_lines` and the two `*_in_file` annotation helpers now take the tree as a parameter
 
 ---
 

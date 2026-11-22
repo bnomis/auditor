@@ -149,9 +149,8 @@ def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> No
             continue
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         type_checking_linenos = auditme.core.type_checking_linenos(tree)
         importerror_linenos: set[int] = set()
@@ -213,9 +212,8 @@ def check_unused_submodule_imports(scope: pathlib.Path, src_root: pathlib.Path) 
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         full_src = '\n'.join(lines)
         for node in tree.body:
@@ -300,9 +298,8 @@ def check_as_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         reexport_linenos: set[int] = set()
         if path.name == '__init__.py':
@@ -362,9 +359,8 @@ def check_from_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
             continue
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.ImportFrom):
@@ -458,9 +454,8 @@ def check_layering_violations(scope: pathlib.Path, src_root: pathlib.Path) -> No
         if importer_pkg not in rank:
             continue
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         tc_linenos = auditme.core.type_checking_linenos(tree)
         for node in ast.walk(tree):
@@ -528,9 +523,8 @@ def check_passthrough_shim(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in tree.body:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -829,9 +823,8 @@ def check_annotated_all_assignment(scope: pathlib.Path, src_root: pathlib.Path) 
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.AnnAssign):

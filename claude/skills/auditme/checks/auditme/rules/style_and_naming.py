@@ -54,15 +54,13 @@ def docstring_nodes(tree: ast.AST) -> set[int]:
     return found
 
 
-def mask_string_literals(lines: list[str]) -> list[str]:
+def mask_string_literals(lines: list[str], tree: ast.Module | None) -> list[str]:
     """Return `lines` with the text of every non-docstring string literal blanked.
 
     Each blanked character becomes a space, so columns are kept. A file that
-    does not parse is returned unchanged.
+    does not parse (`tree` is None) is returned unchanged.
     """
-    try:
-        tree = ast.parse('\n'.join(lines))
-    except SyntaxError:
+    if tree is None:
         return lines
     docstrings = docstring_nodes(tree)
     masked = list(lines)
@@ -121,8 +119,9 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
         is_init = path.name == '__init__.py'
-        format_lines = literal_format_lines(lines)
-        code_lines = mask_string_literals(lines)
+        tree = auditme.core.read_and_parse(path)
+        format_lines = literal_format_lines(tree)
+        code_lines = mask_string_literals(lines, tree)
         for idx, raw in enumerate(lines, 1):
             stripped = raw.strip()
             if not stripped or stripped.startswith('#'):
@@ -148,15 +147,13 @@ def check_text_patterns(scope: pathlib.Path, src_root: pathlib.Path) -> None:
                 )
 
 
-def literal_format_lines(lines: list[str]) -> set[int]:
+def literal_format_lines(tree: ast.Module | None) -> set[int]:
     """Return the lines on which `.format` is called on a string literal.
 
     The line is the one holding `.format`, where the regex matches and where
-    an accept marker sits. A file that does not parse yields no lines.
+    an accept marker sits. A file that does not parse (`tree` is None) yields no lines.
     """
-    try:
-        tree = ast.parse('\n'.join(lines))
-    except SyntaxError:
+    if tree is None:
         return set()
     found: set[int] = set()
     for node in ast.walk(tree):
@@ -249,9 +246,8 @@ def check_nonalphabetical_literals(scope: pathlib.Path, src_root: pathlib.Path) 
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in tree.body:
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -306,9 +302,8 @@ def check_non_alphabetical_dict_keys(scope: pathlib.Path, src_root: pathlib.Path
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in tree.body:
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -349,13 +344,11 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
       - local AnnAssign targets inside function bodies
     """
     for path in auditme.core.all_py_files(src_root):
-        bare_parametric_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path))
+        bare_parametric_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path), auditme.core.read_and_parse(path))
 
 
-def bare_parametric_annotation_in_file(rel: str, lines: list[str]) -> None:
-    try:
-        tree = ast.parse('\n'.join(lines))
-    except SyntaxError:
+def bare_parametric_annotation_in_file(rel: str, lines: list[str], tree: ast.Module | None) -> None:
+    if tree is None:
         return
     reported: set[int] = set()
 
@@ -472,13 +465,11 @@ def check_bare_nonbuiltin_generic_annotation(scope: pathlib.Path, src_root: path
     handled by `check_bare_parametric_annotation` and skipped here.
     """
     for path in auditme.core.all_py_files(src_root):
-        bare_nonbuiltin_generic_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path))
+        bare_nonbuiltin_generic_annotation_in_file(auditme.core.relpath(path, scope), auditme.core.source_lines(path), auditme.core.read_and_parse(path))
 
 
-def bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str]) -> None:
-    try:
-        tree = ast.parse('\n'.join(lines))
-    except SyntaxError:
+def bare_nonbuiltin_generic_annotation_in_file(rel: str, lines: list[str], tree: ast.Module | None) -> None:
+    if tree is None:
         return
     # Build import alias map so `Queue` resolves to `multiprocessing.Queue`
     # when imported as `from multiprocessing import Queue`.
@@ -583,9 +574,8 @@ def check_underscore_unpack_target_read(scope: pathlib.Path, src_root: pathlib.P
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         # Enclosing scopes: module-level plus each function
         scopes: list[ast.AST] = [tree]
@@ -636,9 +626,8 @@ def check_underscore_forloop_target_read(scope: pathlib.Path, src_root: pathlib.
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.For, ast.AsyncFor)):
@@ -731,9 +720,8 @@ def check_leading_underscore_nested_def_class(scope: pathlib.Path, src_root: pat
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         if not isinstance(tree, ast.Module):
             continue
@@ -842,9 +830,8 @@ def check_leading_underscore_binding(scope: pathlib.Path, src_root: pathlib.Path
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for name, lineno, kind in sorted(leading_underscore_bindings(tree), key=lambda item: (item[1], item[0])):
             accept = auditme.core.accept_reason(lines, lineno, rule='leading-underscore-binding')
@@ -924,9 +911,8 @@ def check_typing_deprecated_alias(scope: pathlib.Path, src_root: pathlib.Path) -
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         found: set[tuple[int, str]] = set()
         for node in ast.walk(tree):
