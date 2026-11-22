@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-12
-**Total reviews conducted:** 12
+**Last review:** review-13
+**Total reviews conducted:** 13
 **Last script run hit count:** 48 (48 accepted)
-**Script version:** d6b0e270c63b9be43d655dd953b45153219187eeb735316d28a1ad0abd8f2827
+**Script version:** 749b6cf647a5f6d10d9066c4e01bc16ceceda08291aed6adf65ec845433a359c
 
 ## How to reproduce the sweep
 
@@ -13,16 +13,24 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-13
+## Convergence note for review-14
 
-- **Sampled mode:** the operator delegated the loop on 2026-11-22 as whole-tree audits until no finding, so review-13 runs every sampled question on the whole tree.
-- **Listed questions:** review-13 re-judges only candidates whose hash or brief version changed.
-- **Precondition:** review-13 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Sampled mode:** the operator delegated the loop on 2026-11-22 as whole-tree audits until no finding, so review-14 runs every sampled question on the whole tree.
+- **Listed questions:** review-14 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-14 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 - **Tell the whole-tree reviewers:** the dismissed sampled findings below, so they report them again only if their code changed.
 
 ## Unresolved findings
 
-No finding is unresolved: every finding review-12 raised shipped (below).
+Each finding is described in full in [review-13](review-13.md#phase-b-findings-consolidated).
+
+| Finding | Question | Severity | First raised |
+|---------|----------|----------|--------------|
+| F1 `cached_per_run` has no direct test | T1 | low | review-13 |
+| F2 the names hook passes a commit when its list path is a directory | Sec2 | medium | review-13 |
+| F3 three root lookups drop the modes with a bare subscript again | A23 | low | review-13 |
+| F4 the `phaseb.py` exit-2 paragraph is a closed list again | Doc5 | low | review-13 |
+| F5 the lazy-import table is parsed once per audit root | A14 | low | review-13 |
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small). On review-11's page: F5 (`all_py_files` listing its root on every call, about a twentieth of a sweep).
 
@@ -113,6 +121,7 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 ## Recurring patterns
 
 - A fix that reaches one site of a pattern and leaves its siblings (A14, A15, S4): review-7 F4 and review-8 O1, review-6 F9 and review-11 F2, review-11 F3 and review-12 F4. Each fix task greps the whole tree for its pattern.
+- A fix that brings back a fixed pattern or writes a new closed list (A23, Doc5): review-13 F3 and F4. Each fix adds a guard: a test that fails on the pattern, or a rule stated instead of a list.
 - Version figures in prose (Doc4): review-6 F3. A brief bump left three specs stating the old versions; each brief's `**Brief version:**` line is the only place a version is stated.
 - Pure-named functions that read files (A9): review-1 F3, review-2 F10. Each task that adds a reader names it as a pure query.
 - Docs and specs left stale by the task list that changed the code (Doc4, Doc5): review-1 F6-F8, review-2 F7, F9, review-3 F9, F10. Two statements review-2's Task 9 was meant to fix were still stale in review-3.
