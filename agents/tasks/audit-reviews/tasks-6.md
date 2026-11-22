@@ -159,7 +159,7 @@ worked out once.
 
 ## Task 5: Run the whole-tree checks, the doc listers, and update the summary
 
-**Status:** in-progress
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -170,21 +170,21 @@ summary records what this list resolved.
 
 **Subtasks:**
 
-- [ ] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand, not only the lines this list edited; fix any that no longer matches. Record what was checked in the task's Notes
-- [ ] For each identifier, option or version this list renamed, removed or changed, grep `docs agents/specs README.md AGENTS.md` for its old form and fix each hit
-- [ ] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 4 fixed to Recently resolved, naming its task
+- [x] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand, not only the lines this list edited; fix any that no longer matches. Record what was checked in the task's Notes
+- [x] For each identifier, option or version this list renamed, removed or changed, grep `docs agents/specs README.md AGENTS.md` for its old form and fix each hit
+- [x] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 4 fixed to Recently resolved, naming its task
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved table holds only findings that did not ship, each with its reason
+- [x] The Unresolved table holds only findings that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (`core.py` and the rule modules changed, and every checker test reaches them)
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (`core.py` and the rule modules changed, and every checker test reaches them)
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
