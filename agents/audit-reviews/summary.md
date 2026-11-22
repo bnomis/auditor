@@ -21,11 +21,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 ## Unresolved findings
 
-Each finding is described in full in [review-9](review-9.md#phase-b-findings-consolidated).
-
-| Finding | Question | Severity | First raised |
-|---------|----------|----------|--------------|
-| F1 the T1 lister rescans every test file's imports for every function | P1, P3 | low | review-9 |
+No finding is unresolved: every finding review-9 raised shipped (below).
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small).
 
@@ -33,6 +29,7 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 the T1 lister rescans every test file's imports for every function | low | review-9 | Task 1 of the review-9 task list |
 | O1 six more `contextlib.suppress(Exception)` sites | low | review-8 | Task 1 of the review-8 task list |
 | F1 two places still say sampled questions run on changed files | low | review-7 | Task 1 of the review-7 task list |
 | F2 the `silent-self-mutation` row leaves out the prefix exemption | low | review-7 | Task 1 of the review-7 task list |
