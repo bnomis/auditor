@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-13
-**Total reviews conducted:** 13
+**Last review:** review-14
+**Total reviews conducted:** 14
 **Last script run hit count:** 48 (48 accepted)
-**Script version:** 749b6cf647a5f6d10d9066c4e01bc16ceceda08291aed6adf65ec845433a359c
+**Script version:** 3e86b7b0e21a73d2d0ff0485ab37065e38bf96c8ae4a599b905029c3c03683a0
 
 ## How to reproduce the sweep
 
@@ -13,16 +13,21 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-14
+## Convergence note for review-15
 
-- **Sampled mode:** the operator delegated the loop on 2026-11-22 as whole-tree audits until no finding, so review-14 runs every sampled question on the whole tree.
-- **Listed questions:** review-14 re-judges only candidates whose hash or brief version changed.
-- **Precondition:** review-14 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Sampled mode:** the operator delegated the loop on 2026-11-22 as whole-tree audits until no finding, so review-15 runs every sampled question on the whole tree.
+- **Listed questions:** review-15 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-15 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 - **Tell the whole-tree reviewers:** the dismissed sampled findings below, so they report them again only if their code changed.
 
 ## Unresolved findings
 
-No finding is unresolved: every finding review-13 raised shipped (below).
+Each finding is described in full in [review-14](review-14.md#phase-b-findings-consolidated).
+
+| Finding | Question | Severity | First raised |
+|---------|----------|----------|--------------|
+| F1 the exit-2 paragraph's examples include two argparse errors | Doc5 | low | review-14 |
+| F2 `audit.py --package` accepts a plain file | Sec2 | low | review-14 |
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small). On review-11's page: F5 (`all_py_files` listing its root on every call, about a twentieth of a sweep).
 
