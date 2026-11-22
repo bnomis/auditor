@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-3
-**Total reviews conducted:** 3
-**Last script run hit count:** 45 (45 accepted)
-**Script version:** 1187649b552c2cf9fc9737c169f408c05bedc11781ee2d2c528449fb4c025abf
+**Last review:** review-4
+**Total reviews conducted:** 4
+**Last script run hit count:** 46 (46 accepted)
+**Script version:** c38e0148741ae2f2371b2bd7c07640fd5ee7efab46f6d93e72c3b9c96df33496
 
 ## How to reproduce the sweep
 
@@ -13,21 +13,29 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-4
+## Convergence note for review-5
 
-- **Sampled mode:** review-3's `**Commit:**` is `6b51a21`. Review-4 samples the files changed since then; the sixth audit counted from review-1 runs the whole tree.
-- **Listed questions:** review-3 judged every re-planned candidate and wrote the verdicts to `agents/audit-reviews/ledger/`. Review-4 re-judges only candidates whose hash or brief version changed; a carried finding is not a regression.
-- **Precondition:** review-4 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected. Review-3 filed one (the `ruff format` parser), and D1 may file a second.
+- **Sampled mode:** review-4's `**Commit:**` is `0a01580`. Review-5 samples the files changed since then; the sixth audit counted from review-1 runs the whole tree.
+- **Listed questions:** review-4 judged every candidate under the bumped briefs. Review-5 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-5 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 
 ## Unresolved findings
 
-Each group is described in full, with every site, in [review-3](review-3.md#phase-b-findings-consolidated).
+Each group is described in full, with every site, in [review-4](review-4.md#phase-b-findings-consolidated).
 
 | Finding | Question | Severity | First raised |
 |---|---|---|---|
-| (none: every review-3 finding shipped or was dismissed) | | | |
+| F2 `phaseb.py` reads `auditme.phaseb.batches` outside `__all__` | A17 | low | review-4 |
+| F3 a second copy of the root modes in the per-run cache | A5 | low | review-4 |
+| F4 `resolve_name` reads a whole file to count its lines | A9 | low | review-4 |
+| F5 repeated work in `docrefs` | A14, P3 | low | review-4 |
+| F6 `changed.py`'s `--base` guard can be got past | Sec3 | medium | review-4 |
+| F7 the `no-project-names` hook passes when its list cannot be read | Doc5 | medium | review-4 |
+| F8 two spec statements that no longer match the code | Doc4 | low | review-4 |
+| F9 user docs that no longer match the code | Doc5 | medium | review-4 |
+| F10 spec cross-references written as paths | spec review | low | review-4 |
 
-Dismissed on review-2's page (2026-11-22, F2) and again on review-3's (F1, after the A1 brief changed): `cached_source` returning `None` for an unreadable file, which review-1's D2 chose.
+Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on review-2's page (F2), review-3's (F1) and review-4's (F1), as review-1's D2 chose.
 
 ## Recently resolved
 
@@ -80,11 +88,8 @@ Dismissed on review-2's page (2026-11-22, F2) and again on review-3's (F1, after
 - Docs and specs left stale by the task list that changed the code (Doc4, Doc5): review-1 F6-F8, review-2 F7, F9, review-3 F9, F10. Two statements review-2's Task 9 was meant to fix were still stale in review-3.
 - A cache added for some callers, not all (A14, P3): review-1 F15, review-2 F12, review-3 F5, F6.
 - New brief thresholds after each settlement (D1): review-1, review-2 and review-3 each reported a fresh set.
+- A fix for one rule that moves the finding to another (A17 after S4): review-3 F8, review-4 F2.
 
 ## Checker changes since the last review
 
-- 2026-11-22: `changed.py`'s entry translates an `OSError` (for example a removed working directory) to its `changed.py:` message and exit 1 (review-3 F3, Task 1).
-- 2026-11-22: every rule check takes its tree from the shared `read_and_parse` instead of parsing each file again; the sorted sweep is unchanged, and the median of three runs fell from 12.2 s to 6.55 s on this repository (review-3 F6, Tasks 6 and 7).
-- 2026-11-22: `phaseb/__init__.py` no longer re-exports `batches`; readers import `auditme.phaseb.batches` directly (review-3 F8, Task 4).
-- 2026-11-22: the `ruff` rule's `ruff format` half reads ruff's JSON output, so a file ruff would reformat is a `ruff-format` hit at its path and line; before, it never fired. Review-4 reports any unformatted file in scope as catch-up.
-- 2026-11-22, `agents/reviews/brief-thresholds-3-2026-11-22.md`: every brief gives a case it does not settle a default verdict, not a finding, reported (G1); every listed question's brief went up one version, so review-4 re-judges every listed candidate once. A1, T2, Doc4 and Doc5 also settle review-3's cases.
+- (none since review-4)
