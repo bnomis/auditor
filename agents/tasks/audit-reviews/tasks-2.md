@@ -128,7 +128,7 @@ emit a hit naming the missing tool when `uv` or `ruff` cannot run, as
 
 ## Task 4: Translate the A17 lister's read and export what phaseb.py reads
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1, F4
@@ -138,20 +138,20 @@ emit a hit naming the missing tool when `uv` or `ruff` cannot run, as
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py`: an `__init__.py` that is not valid UTF-8 makes the A17 lister raise `PhaseBError` naming the file
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/architecture.py`, make `list_a17_candidates.read_entries` read through `auditme.phaseb.candidates.read_text` (the translating reader); add `PhaseBError` to `list_a17_candidates`' `Raises:` if it is not there
-- [ ] Export from `claude/skills/auditme/checks/auditme/phaseb/__init__.py` what `phaseb.py` needs: `DEFAULT_DEPTH`, and a function that returns the registered question names (for example `registered_questions()`). Keep `__all__` in the order `non-alphabetical-literal` accepts
-- [ ] In `claude/skills/auditme/checks/phaseb.py`, read those names instead of `auditme.phaseb.candidates.REGISTRY` and `auditme.phaseb.candidates.DEFAULT_DEPTH`
+- [x] Write the failing test first, in `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py`: an `__init__.py` that is not valid UTF-8 makes the A17 lister raise `PhaseBError` naming the file
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/architecture.py`, make `list_a17_candidates.read_entries` read through `auditme.phaseb.candidates.read_text` (the translating reader); add `PhaseBError` to `list_a17_candidates`' `Raises:` if it is not there
+- [x] Export from `claude/skills/auditme/checks/auditme/phaseb/__init__.py` what `phaseb.py` needs: `DEFAULT_DEPTH`, and a function that returns the registered question names (for example `registered_questions()`). Keep `__all__` in the order `non-alphabetical-literal` accepts
+- [x] In `claude/skills/auditme/checks/phaseb.py`, read those names instead of `auditme.phaseb.candidates.REGISTRY` and `auditme.phaseb.candidates.DEFAULT_DEPTH`
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] `grep -n 'auditme.phaseb.candidates' claude/skills/auditme/checks/phaseb.py` prints nothing
+- [x] The new test fails before the change and passes after it
+- [x] `grep -n 'auditme.phaseb.candidates' claude/skills/auditme/checks/phaseb.py` prints nothing
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_architecture_candidates.py claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_architecture_candidates.py claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

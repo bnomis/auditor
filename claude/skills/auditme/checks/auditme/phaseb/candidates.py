@@ -63,6 +63,16 @@ KINDS: dict[str, tuple[str, ...]] = {}
 TAKES_DEPTH: set[str] = set()
 
 
+def registered_questions() -> list[str]:
+    """The questions a lister is registered for, sorted."""
+    return sorted(REGISTRY)
+
+
+def depth_questions() -> list[str]:
+    """The questions whose lister takes a `--depth`, sorted."""
+    return sorted(TAKES_DEPTH)
+
+
 def read_test_files(scope: pathlib.Path, names: collections.abc.Iterable[str]) -> list[bytes]:
     """Read each named test file under `scope`, for hashing into a candidate.
 

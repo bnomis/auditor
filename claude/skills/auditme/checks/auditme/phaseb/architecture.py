@@ -762,6 +762,10 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     A candidate is one `__init__.py`, so its id is the file's repo-relative
     path, with no `::` qualname part as the other questions' ids have; the
     form is kept so ledger ids already written stay valid.
+
+    Raises:
+        PhaseBError: a file cannot be read or parsed.
+        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     files = read_audited_files(scope)
     roots = auditme.core.audit_roots(scope)
@@ -785,7 +789,8 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                 rel = auditme.core.relpath(path, scope)
                 if rel.startswith(f'{directory}/') or auditme.core.is_test_relpath(rel) or (A17_SHIM_RULE, rel, line) in hits:
                     continue
-                text = line_cache.setdefault(path, path.read_text(encoding='utf-8').splitlines())[line - 1].strip()
+                # auditme: accept[filesystem-op-without-envelope] `candidates.read_text` translates the read's errors to PhaseBError
+                text = line_cache.setdefault(path, candidates.read_text(path).splitlines())[line - 1].strip()
                 entries.append((name, f'{rel}: {text}'))
         for entry_module, entry_name, text in entry_points:
             if (

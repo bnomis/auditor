@@ -40,8 +40,9 @@ def registered_question(value: str) -> str:
     Raises:
         argparse.ArgumentTypeError: no lister is registered for the question.
     """
-    if value not in auditme.phaseb.candidates.REGISTRY:
-        raise argparse.ArgumentTypeError(f'not a registered question: {value!r}; known: {sorted(auditme.phaseb.candidates.REGISTRY)}')
+    known = auditme.phaseb.registered_questions()
+    if value not in known:
+        raise argparse.ArgumentTypeError(f'not a registered question: {value!r}; known: {known}')
     return value
 
 
@@ -192,7 +193,7 @@ def run_candidates(args: argparse.Namespace) -> int:
 
 def depth_of(args: argparse.Namespace) -> int:
     """The callee depth the command runs at: its `--depth`, else the default."""
-    return auditme.phaseb.candidates.DEFAULT_DEPTH if args.depth is None else args.depth
+    return auditme.phaseb.DEFAULT_DEPTH if args.depth is None else args.depth
 
 
 def run_plan(args: argparse.Namespace) -> int:
@@ -268,8 +269,8 @@ COMMANDS = {
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    if getattr(args, 'depth', None) is not None and args.question not in auditme.phaseb.candidates.TAKES_DEPTH:
-        parser.error(f'--depth is only for the questions {sorted(auditme.phaseb.candidates.TAKES_DEPTH)}, not {args.question}')
+    if getattr(args, 'depth', None) is not None and args.question not in auditme.phaseb.depth_questions():
+        parser.error(f'--depth is only for the questions {auditme.phaseb.depth_questions()}, not {args.question}')
     try:
         return COMMANDS[args.command](args)
     except auditme.phaseb.PhaseBError as error:
