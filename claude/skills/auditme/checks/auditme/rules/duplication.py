@@ -193,9 +193,8 @@ def check_duplicate_side_effect_per_target(scope: pathlib.Path, src_root: pathli
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for cls in ast.walk(tree):
             if not isinstance(cls, ast.ClassDef):

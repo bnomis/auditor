@@ -177,7 +177,7 @@ number of times, not once per candidate.
 
 ## Task 6: Move the error-handling and duplication checks onto the shared parse
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** F6
@@ -188,19 +188,19 @@ take each file's tree from `auditme.core.read_and_parse` rather than calling
 
 **Subtasks:**
 
-- [ ] Record the sweep first: `python3 claude/skills/auditme/checks/audit.py . | sort > <scratch>/sweep-before.jsonl`, and time three runs (`time python3 claude/skills/auditme/checks/audit.py . > /dev/null`)
-- [ ] In `claude/skills/auditme/checks/auditme/rules/error_handling.py` and `duplication.py`, replace each `ast.parse('\n'.join(lines))` of a file's own lines with the tree `read_and_parse` returns for that path, keeping each check's handling of a file that does not parse (it is skipped, as before; an unreadable one is the driver's `unreadable-file` hit). Leave an `ast.parse` of a string that is not a file's content (a snippet, a docstring) as it is
-- [ ] Sort the sweep again and diff it with the recorded one
+- [x] Record the sweep first: `python3 claude/skills/auditme/checks/audit.py . | sort > <scratch>/sweep-before.jsonl`, and time three runs (`time python3 claude/skills/auditme/checks/audit.py . > /dev/null`)
+- [x] In `claude/skills/auditme/checks/auditme/rules/error_handling.py` and `duplication.py`, replace each `ast.parse('\n'.join(lines))` of a file's own lines with the tree `read_and_parse` returns for that path, keeping each check's handling of a file that does not parse (it is skipped, as before; an unreadable one is the driver's `unreadable-file` hit). Leave an `ast.parse` of a string that is not a file's content (a snippet, a docstring) as it is
+- [x] Sort the sweep again and diff it with the recorded one
 
 **Acceptance Criteria:**
 
-- [ ] The sorted sweep is identical before and after
-- [ ] `grep -n "ast.parse('\\\\n'.join(lines))" claude/skills/auditme/checks/auditme/rules/error_handling.py claude/skills/auditme/checks/auditme/rules/duplication.py` prints nothing
+- [x] The sorted sweep is identical before and after
+- [x] `grep -n "ast.parse('\\\\n'.join(lines))" claude/skills/auditme/checks/auditme/rules/error_handling.py claude/skills/auditme/checks/auditme/rules/duplication.py` prints nothing
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_get_container_default.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_duplication.py claude/skills/auditme/tests/test_get_container_default.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
