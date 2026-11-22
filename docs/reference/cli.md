@@ -150,7 +150,7 @@ hit, and the sweep continues.
 | Exit | Meaning |
 |---|---|
 | `0` | Sweep completed, whatever it found; also when there is no root to audit (a notice goes to stderr and only the project-level checks run) |
-| `2` | `scope` is not a directory; `--package` is not a plain directory name or its directory does not exist; a named `--extra-root` is outside `scope` or is not a directory; an argument error (argparse's usage message on stderr); or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
+| `2` | `scope` is not a directory; `--package` is not a plain directory name, or its directory does not exist or is a file; a named `--extra-root` is outside `scope` or is not a directory; an argument error (argparse's usage message on stderr); or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
 
 The declaration errors, each exit `2`:
 
@@ -173,7 +173,7 @@ exits `2` with the same message.
 
 `phaseb.py` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path, and for a `<root>` that does not exist or is not a directory, so a mistyped root never reads as an empty listing.
 
-It also exits `2`, printing `phaseb.py: ` and the error's message to stderr, whenever a Phase B step fails: for example a `--question` that is not registered, a root that is missing, a `merge` for a run planned for another question, or a `merge` whose batches fail `check`.
+It also exits `2`, printing `phaseb.py: ` and the error's message to stderr, whenever a Phase B step fails: for example a `merge` for a run planned for another question, or a `merge` whose batches fail `check`.
 
 `phaseb.py plan` records the callee depth it listed at (`--depth`, default 3)
 in `plan.json`. `phaseb.py merge` exits `2`, naming both depths and writing

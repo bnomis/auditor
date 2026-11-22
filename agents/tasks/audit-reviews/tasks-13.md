@@ -13,7 +13,7 @@ review-14's Answers section. No task changes a brief in
 
 ## Task 1: Correct the exit-2 examples and refuse a file as `--package`
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1, F2
@@ -23,21 +23,21 @@ and `audit.py` refuses a package root that is not a directory.
 
 **Subtasks:**
 
-- [ ] F1: in `docs/reference/cli.md` (the paragraph at line 176 on 2026-11-22), drop the unregistered `--question` and the missing root from the examples of a failing Phase B step; line 174 already states those two argparse cases. Run each remaining example by hand and confirm it prints `phaseb.py: ` and its message and exits 2
-- [ ] F2: write the failing test first, in `claude/skills/auditme/tests/test_audit_cli.py` (or the test file that already tests `audit.py`'s `--package`, found with `grep -rln -- '--package' claude/skills/auditme/tests`): with `src/pkg` a plain file, `audit.py <root> --package pkg` exits 2 and says the path is not a directory
-- [ ] F2: in `claude/skills/auditme/checks/audit.py` (line 224), test `root.is_dir()` and print "not a directory" when the path exists but is not one, keeping "not found" for a missing path; add the case to `docs/reference/cli.md`'s `audit.py` exit table
-- [ ] `grep -rn '\.exists()' claude/skills/auditme/checks bin claude/hooks` and confirm no other check on a path that must be a directory or a file uses `exists()` alone
+- [x] F1: in `docs/reference/cli.md` (the paragraph at line 176 on 2026-11-22), drop the unregistered `--question` and the missing root from the examples of a failing Phase B step; line 174 already states those two argparse cases. Run each remaining example by hand and confirm it prints `phaseb.py: ` and its message and exits 2
+- [x] F2: write the failing test first, in `claude/skills/auditme/tests/test_audit_cli.py` (or the test file that already tests `audit.py`'s `--package`, found with `grep -rln -- '--package' claude/skills/auditme/tests`): with `src/pkg` a plain file, `audit.py <root> --package pkg` exits 2 and says the path is not a directory
+- [x] F2: in `claude/skills/auditme/checks/audit.py` (line 224), test `root.is_dir()` and print "not a directory" when the path exists but is not one, keeping "not found" for a missing path; add the case to `docs/reference/cli.md`'s `audit.py` exit table
+- [x] `grep -rn '\.exists()' claude/skills/auditme/checks bin claude/hooks` and confirm no other check on a path that must be a directory or a file uses `exists()` alone
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] Each example in the exit-2 paragraph is run and prints as stated
+- [x] The new test fails before the change and passes after it
+- [x] Each example in the exit-2 paragraph is run and prints as stated
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] The test file the F2 subtask names passes under `uv run pytest <file> -q -p no:cacheprovider`
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The test file the F2 subtask names passes under `uv run pytest <file> -q -p no:cacheprovider`
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 

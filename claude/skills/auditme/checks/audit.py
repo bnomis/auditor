@@ -221,8 +221,9 @@ def main() -> int:
             return 0
 
     for root in roots:
-        if not root.exists():
-            print(f'ERROR: {root} not found', file=sys.stderr)
+        if not root.is_dir():
+            reason = 'is not a directory' if root.exists() else 'not found'
+            print(f'ERROR: {root} {reason}', file=sys.stderr)
             return 2
 
     # These read only the project, so the scope stands in for the root they

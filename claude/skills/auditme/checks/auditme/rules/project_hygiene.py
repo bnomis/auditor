@@ -97,7 +97,7 @@ def check_lockfile(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     the question went unanswered."""
     pyproject = scope / 'pyproject.toml'
     uvlock = scope / 'uv.lock'
-    if not pyproject.exists() or not uvlock.exists():
+    if not pyproject.is_file() or not uvlock.is_file():
         return
     try:
         # auditme: accept[subprocess-without-memoisation] a PROJECT_CHECKS entry: the driver runs it once per sweep
@@ -196,7 +196,7 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     reported as a hit.
     """
     config = scope / '.pre-commit-config.yaml'
-    if not config.exists():
+    if not config.is_file():
         return
     lines = auditme.core.source_lines(config)
     pin = ruff_hook_pin(lines)
