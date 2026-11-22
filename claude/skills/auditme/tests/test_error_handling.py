@@ -8,6 +8,7 @@ import ast
 import collections.abc
 import pathlib
 
+import auditme.core
 import auditme.rules.error_handling
 import hypothesis
 import hypothesis.strategies
@@ -2562,3 +2563,22 @@ def test_class_lineage_is_the_transitive_closure_and_terminates_on_cycles(graph:
                     expected.add(parent)
                     grew = True
     assert lineage == expected
+
+
+def test_sibling_error_check_walks_the_root_once_however_many_errors_files_it_holds(
+    project: Builder, run_check: Runner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    errors = 'class AlphaError(Exception):\n    pass\n\n\nclass BetaError(Exception):\n    pass\n'
+    root = project({'src/probe/errors.py': errors, 'src/probe/sub/errors.py': errors})
+    auditme.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+    real = auditme.core.all_py_files
+
+    def counting(src_root: pathlib.Path) -> list[pathlib.Path]:
+        calls.append(src_root)
+        return real(src_root)
+
+    monkeypatch.setattr(auditme.core, 'all_py_files', counting)
+    hits = run_check(SIBLING_ERRORS, root)
+    assert len(hits) == 2
+    assert len(calls) == 1

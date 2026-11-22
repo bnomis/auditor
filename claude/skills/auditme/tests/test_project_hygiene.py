@@ -3,6 +3,7 @@
 import collections.abc
 import contextlib
 import io
+import os
 import pathlib
 import subprocess
 
@@ -554,3 +555,20 @@ def test_ruff_hook_pin_reports_lines_inside_the_file(lines: list[str]) -> None:
         assert version is None
     else:
         assert repo_line < rev_line <= len(lines)
+
+
+def test_ruff_executable_is_resolved_once_per_run(project: Builder, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'.venv/bin/ruff': '#!/bin/sh\n'})
+    auditme.core.clear_source_cache()
+    calls: list[object] = []
+    real = os.access
+
+    def counting(path: object, mode: int) -> bool:
+        calls.append(path)
+        return real(path, mode)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(os, 'access', counting)
+    first = auditme.rules.project_hygiene.ruff_executable(root)
+    second = auditme.rules.project_hygiene.ruff_executable(root)
+    assert first == second
+    assert len(calls) == 1

@@ -117,7 +117,7 @@ generated inputs.
 
 ## Task 4: Rename the test helper and compute run-fixed values once
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** medium
 **Source Reference:** F8, F9
@@ -127,28 +127,31 @@ worked out once.
 
 **Subtasks:**
 
-- [ ] F8: rename `resolve_token` in `claude/skills/auditme/tests/phaseb/test_docrefs.py` (line 206 on 2026-11-22) to `read_token`, with every use
-- [ ] Record the outputs first, outside the repository: `python3 claude/skills/auditme/checks/audit.py .` and `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for A1, A17 and T1
-- [ ] F9, each through the per-run cache the driver already clears:
+- [x] F8: rename `resolve_token` in `claude/skills/auditme/tests/phaseb/test_docrefs.py` (line 206 on 2026-11-22) to `read_token`, with every use
+- [x] Record the outputs first, outside the repository: `python3 claude/skills/auditme/checks/audit.py .` and `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for A1, A17 and T1
+- [x] F9, each through the per-run cache the driver already clears:
   - `claude/skills/auditme/checks/auditme/phaseb/architecture.py:50`: resolve `audit_roots(scope)` once per listing, not once per check;
   - `claude/skills/auditme/checks/auditme/rules/project_hygiene.py:37` and `:217`: resolve `ruff_executable(scope)` once per run;
   - `claude/skills/auditme/checks/auditme/rules/error_handling.py:446`: build `caught_elsewhere` once per root, not once per `errors.py`;
   - `claude/skills/auditme/checks/auditme/rules/imports_and_surfaces.py:173`: call `declared_root_modules()` once per run;
   - `claude/skills/auditme/checks/auditme/phaseb/testmap.py:231`: run `reach` once per function in `TestIndex.refs`, not once per calling test
-- [ ] Add a test per cache that the value is computed once in a run, in the module's own test file
-- [ ] Run the commands again and diff the outputs against the record
+- [x] Add a test per cache that the value is computed once in a run, in the module's own test file
+- [x] Run the commands again and diff the outputs against the record
 
 **Acceptance Criteria:**
 
-- [ ] Every output is identical before and after
-- [ ] Each new test fails before its change and passes after it
+- [x] Every output is identical before and after
+- [x] Each new test fails before its change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_imports_and_surfaces.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_imports_and_surfaces.py -q -p no:cacheprovider` passes
 
 **Notes:**
+
+- `caught_elsewhere` in `check_sibling_error_no_common_base` was built and never read, so it was removed rather than cached; its test asserts the root is walked once.
+- Before/after outputs were compared with the HEAD checker and the new checker over the same fixed copy of HEAD, because auditing this repository itself shifts with the edits.
 
 - Check each test file name exists before running (`ls claude/skills/auditme/tests`), and name the module's own test file if it differs
 

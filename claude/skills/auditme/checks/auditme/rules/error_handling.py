@@ -441,21 +441,6 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
             continue
         # At least two sibling roots. Emit one finding per class whose
         # sibling is not caught together by any call site.
-        # Build set of classes actually used in except clauses anywhere in the tree.
-        caught_elsewhere: dict[str, set[str]] = collections.defaultdict(set)
-        for src in auditme.core.all_py_files(src_root):
-            other_tree = auditme.core.read_and_parse(src)
-            if other_tree is None:
-                continue
-            for sub in ast.walk(other_tree):
-                if not isinstance(sub, ast.ExceptHandler):
-                    continue
-                if sub.type is None:
-                    continue
-                type_src = ast.unparse(sub.type)
-                for caught in re.findall(r'[a-zA-Z_.][a-zA-Z0-9_.]*', type_src):
-                    tail = caught.split('.')[-1]
-                    caught_elsewhere[tail].add(auditme.core.relpath(src, scope))
         # Find the two classes most likely to belong together: if a class C
         # is caught at site S and a sibling D in the same file is never
         # caught together at S, D leaks.

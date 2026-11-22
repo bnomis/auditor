@@ -896,3 +896,24 @@ def test_type_source_of_is_none_or_an_alias_value(aliases: dict[str, str], names
         assert result is None
     else:
         assert result in aliases.values()
+
+
+def test_capture_hits_resolves_the_audit_roots_once_for_all_its_checks(project: Project, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': 'X = 1\n'})
+    auditme.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+    real = auditme.core.audit_roots
+
+    def counting(scope: pathlib.Path) -> list[pathlib.Path]:
+        calls.append(scope)
+        return real(scope)
+
+    def first(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        pass
+
+    def second(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        pass
+
+    monkeypatch.setattr(auditme.core, 'audit_roots', counting)
+    auditme.phaseb.architecture.capture_hits(root, [first, second])
+    assert len(calls) == 1
