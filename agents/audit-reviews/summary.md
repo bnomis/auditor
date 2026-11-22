@@ -25,15 +25,7 @@ Each group is described in full, with every site, in [review-3](review-3.md#phas
 
 | Finding | Question | Severity | First raised |
 |---|---|---|---|
-| F2 `positive_int` has no property test | T2 | low | review-3 |
-| F3 `changed.py`'s entry envelope misses `OSError` | A2 | low | review-3 |
-| F4 two dataclasses filled after construction | A8 | low | review-3 |
-| F5 `surface_files` resolves the audit roots on every call | A14 | low | review-3 |
-| F6 every rule check parses every file again | P3 | medium | review-3 |
-| F7 two function-local constants named lower_snake | S2 | low | review-3 |
-| F8 absolute from-imports in `phaseb/__init__.py` | S4 | low | review-3 |
-| F9 specs that no longer match the code | Doc4 | medium | review-3 |
-| F10 user docs that no longer match the code | Doc5 | medium | review-3 |
+| (none: every review-3 finding shipped or was dismissed) | | | |
 
 Dismissed on review-2's page (2026-11-22, F2) and again on review-3's (F1, after the A1 brief changed): `cached_source` returning `None` for an unreadable file, which review-1's D2 chose.
 
@@ -41,6 +33,15 @@ Dismissed on review-2's page (2026-11-22, F2) and again on review-3's (F1, after
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F2 `positive_int` has no property test | low | review-3 | Task 2 of the review-3 task list |
+| F3 `changed.py`'s entry envelope misses `OSError` | low | review-3 | Task 1 of the review-3 task list |
+| F4 two dataclasses filled after construction | low | review-3 | Task 3 of the review-3 task list |
+| F5 `surface_files` resolves the audit roots on every call | low | review-3 | Task 5 of the review-3 task list |
+| F6 every rule check parses every file again | medium | review-3 | Tasks 6 and 7 of the review-3 task list |
+| F7 two function-local constants named lower_snake | low | review-3 | Task 4 of the review-3 task list |
+| F8 absolute from-imports in `phaseb/__init__.py` | low | review-3 | Task 4 of the review-3 task list |
+| F9 specs that no longer match the code | medium | review-3 | Task 8 of the review-3 task list |
+| F10 user docs that no longer match the code | medium | review-3 | Task 9 of the review-3 task list |
 | F1 a read failure that a helper lets escape | low | review-2 | Task 4 of the review-2 task list |
 | F3 checks return silently when `uv` or `ruff` cannot run | low | review-2 | Task 3 of the review-2 task list |
 | F4 `phaseb.py` reaches past `auditme.phaseb`'s `__all__` | low | review-2 | Task 4 of the review-2 task list |
@@ -82,4 +83,6 @@ Dismissed on review-2's page (2026-11-22, F2) and again on review-3's (F1, after
 
 ## Checker changes since the last review
 
-- (none since review-3)
+- 2026-11-22: `changed.py`'s entry translates an `OSError` (for example a removed working directory) to its `changed.py:` message and exit 1 (review-3 F3, Task 1).
+- 2026-11-22: every rule check takes its tree from the shared `read_and_parse` instead of parsing each file again; the sorted sweep is unchanged, and the median of three runs fell from 12.2 s to 6.55 s on this repository (review-3 F6, Tasks 6 and 7).
+- 2026-11-22: `phaseb/__init__.py` no longer re-exports `batches`; readers import `auditme.phaseb.batches` directly (review-3 F8, Task 4).
