@@ -82,7 +82,7 @@ whatever spelling or repetition argparse accepts.
 
 ## Task 3: Re-export batches from phaseb in the relative form
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F2
@@ -92,18 +92,18 @@ package's public surface, without the absolute from-import S4 forbids.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/__init__.py`, import the submodule with `from . import batches` and add `'batches'` to `__all__`, in the order `non-alphabetical-literal` accepts
-- [ ] Confirm the sweep reports no new hit (`python3 claude/skills/auditme/checks/audit.py .`), and that the A17 lister's payload for `phaseb/__init__.py` no longer shows `phaseb.py` reaching a name outside `__all__`
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/__init__.py`, import the submodule with `from . import batches` and add `'batches'` to `__all__`, in the order `non-alphabetical-literal` accepts
+- [x] Confirm the sweep reports no new hit (`python3 claude/skills/auditme/checks/audit.py .`), and that the A17 lister's payload for `phaseb/__init__.py` no longer shows `phaseb.py` reaching a name outside `__all__`
 
 **Acceptance Criteria:**
 
-- [ ] `grep -n '^from auditme' claude/skills/auditme/checks/auditme/phaseb/__init__.py` prints nothing
-- [ ] `batches` is in `auditme.phaseb.__all__`
+- [x] `grep -n '^from auditme' claude/skills/auditme/checks/auditme/phaseb/__init__.py` prints nothing
+- [x] `batches` is in `auditme.phaseb.__all__`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 
