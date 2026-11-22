@@ -111,7 +111,7 @@ constructed once with their contents, not filled after construction.
 
 ## Task 4: Name the local constants and make phaseb's imports relative
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F7, F8
@@ -122,20 +122,20 @@ constructed once with their contents, not filled after construction.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/checks/auditme/rules/error_handling.py`, rename `stdlib_excs` (line 249 on 2026-11-22) and `safe_attrs` (line 92) to UPPER_SNAKE and update their uses
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/__init__.py`, replace the absolute `from auditme.phaseb... import` lines (10, 11, 20, 21) with `from .candidates import ...`, `from .errors import ...` and `from .ledger import ...`
-- [ ] For `batches`: every reader imports `auditme.phaseb.batches` itself (`checks/phaseb.py`, `tests/phaseb/test_batches.py`), so drop `batches` from `phaseb/__init__.py`'s import and `__all__`; grep for `auditme.phaseb.batches` reached through the package attribute before removing it, and keep the side-effect import of `auditme.phaseb.architecture`
-- [ ] Run the sweep and confirm no new hit (`python3 claude/skills/auditme/checks/audit.py .`)
+- [x] In `claude/skills/auditme/checks/auditme/rules/error_handling.py`, rename `stdlib_excs` (line 249 on 2026-11-22) and `safe_attrs` (line 92) to UPPER_SNAKE and update their uses
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/__init__.py`, replace the absolute `from auditme.phaseb... import` lines (10, 11, 20, 21) with `from .candidates import ...`, `from .errors import ...` and `from .ledger import ...`
+- [x] For `batches`: every reader imports `auditme.phaseb.batches` itself (`checks/phaseb.py`, `tests/phaseb/test_batches.py`), so drop `batches` from `phaseb/__init__.py`'s import and `__all__`; grep for `auditme.phaseb.batches` reached through the package attribute before removing it, and keep the side-effect import of `auditme.phaseb.architecture`
+- [x] Run the sweep and confirm no new hit (`python3 claude/skills/auditme/checks/audit.py .`)
 
 **Acceptance Criteria:**
 
-- [ ] `grep -n '^from auditme' claude/skills/auditme/checks/auditme/phaseb/__init__.py` prints nothing
-- [ ] The sweep reports no unaccepted hit
+- [x] `grep -n '^from auditme' claude/skills/auditme/checks/auditme/phaseb/__init__.py` prints nothing
+- [x] The sweep reports no unaccepted hit
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 

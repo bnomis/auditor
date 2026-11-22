@@ -89,10 +89,10 @@ def is_categorical_class_name_expr(expr_src: str, bound: str) -> bool:
     do not duplicate the chained traceback that ``raise ... from exc``
     or ``logger.exception`` already preserve.
     """
-    safe_attrs = ('__name__', '__qualname__')
+    SAFE_ATTRS = ('__name__', '__qualname__')
     bound_re = re.escape(bound)
-    patterns = [rf'^type\(\s*{bound_re}\s*\)\.{attr}$' for attr in safe_attrs]
-    patterns += [rf'^{bound_re}\.__class__\.{attr}$' for attr in safe_attrs]
+    patterns = [rf'^type\(\s*{bound_re}\s*\)\.{attr}$' for attr in SAFE_ATTRS]
+    patterns += [rf'^{bound_re}\.__class__\.{attr}$' for attr in SAFE_ATTRS]
     return any(re.match(p, expr_src.strip()) for p in patterns)
 
 
@@ -246,11 +246,11 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
             # input-validation distinct from internal invariants is signalled
             # by error suffix matching: ConfigError + InputEnvelopeError is one
             # cluster; RuntimeError + PipelineError is a real mix
-            stdlib_excs = {'RuntimeError', 'ValueError', 'TypeError', 'KeyError', 'IndexError', 'AttributeError'}
-            project_excs = {n for n in raised_types if n.endswith('Error') and n not in stdlib_excs}
+            STDLIB_EXCS = {'RuntimeError', 'ValueError', 'TypeError', 'KeyError', 'IndexError', 'AttributeError'}
+            project_excs = {n for n in raised_types if n.endswith('Error') and n not in STDLIB_EXCS}
             if not project_excs:
                 continue
-            mixed_with_stdlib = stdlib_excs & raised_types.keys()
+            mixed_with_stdlib = STDLIB_EXCS & raised_types.keys()
             if not mixed_with_stdlib:
                 continue
             # Emit ONE finding per function, listing every raise site
