@@ -577,7 +577,7 @@ def check_empty_init_with_exporting_siblings(scope: pathlib.Path, src_root: path
         # Skip the top-level package init (parent is src_root itself)
         if path.parent == src_root:
             continue
-        tree = auditme.core.parse_source(path)
+        tree = auditme.core.read_and_parse(path)
         if tree is None:
             continue
         export_count = 0
@@ -639,7 +639,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     shims: dict[str, set[tuple[str, str]]] = collections.defaultdict(set)
 
     for path in auditme.core.all_py_files(src_root):
-        tree = auditme.core.parse_source(path)
+        tree = auditme.core.read_and_parse(path)
         if tree is None:
             continue
         rel = auditme.core.relpath(path, scope)
@@ -674,7 +674,7 @@ def check_migration_shim_consumers(scope: pathlib.Path, src_root: pathlib.Path) 
     # symbol via the shim's module path.
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
-        tree = auditme.core.parse_source(path)
+        tree = auditme.core.read_and_parse(path)
         if tree is None:
             continue
         # the consumer is itself a module; do not flag the canonical or shim
@@ -736,7 +736,7 @@ def check_reexport_in_non_init(scope: pathlib.Path, src_root: pathlib.Path) -> N
         if path.name == '__init__.py':
             continue
         rel = auditme.core.relpath(path, scope)
-        tree = auditme.core.parse_source(path)
+        tree = auditme.core.read_and_parse(path)
         if tree is None:
             continue
         lines = auditme.core.source_lines(path)

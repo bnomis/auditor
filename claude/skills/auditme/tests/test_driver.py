@@ -604,7 +604,7 @@ def test_a_file_removed_between_listing_and_reading_is_an_unreadable_hit(
         for path in auditme.core.all_py_files(src_root):
             if path.name == 'gone.py':
                 path.unlink()
-            if auditme.core.parse_source(path) is not None:
+            if auditme.core.read_and_parse(path) is not None:
                 auditme.core.emit(rule='probe', variant='v', path=path.name, line=1, evidence='x', accepted=False, accepted_reason=None)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (reading_check,))
@@ -630,7 +630,7 @@ def test_a_file_with_bad_bytes_is_an_unreadable_hit(
 
     def reading_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         for path in auditme.core.all_py_files(src_root):
-            auditme.core.parse_source(path)
+            auditme.core.read_and_parse(path)
 
     monkeypatch.setattr(auditme.registry, 'CHECKS', (reading_check,))
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])

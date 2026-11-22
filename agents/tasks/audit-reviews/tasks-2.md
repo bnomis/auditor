@@ -162,7 +162,7 @@ emit a hit naming the missing tool when `uv` or `ruff` cannot run, as
 
 ## Task 5: Name the file readers after what they do, and build Candidate once
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** medium
 **Source Reference:** F10, F11
@@ -173,26 +173,26 @@ listers build `Candidate` through one helper (A13, A15), as review-1's Task
 
 **Subtasks:**
 
-- [ ] Starting-point check: `grep -rnwE 'read_and_parse|index_reads|index_definitions|index_frozen_classes|span_candidate' claude/skills/auditme/checks` prints nothing. If it prints a line, stop as `blocked` and name the clash
-- [ ] Rename these, and update every caller and test, and every doc and spec that names them as current code:
+- [x] Starting-point check: `grep -rnwE 'read_and_parse|index_reads|index_definitions|index_frozen_classes|span_candidate' claude/skills/auditme/checks` prints nothing. If it prints a line, stop as `blocked` and name the clash
+- [x] Rename these, and update every caller and test, and every doc and spec that names them as current code:
   - `auditme.core.parse_source` to `read_and_parse`;
   - `build_reads` to `index_reads`;
   - `build_definitions` to `index_definitions`;
   - `auditme.rules.state_and_effects.build_frozen_by_name` to `index_frozen_classes`.
   Take the full list from `grep -rnw` over `claude/`, `docs/` and `agents/specs/`, and leave dated records unchanged
-- [ ] Add a helper beside `candidates.site_candidate` that builds a `Candidate` from a file, a node or a span, an id and the hash parts, and use it at the four inline sites in `claude/skills/auditme/checks/auditme/phaseb/architecture.py` (`:306`, `:398`, `:698` and `:824` on 2026-11-22)
-- [ ] Document in `Candidate.id`'s comment the path-only id the A17 lister uses
-- [ ] Confirm the candidate ids and hashes are unchanged: run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for A1, A11, A17 and A19 before and after, and diff the output
+- [x] Add a helper beside `candidates.site_candidate` that builds a `Candidate` from a file, a node or a span, an id and the hash parts, and use it at the four inline sites in `claude/skills/auditme/checks/auditme/phaseb/architecture.py` (`:306`, `:398`, `:698` and `:824` on 2026-11-22)
+- [x] Document in `Candidate.id`'s comment the path-only id the A17 lister uses
+- [x] Confirm the candidate ids and hashes are unchanged: run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for A1, A11, A17 and A19 before and after, and diff the output
 
 **Acceptance Criteria:**
 
-- [ ] The before-and-after candidate listings are identical
-- [ ] `grep -rnwE 'parse_source|build_reads|build_definitions|build_frozen_by_name' claude/ docs/` prints nothing, except in dated records
+- [x] The before-and-after candidate listings are identical
+- [x] `grep -rnwE 'parse_source|build_reads|build_definitions|build_frozen_by_name' claude/ docs/` prints nothing, except in dated records
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (the renamed functions are in `core.py`, which every test module reaches)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests -q -p no:cacheprovider` passes (the renamed functions are in `core.py`, which every test module reaches)
 
 **Notes:**
 

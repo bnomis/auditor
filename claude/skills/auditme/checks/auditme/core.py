@@ -146,7 +146,7 @@ def read_source(path: pathlib.Path) -> str | None:
     return cached_source(path)[0]
 
 
-def parse_source(path: pathlib.Path) -> ast.Module | None:
+def read_and_parse(path: pathlib.Path) -> ast.Module | None:
     """The syntax tree of `path`, or None when it cannot be read or parsed.
 
     A file that does not parse is skipped without a record, as before; one that
@@ -619,14 +619,14 @@ def reads_by_module_and_name(
     The corpus is every root the sweep reads, not the one being swept: a
     reader in a sibling package, or in a script under `bin/`, is a reader.
     """
-    return corpus_index('reads', scope, src_root, lambda: build_reads(scope, src_root))
+    return corpus_index('reads', scope, src_root, lambda: index_reads(scope, src_root))
 
 
-def build_reads(scope: pathlib.Path, src_root: pathlib.Path) -> dict[tuple[str, str], list[tuple[pathlib.Path, int]]]:
+def index_reads(scope: pathlib.Path, src_root: pathlib.Path) -> dict[tuple[str, str], list[tuple[pathlib.Path, int]]]:
     """The index `reads_by_module_and_name` shares: one scan of the corpus."""
     reads: dict[tuple[str, str], list[tuple[pathlib.Path, int]]] = collections.defaultdict(list)
     for path in corpus_py_files(scope, src_root):
-        tree = parse_source(path)
+        tree = read_and_parse(path)
         if tree is None:
             continue
         for node in ast.walk(tree):
@@ -669,14 +669,14 @@ def corpus_definitions(
     Phase B listers set it: they resolve names a document mentions, which may
     be a class or a method. A file with a syntax error is skipped.
     """
-    return corpus_index(f'definitions-{classes}', scope, src_root, lambda: build_definitions(scope, src_root, classes))
+    return corpus_index(f'definitions-{classes}', scope, src_root, lambda: index_definitions(scope, src_root, classes))
 
 
-def build_definitions(scope: pathlib.Path, src_root: pathlib.Path, classes: bool) -> dict[str, list[tuple[ast.AST, pathlib.Path]]]:
+def index_definitions(scope: pathlib.Path, src_root: pathlib.Path, classes: bool) -> dict[str, list[tuple[ast.AST, pathlib.Path]]]:
     """The index `corpus_definitions` shares: one scan of the corpus."""
     out: dict[str, list[tuple[ast.AST, pathlib.Path]]] = {}
     for path in corpus_py_files(scope, src_root):
-        tree = parse_source(path)
+        tree = read_and_parse(path)
         if tree is None:
             continue
         for node in ast.iter_child_nodes(tree):
@@ -734,7 +734,7 @@ def all_names(path: pathlib.Path) -> set[str] | None:
     """The string members of the `__all__` in `path`, or None when it has none."""
     if not path.is_file():
         return None
-    tree = parse_source(path)
+    tree = read_and_parse(path)
     if tree is None:
         return None
     names: set[str] | None = None
@@ -806,7 +806,7 @@ def script_entry_points(path: pathlib.Path) -> set[str] | None:
     """
     if not path.is_file() or path.name == '__init__.py' or (path.parent / '__init__.py').exists():
         return None
-    tree = parse_source(path)
+    tree = read_and_parse(path)
     if tree is None:
         return None
     guards = [node for node in tree.body if is_main_guard(node)]
@@ -879,9 +879,9 @@ __all__ = [
     'loose_src_modules',
     'module_dotted',
     'packages_under',
-    'parse_source',
     'path_inside',
     'privacy',
+    'read_and_parse',
     'read_is_private',
     'read_source',
     'reads_by_module_and_name',

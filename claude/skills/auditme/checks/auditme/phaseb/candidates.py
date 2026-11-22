@@ -24,7 +24,7 @@ class Candidate:
     """One site a question applies to."""
 
     question: str  # e.g. 'A4'
-    id: str  # '<repo-relative path>::<qualname>'
+    id: str  # '<repo-relative path>::<qualname>'; the A17 lister uses the path alone, one candidate per `__init__.py`
     path: str
     start: int
     end: int
@@ -253,6 +253,11 @@ def module_sites(module: str, tree: ast.Module, rel: str, lines: list[str]) -> l
 def site_candidate(question: str, site: Site, payload: dict[str, typing.Any], hash: str) -> Candidate:
     """The candidate for one function or method."""
     return Candidate(question=question, id=site.id, path=site.path, start=site.start, end=site.end, payload=payload, hash=hash)
+
+
+def span_candidate(question: str, id: str, path: str, start: int, end: int, payload: dict[str, typing.Any], hash_parts: list[str]) -> Candidate:
+    """The candidate for a line span of one file, hashed over `hash_parts`."""
+    return Candidate(question=question, id=id, path=path, start=start, end=end, payload=payload, hash=digest([part.encode('utf-8') for part in hash_parts]))
 
 
 def section_candidate(question: str, id: str, section: auditme.phaseb.docrefs.DocSection, payload: dict[str, typing.Any], hash: str) -> Candidate:

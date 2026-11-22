@@ -303,14 +303,14 @@ def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
             type_source = type_source_of(annotation, aliases)
             source = textwrap.dedent('\n'.join(file.lines[node.lineno - 1 : node.end_lineno]))
             found.append(
-                candidates.Candidate(
-                    question='A11',
-                    id=f'{file.rel}::{qualname}::{kind}:{subject}#{number}',
-                    path=file.rel,
-                    start=node.lineno,
-                    end=node.end_lineno or node.lineno,
-                    payload={'source': source, 'subject': subject, 'annotation': annotation, 'type_source': type_source},
-                    hash=candidates.digest([part.encode('utf-8') for part in (source, subject, annotation or '', type_source or '')]),
+                candidates.span_candidate(
+                    'A11',
+                    f'{file.rel}::{qualname}::{kind}:{subject}#{number}',
+                    file.rel,
+                    node.lineno,
+                    node.end_lineno or node.lineno,
+                    {'source': source, 'subject': subject, 'annotation': annotation, 'type_source': type_source},
+                    [source, subject, annotation or '', type_source or ''],
                 )
             )
     return found
@@ -395,19 +395,19 @@ def list_a19_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                 function_source = textwrap.dedent('\n'.join(file.lines[function.lineno - 1 : function.end_lineno])) if function is not None else try_source
                 handler_source = textwrap.dedent('\n'.join(file.lines[handler.lineno - 1 : handler.end_lineno]))
                 found.append(
-                    candidates.Candidate(
-                        question='A19',
-                        id=f'{file.rel}::{qualname}::except#{number}',
-                        path=file.rel,
-                        start=handler.lineno,
-                        end=handler.end_lineno or handler.lineno,
-                        payload={
+                    candidates.span_candidate(
+                        'A19',
+                        f'{file.rel}::{qualname}::except#{number}',
+                        file.rel,
+                        handler.lineno,
+                        handler.end_lineno or handler.lineno,
+                        {
                             'handler': handler_source,
                             'try': try_source,
                             'function': function_summary(function) if function is not None else None,
                             'log_calls': log_calls,
                         },
-                        hash=candidates.digest([function_source.encode('utf-8')]),
+                        [function_source],
                     )
                 )
     return found
@@ -695,14 +695,14 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                     for caller_file, caller in ordered
                 )
             found.append(
-                candidates.Candidate(
-                    question='A1',
-                    id=f'{file.rel}::{site.scope.qualname}::call:{callee}#{number}',
-                    path=file.rel,
-                    start=site.call.lineno,
-                    end=site.call.end_lineno or site.call.lineno,
-                    payload=payload,
-                    hash=candidates.digest([part.encode('utf-8') for part in parts]),
+                candidates.span_candidate(
+                    'A1',
+                    f'{file.rel}::{site.scope.qualname}::call:{callee}#{number}',
+                    file.rel,
+                    site.call.lineno,
+                    site.call.end_lineno or site.call.lineno,
+                    payload,
+                    parts,
                 )
             )
     return found
@@ -826,14 +826,14 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
         source = '\n'.join(file.lines)
         parts = [source, *(f'{name}\t{entry}' for name, entry in sorted(set(keyed)))]
         found.append(
-            candidates.Candidate(
-                question='A17',
-                id=file.rel,
-                path=file.rel,
-                start=1,
-                end=max(len(file.lines), 1),
-                payload=payload,
-                hash=candidates.digest([part.encode('utf-8') for part in parts]),
+            candidates.span_candidate(
+                'A17',
+                file.rel,
+                file.rel,
+                1,
+                max(len(file.lines), 1),
+                payload,
+                parts,
             )
         )
     return found
