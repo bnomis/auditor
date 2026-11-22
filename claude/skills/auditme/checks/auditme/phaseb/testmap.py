@@ -213,6 +213,7 @@ class TestIndex:
     def refs(self, depth: int) -> dict[str, tuple[TestRef, ...]]:
         """Map each package function id to the tests that reach it, sorted by id."""
         found: dict[str, dict[str, TestRef]] = {}
+        reached_from: dict[str, dict[str, int]] = {}
         for file in self.tests:
             for qualname, (node, targets) in self.reached[file.rel].items():
                 test_id = f'{file.rel}::{qualname}'
@@ -228,7 +229,9 @@ class TestIndex:
                 for target in sorted(targets):
                     found.setdefault(self.sites[target].id, {})[test_id] = base
                 for via in sorted(targets):
-                    for target in reach(self.direct, [via], depth):
+                    if via not in reached_from:
+                        reached_from[via] = reach(self.direct, [via], depth)
+                    for target in reached_from[via]:
                         if target != via and target not in targets:
                             found.setdefault(self.sites[target].id, {}).setdefault(test_id, dataclasses.replace(base, route='caller', via=self.sites[via].id))
         return {function_id: tuple(sorted(refs.values(), key=lambda ref: ref.id)) for function_id, refs in found.items()}

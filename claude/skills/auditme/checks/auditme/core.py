@@ -85,7 +85,6 @@ def clear_source_cache() -> None:
     INDEX_CACHE.clear()
 
 
-# auditme: accept[asymmetric-exception-translation] each caller names its own file in the PhaseBError it raises; core cannot import phaseb
 def cached_bytes(path: pathlib.Path) -> bytes:
     """The bytes of `path`, read once per run.
 
@@ -93,12 +92,15 @@ def cached_bytes(path: pathlib.Path) -> bytes:
     during the run is read afresh. The result is shared and immutable.
 
     Raises:
-        OSError: the file cannot be read.
+        CachedReadError: the file cannot be read.
     """
-    stat = path.stat()
-    key = ('bytes', path, stat.st_mtime_ns, stat.st_size)
-    if key not in INDEX_CACHE:
-        INDEX_CACHE[key] = path.read_bytes()
+    try:
+        stat = path.stat()
+        key = ('bytes', path, stat.st_mtime_ns, stat.st_size)
+        if key not in INDEX_CACHE:
+            INDEX_CACHE[key] = path.read_bytes()
+    except OSError as error:
+        raise CachedReadError(f'cannot read {path}') from error
     return typing.cast('bytes', INDEX_CACHE[key])
 
 
@@ -308,6 +310,12 @@ ROOT_MODULES: types.MappingProxyType[pathlib.Path, str] = types.MappingProxyType
 # Set by the driver's `--extra-root`: the command line replaces the declaration
 # for one run, so `declared_roots` reports none, valid or not.
 DECLARATION_IGNORED = False
+
+
+class CachedReadError(OSError):
+    """`cached_bytes` could not read a file; the message names it and the cause is chained.
+
+    It is an `OSError`, so a caller that already handles an unreadable file keeps working."""
 
 
 class RootsError(Exception):
@@ -905,6 +913,7 @@ def read_is_private(qualname: str, module: str, root: pathlib.Path) -> bool:
 
 __all__ = [
     'BARE_GENERIC_NAMES',
+    'CachedReadError',
     'DECLARATION_IGNORED',
     'EMITTED',
     'EXTRA_ROOT_NAMES',

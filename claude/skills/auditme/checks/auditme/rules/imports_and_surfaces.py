@@ -118,13 +118,16 @@ STDLIB = {
 }
 
 
-def declared_root_modules() -> set[str]:
+def declared_root_modules() -> frozenset[str]:
     """The top-level module names the declared roots (`[tool.auditme]`) provide.
 
     A `package` root provides its own directory name; a `top-level` root
     provides each module and package directly inside it. Empty when no root is
     declared.
     """
+    key = ('declared-root-modules', tuple(auditme.core.ROOT_MODULES.items()))
+    if key in auditme.core.INDEX_CACHE:
+        return typing.cast('frozenset[str]', auditme.core.INDEX_CACHE[key])
     names: set[str] = set()
     for root, mode in auditme.core.ROOT_MODULES.items():
         if mode == auditme.core.TOP_LEVEL:
@@ -132,7 +135,9 @@ def declared_root_modules() -> set[str]:
             names.update(p.name for p in root.iterdir() if p.is_dir() and (p / '__init__.py').is_file())
         else:
             names.add(root.name)
-    return names
+    declared = frozenset(names)
+    auditme.core.INDEX_CACHE[key] = declared
+    return declared
 
 
 def check_in_function_imports(scope: pathlib.Path, src_root: pathlib.Path) -> None:

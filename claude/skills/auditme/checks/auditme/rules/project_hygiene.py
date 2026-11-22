@@ -6,6 +6,7 @@ import os
 import pathlib
 import re
 import subprocess
+import typing
 
 import auditme.core
 
@@ -16,11 +17,16 @@ def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:
 
     The project's own ruff is the one its lockfile pins, so preferring it makes
     the answer the same in every shell and in CI, whatever else is on PATH.
+    Resolved once per run and scope.
     """
-    venv_ruff = scope / '.venv' / 'bin' / 'ruff'
-    if venv_ruff.is_file() and os.access(venv_ruff, os.X_OK):
-        return str(venv_ruff), '.venv/bin/ruff'
-    return 'ruff', 'ruff on PATH'
+    key = ('ruff-executable', scope)
+    if key not in auditme.core.INDEX_CACHE:
+        venv_ruff = scope / '.venv' / 'bin' / 'ruff'
+        if venv_ruff.is_file() and os.access(venv_ruff, os.X_OK):
+            auditme.core.INDEX_CACHE[key] = (str(venv_ruff), '.venv/bin/ruff')
+        else:
+            auditme.core.INDEX_CACHE[key] = ('ruff', 'ruff on PATH')
+    return typing.cast('tuple[str, str]', auditme.core.INDEX_CACHE[key])
 
 
 def check_ruff(scope: pathlib.Path, src_root: pathlib.Path) -> None:

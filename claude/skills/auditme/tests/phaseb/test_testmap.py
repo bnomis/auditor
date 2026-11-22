@@ -581,3 +581,33 @@ def test_reach_matches_a_breadth_first_search_and_grows_with_depth(edges: dict[s
     assert all(0 <= distance <= depth for distance in reached.values())
     deeper = auditme.phaseb.testmap.reach(edges, start, depth + 1)
     assert all(deeper[name] == distance for name, distance in reached.items())
+
+
+def test_each_function_a_test_reaches_is_walked_once_however_many_tests_reach_it(project: Project, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project(
+        {
+            **BASE,
+            'src/tests/test_mod.py': """
+                import pkg.mod
+
+                def test_one():
+                    pkg.mod.load()
+
+                def test_two():
+                    pkg.mod.load()
+            """,
+        }
+    )
+    index = auditme.phaseb.testmap.load_test_index(root)
+    starts: list[tuple[str, ...]] = []
+    real = auditme.phaseb.testmap.reach
+
+    def counting(direct: collections.abc.Mapping[str, list[str]], start: collections.abc.Iterable[str], depth: int) -> dict[str, int]:
+        begin = tuple(start)
+        starts.append(begin)
+        return real(direct, begin, depth)
+
+    monkeypatch.setattr(auditme.phaseb.testmap, 'reach', counting)
+    refs = index.refs(3)
+    assert len(refs['src/pkg/mod.py::load']) == 2
+    assert len(starts) == len(set(starts))

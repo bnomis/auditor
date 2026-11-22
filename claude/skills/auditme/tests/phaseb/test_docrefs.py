@@ -203,7 +203,7 @@ def indexed(tmp_path: pathlib.Path) -> tuple[pathlib.Path, auditme.phaseb.docref
     return tmp_path, auditme.phaseb.docrefs.CorpusIndex.build(tmp_path)
 
 
-def resolve_token(indexed, token: str, doc: str = 'docs/guide.md') -> list[auditme.phaseb.docrefs.DocTarget]:
+def read_token(indexed, token: str, doc: str = 'docs/guide.md') -> list[auditme.phaseb.docrefs.DocTarget]:
     root, index = indexed
     return auditme.phaseb.docrefs.read_name_targets(token, root / doc, index)
 
@@ -224,76 +224,76 @@ def test_one_index_build_resolves_the_roots_once(indexed, monkeypatch):
 
 
 def test_tracked_path_relative_to_root(indexed):
-    (target,) = resolve_token(indexed, 'src/pkg/mod.py')
+    (target,) = read_token(indexed, 'src/pkg/mod.py')
     assert (target.kind, target.id, target.path) == ('file', 'src/pkg/mod.py', 'src/pkg/mod.py')
 
 
 def test_tracked_directory_resolves(indexed):
-    (target,) = resolve_token(indexed, 'src/pkg')
+    (target,) = read_token(indexed, 'src/pkg')
     assert (target.kind, target.id) == ('directory', 'src/pkg')
 
 
 def test_path_relative_to_the_document(indexed):
-    (target,) = resolve_token(indexed, 'sub/notes.md')
+    (target,) = read_token(indexed, 'sub/notes.md')
     assert (target.kind, target.id) == ('file', 'docs/sub/notes.md')
 
 
 def test_untracked_path_does_not_resolve(indexed):
-    assert resolve_token(indexed, 'untracked.py') == []
+    assert read_token(indexed, 'untracked.py') == []
 
 
 def test_dotted_reexport_resolves_to_definition(indexed):
-    (target,) = resolve_token(indexed, 'pkg.run_it')
+    (target,) = read_token(indexed, 'pkg.run_it')
     assert (target.kind, target.id) == ('function', 'src/pkg/mod.py::run_it')
 
 
 def test_unique_bare_function_and_class(indexed):
-    (function,) = resolve_token(indexed, 'run_it')
-    (cls,) = resolve_token(indexed, 'AppSettings')
+    (function,) = read_token(indexed, 'run_it')
+    (cls,) = read_token(indexed, 'AppSettings')
     assert (function.kind, cls.kind) == ('function', 'class')
     assert cls.id == 'src/pkg/mod.py::AppSettings'
 
 
 def test_bare_name_defined_twice_returns_both(indexed):
-    found = resolve_token(indexed, 'twice')
+    found = read_token(indexed, 'twice')
     assert sorted(t.kind for t in found) == ['function', 'method']
     assert sorted(t.id for t in found) == ['src/pkg/mod.py::Probe.twice', 'src/pkg/mod.py::twice']
 
 
 def test_class_method_and_field(indexed):
-    (method,) = resolve_token(indexed, 'Probe.load')
-    (field,) = resolve_token(indexed, 'Probe.size')
+    (method,) = read_token(indexed, 'Probe.load')
+    (field,) = read_token(indexed, 'Probe.size')
     assert (method.kind, method.id) == ('method', 'src/pkg/mod.py::Probe.load')
     assert (field.kind, field.id) == ('field', 'src/pkg/mod.py::Probe.size')
 
 
 def test_setting_through_a_settings_class(indexed):
-    (target,) = resolve_token(indexed, 'app.port')
+    (target,) = read_token(indexed, 'app.port')
     assert (target.kind, target.id) == ('setting', 'src/pkg/mod.py::Inner.port')
 
 
 def test_dotted_key_with_no_settings_field_does_not_resolve(indexed):
-    assert resolve_token(indexed, 'nothing.port') == []
-    assert resolve_token(indexed, 'size.port') == []
+    assert read_token(indexed, 'nothing.port') == []
+    assert read_token(indexed, 'size.port') == []
 
 
 def test_option_literal_passed_to_add_argument(indexed):
-    (target,) = resolve_token(indexed, '--limit')
+    (target,) = read_token(indexed, '--limit')
     assert (target.kind, target.id) == ('option', 'src/pkg/mod.py::--limit')
 
 
 def test_unknown_name_returns_empty(indexed):
-    assert resolve_token(indexed, 'never_defined') == []
-    assert resolve_token(indexed, '--never') == []
+    assert read_token(indexed, 'never_defined') == []
+    assert read_token(indexed, '--never') == []
 
 
 def test_each_target_carries_path_and_lines(indexed):
-    (target,) = resolve_token(indexed, 'run_it')
+    (target,) = read_token(indexed, 'run_it')
     assert target.path == 'src/pkg/mod.py'
     assert (target.start, target.end) == (5, 6)
-    (method,) = resolve_token(indexed, 'Probe.load')
+    (method,) = read_token(indexed, 'Probe.load')
     assert (method.start, method.end) == (16, 17)
-    (static,) = (t for t in resolve_token(indexed, 'twice') if t.kind == 'method')
+    (static,) = (t for t in read_token(indexed, 'twice') if t.kind == 'method')
     assert (static.start, static.end) == (19, 21)
 
 

@@ -811,3 +811,21 @@ def test_a_scoped_accept_marker_dismisses_the_from_import(project: Builder, run_
 def test_a_marker_scoped_to_another_rule_does_not_dismiss_the_from_import(project: Builder, run_check: Runner) -> None:
     root = project({'src/probe/mod.py': 'from pathlib import Path  # auditme: accept[as-import] unrelated\n'})
     assert [hit['accepted'] for hit in run_check(FROM_IMPORT, root)] == [False]
+
+
+def test_declared_root_modules_are_listed_once_per_run(project: Builder, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'bin/tool.py': '', 'bin/pkg/__init__.py': ''})
+    monkeypatch.setattr(auditme.core, 'ROOT_MODULES', types.MappingProxyType({root / 'bin': auditme.core.TOP_LEVEL}))
+    auditme.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+    real = pathlib.Path.glob
+
+    def counting(self: pathlib.Path, pattern: str, **kwargs: typing.Any) -> typing.Any:
+        calls.append(self)
+        return real(self, pattern, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, 'glob', counting)
+    first = auditme.rules.imports_and_surfaces.declared_root_modules()
+    second = auditme.rules.imports_and_surfaces.declared_root_modules()
+    assert first == second == {'tool', 'pkg'}
+    assert len(calls) == 1

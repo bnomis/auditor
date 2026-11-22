@@ -25,15 +25,7 @@ Each group is described in full, with every site, in [review-6](review-6.md#phas
 
 | Finding | Question | Severity | First raised |
 |---------|----------|----------|--------------|
-| F1 `cached_bytes` lets `OSError` escape and has no direct test | A1, T1 | low | review-6 |
-| F2 the new `--scope` helpers have no property tests | T2 | low | review-6 |
-| F3 three specs state brief version numbers that went stale | Doc4 | low | review-6 |
-| F4 a spec API block leaves out a declared `Raises:` | Doc4 | low | review-6 |
-| F5 the CLI reference misses two `--scope` behaviours | Doc5 | low | review-6 |
-| F6 the `silent-self-mutation` row lists fewer exempt methods than the check | Doc5 | low | review-6 |
-| F7 `AGENTS.md` says "both hook types" before a command naming three | Doc3 | low | review-6 |
-| F8 a test helper's name hides a read | A9 | low | review-6 |
-| F9 the same value worked out again within one run | A14, P3 | low | review-6 |
+| None | | | |
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small).
 
@@ -41,6 +33,15 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 `cached_bytes` lets `OSError` escape and has no direct test | low | review-6 | Task 2 of the review-6 task list |
+| F2 the new `--scope` helpers have no property tests | low | review-6 | Task 3 of the review-6 task list |
+| F3 three specs state brief version numbers that went stale | low | review-6 | Task 1 of the review-6 task list |
+| F4 a spec API block leaves out a declared `Raises:` | low | review-6 | Task 1 of the review-6 task list |
+| F5 the CLI reference misses two `--scope` behaviours | low | review-6 | Task 1 of the review-6 task list |
+| F6 the `silent-self-mutation` row lists fewer exempt methods than the check | low | review-6 | Task 1 of the review-6 task list |
+| F7 `AGENTS.md` says "both hook types" before a command naming three | low | review-6 | Task 1 of the review-6 task list |
+| F8 a test helper's name hides a read | low | review-6 | Task 4 of the review-6 task list |
+| F9 the same value worked out again within one run | low | review-6 | Task 4 of the review-6 task list |
 | F1 the installer's exit-1 row leaves out two cases | low | review-5 | Task 1 of the review-5 task list |
 | F2 a troubleshooting cause left out | low | review-5 | Task 1 of the review-5 task list |
 | F3 the phaseb synopsis leaves out `--depth` | low | review-5 | Task 1 of the review-5 task list |
