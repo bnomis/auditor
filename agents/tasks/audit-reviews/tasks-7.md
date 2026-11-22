@@ -47,7 +47,7 @@ them.
 
 ## Task 2: Name the dropped modes and stop swallowing unparse failures
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F3, F4, O1
