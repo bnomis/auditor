@@ -38,34 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Settle the thresholds review-3's reviewers left open
-
-- **Raised:** 2026-11-22, by this repository's third audit (review-3, decision D1).
-- **What happens:** each brief tells its reviewer to report, not decide, a
-  threshold it does not settle, and the reviewers of that audit reported
-  these, so each is judged case by case:
-  - A1: a standalone script's own error class (`ChangedError` in
-    `checks/changed.py`), which is not among the payload's `domain_errors`.
-  - T2: whether a call through a local alias in a hypothesis `given` test
-    (`check = module.fn`) is a direct call.
-  - Doc4: a present-tense Module location row marked "(new)"; a `Raises:`
-    listing an error for one condition when the code raises it for another
-    too; a usage block that leaves an option off; a predicate's definition
-    read as "X has a, b and c"; an undated statement that a dated amendment
-    later in the same section replaces; a list ending "all else is X's
-    handling"; a numbered list of a guide's sections, read as complete or as
-    order only; a Testing section, read as an instruction or a description; a
-    shared drift whose section's candidates are split across batches; a
-    command spelled with fewer flags than the code uses; a wording both
-    readings fit.
-  - Doc5: a "Stops for" list, as a list of when a command stops; the docs'
-    account of an external tool pinned in another repository.
-- **Asked for:** settle each in its brief, bumping the brief's version, so
-  every reviewer applies the same threshold. Each audit since review-1 has
-  reported a fresh set after the last was settled (review-3's summary,
-  Recurring patterns); consider with them whether a general rule would
-  settle a class of cases rather than one case each.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.

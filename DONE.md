@@ -835,3 +835,23 @@ Shipping it deletes the request entry; the first sweep after it reports any
 unformatted file as catch-up.
 
 Done: 2026-11-22 - `check_ruff` in `claude/skills/auditme/checks/auditme/rules/project_hygiene.py` reads `ruff format --check --output-format=json`, as it reads `ruff check`; tests in `claude/skills/auditme/tests/test_project_hygiene.py` against the real ruff and against output captured from the pinned ruff 0.17.4; `docs/guide/checker.md`; the request entry removed from `claude/skills/auditme/requests.md`. The sweep of this repository reported no unformatted file.
+
+## Settle the thresholds review-3's reviewers left open
+
+Found on 2026-11-22 by `agents/audit-reviews/review-3.md` (decision D1) and
+filed as an open request in `claude/skills/auditme/requests.md` ("Settle the
+thresholds review-3's reviewers left open"), which lists each threshold for
+the A1, T2, Doc4 and Doc5 briefs.
+
+Cause: each brief tells its reviewer to report, not decide, a threshold it
+does not settle, so the same case can be judged differently in another batch.
+
+Fix direction: put each threshold to the operator as a decision with a
+recommendation on a review page, as the two earlier threshold reviews in
+`agents/reviews/` did, and consider the request's note on a general rule;
+then settle each in its brief under `claude/skills/auditme/phaseb/briefs/`,
+bumping that brief's version and the expectation in
+`claude/skills/auditme/tests/phaseb/test_briefs.py`. Shipping it deletes the
+request entry.
+
+Done: 2026-11-22 - agents/reviews/brief-thresholds-3-2026-11-22.md (answered 2026-11-22): G1 gives every brief a default verdict for an unsettled case (every brief up one version), and the A1, T2, Doc4 and Doc5 briefs settle review-3's cases; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from `claude/skills/auditme/requests.md`.

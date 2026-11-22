@@ -51,7 +51,7 @@ def question_line(question: str) -> str:
     return next(line for line in skill.splitlines() if line.startswith(f'- **{question}.')).removeprefix('- ')
 
 
-DOC_BRIEF_VERSIONS = {'Doc1': 3, 'Doc2': 2, 'Doc4': 6, 'Doc5': 6}
+DOC_BRIEF_VERSIONS = {'Doc1': 4, 'Doc2': 3, 'Doc4': 7, 'Doc5': 7}
 DOC_BRIEF_PHRASES = {'Doc1': 'tracked', 'Doc2': 'declared', 'Doc4': 'unresolved', 'Doc5': 'unresolved'}
 
 
@@ -83,7 +83,7 @@ def test_doc5_question_covers_readme() -> None:
 def test_test_brief_holds_question_keys_and_security_rule(question: str, keys: tuple[str, ...]) -> None:
     brief = auditme.phaseb.question_brief(question)
     text = brief.read_text(encoding='utf-8')
-    version = {'T1': 4, 'T2': 1}[question]
+    version = {'T1': 5, 'T2': 2}[question]
     assert len(re.findall(rf'^\*\*Brief version:\*\* {version}$', text, re.MULTILINE)) == 1
     assert auditme.phaseb.brief_version(brief) == version
     assert question_line(question) in text
@@ -111,7 +111,7 @@ def test_every_brief_output_asks_for_findings_with_its_registered_kinds() -> Non
 
 
 def test_brief_versions_after_the_findings_shape() -> None:
-    expected = {'A4': 6, 'Doc1': 3, 'Doc2': 2, 'Doc4': 6, 'Doc5': 6, 'T1': 4, 'T2': 1, 'A1': 4, 'A11': 1, 'A17': 2, 'A19': 1}
+    expected = {'A4': 7, 'Doc1': 4, 'Doc2': 3, 'Doc4': 7, 'Doc5': 7, 'T1': 5, 'T2': 2, 'A1': 5, 'A11': 2, 'A17': 3, 'A19': 2}
     assert set(expected) == set(auditme.phaseb.candidates.REGISTRY)
     for question, version in expected.items():
         assert auditme.phaseb.brief_version(auditme.phaseb.question_brief(question)) == version, question
@@ -137,6 +137,25 @@ def test_brief_versions_after_the_findings_shape() -> None:
         ('A4', ('registered implementations', 'invariant guard')),
         ('Doc4', ('A dated sentence inside an undated section', '"Today" in an implemented spec', 'reported\n  once')),
         ('Doc5', ('names more than one\n  keyword', 'A dated sentence inside an undated section', '"Today" in an implemented spec', 'reported\n  once')),
+        # The rulings of agents/reviews/brief-thresholds-3-2026-11-22.md.
+        ('A1', ('defines itself counts as a domain error',)),
+        ('T2', ('`given` test is a direct call',)),
+        (
+            'Doc4',
+            (
+                'marked "(new)"',
+                'not their\n  conditions',
+                'usage block',
+                'says exactly what counts',
+                'read as a whole',
+                'catch-all',
+                'Testing section',
+                'within each batch',
+                'run as written',
+                'one fair reading',
+            ),
+        ),
+        ('Doc5', ('"Stops for" list', 'pinned to a commit')),
         # The rulings of agents/reviews/brief-thresholds-2-2026-11-22.md.
         ('A1', ('only one `subprocess.SubprocessError`', 'registers as a check', 'Name it in the reason')),
         ('A4', ("decorator's own body",)),
@@ -167,3 +186,10 @@ def test_brief_settles_its_thresholds(question: str, phrases: tuple[str, ...]) -
     thresholds = text.split('## Thresholds', 1)[1].split('## Output', 1)[0]
     for phrase in phrases:
         assert phrase in thresholds, (question, phrase)
+
+
+def test_every_brief_gives_an_unsettled_case_the_default_verdict() -> None:
+    # G1 of agents/reviews/brief-thresholds-3-2026-11-22.md.
+    for question in auditme.phaseb.candidates.REGISTRY:
+        text = auditme.phaseb.question_brief(question).read_text(encoding='utf-8')
+        assert 'A case this brief does not settle is not a finding' in text, question

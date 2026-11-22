@@ -1,6 +1,6 @@
 # Listed Phase B documentation questions
 
-**Version:** 1.4
+**Version:** 1.5
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -236,6 +236,14 @@ complete unless marked; inline JSON is judged on content, not layout; a
 narrower claim is drift only when it states its scope as the whole or the
 rest is undescribed; a row about a set-up project is judged against the setup
 skill's template.
+
+Amendment 1.5 (operator, 2026-11-22, `agents/reviews/brief-thresholds-3-2026-11-22.md`; briefs Doc1 4, Doc2 3,
+Doc4 7, Doc5 7): every brief carries the default verdict of
+`agents/specs/repeatable-phase-b/spec.md` amendment 1.5. Doc4 adds rulings on
+"(new)" Module location rows, `Raises:` conditions, usage blocks, definitions,
+sections read as a whole, catch-all lists, Testing sections, drifts in split
+sections, commands and ambiguous sentences; Doc5 on "Stops for" lists and
+tools pinned in another repository.
 
 Registered batch sizes, unmeasured: 24 for Doc4 and Doc5 (a section and its
 code per candidate), 12 for Doc1 and Doc2 (the tree or the inventories).

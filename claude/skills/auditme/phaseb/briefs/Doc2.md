@@ -1,6 +1,6 @@
 # Doc2 brief
 
-**Brief version:** 2
+**Brief version:** 3
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -36,8 +36,10 @@ project's own files for a token that matched none.
   presents itself as the tools or libraries list. A section that does not
   present itself as that list owes none.
 
-A threshold that this brief does not settle is not yours to decide: report
-it in your reply, name the candidate, and judge the rest as the brief says.
+A case this brief does not settle is not a finding: judge it not flagged,
+name the candidate and the case in your reply, and judge the rest as the brief
+says. Every reviewer gives an unsettled case the same verdict, so it does not
+depend on the batch; the operator settles a reported case when it should count.
 
 ## Output
 

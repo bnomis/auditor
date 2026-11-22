@@ -1,6 +1,6 @@
 # Doc5 brief
 
-**Brief version:** 6
+**Brief version:** 7
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -87,9 +87,16 @@ against the code.
   skill is judged against that skill's template; one that describes the
   published hooks is judged against the manifest. The section's own wording
   is the evidence.
+- A "Stops for" list in a skill's reference lists the conditions under
+  which the skill stops, and is complete unless marked.
+- A tool the repository runs from another repository, pinned to a commit, is
+  judged against that pinned version when it can be read; when it cannot, the
+  description is not judged, and the reviewer says so.
 
-A threshold that this brief does not settle is not yours to decide: report
-it in your reply, name the candidate, and judge the rest as the brief says.
+A case this brief does not settle is not a finding: judge it not flagged,
+name the candidate and the case in your reply, and judge the rest as the brief
+says. Every reviewer gives an unsettled case the same verdict, so it does not
+depend on the batch; the operator settles a reported case when it should count.
 
 ## Output
 

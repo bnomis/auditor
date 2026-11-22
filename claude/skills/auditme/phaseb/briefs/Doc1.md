@@ -1,6 +1,6 @@
 # Doc1 brief
 
-**Brief version:** 3
+**Brief version:** 4
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -37,8 +37,10 @@ Read the section and compare it with the tree.
   repository's `.gitignore` ignores, is not stale for being absent from the
   tracked tree. Check the `.gitignore` entry; a path with none is stale.
 
-A threshold that this brief does not settle is not yours to decide: report
-it in your reply, name the candidate, and judge the rest as the brief says.
+A case this brief does not settle is not a finding: judge it not flagged,
+name the candidate and the case in your reply, and judge the rest as the brief
+says. Every reviewer gives an unsettled case the same verdict, so it does not
+depend on the batch; the operator settles a reported case when it should count.
 
 ## Output
 

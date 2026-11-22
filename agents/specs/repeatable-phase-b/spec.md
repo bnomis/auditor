@@ -1,6 +1,6 @@
 # Repeatable Phase B
 
-**Version:** 1.4
+**Version:** 1.5
 **Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/2L2gApX1M8DNzL5ivQF3D7
@@ -285,6 +285,12 @@ brief, version 1, settles:
 A threshold a reviewer raises in its reply that the brief does not settle is
 reported to the operator, never settled by the orchestrator mid-run, and the
 answer lands as a brief version bump.
+
+Amendment 1.5 (operator, 2026-11-22, `agents/reviews/brief-thresholds-3-2026-11-22.md`, decision G1; every
+brief up one version): a case the brief does not settle is judged not a
+finding, and the reviewer names it in its reply. Every batch gives such a case
+the same verdict, so settling a reported case is needed only when it should
+count, not for the verdicts to agree. The A4 brief is at version 7.
 
 Amendment 1.3 (operator, 2026-11-22, `agents/reviews/brief-thresholds-2026-11-22.md`;
 A4 brief version 5): a call dispatched through a registry lookup owes the

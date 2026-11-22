@@ -1,6 +1,6 @@
 # Doc4 brief
 
-**Brief version:** 6
+**Brief version:** 7
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -85,9 +85,36 @@ against the code.
 - When several candidates of a section share the span that holds a drift,
   report it under the candidate whose target the drift is about, and under
   the first in the batch's order only when none names it.
+- A Module location row marked "(new)" describes what the spec's change
+  added, and is a record of it.
+- A `Raises:` section is complete as to the error types it names, not their
+  conditions: a further condition for a named type is an omission, unless the
+  section presents its conditions as complete.
+- A usage block or command synopsis reproduces the interface, like a file
+  block: it is complete unless marked as an excerpt.
+- A definition ("compared with a, b or c") says exactly what counts: a case
+  the code also accepts is drift, unless marked "for example".
+- A section is read as a whole: a dated amendment in it that replaces an
+  earlier statement in the same section is the section's current word, and
+  the earlier statement is not drift.
+- A list ending in a catch-all that hands the rest to something ("all else is
+  X's handling") is complete together with it: a case neither listed nor X's
+  is drift.
+- A spec's Testing section tells the implementer what to write, and is a
+  record of the change.
+- The shared-span rule applies within each batch: each reviewer reports a
+  shared drift under the right candidate of its own batch, and the
+  orchestrator merges duplicates from batches that split a section.
+- A command that, run as written, would do something other than what the
+  code does (for example install fewer hook types) is drift; one that only
+  leaves out an optional extra is not.
+- A sentence that one fair reading makes true is not contradicted, and is
+  not drift.
 
-A threshold that this brief does not settle is not yours to decide: report
-it in your reply, name the candidate, and judge the rest as the brief says.
+A case this brief does not settle is not a finding: judge it not flagged,
+name the candidate and the case in your reply, and judge the rest as the brief
+says. Every reviewer gives an unsettled case the same verdict, so it does not
+depend on the batch; the operator settles a reported case when it should count.
 
 ## Output
 
