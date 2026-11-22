@@ -23,21 +23,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 Each group is described in full, with every site, in [review-2](review-2.md#phase-b-findings-consolidated).
 
-| Finding | Question | Severity | First raised |
-|---|---|---|---|
-| F1 a read failure that a helper lets escape | A1 | low | review-2 |
-| F3 checks return silently when `uv` or `ruff` cannot run | A1 | low | review-2 |
-| F4 `phaseb.py` reaches past `auditme.phaseb`'s `__all__` | A17 | low | review-2 |
-| F5 two helpers without the test the questions ask for | T1, T2 | low | review-2 |
-| F6 `--depth` with a question that takes no depth crashes | Doc4, Sec2 | medium | review-2 |
-| F7 specs that state the current state wrongly | Doc4 | medium | review-2 |
-| F8 the `no-project-names` hook passes when a file cannot be read | Doc5 | medium | review-2 |
-| F9 user docs that no longer match the code | Doc5 | medium | review-2 |
-| F10 pure-named functions that read files | A9 | low | review-2 |
-| F11 `Candidate` built inline at four sites | A13, A15 | low | review-2 |
-| F12 root configuration and specs re-read on every call | A14, P3 | low | review-2 |
-| F13 argparse calls without trailing commas | S4 | low | review-2 |
-| F14 a setting without its type and default | spec review | low | review-2 |
+None. Every finding review-2 raised was fixed (see below) or dismissed.
 
 Dismissed on review-2's page (2026-11-22): F2, `cached_source` returning `None` for an unreadable file, which review-1's D2 chose.
 
@@ -45,6 +31,19 @@ Dismissed on review-2's page (2026-11-22): F2, `cached_source` returning `None` 
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 a read failure that a helper lets escape | low | review-2 | Task 4 of the review-2 task list |
+| F3 checks return silently when `uv` or `ruff` cannot run | low | review-2 | Task 3 of the review-2 task list |
+| F4 `phaseb.py` reaches past `auditme.phaseb`'s `__all__` | low | review-2 | Task 4 of the review-2 task list |
+| F5 two helpers without the test the questions ask for | low | review-2 | Task 7 of the review-2 task list |
+| F6 `--depth` with a question that takes no depth crashes | medium | review-2 | Task 2 of the review-2 task list |
+| F7 specs that state the current state wrongly | medium | review-2 | Task 8 of the review-2 task list |
+| F8 the `no-project-names` hook passes when a file cannot be read | medium | review-2 | Task 1 of the review-2 task list |
+| F9 user docs that no longer match the code | medium | review-2 | Task 9 of the review-2 task list |
+| F10 pure-named functions that read files | low | review-2 | Task 5 of the review-2 task list |
+| F11 `Candidate` built inline at four sites | low | review-2 | Task 5 of the review-2 task list |
+| F12 root configuration and specs re-read on every call | low | review-2 | Task 6 of the review-2 task list |
+| F13 argparse calls without trailing commas | low | review-2 | Task 2 of the review-2 task list |
+| F14 a setting without its type and default | low | review-2 | Task 8 of the review-2 task list |
 | F1 an unreadable file crashes a check instead of being reported | medium | review-1 | Task 6 of the review-1 task list |
 | F3 other pure-named functions that do I/O | low | review-1 | Task 12 of the review-1 task list |
 | F4 helpers without a direct test | medium | review-1 | Task 9 of the review-1 task list |
@@ -72,3 +71,8 @@ Dismissed on review-2's page (2026-11-22): F2, `cached_source` returning `None` 
 ## Checker changes since the last review
 
 - `check_spec_api_signature_drift` moved from `CHECKS` to `PROJECT_CHECKS`: it runs once per sweep, before the per-root passes, so its hits are emitted earlier in the output (review-2 F12, Task 6 of the review-2 task list). The set of hits is unchanged.
+- 2026-11-22: the `no-project-names` hook exits non-zero when a file it checks cannot be read, even when another file matched (review-2 F8, Task 1 of the review-2 task list).
+- 2026-11-22: `phaseb.py candidates` passes `--depth` only to listers that take it, and refuses a bad depth with an error instead of a `TypeError` (review-2 F6, Task 2 of the review-2 task list).
+- 2026-11-22: a missing `uv` or `ruff` is a hit from the checks that call them, not a silent return (review-2 F3, Task 3 of the review-2 task list).
+- 2026-11-22: the A17 lister reads through the package's translating reader, so an unreadable file raises `PhaseBError` (review-2 F1, Task 4 of the review-2 task list).
+- 2026-11-22: file readers are renamed to say that they read, and `Candidate` is built in one place (review-2 F10 and F11, Task 5 of the review-2 task list).
