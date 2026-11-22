@@ -17,7 +17,7 @@ only the one reported.
 
 ## Task 1: Name every `phaseb.py` exit-2 cause, and the hook's directory case
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1, F2
@@ -27,20 +27,20 @@ and the names hook names a path it cannot read as a file.
 
 **Subtasks:**
 
-- [ ] F1: in `docs/reference/cli.md` (line 174 on 2026-11-22), add that `phaseb.py` exits 2 with the error's message whenever a Phase B step fails, naming the cases `claude/skills/auditme/checks/phaseb.py`'s `main` handles (a merge for another question, a plan or ledger that cannot be read, a failed write); read them from the code. Grep `docs agents/specs` for any other list of `phaseb.py`'s exit codes and make it agree
-- [ ] F2: write the failing test first, in `tests/test_check_foreign_names.py`: a directory argument exits 2 and is named in the "cannot read" message. Then in `bin/check-foreign-names.sh` (lines 51-55), treat a path that is not a regular readable file (`[ -f "$file" ] && [ -r "$file" ]`) as unreadable
-- [ ] F2: `grep -n '\[ -r ' bin/*.sh claude/hooks/*.sh` and apply the same rule to any other script that checks only readability before reading a file
+- [x] F1: in `docs/reference/cli.md` (line 174 on 2026-11-22), add that `phaseb.py` exits 2 with the error's message whenever a Phase B step fails, naming the cases `claude/skills/auditme/checks/phaseb.py`'s `main` handles (a merge for another question, a plan or ledger that cannot be read, a failed write); read them from the code. Grep `docs agents/specs` for any other list of `phaseb.py`'s exit codes and make it agree
+- [x] F2: write the failing test first, in `tests/test_check_foreign_names.py`: a directory argument exits 2 and is named in the "cannot read" message. Then in `bin/check-foreign-names.sh` (lines 51-55), treat a path that is not a regular readable file (`[ -f "$file" ] && [ -r "$file" ]`) as unreadable
+- [x] F2: `grep -n '\[ -r ' bin/*.sh claude/hooks/*.sh` and apply the same rule to any other script that checks only readability before reading a file
 
 **Acceptance Criteria:**
 
-- [ ] Each doc statement matches the code
-- [ ] The new test fails before the change and passes after it
+- [x] Each doc statement matches the code
+- [x] The new test fails before the change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_check_foreign_names.py -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_check_foreign_names.py -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 

@@ -173,6 +173,8 @@ exits `2` with the same message.
 
 `phaseb.py` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path, and for a `<root>` that does not exist or is not a directory, so a mistyped root never reads as an empty listing.
 
+It also exits `2`, printing `phaseb.py: ` and the error's message to stderr, whenever a Phase B step fails: a `merge` for a run planned for another question, a plan, ledger, brief or file that cannot be read or parsed, a ledger or plan that cannot be written, and a verdict that is not valid.
+
 `phaseb.py plan` records the callee depth it listed at (`--depth`, default 3)
 in `plan.json`. `phaseb.py merge` exits `2`, naming both depths and writing
 nothing to the ledger, when its own `--depth` differs from the plan's: merge

@@ -28,7 +28,7 @@ if [ ! -f "$list" ]; then
     exit 0
 fi
 
-if [ ! -r "$list" ]; then
+if [ ! -f "$list" ] || [ ! -r "$list" ]; then
     echo "check-foreign-names: cannot read $list" >&2
     exit 2
 fi
@@ -48,7 +48,7 @@ fi
 
 unreadable=()
 for file in "$@"; do
-    [ -r "$file" ] || unreadable+=("$file")
+    { [ -f "$file" ] && [ -r "$file" ]; } || unreadable+=("$file")
 done
 
 status=0
