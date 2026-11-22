@@ -3,7 +3,6 @@
 import ast
 import collections
 import collections.abc
-import contextlib
 import re
 import typing
 
@@ -234,8 +233,7 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
                     if isinstance(fn, ast.Name):
                         raised_types[fn.id].append(inner.lineno)
                     elif isinstance(fn, ast.Attribute):
-                        with contextlib.suppress(Exception):
-                            raised_types[ast.unparse(fn).split('.')[-1]].append(inner.lineno)
+                        raised_types[ast.unparse(fn).split('.')[-1]].append(inner.lineno)
             if len(raised_types) < 2:
                 continue
             # exclude common cases where the mix is intentional: re-raise of
@@ -1023,8 +1021,7 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 if h.type is None:
                     caught.append('<bare>')
                 else:
-                    with contextlib.suppress(Exception):
-                        caught.append(ast.unparse(h.type))
+                    caught.append(ast.unparse(h.type))
             accept = auditme.core.accept_reason(lines, lineno, rule='filesystem-envelope-gap')
             auditme.core.emit(
                 rule='filesystem-envelope-gap',
@@ -1271,8 +1268,7 @@ def check_logger_exception_graceful_degradation(
                 for sub in ast.walk(stmt):
                     if isinstance(sub, ast.Call):
                         src = ''
-                        with contextlib.suppress(Exception):
-                            src = ast.unparse(sub.func)
+                        src = ast.unparse(sub.func)
                         if src.endswith('logger.exception') or src.endswith('.exception'):
                             if 'logger' in src or 'loguru' in src:
                                 has_logger_exception = True
