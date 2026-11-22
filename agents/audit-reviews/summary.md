@@ -23,14 +23,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 Each group is described in full, with every site, in [review-5](review-5.md#phase-b-findings-consolidated).
 
-| Finding | Question | Severity | First raised |
-|---|---|---|---|
-| F1 the installer's exit-1 row leaves out two cases | Doc5 | low | review-5 |
-| F2 a troubleshooting cause left out | Doc5 | low | review-5 |
-| F3 the phaseb synopsis leaves out `--depth` | Doc4 | low | review-5 |
-| F5 `resolve_path` reads a file under a pure name | A9 | low | review-5 |
-| F6 the listers read, parse and resolve the same things repeatedly | A14, P3 | low | review-5 |
-| F8 two imports used only in annotations | S4 | low | review-5 |
+No finding is unresolved: every finding review-5 raised either shipped (below) or was dismissed (next paragraph).
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2, review-3 and review-4, as review-1's D2 chose. On review-5's page: F4 (two fixed doc statements whose verdicts the Doc hash defect kept open) and F7 (`t1_reasons`, not real-size).
 
@@ -38,6 +31,12 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 the installer's exit-1 row leaves out two cases | low | review-5 | Task 1 of the review-5 task list |
+| F2 a troubleshooting cause left out | low | review-5 | Task 1 of the review-5 task list |
+| F3 the phaseb synopsis leaves out `--depth` | low | review-5 | Task 1 of the review-5 task list |
+| F8 two imports used only in annotations | low | review-5 | Task 2 of the review-5 task list |
+| F5 `resolve_path` reads a file under a pure name | low | review-5 | Task 3 of the review-5 task list (the reading functions renamed `read_*`) |
+| F6 the listers read, parse and resolve the same things repeatedly | low | review-5 | Task 3 of the review-5 task list |
 | F2 `phaseb.py` reads `auditme.phaseb.batches` outside `__all__` | low | review-4 | Task 3 of the review-4 task list |
 | F3 a second copy of the root modes in the per-run cache | low | review-4 | Task 4 of the review-4 task list |
 | F4 `resolve_name` reads a whole file to count its lines | low | review-4 | Task 5 of the review-4 task list |
@@ -100,4 +99,6 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 ## Checker changes since the last review
 
-- (none since review-5)
+- 2026-11-22: a Doc candidate's hash covers the whole section's text, not only the blocks naming its target (Task 4 of the review-5 task list).
+- 2026-11-22: sampled reviewers between whole-tree audits are given the changed lines, from `changed.py --scope` (Task 5 of the review-5 task list).
+- 2026-11-22: a candidate that is planned again carries its earlier verdict as `earlier` in its batch line, and every brief's version rose by one (Task 6 of the review-5 task list).

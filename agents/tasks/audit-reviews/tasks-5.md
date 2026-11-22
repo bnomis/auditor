@@ -226,7 +226,7 @@ verdict, and a reviewer whose verdict differs says why.
 
 ## Task 7: Run the whole-tree checks, the doc listers, and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -237,25 +237,27 @@ summary records what this list resolved.
 
 **Subtasks:**
 
-- [ ] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed (`git diff --name-only <base>...HEAD -- docs agents/specs README.md`), and check each one's statements against the code by hand; fix any statement that no longer matches. Record what was checked in the task's Notes
-- [ ] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 3 fixed to Recently resolved, naming its task, and add a dated line under "Checker changes since the last review" for each of Tasks 4 to 6
-- [ ] Confirm `claude/skills/auditme/requests.md`'s Open section is empty
+- [x] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed (`git diff --name-only <base>...HEAD -- docs agents/specs README.md`), and check each one's statements against the code by hand; fix any statement that no longer matches. Record what was checked in the task's Notes
+- [x] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 3 fixed to Recently resolved, naming its task, and add a dated line under "Checker changes since the last review" for each of Tasks 4 to 6
+- [x] Confirm `claude/skills/auditme/requests.md`'s Open section is empty
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved table holds only findings that did not ship, each with its reason
-- [ ] `requests.md`'s Open section is empty
+- [x] The Unresolved table holds only findings that did not ship, each with its reason
+- [x] `requests.md`'s Open section is empty
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (`core.py`, the listers and the briefs changed, and every checker test reaches them)
-- [ ] `uv run mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes (`core.py`, the listers and the briefs changed, and every checker test reaches them)
+- [x] `uv run mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Tasks 1 to 6
+- Doc4 and Doc5 listers run on 2026-11-22: candidates in the six docs and specs this list changed (`docs/guide/checker.md`, `docs/reference/cli.md`, `docs/setup.md` and the `listed-phase-b-documentation-questions`, `project-setup` and `repeatable-phase-b` specs). The statements this list added or changed were checked against the code: `read_name_targets` (docrefs.py), `changed.py --scope` (no base: stderr and exit 0; deleted files omitted by `--diff-filter=d`; hunks against the merge base), the `earlier` fields in `batches.batch_line`, and the whole-section hash. No statement needed a fix; no doc still names `resolve_name` or `resolve_path`
+- `mkdocs` is in the `docs` dependency group, so it ran as `uv run --group docs mkdocs build --strict`
 
 ---
