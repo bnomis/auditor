@@ -43,6 +43,7 @@ MOD = '''
 '''
 
 DEPTH_COMMANDS = ['candidates', 'plan']
+ROOT_COMMANDS = ['candidates', 'dismiss', 'merge', 'plan', 'report']
 FIRST = 'src/pkg/mod.py::first'
 SECOND = 'src/pkg/mod.py::second'
 
@@ -263,12 +264,24 @@ def test_unknown_question_exits_2_with_the_message_on_stderr(root: pathlib.Path)
     assert done.stdout == ''
 
 
-@pytest.mark.parametrize('command', ['candidates', 'plan', 'merge', 'report', 'dismiss'])
+@pytest.mark.parametrize('command', ROOT_COMMANDS)
 def test_an_unregistered_question_is_refused_on_every_subcommand(root: pathlib.Path, command: str) -> None:
     done = run(command, root, '--question', '../../x')
     assert done.returncode == 2
     assert 'not a registered question' in done.stderr
     assert not (root / 'agents').exists()
+
+
+@pytest.mark.parametrize('command', ROOT_COMMANDS)
+@pytest.mark.parametrize('kind', ['missing', 'file'])
+def test_a_root_that_is_not_a_directory_is_refused_on_every_subcommand(tmp_path: pathlib.Path, command: str, kind: str) -> None:
+    bad = tmp_path / 'bad'
+    if kind == 'file':
+        bad.write_text('x', encoding='utf-8')
+    done = run(command, bad, '--question', 'A4')
+    assert done.returncode == 2
+    assert str(bad) in done.stderr
+    assert not (tmp_path / 'agents').exists()
 
 
 # registered batch size

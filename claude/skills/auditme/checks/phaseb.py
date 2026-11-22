@@ -14,7 +14,8 @@ ledger does not already answer, and `plan.json`. `check` exits 1 when any batch
 has a problem, naming it. `merge` writes the verified results into
 `<root>/agents/audit-reviews/ledger/<question>.jsonl`. `report` prints the
 open findings, new (judged in the latest merge) and carried. A `PhaseBError`
-message goes to stderr and the exit status is 2.
+message goes to stderr and the exit status is 2, as it is for a `<root>` that is
+not a directory.
 """
 
 import argparse
@@ -32,6 +33,18 @@ LEDGER_PARTS = ('agents', 'audit-reviews', 'ledger')
 
 def ledger_path(root: pathlib.Path, question: str) -> pathlib.Path:
     return root.joinpath(*LEDGER_PARTS, f'{question}.jsonl')
+
+
+def project_root(value: str) -> pathlib.Path:
+    """Return `value` as a path if it is a directory.
+
+    Raises:
+        argparse.ArgumentTypeError: the path does not exist or is not a directory.
+    """
+    path = pathlib.Path(value)
+    if not path.is_dir():
+        raise argparse.ArgumentTypeError(f'{path} is not a directory')
+    return path
 
 
 def registered_question(value: str) -> str:
@@ -94,7 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     candidates.add_argument(
         'root',
-        type=pathlib.Path,
+        type=project_root,
     )
     add_question(candidates)
     add_depth(candidates)
@@ -105,7 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plan.add_argument(
         'root',
-        type=pathlib.Path,
+        type=project_root,
     )
     add_question(plan)
     add_depth(plan)
@@ -143,7 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     merge.add_argument(
         'root',
-        type=pathlib.Path,
+        type=project_root,
     )
     add_question(merge)
     add_depth(merge)
@@ -159,7 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report.add_argument(
         'root',
-        type=pathlib.Path,
+        type=project_root,
     )
     add_question(report)
     add_depth(report)
@@ -170,7 +183,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dismiss.add_argument(
         'root',
-        type=pathlib.Path,
+        type=project_root,
     )
     add_question(dismiss)
     dismiss.add_argument(

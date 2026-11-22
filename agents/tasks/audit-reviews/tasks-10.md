@@ -12,7 +12,7 @@ No task changes a brief in `claude/skills/auditme/phaseb/briefs/`.
 
 ## Task 1: Refuse a `phaseb.py` root that is not a directory
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F1
@@ -23,19 +23,19 @@ clean result.
 
 **Subtasks:**
 
-- [ ] Write the failing tests first, in `claude/skills/auditme/tests/phaseb/test_cli.py`: each of `candidates`, `plan`, `merge`, `report` and `dismiss` given a root that does not exist, and one that is a file, exits 2 and names the path on stderr, and writes nothing
-- [ ] In `claude/skills/auditme/checks/phaseb.py`, check the root once for every subcommand (in the argument type, or where `main` dispatches) and exit 2 with a message naming the path, as `claude/skills/auditme/checks/audit.py` does for its project root
-- [ ] Add the case to `phaseb.py`'s exit codes in `docs/reference/cli.md`, and to the synopsis's error notes in `agents/specs/repeatable-phase-b/spec.md` if that spec lists `phaseb.py`'s exit codes
+- [x] Write the failing tests first, in `claude/skills/auditme/tests/phaseb/test_cli.py`: each of `candidates`, `plan`, `merge`, `report` and `dismiss` given a root that does not exist, and one that is a file, exits 2 and names the path on stderr, and writes nothing
+- [x] In `claude/skills/auditme/checks/phaseb.py`, check the root once for every subcommand (in the argument type, or where `main` dispatches) and exit 2 with a message naming the path, as `claude/skills/auditme/checks/audit.py` does for its project root
+- [x] Add the case to `phaseb.py`'s exit codes in `docs/reference/cli.md`, and to the synopsis's error notes in `agents/specs/repeatable-phase-b/spec.md` if that spec lists `phaseb.py`'s exit codes
 
 **Acceptance Criteria:**
 
-- [ ] `python3 claude/skills/auditme/checks/phaseb.py report /nonexistent/xyz --question A1` exits 2
-- [ ] The new tests fail before the change and pass after it
+- [x] `python3 claude/skills/auditme/checks/phaseb.py report /nonexistent/xyz --question A1` exits 2
+- [x] The new tests fail before the change and pass after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

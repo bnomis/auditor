@@ -247,8 +247,8 @@ brief's version by one.
 - A batch with problems after two retries, each by a fresh reviewer, is
   recorded in the review as not judged, naming its ids. The question then
   fails the completion gate (see Skill changes).
-- The command line prints `PhaseBError` messages to stderr and exits 2; a
-  `check` with problems exits 1.
+- The command line prints `PhaseBError` messages to stderr and exits 2, as it does for a
+  project root that is not a directory; a `check` with problems exits 1.
 
 ## Implementation
 
