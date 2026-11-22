@@ -460,3 +460,97 @@ def test_scope_does_not_read_an_added_line_as_a_file_header(repo, capsys) -> Non
     commit_all(repo, 'add notes')
     edit_on_new_branch(repo, {'notes.sh': 'a\n++ b/other.py\n'})
     assert scope_lines(repo, capsys) == {'notes.sh': [[2, 2]]}
+
+
+LINE = hypothesis.strategies.integers(min_value=1, max_value=12)
+SPANS = hypothesis.strategies.tuples(LINE, LINE).map(lambda pair: (min(pair), max(pair)))
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(ranges=hypothesis.strategies.lists(SPANS, max_size=12))
+def test_merge_ranges_is_the_sorted_disjoint_union(ranges: list[tuple[int, int]]) -> None:
+    merged = changed.merge_ranges(ranges)
+    assert merged == sorted(merged)
+    for earlier, later in zip(merged, merged[1:], strict=False):
+        assert earlier[1] + 1 < later[0]
+    covered = {line for start, end in ranges for line in range(start, end + 1)}
+    assert {line for start, end in merged for line in range(start, end + 1)} == covered
+    assert changed.merge_ranges([(start, end) for start, end in merged]) == merged
+
+
+SCOPES = hypothesis.strategies.lists(
+    hypothesis.strategies.tuples(SPANS, hypothesis.strategies.booleans()).map(lambda pair: (*pair[0], pair[1])),
+    max_size=6,
+)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(hunk=SPANS, scopes=SCOPES)
+def test_widen_gives_each_line_its_shortest_enclosing_scope(
+    hunk: tuple[int, int],
+    scopes: list[tuple[int, int, bool]],
+) -> None:
+    widened = changed.widen(hunk, scopes)
+    assert len(widened) == hunk[1] - hunk[0] + 1
+    for number, (start, end) in zip(range(hunk[0], hunk[1] + 1), widened, strict=True):
+        assert start <= number <= end
+        holding = [scope for scope in scopes if scope[0] <= number <= scope[1]]
+        if not holding:
+            assert (start, end) == (number, number)
+            continue
+        pool = [scope for scope in holding if scope[2]] or holding
+        assert (start, end, True) in pool or (start, end, False) in pool
+        assert end - start == min(scope[1] - scope[0] for scope in pool)
+
+
+Node = tuple[str, int, tuple['Node', ...]]
+
+KINDS = hypothesis.strategies.sampled_from(['def', 'async def', 'class'])
+DECORATORS = hypothesis.strategies.integers(min_value=0, max_value=2)
+NODES = hypothesis.strategies.recursive(
+    hypothesis.strategies.tuples(
+        KINDS,
+        DECORATORS,
+        hypothesis.strategies.just(()),
+    ),
+    lambda children: hypothesis.strategies.tuples(
+        KINDS,
+        DECORATORS,
+        hypothesis.strategies.lists(children, min_size=1, max_size=3).map(tuple),
+    ),
+    max_leaves=8,
+)
+
+
+def render(node: Node, depth: int, lines: list[str], expected: list[tuple[int, int, bool]]) -> None:
+    kind, decorators, children = node
+    pad = '    ' * depth
+    first = len(lines) + 1
+    lines.extend(f'{pad}@decorator' for _ in range(decorators))
+    lines.append(f'{pad}class C:' if kind == 'class' else f'{pad}{kind} f():')
+    slot = len(expected)
+    expected.append((first, 0, kind != 'class'))
+    if children:
+        for child in children:
+            render(child, depth + 1, lines, expected)
+    else:
+        lines.append(f'{pad}    pass')
+    expected[slot] = (first, len(lines), kind != 'class')
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(nodes=hypothesis.strategies.lists(NODES, min_size=1, max_size=3))
+def test_enclosing_ranges_cover_each_scope_from_its_decorator(nodes: list[Node]) -> None:
+    lines: list[str] = []
+    expected: list[tuple[int, int, bool]] = []
+    for node in nodes:
+        render(node, 0, lines, expected)
+    found = changed.enclosing_ranges('\n'.join(lines) + '\n')
+    assert sorted(found) == sorted(expected)
+    assert all(1 <= start <= end <= len(lines) for start, end, _ in found)
+
+
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(tail=hypothesis.strategies.text(alphabet='abc \n', max_size=30))
+def test_enclosing_ranges_of_unparseable_source_is_empty(tail: str) -> None:
+    assert changed.enclosing_ranges(f'def broken(:\n{tail}') == []

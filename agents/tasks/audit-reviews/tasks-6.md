@@ -84,7 +84,7 @@ and its caching is tested where it is defined.
 
 ## Task 3: Property tests for the `--scope` helpers
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F2
@@ -94,20 +94,20 @@ generated inputs.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/tests/test_changed.py`, add a hypothesis test for each, following the file's existing hypothesis style:
+- [x] In `claude/skills/auditme/tests/test_changed.py`, add a hypothesis test for each, following the file's existing hypothesis style:
   - `merge_ranges`: the result is sorted, no two ranges overlap or touch, it covers exactly the union of the input lines, and merging it again changes nothing;
   - `widen`: one range per hunk line, each holding its line; the line itself when no scope holds it, else the shortest enclosing function, or class when no function does, checked against a brute-force search;
   - `enclosing_ranges`: for generated nested functions and classes, each range lies within the source, starts at its decorator line, and is marked a function exactly for functions; source that does not parse gives no ranges
-- [ ] If a property fails, fix the helper and keep the failing example as a plain test
+- [x] If a property fails, fix the helper and keep the failing example as a plain test
 
 **Acceptance Criteria:**
 
-- [ ] Each helper is called directly by a `@given` test
+- [x] Each helper is called directly by a `@given` test
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
