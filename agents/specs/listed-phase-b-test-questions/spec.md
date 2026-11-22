@@ -256,7 +256,7 @@ brief says so, and `--rejudge` covers it.
 
 Each has the question verbatim, its thresholds, the input format, the output
 (one JSON line per candidate with `id`, `findings`, `reason`, none left out)
-and `**Brief version:** N` (1 when written; T1 is at 5 and T2 at 2, amendment 1.7: the default verdict of `agents/specs/repeatable-phase-b/spec.md` amendment 1.5, and in T2 a call through a name assigned from the candidate is a direct call), plus the rule that an unsettled threshold is
+and `**Brief version:** N` (1 when written; T1 is at 5 and T2 at 2, amendment 1.7: the default verdict of [Repeatable Phase B](../repeatable-phase-b/spec.md) amendment 1.5, and in T2 a call through a name assigned from the candidate is a direct call), plus the rule that an unsettled threshold is
 reported, not decided, and the security rule every subagent brief carries.
 
 - `T1.md`: findings `{"missing": ["test case"]}` or `{"missing": []}`.

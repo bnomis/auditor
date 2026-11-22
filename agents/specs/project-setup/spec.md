@@ -353,9 +353,10 @@ passing the scope as the unused root, with the same crash isolation as a
 pass, whether or not the project has a root. (Amended 2026-11-21: they were
 also in `CHECKS` and so ran once per root; they now run once, and their hits
 come before the per-root passes' hits, so emission order changed.)
-The checks that read `AGENTS.md` and the spec-drift
-check are not among them: they judge or accept Python definitions and hits,
-so with no Python they have nothing to compare.
+The checks that read `AGENTS.md` are not among them: they judge or accept
+Python definitions and hits, so with no Python they have nothing to compare.
+The spec-drift check is among them (`check_spec_api_signature_drift`, named
+above).
 
 ### Declared audit roots (1.11)
 
@@ -595,7 +596,8 @@ committing) and never pushes.
    key.
 3. Write `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md`), `TODO.md`, `DONE.md` and
    `claude/rules/README.md` from templates, the title from the project name.
-4. Run `pre-commit install`, then the deploy-key steps below.
+4. Run `pre-commit install --hook-type pre-commit --hook-type pre-push`, then
+   the deploy-key steps below.
 
 **`adopt`**, in an existing project:
 

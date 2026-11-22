@@ -239,7 +239,7 @@ skill's template.
 
 Amendment 1.5 (operator, 2026-11-22, `agents/reviews/brief-thresholds-3-2026-11-22.md`; briefs Doc1 4, Doc2 3,
 Doc4 7, Doc5 7): every brief carries the default verdict of
-`agents/specs/repeatable-phase-b/spec.md` amendment 1.5. Doc4 adds rulings on
+[Repeatable Phase B](../repeatable-phase-b/spec.md) amendment 1.5. Doc4 adds rulings on
 "(new)" Module location rows, `Raises:` conditions, usage blocks, definitions,
 sections read as a whole, catch-all lists, Testing sections, drifts in split
 sections, commands and ambiguous sentences; Doc5 on "Stops for" lists and

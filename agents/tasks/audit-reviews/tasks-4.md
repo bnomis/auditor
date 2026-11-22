@@ -180,7 +180,7 @@ once.
 
 ## Task 6: Correct the specs and their cross-references
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F8, F10
@@ -190,17 +190,17 @@ three 2026-11-22 amendments link the spec they cite.
 
 **Subtasks:**
 
-- [ ] F8, `agents/specs/project-setup/spec.md`: at line 356 (on 2026-11-22) say the spec-drift check is in `PROJECT_CHECKS`; at line 598 give the `new` step's command as `pre-commit install --hook-type pre-commit --hook-type pre-push`, as `claude/skills/auditme-project-setup/SKILL.md` runs it. Find each by its text
-- [ ] F10: in `agents/specs/listed-phase-b-architecture-questions/spec.md` (line 59), `listed-phase-b-documentation-questions/spec.md` (line 242) and `listed-phase-b-test-questions/spec.md` (line 259), replace the code-formatted `agents/specs/repeatable-phase-b/spec.md` with the relative link `[Repeatable Phase B](../repeatable-phase-b/spec.md)`
+- [x] F8, `agents/specs/project-setup/spec.md`: at line 356 (on 2026-11-22) say the spec-drift check is in `PROJECT_CHECKS`; at line 598 give the `new` step's command as `pre-commit install --hook-type pre-commit --hook-type pre-push`, as `claude/skills/auditme-project-setup/SKILL.md` runs it. Find each by its text
+- [x] F10: in `agents/specs/listed-phase-b-architecture-questions/spec.md` (line 59), `listed-phase-b-documentation-questions/spec.md` (line 242) and `listed-phase-b-test-questions/spec.md` (line 259), replace the code-formatted `agents/specs/repeatable-phase-b/spec.md` with the relative link `[Repeatable Phase B](../repeatable-phase-b/spec.md)`
 
 **Acceptance Criteria:**
 
-- [ ] Both F8 statements match the code
-- [ ] `grep -n '`agents/specs/repeatable-phase-b/spec.md`' agents/specs/listed-phase-b-*/spec.md` prints nothing
+- [x] Both F8 statements match the code
+- [x] `grep -n '`agents/specs/repeatable-phase-b/spec.md`' agents/specs/listed-phase-b-*/spec.md` prints nothing
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 
