@@ -82,7 +82,8 @@ def read_audited_files(scope: pathlib.Path) -> list[ParsedSource]:
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     files: list[ParsedSource] = []
-    for src_root in auditme.core.cached_roots(scope)[0]:
+    roots, _ = auditme.core.cached_roots(scope)
+    for src_root in roots:
         for path in auditme.core.all_py_files(src_root):
             try:
                 text = path.read_text(encoding='utf-8')
@@ -619,7 +620,8 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     hits = capture_hits(scope, A1_CHECKS)
     domain_errors = package_domain_errors(files)
     catches: dict[str, frozenset[str]] = {}
-    for src_root in auditme.core.cached_roots(scope)[0]:
+    roots, _ = auditme.core.cached_roots(scope)
+    for src_root in roots:
         for name, caught in auditme.rules.error_handling.translator_envelopes(src_root).items():
             catches[name] = catches.get(name, frozenset()) | caught
     envelope_sources: dict[str, list[str]] = collections.defaultdict(list)

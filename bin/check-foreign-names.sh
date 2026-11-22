@@ -23,7 +23,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 list="${AUDITOR_FOREIGN_NAMES:-$HOME/.config/auditor/foreign-names}"
-if [ ! -f "$list" ]; then
+if [ ! -e "$list" ]; then
     echo "check-foreign-names: no list at $list; nothing checked" >&2
     exit 0
 fi

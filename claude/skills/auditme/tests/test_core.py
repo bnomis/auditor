@@ -137,6 +137,66 @@ def test_a_project_with_no_agents_file_accepts_no_lazy_imports(tmp_path: pathlib
     assert auditme.core.accepted_lazy_imports(tmp_path) == set()
 
 
+def test_accepted_lazy_imports_reads_the_file_once_per_run(tmp_path: pathlib.Path) -> None:
+    auditme.core.clear_source_cache()
+    agents = tmp_path / 'AGENTS.md'
+    agents.write_text('| `a.b` | `c.d` |\n', encoding='utf-8')
+    assert auditme.core.accepted_lazy_imports(tmp_path) == {('a.b', 'c.d')}
+    agents.write_text('| `x.y` | `z.w` |\n', encoding='utf-8')
+    assert auditme.core.accepted_lazy_imports(tmp_path) == {('a.b', 'c.d')}
+
+
+def test_cached_per_run_computes_once_per_name_and_scope(tmp_path: pathlib.Path) -> None:
+    auditme.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+
+    def compute(scope: pathlib.Path) -> object:
+        calls.append(scope)
+        return len(calls)
+
+    first = auditme.core.cached_per_run('probe', tmp_path, compute)
+    second = auditme.core.cached_per_run('probe', tmp_path, compute)
+    assert first == second == 1
+    assert calls == [tmp_path]
+
+
+def test_cached_per_run_computes_again_after_the_cache_is_cleared(tmp_path: pathlib.Path) -> None:
+    auditme.core.clear_source_cache()
+    counter = iter(range(1, 10))
+    assert auditme.core.cached_per_run('probe', tmp_path, lambda scope: next(counter)) == 1
+    auditme.core.clear_source_cache()
+    assert auditme.core.cached_per_run('probe', tmp_path, lambda scope: next(counter)) == 2
+
+
+def test_cached_per_run_keeps_two_names_and_two_scopes_apart(tmp_path: pathlib.Path) -> None:
+    auditme.core.clear_source_cache()
+    other = tmp_path / 'other'
+    assert auditme.core.cached_per_run('a', tmp_path, lambda scope: 'a') == 'a'
+    assert auditme.core.cached_per_run('b', tmp_path, lambda scope: 'b') == 'b'
+    assert auditme.core.cached_per_run('a', other, lambda scope: 'other') == 'other'
+
+
+CHECKS_DIR = pathlib.Path(__file__).resolve().parent.parent / 'checks'
+
+
+def is_cached_roots_call(node: ast.expr) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, 'id', None)
+    return name == 'cached_roots'
+
+
+def test_no_check_subscripts_the_result_of_cached_roots() -> None:
+    offenders = []
+    for path in sorted(CHECKS_DIR.rglob('*.py')):
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+        offenders.extend(
+            f'{path.relative_to(CHECKS_DIR)}:{node.lineno}' for node in ast.walk(tree) if isinstance(node, ast.Subscript) and is_cached_roots_call(node.value)
+        )
+    assert offenders == []
+
+
 def test_type_checking_blocks_are_located_by_line() -> None:
     tree = ast.parse('import typing\n\nif typing.TYPE_CHECKING:\n    import probe.cli\n')
     assert 4 in auditme.core.type_checking_linenos(tree)

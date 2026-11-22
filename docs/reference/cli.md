@@ -80,9 +80,9 @@ that the list itself is never committed. It is the entry of the
 
 | Exit | Meaning |
 |---|---|
-| `0` | No match; or no list file (a notice goes to stderr and nothing is checked); or the list is empty after comments and `--allow`; or no files given |
+| `0` | No match; or nothing exists at the list path (a notice goes to stderr and nothing is checked); or the list is empty after comments and `--allow`; or no files given |
 | `1` | At least one match, even when another file is unreadable (a message naming it goes to stderr) |
-| `2` | The list exists but cannot be read (`check-foreign-names: cannot read <list>` on stderr), whatever the files; or no match, but a file could not be read (a message naming it goes to stderr) |
+| `2` | Something exists at the list path but it cannot be read as a file (a directory, or no read permission) (`check-foreign-names: cannot read <list>` on stderr), whatever the files; or no match, but a file could not be read (a message naming it goes to stderr) |
 
 Environment: `AUDITOR_FOREIGN_NAMES` (path of the list), `HOME` (the default
 list is `~/.config/auditor/foreign-names`).
@@ -173,7 +173,7 @@ exits `2` with the same message.
 
 `phaseb.py` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path, and for a `<root>` that does not exist or is not a directory, so a mistyped root never reads as an empty listing.
 
-It also exits `2`, printing `phaseb.py: ` and the error's message to stderr, whenever a Phase B step fails: a `merge` for a run planned for another question, a plan, ledger, brief or file that cannot be read or parsed, a ledger or plan that cannot be written, and a verdict that is not valid.
+It also exits `2`, printing `phaseb.py: ` and the error's message to stderr, whenever a Phase B step fails: for example a `--question` that is not registered, a root that is missing, a `merge` for a run planned for another question, or a `merge` whose batches fail `check`.
 
 `phaseb.py plan` records the callee depth it listed at (`--depth`, default 3)
 in `plan.json`. `phaseb.py merge` exits `2`, naming both depths and writing
