@@ -1,10 +1,10 @@
 # Audit Summary
 
-**Last updated:** 2026-11-21
-**Last review:** review-1
-**Total reviews conducted:** 1
-**Last script run hit count:** 43 (43 accepted)
-**Script version:** 074b2d235c6133f1cd0c742d84442f3b67fc20c3e9cdba0e9e943cb71e8472a8
+**Last updated:** 2026-11-22
+**Last review:** review-2
+**Total reviews conducted:** 2
+**Last script run hit count:** 44 (44 accepted)
+**Script version:** 48066ec1d87ecdbbbc9e0f98b351f039f675ea3cd07656c1b50bdb752bc70c8c
 
 ## How to reproduce the sweep
 
@@ -13,21 +13,33 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-2
+## Convergence note for review-3
 
-- **Sampled mode:** review-1's `**Commit:**` is `83e59c0`. Review-2 samples the files changed since then; the third audit counted from review-1 runs the whole tree.
-- **Listed questions:** review-1 judged every candidate and wrote the verdicts to `agents/audit-reviews/ledger/`. Review-2 re-judges only candidates whose hash or brief version changed; a carried finding is not a regression.
-- **Precondition:** review-2 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Sampled mode:** review-3 is the third audit counted from review-1, so every sampled question runs on the whole tree.
+- **Listed questions:** review-2 judged every re-planned candidate and wrote the verdicts to `agents/audit-reviews/ledger/`. Review-3 re-judges only candidates whose hash or brief version changed; a carried finding is not a regression.
+- **Precondition:** review-3 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 
 ## Unresolved findings
 
-Each group is described in full, with every site, in [review-1](review-1.md#phase-b-findings-consolidated).
+Each group is described in full, with every site, in [review-2](review-2.md#phase-b-findings-consolidated).
 
 | Finding | Question | Severity | First raised |
 |---|---|---|---|
-| (none) | | | |
+| F1 a read failure that a helper lets escape | A1 | low | review-2 |
+| F3 checks return silently when `uv` or `ruff` cannot run | A1 | low | review-2 |
+| F4 `phaseb.py` reaches past `auditme.phaseb`'s `__all__` | A17 | low | review-2 |
+| F5 two helpers without the test the questions ask for | T1, T2 | low | review-2 |
+| F6 `--depth` with a question that takes no depth crashes | Doc4, Sec2 | medium | review-2 |
+| F7 specs that state the current state wrongly | Doc4 | medium | review-2 |
+| F8 the `no-project-names` hook passes when a file cannot be read | Doc5 | medium | review-2 |
+| F9 user docs that no longer match the code | Doc5 | medium | review-2 |
+| F10 pure-named functions that read files | A9 | low | review-2 |
+| F11 `Candidate` built inline at four sites | A13, A15 | low | review-2 |
+| F12 root configuration and specs re-read on every call | A14, P3 | low | review-2 |
+| F13 argparse calls without trailing commas | S4 | low | review-2 |
+| F14 a setting without its type and default | spec review | low | review-2 |
 
-Dismissed on review-1's page (2026-11-21): F2, the 68 A9 `check_*` sites (the registry's convention; a refinement is filed), F16 (the whole-tree sweep is by design), and 14 of F20's spec gaps (size and module location, from this repository's layout).
+Dismissed on review-2's page (2026-11-22): F2, `cached_source` returning `None` for an unreadable file, which review-1's D2 chose.
 
 ## Recently resolved
 
@@ -54,11 +66,9 @@ Dismissed on review-1's page (2026-11-21): F2, the 68 A9 `check_*` sites (the re
 
 ## Recurring patterns
 
-- (none yet: one review)
+- Pure-named functions that read files (A9): review-1 F3, review-2 F10. Each task that adds a reader names it as a pure query.
+- Docs and specs left stale by the task list that changed the code (Doc4, Doc5): review-1 F6-F8, review-2 F7, F9.
 
 ## Checker changes since the last review
 
-- 2026-11-21, the review-1 task list: an unreadable file is reported as a hit instead of crashing its check (Task 6); `phaseb.py merge` refuses a depth different from its plan (Task 7); arguments and declared roots must stay inside the project (Task 8); the sweep caches parses and shared indexes for the run (Task 13).
-- 2026-11-22, amendment 1.5 of `agents/specs/listed-phase-b-test-questions/spec.md`: the T1 and T2 test index now reads tests from every audit root, so review-2's T1 and T2 verdicts are re-judged where `test_files` grew.
-- 2026-11-22, A9's predicate in `claude/skills/auditme/SKILL.md`: a function the project registers as a check is no longer read as pure-named by its `check_` prefix, so review-2's A9 does not re-raise the registered checks review-1 dismissed.
-- 2026-11-22, `agents/reviews/brief-thresholds-2026-11-22.md`: the A1, A4, T1, Doc4 and Doc5 briefs settle the thresholds review-1's reviewers reported (A1 3, A4 5, T1 4, Doc4 5, Doc5 5). Each bump re-judges every candidate of its question in review-2.
+- (none since review-2)
