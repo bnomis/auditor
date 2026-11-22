@@ -12,3 +12,4 @@ The current state is in [summary.md](summary.md); the Phase B verdicts are in [l
 | [review-6](review-6.md) | 2026-11-22 | full (every sampled question on the whole tree) | `996bbb3` | sweep clean; Phase B groups F1-F10, open cases U1-U5, decision D1 |
 | [review-7](review-7.md) | 2026-11-22 | full (sampled questions on lines changed since `996bbb3`) | `7615d7f` | sweep clean; Phase B groups F1-F4, O1, open case U1 |
 | [review-8](review-8.md) | 2026-11-22 | full (sampled questions on lines changed since `7615d7f`) | `3cef62b` | sweep clean; no finding; observation O1, open cases U1-U3 |
+| [review-9](review-9.md) | 2026-11-22 | full (every sampled question on the whole tree) | `2fb0d4b` | sweep clean; one Phase B finding (F1) |

@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-8
-**Total reviews conducted:** 8
+**Last review:** review-9
+**Total reviews conducted:** 9
 **Last script run hit count:** 48 (48 accepted)
-**Script version:** 20aa7a3a0a8dd524a8eb5827e8d68d769146917bc985c2797c6d969db3b584c1
+**Script version:** f15c2958d2fa76bea9a0630438285b696c327b820e2d8549f495c8cf2643c553
 
 ## How to reproduce the sweep
 
@@ -13,15 +13,19 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-9
+## Convergence note for review-10
 
-- **Sampled mode:** review-9 is the ninth audit counted from review-1, so every sampled question runs on the whole tree.
-- **Listed questions:** review-9 re-judges only candidates whose hash or brief version changed.
-- **Precondition:** review-9 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Sampled mode:** review-10 is not a whole-tree audit (review-12 is), so each sampled question judges only the changed lines since review-9's commit, from `checks/changed.py --scope`.
+- **Listed questions:** review-10 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-10 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 
 ## Unresolved findings
 
-No finding is unresolved: review-8 raised none, and its observation O1 shipped (below).
+Each finding is described in full in [review-9](review-9.md#phase-b-findings-consolidated).
+
+| Finding | Question | Severity | First raised |
+|---------|----------|----------|--------------|
+| F1 the T1 lister rescans every test file's imports for every function | P1, P3 | low | review-9 |
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small).
 
