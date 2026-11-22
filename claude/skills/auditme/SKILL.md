@@ -210,7 +210,7 @@ A listed question's findings are its flagged ledger verdicts, new or carried. A 
 
 Every other question is sampled: mark it `(sampled)` in the review. A new site found by a sampled question is coverage, not drift: it goes under "Coverage (sampled)" and is never marked "missed by" a review.
 
-**Sampled cadence.** Every audit runs each sampled question on the files changed since the previous review's `**Commit:**`, using the diff base `checks/changed.py` resolves. Every third audit, counted from the first audit after the Doc questions were listed, and any audit with no previous `**Commit:**`, runs it on the whole tree. The review records each sampled question's mode: changed files since a named commit, or full.
+**Sampled cadence.** Between whole-tree audits, each sampled reviewer is given the changed lines of each changed file since the previous review's `**Commit:**` (`checks/changed.py --scope --base <commit>` prints them, each hunk widened to its enclosing function or class) and judges only those lines. Every third audit, counted from the first audit after the Doc questions were listed, and any audit with no previous `**Commit:**`, runs it on the whole tree. The review records each sampled question's mode: "changed lines since <commit>", or full.
 
 **First audit after the Doc questions were listed.** It judges every Doc candidate. Its findings in unchanged code are catch-up, not regressions; this includes README findings, because Doc5's predicate now covers `README.md` as well as `docs/`. Its Convergence note names the newly listed questions.
 

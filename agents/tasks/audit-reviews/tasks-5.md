@@ -155,7 +155,7 @@ that section, so a fixed statement is judged again.
 
 ## Task 5: Give sampled reviewers the changed lines
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** request "Sample a changed file's changed lines between whole-tree audits" (review-5 D1)
@@ -166,22 +166,22 @@ review, so that a small edit does not reopen a whole file.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `grep -nw -- '--scope' claude/skills/auditme/checks/changed.py` prints nothing; if it prints a line, stop as `blocked` and name the clash
-- [ ] Write the failing tests first, in `claude/skills/auditme/tests/test_changed.py`: for a commit that changes one line inside a function of a three-function module, `changed.py --scope --base <commit>` prints that module's path with the enclosing function's line range only; a change at module level prints the changed lines; a new file prints its whole range; a deleted file prints nothing
-- [ ] Add `--scope` to `claude/skills/auditme/checks/changed.py`: with the diff base it already resolves, print one JSON line per changed `.py` or `.sh` file, `{"path": ..., "ranges": [[start, end], ...]}`, each range a diff hunk widened to its enclosing function or class (Python, by `ast`); shell files keep the hunks as they are. It exits 0 and runs no sweep
-- [ ] In `claude/skills/auditme/SKILL.md`'s "Sampled cadence", say that between whole-tree audits each sampled reviewer is given these ranges and judges only them, and that the review records the mode as "changed lines since <commit>"; the whole-tree cadence is unchanged
-- [ ] Document `--scope` in `docs/reference/cli.md` and `docs/guide/checker.md`, and in the project-setup spec's changed-files runner section as a dated amendment
-- [ ] Delete the request's entry from `claude/skills/auditme/requests.md`
+- [x] Starting-point check: `grep -nw -- '--scope' claude/skills/auditme/checks/changed.py` prints nothing; if it prints a line, stop as `blocked` and name the clash
+- [x] Write the failing tests first, in `claude/skills/auditme/tests/test_changed.py`: for a commit that changes one line inside a function of a three-function module, `changed.py --scope --base <commit>` prints that module's path with the enclosing function's line range only; a change at module level prints the changed lines; a new file prints its whole range; a deleted file prints nothing
+- [x] Add `--scope` to `claude/skills/auditme/checks/changed.py`: with the diff base it already resolves, print one JSON line per changed `.py` or `.sh` file, `{"path": ..., "ranges": [[start, end], ...]}`, each range a diff hunk widened to its enclosing function or class (Python, by `ast`); shell files keep the hunks as they are. It exits 0 and runs no sweep
+- [x] In `claude/skills/auditme/SKILL.md`'s "Sampled cadence", say that between whole-tree audits each sampled reviewer is given these ranges and judges only them, and that the review records the mode as "changed lines since <commit>"; the whole-tree cadence is unchanged
+- [x] Document `--scope` in `docs/reference/cli.md` and `docs/guide/checker.md`, and in the project-setup spec's changed-files runner section as a dated amendment
+- [x] Delete the request's entry from `claude/skills/auditme/requests.md`
 
 **Acceptance Criteria:**
 
-- [ ] The new tests fail before the change and pass after it
-- [ ] `python3 claude/skills/auditme/checks/changed.py --scope --base HEAD~1` on this repository prints valid JSON lines
+- [x] The new tests fail before the change and pass after it
+- [x] `python3 claude/skills/auditme/checks/changed.py --scope --base HEAD~1` on this repository prints valid JSON lines
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

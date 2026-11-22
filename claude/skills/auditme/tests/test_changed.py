@@ -391,3 +391,72 @@ def test_reportable_by_suffix_and_dot_directory(parts: list[str], stem: str, dot
     other = f'{prefix}{stem}.txt'
     assert not changed.reportable(other)
     assert not changed.reportable(f'{prefix}{dot}/{stem}.md')
+
+
+THREE_FUNCTIONS = (
+    'def first():\n'  # 1
+    '    return 1\n'  # 2
+    '\n'  # 3
+    '\n'  # 4
+    'def second():\n'  # 5
+    '    value = 2\n'  # 6
+    '    return value\n'  # 7
+    '\n'  # 8
+    '\n'  # 9
+    'def third():\n'  # 10
+    '    return 3\n'  # 11
+)
+
+
+def scope_lines(repo: pathlib.Path, capsys: pytest.CaptureFixture[str]) -> dict[str, list[list[int]]]:
+    assert changed.main(['--scope', '--base', 'main', str(repo)]) == 0
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    return {record['path']: record['ranges'] for record in records}
+
+
+def edit_on_new_branch(repo: pathlib.Path, files: dict[str, str]) -> None:
+    """Move `main` to the current commit, then commit `files` on a new branch."""
+    conftest.git(repo, 'branch', '-f', 'main', 'HEAD')
+    conftest.git(repo, 'checkout', '-q', '-b', 'edit')
+    write(repo, files)
+    commit_all(repo, 'edit')
+
+
+def test_scope_widens_a_change_to_its_enclosing_function(repo, capsys) -> None:
+    write(repo, {'src/pkg/m.py': THREE_FUNCTIONS})
+    commit_all(repo, 'add m')
+    edit_on_new_branch(repo, {'src/pkg/m.py': THREE_FUNCTIONS.replace('value = 2', 'value = 20')})
+    assert scope_lines(repo, capsys) == {'src/pkg/m.py': [[5, 7]]}
+
+
+def test_scope_keeps_module_level_lines_as_changed(repo, capsys) -> None:
+    write(repo, {'src/pkg/m.py': 'A = 1\nB = 2\nC = 3\n'})
+    commit_all(repo, 'add m')
+    edit_on_new_branch(repo, {'src/pkg/m.py': 'A = 1\nB = 20\nC = 3\n'})
+    assert scope_lines(repo, capsys) == {'src/pkg/m.py': [[2, 2]]}
+
+
+def test_scope_gives_a_new_file_its_whole_range(repo, capsys) -> None:
+    write(repo, {'src/pkg/new.py': THREE_FUNCTIONS})
+    commit_all(repo, 'add new')
+    assert scope_lines(repo, capsys) == {'src/pkg/new.py': [[1, 11]]}
+
+
+def test_scope_prints_nothing_for_a_deleted_file(repo, capsys) -> None:
+    (repo / 'src/pkg/b.py').unlink()
+    commit_all(repo, 'delete b')
+    assert scope_lines(repo, capsys) == {}
+
+
+def test_scope_keeps_shell_hunks_and_ignores_other_files(repo, capsys) -> None:
+    write(repo, {'bin/run.sh': 'a\nb\nc\n', 'notes.md': 'x\n'})
+    commit_all(repo, 'add files')
+    edit_on_new_branch(repo, {'bin/run.sh': 'a\nB\nc\n', 'notes.md': 'y\n'})
+    assert scope_lines(repo, capsys) == {'bin/run.sh': [[2, 2]]}
+
+
+def test_scope_does_not_read_an_added_line_as_a_file_header(repo, capsys) -> None:
+    write(repo, {'notes.sh': 'a\n'})
+    commit_all(repo, 'add notes')
+    edit_on_new_branch(repo, {'notes.sh': 'a\n++ b/other.py\n'})
+    assert scope_lines(repo, capsys) == {'notes.sh': [[2, 2]]}

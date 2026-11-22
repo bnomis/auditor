@@ -38,20 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Sample a changed file's changed lines between whole-tree audits
-
-- **Raised:** 2026-11-22, by this repository's fifth audit (review-5, decision D1).
-- **What happens:** every audit runs each sampled question on each changed file
-  whole, so a two-line edit reopens the whole file: review-4 changed two lines
-  of `checks/auditme/phaseb/candidates.py`, and review-5 found ten P1, P3 and
-  A14 sites in its unchanged code. The whole-tree pass every third audit is
-  already the one meant to catch older code.
-- **Asked for:** between whole-tree audits, give each sampled reviewer the
-  changed lines of each changed file (the diff hunks `checks/changed.py`
-  resolves, widened to the enclosing function or class) and have it judge only
-  those; keep the whole-tree cadence as it is. Change the cadence's text in
-  `SKILL.md` to match.
-
 ### Show a re-judged candidate's earlier verdict to its reviewer
 
 - **Raised:** 2026-11-22, by this repository's fifth audit (review-5, decision D3).

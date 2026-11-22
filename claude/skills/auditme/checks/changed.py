@@ -11,13 +11,20 @@ push gate and CI run `--all`, which never skips.
 
 Usage:
     changed.py [--all] [--base <ref>] [<repo-root>]
+    changed.py --scope [--base <ref>] [<repo-root>]
+
+`--scope` runs no sweep: it prints one JSON line per changed `.py` or `.sh` file,
+`{"path": ..., "ranges": [[start, end], ...]}`, the changed lines of the file
+since the diff base, each Python hunk widened to its enclosing function or class.
 
 Stdlib only, like the rest of the checker.
 """
 
 import argparse
+import ast
 import json
 import pathlib
+import re
 import subprocess
 import sys
 import typing
@@ -42,6 +49,8 @@ RULE_HELP = {
     'lockfile-drift': 'lockfile-drift: run `uv lock` and commit uv.lock; no accept marker applies.',
     'ruff': 'ruff: fix the code, or silence one line with `# noqa: <code>`; no accept marker applies.',
 }
+SCOPE_SUFFIXES = frozenset({'.py', '.sh'})
+HUNK_HEADER = re.compile(r'^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
 SKIP_HELP = 'To skip this check for one commit: SKIP=auditme-changed git commit'
 SKIP_ALL_HELP = 'To skip this check for one push: SKIP=auditme-all git push'
 
@@ -100,6 +109,98 @@ def changed_files(repo_root: pathlib.Path, base: str) -> frozenset[str]:
     committed = git_lines(repo_root, 'diff', '--name-only', '--diff-filter=d', '--end-of-options', f'{base}...HEAD')
     pending = git_lines(repo_root, 'diff', '--name-only', '--diff-filter=d', 'HEAD')
     return frozenset(committed) | frozenset(pending)
+
+
+def changed_hunks(repo_root: pathlib.Path, base: str) -> dict[str, list[tuple[int, int]]]:
+    """Each changed `.py` or `.sh` file's changed line ranges, new-side, since the merge base.
+
+    Deletions of whole files are excluded; a hunk that only removes lines is the
+    one line where the removal sits. Index and working-tree changes count.
+
+    Side effect: runs `git merge-base` and `git diff -U0`.
+
+    Raises:
+        ChangedError: git cannot be run, or the diff fails.
+    """
+    merge_base = git_lines(repo_root, 'merge-base', '--end-of-options', base, 'HEAD')[0]
+    lines = git_lines(repo_root, 'diff', '-U0', '--no-color', '--no-ext-diff', '--diff-filter=d', merge_base)
+    hunks: dict[str, list[tuple[int, int]]] = {}
+    current: list[tuple[int, int]] | None = None
+    body_left = 0  # lines of the current hunk's body still to skip, so a body line that reads `+++ ` is not a header
+    for line in lines:
+        if body_left:
+            body_left -= 1
+            continue
+        if line.startswith('+++ '):
+            path = line[4:]
+            suffix = pathlib.PurePosixPath(path).suffix
+            current = hunks.setdefault(path[2:], []) if path.startswith('b/') and suffix in SCOPE_SUFFIXES else None
+            continue
+        match = HUNK_HEADER.match(line)
+        if match:
+            old_count = 1 if match.group(1) is None else int(match.group(1))
+            start = int(match.group(2))
+            count = 1 if match.group(3) is None else int(match.group(3))
+            body_left = old_count + count
+            if current is not None:
+                current.append((start, start + max(count, 1) - 1))
+    return {path: ranges for path, ranges in hunks.items() if ranges}
+
+
+def enclosing_ranges(source: str) -> list[tuple[int, int, bool]]:
+    """Each function and class in the source as (first line, last line, is a function)."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            first = min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)])
+            found.append((first, node.end_lineno or node.lineno, not isinstance(node, ast.ClassDef)))
+    return found
+
+
+def widen(hunk: tuple[int, int], scopes: collections.abc.Sequence[tuple[int, int, bool]]) -> list[tuple[int, int]]:
+    """The hunk with each of its lines widened to the innermost function holding it,
+    else the innermost class, else the line itself. Pure."""
+    widened = []
+    for number in range(hunk[0], hunk[1] + 1):
+        holding = [scope for scope in scopes if scope[0] <= number <= scope[1]]
+        functions = [scope for scope in holding if scope[2]] or holding
+        best = min(functions, key=lambda scope: scope[1] - scope[0], default=None)
+        widened.append((best[0], best[1]) if best else (number, number))
+    return widened
+
+
+def merge_ranges(ranges: collections.abc.Iterable[tuple[int, int]]) -> list[list[int]]:
+    """Sorted ranges with overlapping and adjacent ones joined. Pure."""
+    merged: list[list[int]] = []
+    for start, end in sorted(ranges):
+        if merged and start <= merged[-1][1] + 1:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return merged
+
+
+def scope_records(repo_root: pathlib.Path, base: str) -> list[dict[str, object]]:
+    """One record per changed `.py` or `.sh` file: its path and the line ranges to judge.
+
+    Raises:
+        ChangedError: git fails, or a changed Python file cannot be read.
+    """
+    records: list[dict[str, object]] = []
+    for path, hunks in sorted(changed_hunks(repo_root, base).items()):
+        ranges = list(hunks)
+        if path.endswith('.py'):
+            try:
+                scopes = enclosing_ranges((repo_root / path).read_text(encoding='utf-8'))
+            except (OSError, UnicodeDecodeError) as exc:
+                raise ChangedError(f'cannot read {path}') from exc
+            ranges = [widened for hunk in hunks for widened in widen(hunk, scopes)]
+        records.append({'path': path, 'ranges': merge_ranges(ranges)})
+    return records
 
 
 def in_scope(hit: collections.abc.Mapping[str, object], scope: frozenset[str] | None) -> bool:
@@ -174,6 +275,11 @@ def parse_args(argv: collections.abc.Sequence[str]) -> argparse.Namespace:
         help='Report every unaccepted hit, not only those in changed files',
     )
     parser.add_argument(
+        '--scope',
+        action='store_true',
+        help='Print the changed line ranges of each changed .py or .sh file as JSON lines; run no sweep',
+    )
+    parser.add_argument(
         '--base',
         help='Diff base (default: the first of @{upstream}, origin/main, main that resolves)',
         default=None,
@@ -219,6 +325,14 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
             repo_root = repo_root.resolve()
         except OSError as exc:
             raise ChangedError(f'cannot resolve the repository root: {exc}') from exc
+        if args.scope:
+            base = args.base or read_base_ref(repo_root)
+            if base is None:
+                print('changed.py: no diff base resolves (no upstream, origin/main or main); nothing to compare', file=sys.stderr)
+                return 0
+            for record in scope_records(repo_root, base):
+                print(json.dumps(record, sort_keys=True))
+            return 0
         scope: frozenset[str] | None = None
         if not args.all:
             base = args.base or read_base_ref(repo_root)
