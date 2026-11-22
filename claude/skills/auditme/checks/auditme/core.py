@@ -524,7 +524,7 @@ def resolve_call(
     head, _, rest = dotted.partition('.')
     if head in imported:
         dotted = imported[head] + (f'.{rest}' if rest else '')
-    elif isinstance(func, ast.Name) or (class_methods and isinstance(func.value, ast.Name)):
+    elif isinstance(func, ast.Name) or (class_methods and isinstance(func.value, ast.Name) and f'{module}.{dotted}' in known):
         dotted = f'{module}.{dotted}'
     dotted = aliases.get(dotted, dotted)
     if dotted not in known:

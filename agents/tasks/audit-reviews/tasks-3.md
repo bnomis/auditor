@@ -48,7 +48,7 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 ## Task 2: Add a property test for positive_int
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** small
 **Source Reference:** F2
@@ -57,20 +57,21 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/tests/phaseb/test_cli.py`, add a test with `@settings(max_examples=20, deadline=10000)` over text and integers: `positive_int(value)` returns `int(value)` exactly when `value` parses as an integer of 1 or more, and raises `argparse.ArgumentTypeError` otherwise. Call `phaseb.positive_int` directly, not through a local alias
+- [x] In `claude/skills/auditme/tests/phaseb/test_cli.py`, add a test with `@settings(max_examples=20, deadline=10000)` over text and integers: `positive_int(value)` returns `int(value)` exactly when `value` parses as an integer of 1 or more, and raises `argparse.ArgumentTypeError` otherwise. Call `phaseb.positive_int` directly, not through a local alias
 
 **Acceptance Criteria:**
 
-- [ ] The test passes
-- [ ] `python3 claude/skills/auditme/checks/phaseb.py candidates . --question T2` lists a property test for `phaseb.py::positive_int`
+- [x] The test passes
+- [x] `python3 claude/skills/auditme/checks/phaseb.py candidates . --question T2` lists a property test for `phaseb.py::positive_int`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_cli.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
+- Also fixed `auditme.core.resolve_call`: with `class_methods=True` it prefixed a plainly imported top-level module call (`phaseb.positive_int`) with the test module, so no test reached the function; it now does so only when that name is known. Regression test in `test_core.py`.
 - Key files: `claude/skills/auditme/checks/phaseb.py` (`positive_int`), `claude/skills/auditme/tests/phaseb/test_cli.py`
 
 ---

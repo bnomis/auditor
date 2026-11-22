@@ -382,6 +382,25 @@ def test_registered_question_returns_its_input_exactly_when_registered(value: st
             phaseb.registered_question(value)
 
 
+@hypothesis.settings(max_examples=20, deadline=10000)
+@hypothesis.given(
+    value=hypothesis.strategies.one_of(
+        hypothesis.strategies.text(max_size=8),
+        hypothesis.strategies.integers(min_value=-1000, max_value=1000).map(str),
+    )
+)
+def test_positive_int_returns_the_integer_exactly_when_it_is_one_or_more(value: str) -> None:
+    try:
+        parsed: int | None = int(value)
+    except ValueError:
+        parsed = None
+    if parsed is not None and parsed >= 1:
+        assert phaseb.positive_int(value) == parsed
+    else:
+        with pytest.raises(argparse.ArgumentTypeError):
+            phaseb.positive_int(value)
+
+
 @pytest.mark.parametrize('question', auditme.phaseb.registered_questions())
 def test_every_registered_question_is_accepted(question: str) -> None:
     assert phaseb.registered_question(question) == question

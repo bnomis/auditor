@@ -479,6 +479,12 @@ def test_resolve_call_resolves_a_class_method_only_when_asked() -> None:
     assert auditme.core.resolve_call(call, 'pkg.mod', None, {}, known, {}, class_methods=True) == 'pkg.mod.Cls.build'
 
 
+def test_resolve_call_with_class_methods_resolves_a_plainly_imported_top_level_module() -> None:
+    known: dict[str, str | None] = {'script.run': None}
+    call = parse_call('script.run()')
+    assert auditme.core.resolve_call(call, 'tests.test_script', None, {}, known, {}, class_methods=True) == 'script.run'
+
+
 def test_reads_by_module_and_name_counts_both_import_spellings(project: Builder) -> None:
     root = project(
         {
