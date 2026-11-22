@@ -86,7 +86,7 @@ cache is tested where it is defined.
 
 ## Task 3: Run the whole-tree checks, the doc listers, and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -97,23 +97,24 @@ records what this list resolved.
 
 **Subtasks:**
 
-- [ ] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand; fix any that no longer matches. Record what was checked in the task's Notes
-- [ ] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 and 2 fixed to Recently resolved, naming its task; when none is left, replace the Unresolved table and the line above it with the sentence "No finding is unresolved: every finding review-13 raised shipped (below)." rather than an empty row
+- [x] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand; fix any that no longer matches. Record what was checked in the task's Notes
+- [x] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 and 2 fixed to Recently resolved, naming its task; when none is left, replace the Unresolved table and the line above it with the sentence "No finding is unresolved: every finding review-13 raised shipped (below)." rather than an empty row
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved section holds only findings that did not ship, each with its reason
+- [x] The Unresolved section holds only findings that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Tasks 1 and 2
+- Doc4/Doc5 candidates checked by hand against the code on 2026-11-22: the changed `docs/reference/cli.md` sections for `bin/check-foreign-names.sh` (exit table) and `phaseb.py` (exit-2 rule). Both match the code; nothing to fix.
 
 ---
