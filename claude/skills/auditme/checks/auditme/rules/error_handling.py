@@ -413,10 +413,7 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
                 continue
             if not node.name.endswith('Error'):
                 continue
-            base_names: list[str] = []
-            for base in node.bases:
-                with contextlib.suppress(Exception):
-                    base_names.append(ast.unparse(base))
+            base_names = [ast.unparse(base) for base in node.bases]
             error_classes.append((node.name, node.lineno, base_names))
         if len(error_classes) < 2:
             continue
@@ -439,15 +436,11 @@ def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Pa
                 rooted_at_stdlib.append((name, lineno, bases))
         if len(rooted_at_stdlib) < 2:
             continue
-        # At least two sibling roots. Emit one finding per class whose
-        # sibling is not caught together by any call site.
-        # Find the two classes most likely to belong together: if a class C
-        # is caught at site S and a sibling D in the same file is never
-        # caught together at S, D leaks.
+        # One finding per errors.py that holds two or more error classes with
+        # no shared parent in the file.
         sibling_names = {name for name, _, _ in rooted_at_stdlib}
         if len(sibling_names) < 2:
             continue
-        # Emit one finding per file naming all co-defined siblings.
         first_name, first_line, _ = rooted_at_stdlib[0]
         accept = auditme.core.accept_reason(lines, first_line, rule='sibling-errors-no-common-base')
         auditme.core.emit(

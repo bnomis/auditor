@@ -23,13 +23,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 Each group is described in full, with every site, in [review-7](review-7.md#phase-b-findings-consolidated).
 
-| Finding | Question | Severity | First raised |
-|---------|----------|----------|--------------|
-| F1 two places still say sampled questions run on changed files | Doc5 | low | review-7 |
-| F2 the `silent-self-mutation` row leaves out the prefix exemption | Doc5 | low | review-7 |
-| F3 a root lookup drops the modes with a bare subscript | A23 | low | review-7 |
-| F4 a `contextlib.suppress(Exception)` swallows any failure | S4 | low | review-7 |
-| O1 comments describe a scan that never ran | none | low | review-7 |
+No finding is unresolved: every finding review-7 raised shipped (below).
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small).
 
@@ -37,6 +31,11 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 two places still say sampled questions run on changed files | low | review-7 | Task 1 of the review-7 task list |
+| F2 the `silent-self-mutation` row leaves out the prefix exemption | low | review-7 | Task 1 of the review-7 task list |
+| F3 a root lookup drops the modes with a bare subscript | low | review-7 | Task 2 of the review-7 task list |
+| F4 a `contextlib.suppress(Exception)` swallows any failure | low | review-7 | Task 2 of the review-7 task list |
+| O1 comments describe a scan that never ran | low | review-7 | Task 2 of the review-7 task list |
 | F1 `cached_bytes` lets `OSError` escape and has no direct test | low | review-6 | Task 2 of the review-6 task list |
 | F2 the new `--scope` helpers have no property tests | low | review-6 | Task 3 of the review-6 task list |
 | F3 three specs state brief version numbers that went stale | low | review-6 | Task 1 of the review-6 task list |

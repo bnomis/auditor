@@ -261,8 +261,9 @@ was; a threshold it exposes lands as a brief version bump.
 
 - **Phase B**: the listed questions become A4, Doc1, Doc2, Doc4 and Doc5;
   every other question is sampled (decision 1): every audit runs it on the
-  files changed since the previous review's `**Commit:**`, using the diff
-  base `checks/changed.py` resolves, and every third audit (counted from the
+  lines changed since the previous review's `**Commit:**` (each widened to
+  its enclosing function), using the diff base `checks/changed.py`
+  resolves, and every third audit (counted from the
   first audit after this change ships, and on any audit with no previous
   `**Commit:**`) runs it on the whole tree.
 - **Doc5's predicate** in the Phase B checklist reads "Drift between `docs/`
@@ -272,7 +273,7 @@ was; a threshold it exposes lands as a brief version bump.
   (sampled)" and is never marked "missed by" a review; the rule applies in
   full to listed questions.
 - **Review template**: a `**Commit:**` line (the audited `HEAD`) and, beside
-  each sampled question, its mode (changed files since a named commit, or
+  each sampled question, its mode (changed lines since a named commit, or
   full).
 - **Completion gate**: every listed question has a current verdict per
   candidate, and every sampled question ran in its cadence's mode.

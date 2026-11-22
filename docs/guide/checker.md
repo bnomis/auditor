@@ -291,7 +291,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | Rule id | Reports |
 |---|---|
 | `constructor-disk-io` | Disk I/O inside `__init__` |
-| `silent-self-mutation` | A method other than `__post_init__`, `__setattr__`, a setter, `clear`, `reset`, `update`, `mutate`, `merge`, `replace`, `apply`, `patch` or `override` reassigning an attribute set from a constructor argument |
+| `silent-self-mutation` | A method other than `__post_init__`, `__setattr__`, a setter, `clear`, `reset`, `update`, `mutate`, `merge`, `replace`, `apply`, `patch` or `override` (or a name that is one of these words followed by `_` and more, such as `update_cache`) reassigning an attribute set from a constructor argument |
 | `return-shadows-instance-attr` | A method returning a value named like an instance attribute, leaving the caller to reassign it |
 | `parameter-mutation-in-pure-function` | A function named or documented as a check that mutates a parameter |
 | `pure-name-has-side-effect` | A function with a query-like name calling a write or I/O side effect |

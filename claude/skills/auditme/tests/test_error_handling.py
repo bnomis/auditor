@@ -366,6 +366,14 @@ def test_two_error_classes_with_no_shared_parent_are_a_hit(project: Builder, run
     assert 'AlphaError' in hits[0]['evidence']
 
 
+def test_attribute_call_and_subscript_bases_are_read_without_error(project: Builder, run_check: Runner) -> None:
+    source = 'import lib\n\n\nclass AlphaError(lib.Base):\n    pass\n\n\nclass BetaError(make_base()):\n    pass\n\n\nclass GammaError(bases[0]):\n    pass\n'
+    root = project({'src/probe/errors.py': source})
+    hits = run_check(SIBLING_ERRORS, root)
+    assert [hit['rule'] for hit in hits] == ['sibling-errors-no-common-base']
+    assert 'AlphaError' in hits[0]['evidence']
+
+
 def test_a_real_hierarchy_is_not_a_hit(project: Builder, run_check: Runner) -> None:
     root = project({'src/probe/errors.py': 'class ProbeError(Exception):\n    pass\n\n\nclass AlphaError(ProbeError):\n    pass\n'})
     assert run_check(SIBLING_ERRORS, root) == []

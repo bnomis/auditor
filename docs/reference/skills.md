@@ -29,8 +29,8 @@ file path, a spec slug, or the docs. `--category` (`standards`,
 - **Runs:** the scripted sweep
   `python3 ~/.claude/skills/auditme/checks/audit.py <project-root>`, then a
   fixed checklist (a listed question runs one reviewer per batch of its
-  candidates; a sampled question runs on the files changed since the previous
-  review, and on the whole tree every third audit and on any audit with no previous
+  candidates; a sampled question runs on the lines changed since the previous
+  review, each widened to its enclosing function, and on the whole tree every third audit and on any audit with no previous
   `**Commit:**`), then a spec review and re-verification of earlier findings.
 - **Refuses to start** while `claude/skills/auditme/requests.md` has open
   checker change requests.

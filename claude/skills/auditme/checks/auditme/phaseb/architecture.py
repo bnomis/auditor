@@ -47,7 +47,8 @@ def capture_hits(scope: pathlib.Path, checks: collections.abc.Sequence[Check]) -
             buffer = io.StringIO()
             try:
                 with contextlib.redirect_stdout(buffer):
-                    for src_root in auditme.core.cached_roots(scope)[0]:
+                    roots, _ = auditme.core.cached_roots(scope)
+                    for src_root in roots:
                         check(scope, src_root)
             except Exception as error:  # a check's failure must stop the lister, whatever its type
                 raise auditme.phaseb.errors.PhaseBError(f'check {getattr(check, "__name__", check)!r} failed') from error
