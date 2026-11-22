@@ -159,7 +159,7 @@ worked out once.
 
 ## Task 5: Run the whole-tree checks, the doc listers, and update the summary
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -189,5 +189,7 @@ summary records what this list resolved.
 **Notes:**
 
 - Depends on Tasks 1 to 4
+- Doc4 and Doc5 listers run on 2026-11-22; candidates whose path or target is a file this list changed were checked against the code changes (`CachedReadError` in `core.py`, the per-run caches in `project_hygiene.py`, `imports_and_surfaces.py`, `architecture.py` and `testmap.py`, the removed `caught_elsewhere`). No spec or doc states the `cached_bytes` exception type, the cached helpers' internals or a changed signature (`ruff_executable` keeps its signature); `declared_root_modules` now returns a `frozenset` and no doc names its type. The one remaining version figure, "T1 brief (version 3)" in the test-questions spec's dated amendment, is a record of that date
+- Old forms grepped over `docs agents/specs README.md AGENTS.md`: `resolve_token`, `caught_elsewhere`, `cached_bytes`, "both hook types" - no stale hit
 
 ---
