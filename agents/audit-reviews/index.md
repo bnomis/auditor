@@ -18,3 +18,4 @@ The current state is in [summary.md](summary.md); the Phase B verdicts are in [l
 | [review-12](review-12.md) | 2026-11-22 | full (every sampled question on the whole tree) | `add7b4c` | sweep clean; Phase B findings F1-F4 |
 | [review-13](review-13.md) | 2026-11-22 | full (every sampled question on the whole tree) | `b0166c2` | sweep clean; Phase B findings F1-F5 |
 | [review-14](review-14.md) | 2026-11-22 | full (every sampled question on the whole tree) | `7162f02` | sweep clean; Phase B findings F1-F2 |
+| [review-15](review-15.md) | 2026-11-22 | full (every sampled question on the whole tree) | `793c8d8` | sweep clean; no finding |

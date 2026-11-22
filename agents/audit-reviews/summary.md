@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-14
-**Total reviews conducted:** 14
+**Last review:** review-15
+**Total reviews conducted:** 15
 **Last script run hit count:** 48 (48 accepted)
-**Script version:** 3e86b7b0e21a73d2d0ff0485ab37065e38bf96c8ae4a599b905029c3c03683a0
+**Script version:** 82809374a2f796b0ed5b36a47bcdebc16b7e29142fc6c7192240275ecf905fab
 
 ## How to reproduce the sweep
 
@@ -13,16 +13,17 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-15
+## Convergence note for review-16
 
-- **Sampled mode:** the operator delegated the loop on 2026-11-22 as whole-tree audits until no finding, so review-15 runs every sampled question on the whole tree.
-- **Listed questions:** review-15 re-judges only candidates whose hash or brief version changed.
-- **Precondition:** review-15 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Where the loop stands:** review-15 (2026-11-22), a whole-tree audit, found nothing; it ended the loop the operator delegated that day. Nothing changed after its commit.
+- **Sampled mode:** by the cadence, review-16 judges the lines changed since review-15's commit, and review-18 is the next whole-tree audit.
+- **Listed questions:** review-16 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-16 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 - **Tell the whole-tree reviewers:** the dismissed sampled findings below, so they report them again only if their code changed.
 
 ## Unresolved findings
 
-No finding is unresolved: every finding review-14 raised shipped (below).
+No finding is unresolved: every finding review-14 raised shipped (below), and review-15 raised none.
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small). On review-11's page: F5 (`all_py_files` listing its root on every call, about a twentieth of a sweep).
 
