@@ -1,8 +1,9 @@
 # Listed Phase B test questions
 
-**Version:** 1.4
-**Status:** implemented
+**Version:** 1.5
+**Status:** proposed
 **Date:** 2026-11-20
+**Review page:** https://claude.ai/artifact/A2jYW6bvHGhR3JxqhppKuW (amendment 1.5)
 
 Puts the auditme Phase B test questions T1 and T2 on the listed path of
 [Repeatable Phase B](../repeatable-phase-b/spec.md). A lister finds each
@@ -128,7 +129,7 @@ annotations name, as `{id, path, start, end}`), `pairs`, `tests` and
 - `PhaseBError`, naming the file, when a test file or audited source file
   does not parse. Skipping a test file would mark what it tests as untested;
   skipping a source file would drop its ledger entries at the next merge.
-- No test tree (neither `src/tests/` nor `tests/`): not an error. T1
+- No test file under any test root (amendment 1.5): not an error. T1
   candidates are listed with empty `tests`; the review says none was found.
 - A test call the resolver cannot follow is left out of the map, never
   raised or guessed; the reviewer reads `test_files`.
@@ -143,6 +144,30 @@ Candidates come from `audit_roots` minus the test tree: a path with a
 `tests` part, `test_*.py`, `*_test.py` and `conftest.py` are never
 candidates. The test tree is every `test_*.py` and `*_test.py` under
 `src/tests/` (the layout of `claude/rules/python/testing.md`) and `tests/`.
+
+Amendment 1.5 (2026-11-22, from a request in
+`claude/skills/auditme/requests.md` raised on 2026-11-21 by this repository's
+first full audit): a project whose tests sit outside `src/tests/` and
+`tests/`, under a root declared in `[tool.auditme]`, got an empty test map,
+so every T1 and T2 candidate had empty `tests` and `test_files`; in that audit
+every candidate of the first T1 batch had both empty, though the tests under
+the declared root import those modules. The test roots are now every root
+`audit_roots` returns, in its order, then `src/tests/` and `tests/` where they
+exist; a project that declares nothing keeps the default trees, which are the
+only roots outside its packages and `bin/`. Under a test root, a test file is
+a `test_*.py` or `*_test.py` that `is_test_relpath` marks a test, and a
+`conftest.py` is read as before. A file met under two roots is read once,
+under the first, so its module name follows that root's `modules` mode
+(`module_dotted`). `test_tree_roots(root)` returns this list, so the
+`conftest.py` chain stops at the nearest test root and the mirrored test file
+is looked for under each. In a project that declares nothing, the change reads
+test files inside its packages and `bin/` (a `src/<pkg>/tests/` directory)
+that it did not read before; the sweep already treats them as tests, so they
+were neither candidates nor tests. The briefs do not change; the hash of each
+candidate whose `test_files` grows changes, so the next audit re-judges it.
+Both parts (the change, and reading test files inside a non-declaring
+project's packages and `bin/`) were approved by the operator on 2026-11-22 on
+the review page named in the header.
 
 ### T1 candidates
 
@@ -265,7 +290,10 @@ frozen `Probe` dataclass is listed, and ones taking `pathlib.Path`, calling
 test file is never a candidate; direct, fixture-routed and caller tests are
 found with their route; `read_is_private` is false for a name in its package's
 `__all__`, true for one left out of it, and falls back to a leading
-underscore only in a package with no `__all__`; a same-named function in a test file that does not
+underscore only in a package with no `__all__`; a test file under a
+declared root outside `src/tests/` and `tests/` is read, reaches what it
+calls and names its module by that root's mode, a file under two roots is
+read once, and a project that declares nothing reads the default trees; a same-named function in a test file that does not
 import the module adds no ref; a test added to the mirrored file, or a field
 added to `Probe`, changes the hash; an unparseable test file raises
 `PhaseBError`; both briefs have a version line and their question verbatim.

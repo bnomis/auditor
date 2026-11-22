@@ -21,6 +21,8 @@ as the default trees, deciding a test by `is_test_relpath`; amend
 deletes the request entry; review-2 cannot start until it is shipped or
 rejected.
 
+Spec: agents/specs/listed-phase-b-test-questions/spec.md (amendment 1.5); tasks: agents/tasks/listed-phase-b-test-questions/tasks-2.md.
+
 ## A9 reads a registered check's `check_` name as a purity promise
 
 Found on 2026-11-21 by `agents/audit-reviews/review-1.md` (decision D3) and
