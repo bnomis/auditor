@@ -559,6 +559,28 @@ def test_test_files_hold_a_file_importing_only_the_package_re_export(project: Pr
     ]
 
 
+def test_each_test_files_imports_are_computed_once_however_many_functions_are_listed(project: Project, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project(
+        {
+            **CHAIN,
+            'src/tests/test_importer.py': 'import pkg.mod\n\n\ndef test_x():\n    pass\n',
+            'src/tests/test_caller.py': 'from pkg import mid\n\n\ndef test_y():\n    pass\n',
+        }
+    )
+    index = auditme.phaseb.testmap.load_test_index(root)
+    calls: list[str] = []
+    real = auditme.phaseb.testmap.imported_names
+
+    def counting(file: auditme.phaseb.testmap.ParsedFile) -> set[str]:
+        calls.append(file.rel)
+        return real(file)
+
+    monkeypatch.setattr(auditme.phaseb.testmap, 'imported_names', counting)
+    for function_id in index.by_id:
+        index.test_files(function_id, 2)
+    assert sorted(calls) == sorted(file.rel for file in index.tests)
+
+
 @hypothesis.settings(max_examples=20, deadline=10000)
 @hypothesis.given(
     edges=hypothesis.strategies.dictionaries(

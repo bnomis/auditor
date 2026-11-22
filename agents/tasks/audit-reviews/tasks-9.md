@@ -12,7 +12,7 @@ changes a brief in `claude/skills/auditme/phaseb/briefs/`.
 
 ## Task 1: Index test files by the modules they import
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1
@@ -22,31 +22,34 @@ the test files, not to their product with the caller modules.
 
 **Subtasks:**
 
-- [ ] Record `python3 claude/skills/auditme/checks/phaseb.py candidates . --question T1` and `--question T2` outside the repository
-- [ ] Write a test first, in `claude/skills/auditme/tests/phaseb/test_testmap.py`, that building a `TestIndex` and calling `test_files` for every function computes each test file's imported names once (count calls to `imported_names` with a monkeypatch)
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/testmap.py`, compute each test file's imported names once when the index is built, and keep a map from each imported dotted name and each of its parent modules to the test files that import it; make `test_files` (line 272 on 2026-11-22) look up its modules and re-export names in that map instead of scanning every test file, and make `imports_module` (line 183) use the stored names
-- [ ] Keep `imports_module` and `imported_names` public behaviour as their docstrings state, and update any spec that describes how `test_files` finds its files (`agents/specs/listed-phase-b-test-questions/spec.md`, "Finding the tests") only if its statements stop being true
-- [ ] Run the listings again and diff them against the record; time the T1 listing before and after
+- [x] Record `python3 claude/skills/auditme/checks/phaseb.py candidates . --question T1` and `--question T2` outside the repository
+- [x] Write a test first, in `claude/skills/auditme/tests/phaseb/test_testmap.py`, that building a `TestIndex` and calling `test_files` for every function computes each test file's imported names once (count calls to `imported_names` with a monkeypatch)
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/testmap.py`, compute each test file's imported names once when the index is built, and keep a map from each imported dotted name and each of its parent modules to the test files that import it; make `test_files` (line 272 on 2026-11-22) look up its modules and re-export names in that map instead of scanning every test file, and make `imports_module` (line 183) use the stored names
+- [x] Keep `imports_module` and `imported_names` public behaviour as their docstrings state, and update any spec that describes how `test_files` finds its files (`agents/specs/listed-phase-b-test-questions/spec.md`, "Finding the tests") only if its statements stop being true
+- [x] Run the listings again and diff them against the record; time the T1 listing before and after
 
 **Acceptance Criteria:**
 
-- [ ] The T1 and T2 listings are identical before and after
-- [ ] The new test fails before the change and passes after it
+- [x] The T1 and T2 listings are identical before and after
+- [x] The new test fails before the change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb/test_testmap.py claude/skills/auditme/tests/phaseb/test_t1_candidates.py claude/skills/auditme/tests/phaseb/test_t2_candidates.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb/test_testmap.py claude/skills/auditme/tests/phaseb/test_t1_candidates.py claude/skills/auditme/tests/phaseb/test_t2_candidates.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Measured on 2026-11-22: 0.36 s of a 2.2 s T1 listing here; 20.5 s of 35.8 s on one project with 743 source files
+- `imports_module` had no caller once `test_files` used the index maps, so it was removed rather than left unused; `imported_names` is unchanged.
+- Listings compared on 2026-11-22: the same functions and the same test files per function. The only differences are the new test now reaching the functions it calls, `imports_module` gone from the callers of `imported_names`, and hashes and line numbers of the edited file.
+- T1 listing time on this repository: 1.2 s before, 1.5 s after (one run each, within noise at this size; the cost the review measured is on a project with hundreds of source files).
 
 ---
 
 ## Task 2: Run the whole-tree checks and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -56,23 +59,24 @@ merges, and the audit summary records what this list resolved.
 
 **Subtasks:**
 
-- [ ] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates that name a file this list changed (`git diff --name-only <base>...HEAD`), and check their statements against the code by hand; fix any that no longer matches. Record what was checked in the task's Notes
-- [ ] In `agents/audit-reviews/summary.md`, move F1 to Recently resolved, naming Task 1; replace the Unresolved table with the sentence "No finding is unresolved: every finding review-9 raised shipped (below)." rather than an empty row
+- [x] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates that name a file this list changed (`git diff --name-only <base>...HEAD`), and check their statements against the code by hand; fix any that no longer matches. Record what was checked in the task's Notes
+- [x] In `agents/audit-reviews/summary.md`, move F1 to Recently resolved, naming Task 1; replace the Unresolved table with the sentence "No finding is unresolved: every finding review-9 raised shipped (below)." rather than an empty row
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved section holds only findings that did not ship, each with its reason
+- [x] The Unresolved section holds only findings that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Task 1
+- Checked on 2026-11-22: Doc4 and Doc5 candidates naming `testmap.py` or `test_testmap.py` are all in `agents/specs/listed-phase-b-test-questions/spec.md`; Doc5 had none. Its "Finding the tests" statements (mirrored file, importers of the module, importers of a listed caller's module, re-export importers) still match `test_files`, and no document names the removed `imports_module`. No edit needed.
 
 ---

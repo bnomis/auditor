@@ -178,11 +178,6 @@ def imported_names(file: ParsedFile) -> set[str]:
     return names
 
 
-def imports_module(file: ParsedFile, module: str) -> bool:
-    """True when a file imports the module, or a name or submodule inside it."""
-    return any(name == module or name.startswith(f'{module}.') for name in imported_names(file))
-
-
 def reach(direct: collections.abc.Mapping[str, list[str]], start: collections.abc.Iterable[str], depth: int) -> dict[str, int]:
     """Each name reached from `start` within `depth` calls, with its distance; `start` itself is at 0."""
     distance = dict.fromkeys(start, 0)
@@ -237,6 +232,19 @@ class TestIndex:
         return {function_id: tuple(sorted(refs.values(), key=lambda ref: ref.id)) for function_id, refs in found.items()}
 
     @functools.cached_property
+    def importers(self) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+        """Test file paths by module imported (a name or any parent of it), and by exact imported name; each file's names are computed once."""
+        by_module: dict[str, set[str]] = {}
+        by_name: dict[str, set[str]] = {}
+        for file in self.tests:
+            for name in imported_names(file):
+                by_name.setdefault(name, set()).add(file.rel)
+                parts = name.split('.')
+                for end in range(1, len(parts) + 1):
+                    by_module.setdefault('.'.join(parts[:end]), set()).add(file.rel)
+        return by_module, by_name
+
+    @functools.cached_property
     def reverse(self) -> dict[str, list[str]]:
         """Each qualname's direct callers, built on first use and shared by every query."""
         reverse: dict[str, list[str]] = {}
@@ -269,7 +277,9 @@ class TestIndex:
         modules = {site.module, *(caller.module for caller in self.caller_sites(function_id, depth))}
         reexports = {alias for alias, target in self.aliases.items() if target == site.qualname}
         reexport_names = reexports | {alias.rsplit('.', 1)[0] for alias in reexports}
-        found = {file.rel for file in self.tests if any(imports_module(file, module) for module in modules) or imported_names(file) & reexport_names}
+        by_module, by_name = self.importers
+        found = {rel for module in modules for rel in by_module.get(module, ())}
+        found.update(rel for name in reexport_names for rel in by_name.get(name, ()))
         found.update(self.mirrored(site))
         return sorted(found)
 
