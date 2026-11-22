@@ -49,7 +49,7 @@ hook with an error, so a commit is never passed unchecked because of it.
 
 ## Task 2: Keep a `--base` value that starts with `-` out of git
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F6
@@ -59,20 +59,20 @@ whatever spelling or repetition argparse accepts.
 
 **Subtasks:**
 
-- [ ] Write the failing tests first, in `claude/skills/auditme/tests/test_changed.py`: `--bas=-x` (an abbreviation argparse accepts) and `--base main --base=-x` (argparse keeps the last) each exit with a usage error and run no `git diff`
-- [ ] In `claude/skills/auditme/checks/changed.py`, check the value argparse parsed (`args.base`) rather than the raw arguments: refuse a value that starts with `-`. Keep or drop `option_value_is_flag` as the new check makes it needed or not
-- [ ] In the `git diff` call that takes the base (`changed_files`, line 105 on 2026-11-22), pass `--end-of-options` before the revision range, so git never reads it as an option even if a check is missed
-- [ ] Update `docs/reference/cli.md` and `docs/guide/checker.md` where they describe `--base`
+- [x] Write the failing tests first, in `claude/skills/auditme/tests/test_changed.py`: `--bas=-x` (an abbreviation argparse accepts) and `--base main --base=-x` (argparse keeps the last) each exit with a usage error and run no `git diff`
+- [x] In `claude/skills/auditme/checks/changed.py`, check the value argparse parsed (`args.base`) rather than the raw arguments: refuse a value that starts with `-`. Keep or drop `option_value_is_flag` as the new check makes it needed or not
+- [x] In the `git diff` call that takes the base (`changed_files`, line 105 on 2026-11-22), pass `--end-of-options` before the revision range, so git never reads it as an option even if a check is missed
+- [x] Update `docs/reference/cli.md` and `docs/guide/checker.md` where they describe `--base`
 
 **Acceptance Criteria:**
 
-- [ ] The new tests fail before the change and pass after it
-- [ ] The existing `test_changed.py` tests pass unchanged
+- [x] The new tests fail before the change and pass after it
+- [x] The existing `test_changed.py` tests pass unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

@@ -78,7 +78,8 @@ not a JSON object, or reports a crashed check. It exits 0 otherwise. A sweep tha
 | `--all` | Every file | The `auditme-all` hook: the push gate and CI |
 
 `--base` defaults to the first of `@{upstream}`, `origin/main` and `main` that
-resolves. With none, or with no reportable file changed (a `.py` file, a `uv.lock`, or a `.md` file outside hidden directories and outside `audit-reviews` and `tasks`, among others),
+resolves. A value starting with `-` is refused, whichever spelling of the option
+gave it, so it is never read by git as an option. With none, or with no reportable file changed (a `.py` file, a `uv.lock`, or a `.md` file outside hidden directories and outside `audit-reviews` and `tasks`, among others),
 it prints why and exits 0 without sweeping. `<repo-root>` defaults to the
 working directory's git top level.
 

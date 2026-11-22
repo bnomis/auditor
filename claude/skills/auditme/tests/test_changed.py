@@ -138,11 +138,30 @@ def test_changed_files_excludes_deletions(repo) -> None:
     assert changed.changed_files(repo, 'main') == frozenset({'src/pkg/c.py'})
 
 
-@pytest.mark.parametrize('argv', [['--base', '-x'], ['--base=-x']])
-def test_base_starting_with_a_dash_is_refused(repo, stub_sweep, capsys, argv) -> None:
+@pytest.mark.parametrize(
+    'argv',
+    [['--base', '-x'], ['--base=-x'], ['--bas=-x'], ['--base', 'main', '--base=-x']],
+)
+def test_base_starting_with_a_dash_is_refused(repo, stub_sweep, capsys, monkeypatch, argv) -> None:
     stub_sweep([hit('src/pkg/a.py')])
+    calls: list[tuple[str, ...]] = []
+    real = changed.run_git
+
+    def spy(root, *args):
+        calls.append(args)
+        return real(root, *args)
+
+    monkeypatch.setattr(changed, 'run_git', spy)
     assert changed.main([*argv, str(repo)]) == 1
-    assert '--base' in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert '--base' in captured.out + captured.err
+    assert not [call for call in calls if call[0] == 'diff']
+
+
+def test_changed_files_ends_options_before_the_base(repo) -> None:
+    with pytest.raises(changed.ChangedError):
+        changed.changed_files(repo, '--output=should-not-exist')
+    assert not (repo / 'should-not-exist...HEAD').exists()
 
 
 def test_no_base_resolves_exits_zero(tmp_path, stub_sweep, capsys) -> None:
@@ -357,25 +376,6 @@ def test_a_malformed_declaration_fails_the_sweep(tmp_path, capsys) -> None:
     root = start_script_project(tmp_path, {'pyproject.toml': '[tool.auditme]\nroots = "lib"\n', 'lib/a.py': 'A = 1\n'})
     assert changed.main(['--all', str(root)]) == 1
     assert 'ERROR: ' in capsys.readouterr().out
-
-
-ARGV_ITEM = hypothesis.strategies.sampled_from(['--all', 'x.py', '-q', '--base=main', '--base=-x', '--base', 'main', '-v'])
-
-
-@hypothesis.settings(max_examples=20, deadline=10000)
-@hypothesis.given(argv=hypothesis.strategies.lists(ARGV_ITEM, max_size=5))
-def test_option_value_is_flag_matches_the_first_base_occurrence(argv: list[str]) -> None:
-    expected = False
-    for index, arg in enumerate(argv):
-        if arg.startswith('--base='):
-            expected = arg.removeprefix('--base=').startswith('-')
-            break
-        if arg == '--base' and index + 1 < len(argv):
-            expected = argv[index + 1].startswith('-')
-            break
-    assert changed.option_value_is_flag(argv) == expected
-    if not any(arg == '--base' or arg.startswith('--base=') for arg in argv):
-        assert not changed.option_value_is_flag(argv)
 
 
 @hypothesis.settings(max_examples=20, deadline=10000)

@@ -205,7 +205,7 @@ reports every unaccepted hit in scope. It writes nothing.
 |---|---|
 | `repo_root` | Repository root. Default: `git rev-parse --show-toplevel` of the working directory. |
 | `--all` | Report every unaccepted hit, not only those in changed files. |
-| `--base BASE` | Diff base. Default: the first of `@{upstream}`, `origin/main`, `main` that resolves. A value starting with `-` is refused. |
+| `--base BASE` | Diff base. Default: the first of `@{upstream}`, `origin/main`, `main` that resolves. A value starting with `-` is refused, whatever spelling of the option gave it (an abbreviation such as `--bas=`, or a repeat), and git is told where options end before it is passed the range. |
 
 Without `--all`, the scope is the files changed in `BASE...HEAD` plus those
 changed in the index or working tree against `HEAD`, deletions excluded. A

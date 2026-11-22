@@ -97,7 +97,7 @@ def changed_files(repo_root: pathlib.Path, base: str) -> frozenset[str]:
     Raises:
         ChangedError: git cannot be run, or the diff fails.
     """
-    committed = git_lines(repo_root, 'diff', '--name-only', '--diff-filter=d', f'{base}...HEAD')
+    committed = git_lines(repo_root, 'diff', '--name-only', '--diff-filter=d', '--end-of-options', f'{base}...HEAD')
     pending = git_lines(repo_root, 'diff', '--name-only', '--diff-filter=d', 'HEAD')
     return frozenset(committed) | frozenset(pending)
 
@@ -188,16 +188,6 @@ def parse_args(argv: collections.abc.Sequence[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def option_value_is_flag(argv: collections.abc.Sequence[str]) -> bool:
-    """Whether `--base` is given a value starting with `-` (refused before git runs)."""
-    for index, arg in enumerate(argv):
-        if arg.startswith('--base='):
-            return arg.removeprefix('--base=').startswith('-')
-        if arg == '--base' and index + 1 < len(argv):
-            return argv[index + 1].startswith('-')
-    return False
-
-
 def format_hits(hits: collections.abc.Sequence[dict[str, object]]) -> str:
     ordered = sorted(hits, key=lambda hit: (str(hit.get('path')), hit.get('line') or 0))  # type: ignore[arg-type,return-value]
     lines = []
@@ -214,13 +204,13 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
     is printed as one line and returns 1.
     """
     argv = list(sys.argv[1:] if argv is None else argv)
-    if option_value_is_flag(argv):
-        print('changed.py: --base must be a ref, not an option')
-        return 1
     try:
         args = parse_args(argv)
     except SystemExit as exc:
         return 0 if exc.code == 0 else 1
+    if args.base is not None and args.base.startswith('-'):
+        print('changed.py: --base must be a ref, not an option')
+        return 1
     try:
         repo_root = args.repo_root
         try:
