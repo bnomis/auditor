@@ -17,7 +17,7 @@ The last task runs the whole-tree checks once, before the branch merges.
 
 ## Task 1: Make the no-project-names hook fail on a match beside an unreadable file
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Source Reference:** F8
@@ -28,19 +28,19 @@ cannot pass because another file is unreadable.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `tests/test_check_foreign_names.py`: a matching file passed with a missing one makes the script exit 1 and print the match; a missing file alone exits 2 with a message on stderr
-- [ ] In `bin/check-foreign-names.sh`, capture grep's exit status rather than testing it in the `if`. Exit 1 when it is 0, and exit 2 with a message naming the unreadable file when it is 2. When grep printed a match and also returned 2, exit 1, after the message
-- [ ] Update `docs/reference/cli.md` (the `bin/check-foreign-names.sh` section, line 84) with the exit codes
+- [x] Write the failing test first, in `tests/test_check_foreign_names.py`: a matching file passed with a missing one makes the script exit 1 and print the match; a missing file alone exits 2 with a message on stderr
+- [x] In `bin/check-foreign-names.sh`, capture grep's exit status rather than testing it in the `if`. Exit 1 when it is 0, and exit 2 with a message naming the unreadable file when it is 2. When grep printed a match and also returned 2, exit 1, after the message
+- [x] Update `docs/reference/cli.md` (the `bin/check-foreign-names.sh` section, line 84) with the exit codes
 
 **Acceptance Criteria:**
 
-- [ ] The new tests fail before the change and pass after it
-- [ ] The existing tests in `tests/test_check_foreign_names.py` and `tests/test_published_hooks.py` pass unchanged
+- [x] The new tests fail before the change and pass after it
+- [x] The existing tests in `tests/test_check_foreign_names.py` and `tests/test_published_hooks.py` pass unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_check_foreign_names.py tests/test_published_hooks.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_check_foreign_names.py tests/test_published_hooks.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

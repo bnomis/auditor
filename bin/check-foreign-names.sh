@@ -36,11 +36,26 @@ if [ -z "$patterns" ] || [ "$#" -eq 0 ]; then
     exit 0
 fi
 
-if grep -H -n -i -w -F -e "$patterns" -- "$@"; then
+unreadable=()
+for file in "$@"; do
+    [ -r "$file" ] || unreadable+=("$file")
+done
+
+status=0
+matches=$(grep -H -n -i -w -F -e "$patterns" -- "$@" 2>/dev/null) || status=$?
+[ -z "$matches" ] || printf '%s\n' "$matches"
+
+if [ "${#unreadable[@]}" -gt 0 ]; then
+    echo "check-foreign-names: cannot read: ${unreadable[*]}" >&2
+fi
+if [ -n "$matches" ]; then
     echo
     echo "These lines name a project. This repository is used across projects: write 'one project'"
     echo "or a neutral name (pkg, probe, AppSettings) instead; see claude/rules/rule-scope.md"
     echo "in the agents repository."
     exit 1
+fi
+if [ "$status" -eq 2 ]; then
+    exit 2
 fi
 exit 0

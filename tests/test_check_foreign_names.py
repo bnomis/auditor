@@ -69,3 +69,17 @@ def test_the_default_list_is_under_config_auditor(tmp_path: pathlib.Path) -> Non
     (tmp_path / 'doc.md').write_text('acmeproj\n')
     result = run(tmp_path, None, 'doc.md')
     assert result.returncode == 1
+
+
+def test_a_match_beside_an_unreadable_file_still_fails(tmp_path: pathlib.Path) -> None:
+    (tmp_path / 'doc.md').write_text('acmeproj\n')
+    result = run(tmp_path, 'acmeproj\n', 'missing.md', 'doc.md')
+    assert result.returncode == 1
+    assert 'doc.md:1:' in result.stdout
+    assert 'missing.md' in result.stderr
+
+
+def test_an_unreadable_file_alone_exits_2_naming_it(tmp_path: pathlib.Path) -> None:
+    result = run(tmp_path, 'acmeproj\n', 'missing.md')
+    assert result.returncode == 2
+    assert 'missing.md' in result.stderr
