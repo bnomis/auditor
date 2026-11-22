@@ -262,6 +262,11 @@ AS_IMPORT_BAN_RE = re.compile(
 
 
 def project_bans_as_imports(scope: pathlib.Path) -> bool:
+    """`scan_bans_as_imports`, worked out once per run."""
+    return typing.cast('bool', auditme.core.cached_per_run('project_bans_as_imports', scope, scan_bans_as_imports))
+
+
+def scan_bans_as_imports(scope: pathlib.Path) -> bool:
     """True when the project's own AGENTS.md declares `import X as Y` banned.
 
     The check is gated because the rule is a project standard, not a universal
@@ -387,6 +392,11 @@ def check_from_import(scope: pathlib.Path, src_root: pathlib.Path) -> None:
 
 
 def read_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
+    """`scan_package_layering`, worked out once per run; callers do not modify the result."""
+    return typing.cast('tuple[list[str], set[tuple[str, str]]]', auditme.core.cached_per_run('read_package_layering', scope, scan_package_layering))
+
+
+def scan_package_layering(scope: pathlib.Path) -> tuple[list[str], set[tuple[str, str]]]:
     """Parse AGENTS.md's Package Layering section.
 
     Returns (layer_order, accepted_exceptions). layer_order is a list of
@@ -784,6 +794,11 @@ ALL_GUARD_RE = re.compile(r"""['"]__all__['"]|\.__all__\b""")
 
 
 def project_has_all_guard(scope: pathlib.Path) -> bool:
+    """`scan_has_all_guard`, worked out once per run."""
+    return typing.cast('bool', auditme.core.cached_per_run('project_has_all_guard', scope, scan_has_all_guard))
+
+
+def scan_has_all_guard(scope: pathlib.Path) -> bool:
     """True when some file in the project inspects other modules' `__all__`.
 
     The signal is `__all__` read as data - `getattr(mod, '__all__')`,

@@ -38,8 +38,10 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 
-def make_candidate(candidate_id: str) -> auditme.phaseb.candidates.Candidate:
-    return auditme.phaseb.candidates.Candidate(question='Q1', id=candidate_id, path='src/pkg/mod.py', start=1, end=2, payload={}, hash='h')
+def make_candidate(candidate_id: str, **overrides) -> auditme.phaseb.candidates.Candidate:
+    fields = {'question': 'Q1', 'id': candidate_id, 'path': 'src/pkg/mod.py', 'start': 1, 'end': 2, 'payload': {}, 'hash': 'h'}
+    fields.update(overrides)
+    return auditme.phaseb.candidates.Candidate(**fields)
 
 
 def make_verdict(candidate_id: str = 'src/pkg/mod.py::probe', **overrides) -> auditme.phaseb.candidates.Verdict:

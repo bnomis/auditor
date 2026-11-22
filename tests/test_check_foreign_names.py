@@ -90,6 +90,13 @@ def test_an_unreadable_file_alone_exits_2_naming_it(tmp_path: pathlib.Path) -> N
     assert 'missing.md' in result.stderr
 
 
+def test_a_directory_argument_exits_2_naming_it(tmp_path: pathlib.Path) -> None:
+    (tmp_path / 'sub').mkdir()
+    result = run(tmp_path, 'acmeproj\n', 'sub')
+    assert result.returncode == 2
+    assert 'cannot read: sub' in result.stderr
+
+
 @pytest.mark.skipif(os.geteuid() == 0, reason='root reads a mode 000 file')
 def test_an_unreadable_list_fails_and_names_it(tmp_path: pathlib.Path) -> None:
     (tmp_path / 'doc.md').write_text('clean\n')

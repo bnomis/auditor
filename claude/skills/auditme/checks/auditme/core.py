@@ -449,6 +449,18 @@ def cached_declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]]
     return typing.cast('list[tuple[pathlib.Path, str]] | None', INDEX_CACHE[key])
 
 
+def cached_per_run(name: str, scope: pathlib.Path, compute: collections.abc.Callable[[pathlib.Path], object]) -> object:
+    """`compute(scope)`, run once per run for each `name` and `scope`.
+
+    For a helper whose answer depends only on the project, so that a sweep over
+    several roots does not repeat it. A raised error is not cached.
+    """
+    key = (name, scope)
+    if key not in INDEX_CACHE:
+        INDEX_CACHE[key] = compute(scope)
+    return INDEX_CACHE[key]
+
+
 def audit_roots(scope: pathlib.Path) -> list[pathlib.Path]:
     """Every root the sweep passes over: the packages under `src/`, then the extras.
 
@@ -931,6 +943,7 @@ __all__ = [
     'all_py_files',
     'audit_roots',
     'cached_bytes',
+    'cached_per_run',
     'call_bindings',
     'clear_source_cache',
     'corpus_definitions',
