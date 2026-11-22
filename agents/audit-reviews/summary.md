@@ -24,12 +24,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 Each finding is described in full in [review-11](review-11.md#phase-b-findings-consolidated).
 
-| Finding | Question | Severity | First raised |
-|---------|----------|----------|--------------|
-| F1 `phaseb.py` accepts a root that does not exist | Sec2 | medium | review-11 |
-| F2 the audit roots are worked out again in one listing | A14 | low | review-11 |
-| F3 one test builder copied into three files | A15 | low | review-11 |
-| F4 the A11 lister walks a function once per statement in it | P1 | low | review-11 |
+No finding is unresolved: every finding review-11 raised shipped or was dismissed (below).
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small). On review-11's page: F5 (`all_py_files` listing its root on every call, about a twentieth of a sweep).
 
@@ -37,6 +32,10 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 `phaseb.py` accepts a root that does not exist | medium | review-11 | Task 1 of the review-11 task list |
+| F2 the audit roots are worked out again in one listing | low | review-11 | Task 2 of the review-11 task list |
+| F3 one test builder copied into three files | low | review-11 | Task 3 of the review-11 task list |
+| F4 the A11 lister walks a function once per statement in it | low | review-11 | Task 2 of the review-11 task list |
 | F1 the T1 lister rescans every test file's imports for every function | low | review-9 | Task 1 of the review-9 task list |
 | O1 six more `contextlib.suppress(Exception)` sites | low | review-8 | Task 1 of the review-8 task list |
 | F1 two places still say sampled questions run on changed files | low | review-7 | Task 1 of the review-7 task list |

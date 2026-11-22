@@ -111,7 +111,7 @@ not three.
 
 ## Task 4: Run the whole-tree checks, the doc listers, and update the summary
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** all
@@ -122,23 +122,24 @@ summary records what this list resolved.
 
 **Subtasks:**
 
-- [ ] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand; fix any that no longer matches. Record what was checked in the task's Notes
-- [ ] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 3 fixed to Recently resolved, naming its task; when none is left, replace the Unresolved table with the sentence "No finding is unresolved: every finding review-11 raised shipped or was dismissed (below)." rather than an empty row
+- [x] Run `python3 claude/skills/auditme/checks/phaseb.py candidates . --question Doc4` and `--question Doc5`, take the candidates whose `path` is a doc or spec this list changed, or that names a code file it changed (`git diff --name-only <base>...HEAD`), and check every statement in their sections against the code by hand; fix any that no longer matches. Record what was checked in the task's Notes
+- [x] In `agents/audit-reviews/summary.md`, move each finding Tasks 1 to 3 fixed to Recently resolved, naming its task; when none is left, replace the Unresolved table with the sentence "No finding is unresolved: every finding review-11 raised shipped or was dismissed (below)." rather than an empty row
 
 **Acceptance Criteria:**
 
-- [ ] The Unresolved section holds only findings that did not ship, each with its reason
+- [x] The Unresolved section holds only findings that did not ship, each with its reason
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `pre-commit run --all-files` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
-- [ ] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `pre-commit run --all-files` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` passes (the pre-push whole-tree audit)
+- [x] `uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Tasks 1 to 3
+- Checked on 2026-11-22: the Doc4 and Doc5 candidates in the specs and docs this list changed, or that name its code files. The two statements about the new `<root>` refusal (the exit-2 sentence in `docs/reference/cli.md` and the exit-2 bullet in the `repeatable-phase-b` spec) match `project_root` in `phaseb.py` (an argparse error, exit 2). No other statement was stale; the `list_a11_candidates` and test-builder changes are internal.
 
 ---
