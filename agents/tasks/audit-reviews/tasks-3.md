@@ -17,7 +17,7 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 ## Task 1: Translate an OSError in changed.py's entry
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F3
@@ -27,18 +27,18 @@ the last task runs the whole-tree checks once, before the branch merges.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `claude/skills/auditme/tests/test_changed.py`: with `pathlib.Path.cwd` patched to raise `OSError`, `changed.main([...])` exits non-zero and prints an `ERROR:` line naming the error, with no traceback
-- [ ] In `claude/skills/auditme/checks/changed.py`, translate `OSError` from the `Path.cwd()` call (line 224 on 2026-11-22) and the `repo_root.resolve()` call (line 225) to `ChangedError`, so `main`'s existing handler reports it
-- [ ] Add `ChangedError` to any `Raises:` section the change affects
+- [x] Write the failing test first, in `claude/skills/auditme/tests/test_changed.py`: with `pathlib.Path.cwd` patched to raise `OSError`, `changed.main([...])` exits non-zero and prints an `ERROR:` line naming the error, with no traceback
+- [x] In `claude/skills/auditme/checks/changed.py`, translate `OSError` from the `Path.cwd()` call (line 224 on 2026-11-22) and the `repo_root.resolve()` call (line 225) to `ChangedError`, so `main`'s existing handler reports it
+- [x] Add `ChangedError` to any `Raises:` section the change affects
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
+- [x] The new test fails before the change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

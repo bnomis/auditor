@@ -5,6 +5,7 @@ they exercise the runner and not the checker; one case runs the real `audit.py`.
 """
 
 import json
+import pathlib
 import typing
 
 import changed
@@ -15,7 +16,6 @@ import pytest
 
 if typing.TYPE_CHECKING:
     import collections.abc
-    import pathlib
 
 
 def commit_all(repo: pathlib.Path, message: str) -> None:
@@ -160,6 +160,33 @@ def test_unresolvable_explicit_base_fails(repo, stub_sweep, capsys) -> None:
     stub_sweep([])
     assert changed.main(['--base', 'no-such-ref', str(repo)]) == 1
     assert 'git diff' in capsys.readouterr().out
+
+
+def test_cwd_failure_is_reported_as_an_error_line(stub_sweep, monkeypatch, capsys) -> None:
+    stub_sweep([])
+
+    def broken_cwd() -> None:
+        raise OSError('cwd is gone')
+
+    monkeypatch.setattr(pathlib.Path, 'cwd', broken_cwd)
+    assert changed.main(['--all']) == 1
+    out = capsys.readouterr().out
+    assert 'changed.py:' in out
+    assert 'cwd is gone' in out
+    assert 'Traceback' not in out
+
+
+def test_resolve_failure_is_reported_as_an_error_line(repo, stub_sweep, monkeypatch, capsys) -> None:
+    stub_sweep([])
+
+    def broken_resolve(self: pathlib.Path, strict: bool = False) -> None:
+        raise OSError('resolve failed')
+
+    monkeypatch.setattr(pathlib.Path, 'resolve', broken_resolve)
+    assert changed.main(['--all', str(repo)]) == 1
+    out = capsys.readouterr().out
+    assert 'resolve failed' in out
+    assert 'Traceback' not in out
 
 
 def test_sweep_exit_status_fails(repo, stub_sweep, capsys) -> None:
