@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-6
-**Total reviews conducted:** 6
+**Last review:** review-7
+**Total reviews conducted:** 7
 **Last script run hit count:** 48 (48 accepted)
-**Script version:** e5d95235f166aec74a8cd3b3d3cc8617ce2edf4bcd8b2e3e53a608091cab6836
+**Script version:** 5d34604984d6779110ff32f37bf49065e4de9416d9fc5bb0c6e0abe33723a2c0
 
 ## How to reproduce the sweep
 
@@ -13,17 +13,23 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-7
+## Convergence note for review-8
 
-- **Sampled mode:** review-7 is not a whole-tree audit, so each sampled question judges only the changed lines since review-6's commit, from `checks/changed.py --scope`.
-- **Listed questions:** review-7 re-judges only candidates whose hash or brief version changed.
-- **Precondition:** review-7 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Sampled mode:** review-8 is not a whole-tree audit (review-9 is), so each sampled question judges only the changed lines since review-7's commit, from `checks/changed.py --scope`.
+- **Listed questions:** review-8 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-8 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 
 ## Unresolved findings
 
-Each group is described in full, with every site, in [review-6](review-6.md#phase-b-findings-consolidated).
+Each group is described in full, with every site, in [review-7](review-7.md#phase-b-findings-consolidated).
 
-No finding is unresolved: every finding review-6 raised either shipped (below) or was dismissed (next paragraph).
+| Finding | Question | Severity | First raised |
+|---------|----------|----------|--------------|
+| F1 two places still say sampled questions run on changed files | Doc5 | low | review-7 |
+| F2 the `silent-self-mutation` row leaves out the prefix exemption | Doc5 | low | review-7 |
+| F3 a root lookup drops the modes with a bare subscript | A23 | low | review-7 |
+| F4 a `contextlib.suppress(Exception)` swallows any failure | S4 | low | review-7 |
+| O1 comments describe a scan that never ran | none | low | review-7 |
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small).
 
