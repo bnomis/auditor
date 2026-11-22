@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-2
-**Total reviews conducted:** 2
-**Last script run hit count:** 44 (44 accepted)
-**Script version:** 48066ec1d87ecdbbbc9e0f98b351f039f675ea3cd07656c1b50bdb752bc70c8c
+**Last review:** review-3
+**Total reviews conducted:** 3
+**Last script run hit count:** 45 (45 accepted)
+**Script version:** 1187649b552c2cf9fc9737c169f408c05bedc11781ee2d2c528449fb4c025abf
 
 ## How to reproduce the sweep
 
@@ -13,19 +13,29 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-3
+## Convergence note for review-4
 
-- **Sampled mode:** review-3 is the third audit counted from review-1, so every sampled question runs on the whole tree.
-- **Listed questions:** review-2 judged every re-planned candidate and wrote the verdicts to `agents/audit-reviews/ledger/`. Review-3 re-judges only candidates whose hash or brief version changed; a carried finding is not a regression.
-- **Precondition:** review-3 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Sampled mode:** review-3's `**Commit:**` is `6b51a21`. Review-4 samples the files changed since then; the sixth audit counted from review-1 runs the whole tree.
+- **Listed questions:** review-3 judged every re-planned candidate and wrote the verdicts to `agents/audit-reviews/ledger/`. Review-4 re-judges only candidates whose hash or brief version changed; a carried finding is not a regression.
+- **Precondition:** review-4 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected. Review-3 filed one (the `ruff format` parser), and D1 may file a second.
 
 ## Unresolved findings
 
-Each group is described in full, with every site, in [review-2](review-2.md#phase-b-findings-consolidated).
+Each group is described in full, with every site, in [review-3](review-3.md#phase-b-findings-consolidated).
 
-None. Every finding review-2 raised was fixed (see below) or dismissed.
+| Finding | Question | Severity | First raised |
+|---|---|---|---|
+| F2 `positive_int` has no property test | T2 | low | review-3 |
+| F3 `changed.py`'s entry envelope misses `OSError` | A2 | low | review-3 |
+| F4 two dataclasses filled after construction | A8 | low | review-3 |
+| F5 `surface_files` resolves the audit roots on every call | A14 | low | review-3 |
+| F6 every rule check parses every file again | P3 | medium | review-3 |
+| F7 two function-local constants named lower_snake | S2 | low | review-3 |
+| F8 absolute from-imports in `phaseb/__init__.py` | S4 | low | review-3 |
+| F9 specs that no longer match the code | Doc4 | medium | review-3 |
+| F10 user docs that no longer match the code | Doc5 | medium | review-3 |
 
-Dismissed on review-2's page (2026-11-22): F2, `cached_source` returning `None` for an unreadable file, which review-1's D2 chose.
+Dismissed on review-2's page (2026-11-22, F2) and again on review-3's (F1, after the A1 brief changed): `cached_source` returning `None` for an unreadable file, which review-1's D2 chose.
 
 ## Recently resolved
 
@@ -66,14 +76,10 @@ Dismissed on review-2's page (2026-11-22): F2, `cached_source` returning `None` 
 ## Recurring patterns
 
 - Pure-named functions that read files (A9): review-1 F3, review-2 F10. Each task that adds a reader names it as a pure query.
-- Docs and specs left stale by the task list that changed the code (Doc4, Doc5): review-1 F6-F8, review-2 F7, F9.
+- Docs and specs left stale by the task list that changed the code (Doc4, Doc5): review-1 F6-F8, review-2 F7, F9, review-3 F9, F10. Two statements review-2's Task 9 was meant to fix were still stale in review-3.
+- A cache added for some callers, not all (A14, P3): review-1 F15, review-2 F12, review-3 F5, F6.
+- New brief thresholds after each settlement (D1): review-1, review-2 and review-3 each reported a fresh set.
 
 ## Checker changes since the last review
 
-- `check_spec_api_signature_drift` moved from `CHECKS` to `PROJECT_CHECKS`: it runs once per sweep, before the per-root passes, so its hits are emitted earlier in the output (review-2 F12, Task 6 of the review-2 task list). The set of hits is unchanged.
-- 2026-11-22: the `no-project-names` hook exits non-zero when a file it checks cannot be read, even when another file matched (review-2 F8, Task 1 of the review-2 task list).
-- 2026-11-22: `phaseb.py candidates` passes `--depth` only to listers that take it, and refuses a bad depth with an error instead of a `TypeError` (review-2 F6, Task 2 of the review-2 task list).
-- 2026-11-22: a missing `uv` or `ruff` is a hit from the checks that call them, not a silent return (review-2 F3, Task 3 of the review-2 task list).
-- 2026-11-22: the A17 lister reads through the package's translating reader, so an unreadable file raises `PhaseBError` (review-2 F1, Task 4 of the review-2 task list).
-- 2026-11-22: file readers are renamed to say that they read, and `Candidate` is built in one place (review-2 F10 and F11, Task 5 of the review-2 task list).
-- 2026-11-22, `agents/reviews/brief-thresholds-2-2026-11-22.md`: the A1, A4, A17, Doc4 and Doc5 briefs settle the thresholds review-2's reviewers reported (A1 4, A4 6, A17 2, Doc4 6, Doc5 6). Each bump re-judges every candidate of its question in review-3.
+- (none since review-3)

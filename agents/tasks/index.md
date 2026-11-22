@@ -18,3 +18,4 @@
 | [Audit review 1](../audit-reviews/review-1.md) | [tasks-1.md](audit-reviews/tasks-1.md) | 1 | 2026-11-21 |
 | [Listed Phase B test questions](../specs/listed-phase-b-test-questions/spec.md) | [tasks-2.md](listed-phase-b-test-questions/tasks-2.md) | 2 | 2026-11-22 |
 | [Audit review 2](../audit-reviews/review-2.md) | [tasks-2.md](audit-reviews/tasks-2.md) | 2 | 2026-11-22 |
+| [Audit review 3](../audit-reviews/review-3.md) | [tasks-3.md](audit-reviews/tasks-3.md) | 3 | 2026-11-22 |

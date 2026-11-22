@@ -38,6 +38,53 @@ found something new and no cycle converged.
 
 ## Open
 
+### Settle the thresholds review-3's reviewers left open
+
+- **Raised:** 2026-11-22, by this repository's third audit (review-3, decision D1).
+- **What happens:** each brief tells its reviewer to report, not decide, a
+  threshold it does not settle, and the reviewers of that audit reported
+  these, so each is judged case by case:
+  - A1: a standalone script's own error class (`ChangedError` in
+    `checks/changed.py`), which is not among the payload's `domain_errors`.
+  - T2: whether a call through a local alias in a hypothesis `given` test
+    (`check = module.fn`) is a direct call.
+  - Doc4: a present-tense Module location row marked "(new)"; a `Raises:`
+    listing an error for one condition when the code raises it for another
+    too; a usage block that leaves an option off; a predicate's definition
+    read as "X has a, b and c"; an undated statement that a dated amendment
+    later in the same section replaces; a list ending "all else is X's
+    handling"; a numbered list of a guide's sections, read as complete or as
+    order only; a Testing section, read as an instruction or a description; a
+    shared drift whose section's candidates are split across batches; a
+    command spelled with fewer flags than the code uses; a wording both
+    readings fit.
+  - Doc5: a "Stops for" list, as a list of when a command stops; the docs'
+    account of an external tool pinned in another repository.
+- **Asked for:** settle each in its brief, bumping the brief's version, so
+  every reviewer applies the same threshold. Each audit since review-1 has
+  reported a fresh set after the last was settled (review-3's summary,
+  Recurring patterns); consider with them whether a general rule would
+  settle a class of cases rather than one case each.
+
+### The `ruff format` half of the `ruff` rule never reports a file
+
+- **Raised:** 2026-11-22, by this repository's third audit (review-3), reproduced the same day.
+- **What happens:** `check_ruff` in `checks/auditme/rules/project_hygiene.py`
+  emits a `ruff-format` hit only for an output line that contains `Would
+  reformat` or ends in `.py`. Ruff 0.17.4 (the version this repository's
+  `.pre-commit-config.yaml` pins) and 0.17.6 print `unformatted: File would be
+  reformatted` and ` --> <path>:<line>:<col>` instead, so a sweep over a
+  project with an unformatted file reports no `ruff-format` hit. The parser
+  also takes the hit's `path` from the text before the first colon, which on
+  the older output would be `Would reformat ...`. No test feeds the parser real
+  `ruff format --check` output.
+- **Asked for:** read the files to reformat from a stable format (for
+  example `ruff format --check --output-format=json`, or one path per
+  ` --> ` line), set `path` to the file relative to the project and `line` to
+  the line ruff names, and test it against output captured from the pinned
+  ruff. The first sweep after it ships reports every unformatted file as
+  catch-up.
+
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.
