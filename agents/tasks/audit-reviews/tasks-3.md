@@ -248,7 +248,7 @@ review-3 recorded.
 
 ## Task 8: Correct the specs
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F9
@@ -258,16 +258,16 @@ or is worded as a record of its spec's change.
 
 **Subtasks:**
 
-- [ ] Correct each site F9 lists in `agents/audit-reviews/review-3.md`, checking each against the code as it stands after Tasks 1 to 7: the nine in `agents/specs/project-setup/spec.md`, and one each in the architecture-, documentation- and test-questions specs (the test-questions spec has two)
-- [ ] Line numbers are from 2026-11-22; find each statement by its text
+- [x] Correct each site F9 lists in `agents/audit-reviews/review-3.md`, checking each against the code as it stands after Tasks 1 to 7: the nine in `agents/specs/project-setup/spec.md`, and one each in the architecture-, documentation- and test-questions specs (the test-questions spec has two)
+- [x] Line numbers are from 2026-11-22; find each statement by its text
 
 **Acceptance Criteria:**
 
-- [ ] Each F9 statement is corrected or reworded as a record
+- [x] Each F9 statement is corrected or reworded as a record
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 

@@ -87,7 +87,11 @@ def corpus_definitions(scope: pathlib.Path, src_root: pathlib.Path, *, classes: 
 def register_question(
     question: str, brief: pathlib.Path, kinds: tuple[str, ...], batch_size: int = DEFAULT_BATCH_SIZE
 ) -> collections.abc.Callable[[Lister], Lister]:
-    """Register a lister with its brief and default batch size (extends repeatable-phase-b)."""
+    """Register a lister with its brief and default batch size (extends repeatable-phase-b).
+
+    Raises:
+        PhaseBError: kinds is empty or names a kind twice.
+    """
 ```
 
 Signature updated 2026-11-21 to match the code: `kinds` (the keys of the

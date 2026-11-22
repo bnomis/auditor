@@ -156,6 +156,8 @@ design, not the project:
 def changed_files(repo_root: pathlib.Path, base: str) -> frozenset[str]:
     """Repository-relative paths changed in base...HEAD, deletions excluded.
 
+    Paths changed in the index or working tree relative to HEAD count too.
+
     Side effect: runs `git diff --name-only --diff-filter=d`.
 
     Raises:
@@ -202,7 +204,8 @@ def check_ruff_version(scope: pathlib.Path, src_root: pathlib.Path) -> None:
 
     Project-level: reads `<scope>/.pre-commit-config.yaml` and runs
     `ruff --version` in `scope`; `src_root` is unused. Silent when the file is
-    absent, holds no `ruff-pre-commit` repo, or ruff is not installed.
+    absent or holds no `ruff-pre-commit` repo. A ruff that cannot run is
+    reported as a hit.
     """
 
 
@@ -263,7 +266,7 @@ matches the other skills in `claude/skills/`, with
 | `audit.py`: a `.py` file directly in `src/` (1.2) | one unaccepted `src-loose-module` hit per file |
 | `audit.py --package <name>` naming a missing package | unchanged: `ERROR: <root> not found`, exit 2 |
 | `ruff-version-drift`: no `.pre-commit-config.yaml`, or no `ruff-pre-commit` repo in it (1.4) | no hit |
-| `ruff-version-drift`: no ruff to run, neither `.venv/bin/ruff` nor one on `PATH` (1.4, 1.5) | no hit; `check_ruff` already reports `ruff not installed` |
+| `ruff-version-drift`: no ruff to run, neither `.venv/bin/ruff` nor one on `PATH` (1.4, 1.5) | one unaccepted hit, variant `ruff could not run, so its version was not compared` |
 | `ruff-version-drift`: the repo has no `rev:`, or a `rev:` that is neither a version nor carries a `# frozen: <version>` comment (1.4) | one unaccepted hit, variant `the ruff-pre-commit rev names no version` |
 | `ruff-version-drift`: `ruff --version` prints no `ruff X.Y.Z` (1.4) | one unaccepted hit, variant `ruff --version printed no version` |
 
@@ -297,7 +300,8 @@ with the gaps closed. It is stdlib-only, like the rest of the checker.
 without it is byte-identical to today's. Every rule whose predicate compares
 locations in two or more files sets it to the other locations' paths:
 `literal-duplication`, `paired-sibling-helpers`, `duplicate-call-sequence`,
-`recompile-duplication`, `spec-api-signature-drift` (the source file),
+`recompile-duplication`, `raises-section-drift` (the callees' files),
+`spec-api-signature-drift` (the source file),
 `asymmetric-exception-translation` (the callee's file) and
 `mutable-module-level-exported` (the reading modules). A test asserts the list,
 so a cross-file rule added later without `related` fails it. This changes the
@@ -343,8 +347,8 @@ never audited.
 
 **Project-level checks without a root (1.8).** `auditme.registry` names the
 checks that read only the project, never the root they are handed, as
-`PROJECT_CHECKS`: `check_lockfile` and `check_ruff_version`. Neither is in
-`CHECKS`: the driver runs `PROJECT_CHECKS` once, before the per-root passes,
+`PROJECT_CHECKS`: `check_lockfile`, `check_ruff_version` and
+`check_spec_api_signature_drift`. None is in `CHECKS`: the driver runs `PROJECT_CHECKS` once, before the per-root passes,
 passing the scope as the unused root, with the same crash isolation as a
 pass, whether or not the project has a root. (Amended 2026-11-21: they were
 also in `CHECKS` and so ran once per root; they now run once, and their hits
@@ -489,6 +493,12 @@ rejected: it leaves a marker someone must remember to remove.
   pass_filenames: false
   always_run: true
   stages: [manual]
+- id: no-project-names
+  name: no project names in a repository used across projects
+  entry: bin/check-foreign-names.sh
+  language: script
+  exclude: ^uv\.lock$
+  stages: [pre-commit, commit-msg]
 ```
 
 A project adds them by revision, which is what pins the checker:
@@ -520,7 +530,7 @@ The repository is private, so the runner needs read access to it. Decided with
 the operator 2026-10-31: **a deploy key per project**. The project holds an
 `AUDITOR_DEPLOY_KEY` secret, the private half of an SSH key added read-only to
 this repository's deploy keys, and its workflow installs it before pre-commit
-runs, with `Host github.com` / `IdentityFile` / `IdentitiesOnly yes` in
+runs, with `Host github-auditor` / `HostName github.com` / `IdentityFile` / `IdentitiesOnly yes` in
 `~/.ssh/config`. A project that already uses a deploy key for another private
 repository on the same host needs an `ssh` host alias per key, because GitHub
 admits one deploy key per repository; the template uses `github-auditor` as the
@@ -579,8 +589,10 @@ committing) and never pushes.
    repository's `origin/main` commit, with `auditme-all` at
    `[manual, pre-push]` (1.3).
 2. Write `.github/workflows/ci.yml` from `templates/ci.yml`: checkout, the deploy
-   key step, Python and uv, `uv sync`, `pre-commit run --all-files`, the
-   `auditme-all` step and the project's test command (asked).
+   key step, Python and uv, `uv tool install pre-commit`, `uv sync`, the
+   `.venv/bin` PATH step, the project's test command (asked), `pre-commit run
+   --all-files`, the `auditme-all` step and the step that removes the deploy
+   key.
 3. Write `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md`), `TODO.md`, `DONE.md` and
    `claude/rules/README.md` from templates, the title from the project name.
 4. Run `pre-commit install`, then the deploy-key steps below.
@@ -641,9 +653,11 @@ conversation or the project that motivated it, in this order:
    deploy key.
 5. **An existing project** - `/auditme-project-setup adopt`, the backlog step,
    and enabling the CI gate.
-6. **Upgrading the checker** - `pre-commit autoupdate`, and handling its
+6. **Moving a project from agents** - moving a project that carries the
+   agents repository's own hooks onto this repository's.
+7. **Upgrading the checker** - `pre-commit autoupdate`, and handling its
    catch-up hits in the same commit.
-7. **Troubleshooting** - the hook cannot clone (SSH, the deploy key, the host
+8. **Troubleshooting** - the hook cannot clone (SSH, the deploy key, the host
    alias); the Stop hook does not fire (not opted in, `jq` missing); hits appear
    only after an upgrade (expected); `SKIP=auditme-changed` for one commit.
 

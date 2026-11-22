@@ -145,7 +145,7 @@ again and is judged as new.
 Every head of an `if` chain (an `If` that is not the sole `orelse` of
 another) for which `if_chain` finds one subject - a name or dotted attribute
 compared by `==`, `is` or `in` with string constants, attribute constants
-(`Mode.FAST`) or tuples of them - with two or more arms, or one arm and an
+(`Mode.FAST`) or tuples, lists or sets of them - with two or more arms, or one arm and an
 `else`; every `if <name>:` with an `else` where `<name>` is assigned in the
 same function from such a comparison (the two-way split); and every `match`
 statement. Payload: `source` (the chain or `match`), `subject`, `annotation`
