@@ -52,7 +52,7 @@ no spec states a brief's version.
 
 ## Task 2: Translate `cached_bytes`'s read failure and test it directly
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1
@@ -62,19 +62,19 @@ and its caching is tested where it is defined.
 
 **Subtasks:**
 
-- [ ] Read every caller of `cached_bytes` (`grep -rnw cached_bytes claude/skills/auditme/checks`). If only package modules call it and nothing outside `auditme` should, drop it from `auditme.core.__all__`; otherwise catch `OSError` in it and raise the error its callers already raise for an unreadable file, keeping the `Raises:` section and the callers' handling in step
-- [ ] Write the tests first, in `claude/skills/auditme/tests/test_core.py`: a file is read once per run however often `cached_bytes` is called; it is read again after it is rewritten with a different size or mtime; an unreadable path gives the documented error
-- [ ] Update `docs/guide/checker.md` or the spec that names `cached_bytes`, if either states its contract
+- [x] Read every caller of `cached_bytes` (`grep -rnw cached_bytes claude/skills/auditme/checks`). If only package modules call it and nothing outside `auditme` should, drop it from `auditme.core.__all__`; otherwise catch `OSError` in it and raise the error its callers already raise for an unreadable file, keeping the `Raises:` section and the callers' handling in step
+- [x] Write the tests first, in `claude/skills/auditme/tests/test_core.py`: a file is read once per run however often `cached_bytes` is called; it is read again after it is rewritten with a different size or mtime; an unreadable path gives the documented error
+- [x] Update `docs/guide/checker.md` or the spec that names `cached_bytes`, if either states its contract
 
 **Acceptance Criteria:**
 
-- [ ] The new tests fail before the change and pass after it
-- [ ] `python3 claude/skills/auditme/checks/phaseb.py candidates . --question A1` either lists no `cached_bytes` call or lists it inside a wrap
+- [x] The new tests fail before the change and pass after it
+- [x] `python3 claude/skills/auditme/checks/phaseb.py candidates . --question A1` either lists no `cached_bytes` call or lists it inside a wrap
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/phaseb/test_docrefs.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/phaseb/test_docrefs.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

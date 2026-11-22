@@ -10,14 +10,11 @@ import collections.abc
 import io
 import json
 import pathlib
-import typing
 
 import auditme.core
 import hypothesis
 import hypothesis.strategies
-
-if typing.TYPE_CHECKING:
-    import pytest
+import pytest
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
@@ -560,3 +557,38 @@ def test_a_cached_scope_restores_its_own_root_modes(project: Builder) -> None:
     auditme.core.cached_roots(scope_a)
     assert auditme.core.ROOT_MODULES.get(roots_a[0]) == auditme.core.TOP_LEVEL
     auditme.core.clear_source_cache()
+
+
+# cached_bytes
+
+
+def test_cached_bytes_reads_a_file_once_per_run(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / 'a.txt'
+    path.write_bytes(b'one')
+    auditme.core.clear_source_cache()
+    reads: list[pathlib.Path] = []
+    real = pathlib.Path.read_bytes
+
+    def counting(self: pathlib.Path) -> bytes:
+        reads.append(self)
+        return real(self)
+
+    monkeypatch.setattr(pathlib.Path, 'read_bytes', counting)
+    assert auditme.core.cached_bytes(path) == b'one'
+    assert auditme.core.cached_bytes(path) == b'one'
+    assert reads == [path]
+
+
+def test_cached_bytes_reads_again_after_the_file_changes_size(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / 'a.txt'
+    path.write_bytes(b'one')
+    auditme.core.clear_source_cache()
+    assert auditme.core.cached_bytes(path) == b'one'
+    path.write_bytes(b'three')
+    assert auditme.core.cached_bytes(path) == b'three'
+
+
+def test_cached_bytes_of_a_missing_path_raises_cached_read_error(tmp_path: pathlib.Path) -> None:
+    auditme.core.clear_source_cache()
+    with pytest.raises(auditme.core.CachedReadError, match='missing.txt'):
+        auditme.core.cached_bytes(tmp_path / 'missing.txt')
