@@ -1,16 +1,13 @@
 """Tests for the Doc4 and Doc5 listers: documents, pairs, unresolved names and hashes."""
 
+import pathlib
 import textwrap
-import typing
 
 import auditme.core
 import auditme.phaseb
 import auditme.phaseb.candidates
 import conftest
 import pytest
-
-if typing.TYPE_CHECKING:
-    import pathlib
 
 AGENTS_QUESTIONS = ['Doc1', 'Doc2']
 DRIFT_QUESTIONS = ['Doc4', 'Doc5']
@@ -128,6 +125,24 @@ def test_pair_id_span_and_payload(root: pathlib.Path) -> None:
     assert candidate.payload['target']['id'] == 'src/pkg/mod.py::run_it'
     assert candidate.payload['target']['kind'] == 'function'
     assert candidate.payload['lines'] == [{'line': 6, 'text': 'Call `run_it` to start.'}]
+
+
+def test_doc4_reads_a_target_file_once(root: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write(
+        root,
+        'agents/specs/probe/spec.md',
+        textwrap.dedent(SPEC) + '\n## Again\n\nThe `run_it` function again, and `Probe.load`.\n\n## Third\n\nOnce more `run_it`.\n',
+    )
+    reads: list[str] = []
+    original = pathlib.Path.read_bytes
+
+    def counting(self: pathlib.Path) -> bytes:
+        reads.append(self.name)
+        return original(self)
+
+    monkeypatch.setattr(pathlib.Path, 'read_bytes', counting)
+    listed(root, 'Doc4')
+    assert reads.count('mod.py') == 1
 
 
 def test_file_target_is_a_pair_too(root: pathlib.Path) -> None:

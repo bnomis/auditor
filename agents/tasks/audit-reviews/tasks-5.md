@@ -86,7 +86,7 @@ list and the phaseb synopsis match the code.
 
 ## Task 3: Stop docrefs' resolver reading files, and read each file once in the listers
 
-**Status:** todo
+**Status:** done
 **Priority:** low
 **Complexity:** medium
 **Source Reference:** F5, F6
@@ -96,23 +96,23 @@ one listing reads, parses and resolves each thing once.
 
 **Subtasks:**
 
-- [ ] Record the listings first, outside the repository: `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for every listed question
-- [ ] F5: make `resolve_path` and `resolve_name` (`claude/skills/auditme/checks/auditme/phaseb/docrefs.py:328`, `:390` on 2026-11-22) take line counts from data already read when the index is built, so neither reaches `read_bytes()`; or give the reading functions names that say they read (`read_path_targets`), with every caller and doc updated
-- [ ] F6, files read again: read each target file once per listing (`target_bytes`, `candidates.py:439`); read each document once (`:465`); read `AGENTS.md` once (`:572`, `:676`/`:687`); read a candidate's test files once per listing (`:816`, `:1075`). Use one per-run cache, cleared where the driver clears the parse cache
-- [ ] F6, files parsed again: take trees from `auditme.core.read_and_parse` at `docrefs.py:191` and `candidates.py:302`, `:655`
-- [ ] F6, work done twice: let `calls_of` (`candidates.py:348`) reuse the calls `direct` (`:330`) resolved; join a module's text once per module, not once per T2 site (`:1062`)
-- [ ] Add a test in `claude/skills/auditme/tests/phaseb/test_doc_candidates.py` that one Doc4 listing reads a target file once however many sections name it
-- [ ] Run the listings again and diff them against the record
+- [x] Record the listings first, outside the repository: `python3 claude/skills/auditme/checks/phaseb.py candidates . --question <Q>` for every listed question
+- [x] F5: make `resolve_path` and `resolve_name` (`claude/skills/auditme/checks/auditme/phaseb/docrefs.py:328`, `:390` on 2026-11-22) take line counts from data already read when the index is built, so neither reaches `read_bytes()`; or give the reading functions names that say they read (`read_path_targets`), with every caller and doc updated
+- [x] F6, files read again: read each target file once per listing (`target_bytes`, `candidates.py:439`); read each document once (`:465`); read `AGENTS.md` once (`:572`, `:676`/`:687`); read a candidate's test files once per listing (`:816`, `:1075`). Use one per-run cache, cleared where the driver clears the parse cache
+- [x] F6, files parsed again: take trees from `auditme.core.read_and_parse` at `docrefs.py:191` and `candidates.py:302`, `:655`
+- [x] F6, work done twice: let `calls_of` (`candidates.py:348`) reuse the calls `direct` (`:330`) resolved; join a module's text once per module, not once per T2 site (`:1062`)
+- [x] Add a test in `claude/skills/auditme/tests/phaseb/test_doc_candidates.py` that one Doc4 listing reads a target file once however many sections name it
+- [x] Run the listings again and diff them against the record
 
 **Acceptance Criteria:**
 
-- [ ] Every listing is identical before and after
-- [ ] The new test fails before the change and passes after it
+- [x] Every listing is identical before and after
+- [x] The new test fails before the change and passes after it
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 

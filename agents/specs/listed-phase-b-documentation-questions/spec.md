@@ -76,8 +76,11 @@ def read_sections(path: pathlib.Path, root: pathlib.Path) -> list[DocSection]:
     """
 
 
-def resolve_name(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
-    """Resolve one token: [] for nothing, one target, or several when ambiguous."""
+def read_name_targets(token: str, doc: pathlib.Path, index: CorpusIndex) -> list[DocTarget]:
+    """Resolve one token: [] for nothing, one target, or several when ambiguous.
+
+    Reads a matching file's bytes, through the per-run cache, for its line count.
+    """
 
 
 def corpus_definitions(scope: pathlib.Path, src_root: pathlib.Path, *, classes: bool = False) -> dict[str, list[tuple[ast.AST, pathlib.Path]]]:
@@ -139,7 +142,7 @@ counts too (`DEF_LINE_RE`, `CLASS_LINE_RE`).
 
 ### Resolution
 
-`resolve_name` tries, in order: a tracked path relative to the repository
+`read_name_targets` tries, in order: a tracked path relative to the repository
 root, then to the document's directory; a dotted name through the alias
 table, so a re-export resolves to its definition; a bare name in
 `corpus_definitions(..., classes=True)`, unique or ambiguous as there;

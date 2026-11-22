@@ -80,7 +80,7 @@ def read_test_files(scope: pathlib.Path, names: collections.abc.Iterable[str]) -
         PhaseBError: a test file cannot be read.
     """
     try:
-        return [(scope / name).read_bytes() for name in names]
+        return [auditme.core.cached_bytes(scope / name) for name in names]
     except OSError as error:
         raise auditme.phaseb.errors.PhaseBError(f'cannot read test file under {scope}') from error
 
@@ -298,9 +298,8 @@ def root_sites(scope: pathlib.Path, src_root: pathlib.Path) -> tuple[list[Site],
     is_package: dict[str, bool] = {}
     for path in auditme.core.all_py_files(src_root):
         lines = auditme.core.source_lines(path)
-        try:
-            tree = ast.parse('\n'.join(lines))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         module = auditme.core.module_dotted(path, src_root)
         trees[module] = tree
@@ -320,14 +319,19 @@ def root_candidates(scope: pathlib.Path, src_root: pathlib.Path, depth: int) -> 
         known,
     )
 
-    def calls_of(site: Site) -> list[tuple[ast.Call, str | None]]:
-        return [
+    resolved_calls = {
+        site.qualname: [
             (call, auditme.core.resolve_call(call, site.module, site.cls, bindings[site.module], known, aliases, class_methods=True))
             for call in ast.walk(site.node)
             if isinstance(call, ast.Call)
         ]
+        for site in sites
+    }
 
-    direct = {site.qualname: sorted({callee for _, callee in calls_of(site) if callee and callee != site.qualname}) for site in sites}
+    def calls_of(site: Site) -> list[tuple[ast.Call, str | None]]:
+        return resolved_calls[site.qualname]
+
+    direct = {name: sorted({callee for _, callee in calls if callee and callee != name}) for name, calls in resolved_calls.items()}
 
     def reach(site: Site) -> list[Site]:
         seen = {site.qualname}
@@ -393,7 +397,7 @@ def read_text(path: pathlib.Path) -> str:
         PhaseBError: the file cannot be read or decoded as UTF-8.
     """
     try:
-        return path.read_text(encoding='utf-8')
+        return auditme.core.cached_bytes(path).decode('utf-8')
     except (OSError, UnicodeDecodeError) as error:
         raise auditme.phaseb.errors.PhaseBError(f'cannot read {path}') from error
 
@@ -445,7 +449,7 @@ def target_bytes(target: auditme.phaseb.docrefs.DocTarget, index: auditme.phaseb
     if target.kind == 'directory':
         return '\n'.join(sorted(name for name in index.files if name.startswith(f'{target.path}/'))).encode('utf-8', errors='surrogateescape')
     try:
-        data = (index.scope / target.path).read_bytes()
+        data = auditme.core.cached_bytes(index.scope / target.path)
     except OSError as error:
         raise auditme.phaseb.errors.PhaseBError(f'cannot read {target.path}') from error
     if target.kind == 'file':
@@ -468,7 +472,7 @@ def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.P
             named: dict[str, tuple[auditme.phaseb.docrefs.DocTarget, list[int]]] = {}
             unresolved: list[dict[str, typing.Any]] = []
             for number, token in section.names:
-                targets = auditme.phaseb.docrefs.resolve_name(token, document, index)
+                targets = auditme.phaseb.docrefs.read_name_targets(token, document, index)
                 if len(targets) == 1:
                     named.setdefault(targets[0].id, (targets[0], []))[1].append(number)
                 else:
@@ -575,7 +579,7 @@ def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
         if not named and not any(auditme.phaseb.docrefs.FENCE_RE.match(line) for line in text):
             continue
         paths = [
-            {'path': token, 'line': number, 'resolved': [target.id for target in auditme.phaseb.docrefs.resolve_path(token, path, index)]}
+            {'path': token, 'line': number, 'resolved': [target.id for target in auditme.phaseb.docrefs.read_path_targets(token, path, index)]}
             for number, token in named
         ]
         found.append(
@@ -640,7 +644,7 @@ def read_hook_file(scope: pathlib.Path) -> bytes:
     if not path.exists():
         return b''
     try:
-        return path.read_bytes()
+        return auditme.core.cached_bytes(path)
     except OSError as error:
         raise auditme.phaseb.errors.PhaseBError(f'cannot read {path}') from error
 
@@ -651,9 +655,8 @@ def imported_modules(scope: pathlib.Path) -> set[str]:
     src_root = roots[0] if roots else scope / 'src'
     modules: set[str] = set()
     for path in auditme.core.corpus_py_files(scope, src_root):
-        try:
-            tree = ast.parse('\n'.join(auditme.core.source_lines(path)))
-        except SyntaxError:
+        tree = auditme.core.read_and_parse(path)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -1046,6 +1049,7 @@ def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
     by_name: dict[str, list[str]] = {}
     for site in accepted:
         by_name.setdefault(site.node.name, []).append(site.id)
+    module_text: dict[str, str] = {}
     found: list[Candidate] = []
     for site in accepted:
         node = site.node
@@ -1059,7 +1063,7 @@ def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[
         returns = node.returns
         if returns is None:
             continue
-        text = '\n'.join(site.lines)
+        text = module_text.setdefault(site.path, '\n'.join(site.lines))
         types: list[dict[str, str | int]] = []
         class_sources: list[tuple[str, bytes]] = []
         for name in referenced_types([*(annotation for _, annotation in annotated), returns], package_types):

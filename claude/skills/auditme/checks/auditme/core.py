@@ -85,6 +85,23 @@ def clear_source_cache() -> None:
     INDEX_CACHE.clear()
 
 
+# auditme: accept[asymmetric-exception-translation] each caller names its own file in the PhaseBError it raises; core cannot import phaseb
+def cached_bytes(path: pathlib.Path) -> bytes:
+    """The bytes of `path`, read once per run.
+
+    The key holds the file's modification time and size, so a file rewritten
+    during the run is read afresh. The result is shared and immutable.
+
+    Raises:
+        OSError: the file cannot be read.
+    """
+    stat = path.stat()
+    key = ('bytes', path, stat.st_mtime_ns, stat.st_size)
+    if key not in INDEX_CACHE:
+        INDEX_CACHE[key] = path.read_bytes()
+    return typing.cast('bytes', INDEX_CACHE[key])
+
+
 def cached_corpus_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib.Path]:
     """`corpus_py_files`, listed once per run."""
     key = ('corpus-files', scope, src_root)
@@ -904,6 +921,7 @@ __all__ = [
     'accepted_lazy_imports',
     'all_py_files',
     'audit_roots',
+    'cached_bytes',
     'call_bindings',
     'clear_source_cache',
     'corpus_definitions',

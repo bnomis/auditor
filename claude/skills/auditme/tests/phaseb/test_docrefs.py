@@ -205,7 +205,7 @@ def indexed(tmp_path: pathlib.Path) -> tuple[pathlib.Path, auditme.phaseb.docref
 
 def resolve_token(indexed, token: str, doc: str = 'docs/guide.md') -> list[auditme.phaseb.docrefs.DocTarget]:
     root, index = indexed
-    return auditme.phaseb.docrefs.resolve_name(token, root / doc, index)
+    return auditme.phaseb.docrefs.read_name_targets(token, root / doc, index)
 
 
 def test_one_index_build_resolves_the_roots_once(indexed, monkeypatch):
