@@ -22,14 +22,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 ## Unresolved findings
 
-Each finding is described in full in [review-12](review-12.md#phase-b-findings-consolidated).
-
-| Finding | Question | Severity | First raised |
-|---------|----------|----------|--------------|
-| F1 the CLI reference names only two of `phaseb.py`'s exit-2 causes | Doc5 | low | review-12 |
-| F2 the names hook exits 2 in silence when given a directory | Sec2 | low | review-12 |
-| F3 two project-level answers are worked out once per audit root | A14 | low | review-12 |
-| F4 a `Candidate` test builder left beside the shared one | A15 | low | review-12 |
+No finding is unresolved: every finding review-12 raised shipped (below).
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small). On review-11's page: F5 (`all_py_files` listing its root on every call, about a twentieth of a sweep).
 
@@ -37,6 +30,10 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 | Finding | Severity | Raised in | Resolved in |
 |---------|----------|-----------|-------------|
+| F1 the CLI reference names only two of `phaseb.py`'s exit-2 causes | low | review-12 | Task 1 of the review-12 task list |
+| F2 the names hook exits 2 in silence when given a directory | low | review-12 | Task 1 of the review-12 task list |
+| F3 two project-level answers are worked out once per audit root | low | review-12 | Task 2 of the review-12 task list |
+| F4 a `Candidate` test builder left beside the shared one | low | review-12 | Task 3 of the review-12 task list |
 | F1 `phaseb.py` accepts a root that does not exist | medium | review-11 | Task 1 of the review-11 task list |
 | F2 the audit roots are worked out again in one listing | low | review-11 | Task 2 of the review-11 task list |
 | F3 one test builder copied into three files | low | review-11 | Task 3 of the review-11 task list |
