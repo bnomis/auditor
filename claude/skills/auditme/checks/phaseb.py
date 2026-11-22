@@ -204,7 +204,7 @@ def run_plan(args: argparse.Namespace) -> int:
     size = auditme.phaseb.question_batch_size(args.question) if args.batch_size is None else args.batch_size
     planned = auditme.phaseb.batches.plan_batches(found, ledger, version, size, args.rejudge)
     count = sum(len(batch) for batch in planned)
-    auditme.phaseb.batches.write_plan(args.question, brief, version, planned, args.out, depth_of(args))
+    auditme.phaseb.batches.write_plan(args.question, brief, version, planned, args.out, depth_of(args), ledger)
     print(f'{count} planned in {len(planned)} batches, {len(found) - count} reused (brief version {version}) in {args.out}')
     return 0
 

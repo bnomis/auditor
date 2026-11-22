@@ -1,6 +1,6 @@
 # Doc5 brief
 
-**Brief version:** 7
+**Brief version:** 8
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -27,6 +27,11 @@ line and any definitions found.
 
 Read the section and the target's source, and judge the section's statements
 against the code.
+
+A line may also have `earlier`, the verdict this candidate last had
+(`findings`, `reason`, `brief_version`, `judged`). Judge the candidate on its
+own, then compare: if your verdict differs from `earlier`, say in `reason`
+what changed your judgement.
 
 ## Thresholds
 

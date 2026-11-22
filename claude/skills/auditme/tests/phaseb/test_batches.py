@@ -53,6 +53,25 @@ def test_current_brief_version_with_same_hash_is_reused() -> None:
     assert candidate_names(auditme.phaseb.batches.plan_batches([a, b], ledger, 2, 10)) == [['b']]
 
 
+def test_replanned_candidate_carries_its_earlier_verdict_and_a_new_one_does_not(tmp_path: pathlib.Path) -> None:
+    changed, fresh = make_batch_candidate('a'), make_batch_candidate('b')
+    earlier = make_batch_verdict(make_batch_candidate('a', 'old'), brief_version=1)
+    ledger = {changed.id: earlier}
+    plan = auditme.phaseb.batches.plan_batches([changed, fresh], ledger, 1, 10)
+    run = tmp_path / 'run'
+    auditme.phaseb.batches.write_plan('Q1', pathlib.Path('briefs/Q1.md'), 1, plan, run, ledger=ledger)
+    lines = [json.loads(line) for line in (run / 'batch-01.jsonl').read_text(encoding='utf-8').splitlines()]
+    by_id = {line['id']: line for line in lines}
+    assert by_id[changed.id]['earlier'] == {'findings': earlier.findings, 'reason': 'ok', 'brief_version': 1, 'judged': '2026-01-01'}
+    assert 'earlier' not in by_id[fresh.id]
+
+
+def test_plan_without_a_ledger_writes_no_earlier(tmp_path: pathlib.Path) -> None:
+    plan = auditme.phaseb.batches.plan_batches([make_batch_candidate('a')], {}, 1, 10)
+    auditme.phaseb.batches.write_plan('Q1', pathlib.Path('briefs/Q1.md'), 1, plan, tmp_path / 'run')
+    assert 'earlier' not in json.loads((tmp_path / 'run' / 'batch-01.jsonl').read_text(encoding='utf-8'))
+
+
 def test_rejudge_plans_every_candidate() -> None:
     candidate = make_batch_candidate('a')
     ledger = {candidate.id: make_batch_verdict(candidate)}

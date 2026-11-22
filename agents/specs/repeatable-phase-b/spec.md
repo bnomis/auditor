@@ -225,6 +225,15 @@ ids, which `check` and `merge` read. `merge` refuses a `--depth` that differs
 from the plan's, naming both; a plan without a `depth` is read as the default,
 3.
 
+Amendment 2026-11-22 (review-5, decision D3): a candidate the ledger already
+holds a verdict for, and which `plan` plans again (its hash changed, its
+brief version is older, or `--rejudge` is set), has an `earlier` object in its
+batch line: the ledger verdict's `findings`, `reason`, `brief_version` and
+`judged`. A candidate new to the ledger has none. `check` and `merge` ignore
+`earlier`. Every brief's Input section says a reviewer whose verdict differs
+from `earlier` gives what changed its judgement in `reason`; that bumped every
+brief's version by one.
+
 ## Error handling
 
 - `PhaseBError` (defined in `phaseb/errors.py`, re-exported by

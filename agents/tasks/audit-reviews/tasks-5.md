@@ -191,7 +191,7 @@ review, so that a small edit does not reopen a whole file.
 
 ## Task 6: Put a re-planned candidate's earlier verdict in its batch
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Source Reference:** request "Show a re-judged candidate's earlier verdict to its reviewer" (review-5 D3)
@@ -201,21 +201,21 @@ verdict, and a reviewer whose verdict differs says why.
 
 **Subtasks:**
 
-- [ ] Write the failing test first, in `claude/skills/auditme/tests/phaseb/test_batches.py`: a candidate re-planned because its hash changed carries `earlier` (`findings`, `reason`, `brief_version`, `judged`) in its batch line; a candidate new to the ledger carries no `earlier`
-- [ ] In `claude/skills/auditme/checks/auditme/phaseb/batches.py` (`plan_batches` / `write_plan`), add `earlier` from the ledger to each re-planned candidate's line; keep `phaseb.py check` and `merge` ignoring it
-- [ ] In every brief under `claude/skills/auditme/phaseb/briefs/`, add to the Input section: `earlier`, when present, is the verdict this candidate last had; if your verdict differs, say in `reason` what changed your judgement. Bump every brief's `**Brief version:**` by one, and update `claude/skills/auditme/tests/phaseb/test_briefs.py`
-- [ ] Amend `agents/specs/repeatable-phase-b/spec.md` (the batch line and the briefs), dated, citing review-5
-- [ ] Delete the request's entry from `claude/skills/auditme/requests.md`
+- [x] Write the failing test first, in `claude/skills/auditme/tests/phaseb/test_batches.py`: a candidate re-planned because its hash changed carries `earlier` (`findings`, `reason`, `brief_version`, `judged`) in its batch line; a candidate new to the ledger carries no `earlier`
+- [x] In `claude/skills/auditme/checks/auditme/phaseb/batches.py` (`plan_batches` / `write_plan`), add `earlier` from the ledger to each re-planned candidate's line; keep `phaseb.py check` and `merge` ignoring it
+- [x] In every brief under `claude/skills/auditme/phaseb/briefs/`, add to the Input section: `earlier`, when present, is the verdict this candidate last had; if your verdict differs, say in `reason` what changed your judgement. Bump every brief's `**Brief version:**` by one, and update `claude/skills/auditme/tests/phaseb/test_briefs.py`
+- [x] Amend `agents/specs/repeatable-phase-b/spec.md` (the batch line and the briefs), dated, citing review-5
+- [x] Delete the request's entry from `claude/skills/auditme/requests.md`
 
 **Acceptance Criteria:**
 
-- [ ] The new test fails before the change and passes after it
-- [ ] Every brief names `earlier`, and `test_briefs.py` passes with the new versions
+- [x] The new test fails before the change and passes after it
+- [x] Every brief names `earlier`, and `test_briefs.py` passes with the new versions
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 

@@ -1,6 +1,6 @@
 # Doc1 brief
 
-**Brief version:** 4
+**Brief version:** 5
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -25,6 +25,11 @@ and the tracked directory tree to depth 3. The tree is built from tracked
 files only, so an untracked directory is not in it.
 
 Read the section and compare it with the tree.
+
+A line may also have `earlier`, the verdict this candidate last had
+(`findings`, `reason`, `brief_version`, `judged`). Judge the candidate on its
+own, then compare: if your verdict differs from `earlier`, say in `reason`
+what changed your judgement.
 
 ## Thresholds
 

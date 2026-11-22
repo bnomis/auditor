@@ -38,19 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Show a re-judged candidate's earlier verdict to its reviewer
-
-- **Raised:** 2026-11-22, by this repository's fifth audit (review-5, decision D3).
-- **What happens:** a candidate re-planned because its hash changed is judged
-  afresh, and a fresh reviewer can read the same unchanged statement under the
-  same brief version differently. Review-5's F2 (`docs/setup.md:268`) and F3
-  (`agents/specs/repeatable-phase-b/spec.md:214-219`) each flipped from not
-  flagged to flagged that way.
-- **Asked for:** `phaseb.py plan` adds a re-planned candidate's earlier
-  verdict (findings and reason) to its batch line; every brief's Input section
-  says a reviewer whose verdict differs from the earlier one gives the reason
-  for the change in its `reason`. That is a version bump of every brief.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.
