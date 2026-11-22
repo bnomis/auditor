@@ -1,10 +1,10 @@
 # Audit Summary
 
 **Last updated:** 2026-11-22
-**Last review:** review-5
-**Total reviews conducted:** 5
-**Last script run hit count:** 46 (46 accepted)
-**Script version:** fc14e84b155f4e38e691282d6d45784a5c47fb88adf32f58411ea12bd463bec0
+**Last review:** review-6
+**Total reviews conducted:** 6
+**Last script run hit count:** 48 (48 accepted)
+**Script version:** e5d95235f166aec74a8cd3b3d3cc8617ce2edf4bcd8b2e3e53a608091cab6836
 
 ## How to reproduce the sweep
 
@@ -13,19 +13,29 @@ python3 ~/.claude/skills/auditme/checks/audit.py /Users/simonb/src/auditor
 find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
 ```
 
-## Convergence note for review-6
+## Convergence note for review-7
 
-- **Sampled mode:** review-6 is the sixth audit counted from review-1, so every sampled question runs on the whole tree.
-- **Listed questions:** review-6 re-judges only candidates whose hash or brief version changed.
-- **Precondition:** review-6 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
+- **Sampled mode:** review-7 is not a whole-tree audit, so each sampled question judges only the changed lines since review-6's commit, from `checks/changed.py --scope`.
+- **Listed questions:** review-7 re-judges only candidates whose hash or brief version changed.
+- **Precondition:** review-7 cannot start until every entry in `claude/skills/auditme/requests.md` is shipped or rejected.
 
 ## Unresolved findings
 
-Each group is described in full, with every site, in [review-5](review-5.md#phase-b-findings-consolidated).
+Each group is described in full, with every site, in [review-6](review-6.md#phase-b-findings-consolidated).
 
-No finding is unresolved: every finding review-5 raised either shipped (below) or was dismissed (next paragraph).
+| Finding | Question | Severity | First raised |
+|---------|----------|----------|--------------|
+| F1 `cached_bytes` lets `OSError` escape and has no direct test | A1, T1 | low | review-6 |
+| F2 the new `--scope` helpers have no property tests | T2 | low | review-6 |
+| F3 three specs state brief version numbers that went stale | Doc4 | low | review-6 |
+| F4 a spec API block leaves out a declared `Raises:` | Doc4 | low | review-6 |
+| F5 the CLI reference misses two `--scope` behaviours | Doc5 | low | review-6 |
+| F6 the `silent-self-mutation` row lists fewer exempt methods than the check | Doc5 | low | review-6 |
+| F7 `AGENTS.md` says "both hook types" before a command naming three | Doc3 | low | review-6 |
+| F8 a test helper's name hides a read | A9 | low | review-6 |
+| F9 the same value worked out again within one run | A14, P3 | low | review-6 |
 
-Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2, review-3 and review-4, as review-1's D2 chose. On review-5's page: F4 (two fixed doc statements whose verdicts the Doc hash defect kept open) and F7 (`t1_reasons`, not real-size).
+Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small).
 
 ## Recently resolved
 
@@ -89,6 +99,7 @@ Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file,
 
 ## Recurring patterns
 
+- Version figures in prose (Doc4): review-6 F3. A brief bump left three specs stating the old versions; each brief's `**Brief version:**` line is the only place a version is stated.
 - Pure-named functions that read files (A9): review-1 F3, review-2 F10. Each task that adds a reader names it as a pure query.
 - Docs and specs left stale by the task list that changed the code (Doc4, Doc5): review-1 F6-F8, review-2 F7, F9, review-3 F9, F10. Two statements review-2's Task 9 was meant to fix were still stale in review-3.
 - A cache added for some callers, not all (A14, P3): review-1 F15, review-2 F12, review-3 F5, F6.
