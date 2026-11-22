@@ -211,11 +211,11 @@ its parameter `run_dir`.
 Command line, run from the project root:
 
 ```text
-phaseb.py candidates <root> --question A4             # JSONL to stdout
-phaseb.py plan <root> --question A4 --out <dir> [--batch-size 48] [--rejudge]
+phaseb.py candidates <root> --question A4 [--depth N]   # JSONL to stdout
+phaseb.py plan <root> --question A4 --out <dir> [--batch-size 48] [--depth N] [--rejudge]
 phaseb.py check <dir>                                  # exit 1 on any problem; lists batches to retry
-phaseb.py merge <root> --question A4 <dir>             # into the project's ledger
-phaseb.py report <root> --question A4                  # open findings, new and carried
+phaseb.py merge <root> --question A4 <dir> [--depth N]   # into the project's ledger
+phaseb.py report <root> --question A4 [--depth N]    # open findings, new and carried
 phaseb.py dismiss <root> --question A4 <id> --reason <text>
 ```
 

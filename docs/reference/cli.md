@@ -49,7 +49,7 @@ What the installer does, in short (its README has the detail):
 | Exit | Meaning |
 |---|---|
 | `0` | Installed, or nothing to do |
-| `1` | `settings.json` is not valid JSON or not a JSON object; nothing changed |
+| `1` | `settings.json` is not valid JSON or not a JSON object, a key on the edit path is not an object, or `hooks.Stop` is not a list; nothing changed |
 | `2` | A bad argument; nothing changed |
 
 Environment: `HOME`.

@@ -272,6 +272,7 @@ and that the `Install the audit deploy key` step ran before `pre-commit`.
 - `jq` is missing: `command -v jq`.
 - The installer has not run: `grep -n 'auditme-stop.sh' ~/.claude/settings.json`.
 - No diff base resolves (no upstream, `origin/main` or `main`): `changed.py` prints that and passes without sweeping. Check `git rev-parse --verify origin/main`.
+- No reportable file changed, so `changed.py` skipped the sweep.
 - The directory is not a git repository: the Stop hook finds no repository root and exits 0 itself, without running `changed.py`.
 
 **Hits appear only after an upgrade.** Expected: the new checker has new rules.

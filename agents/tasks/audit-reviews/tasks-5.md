@@ -24,7 +24,7 @@ the Doc4 and Doc5 listers over every doc and spec this list touched.
 
 ## Task 1: Correct the three doc statements
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Source Reference:** F1, F2, F3
@@ -34,19 +34,19 @@ list and the phaseb synopsis match the code.
 
 **Subtasks:**
 
-- [ ] F1: in `docs/reference/cli.md`, the `bin/install-claude.sh` exit table's `1` row (line 52 on 2026-11-22): add that the installer also exits 1, before changing anything, when a key on the edit path is not an object or `hooks.Stop` is not a list. Review-5 read this from `install-in-claude` at the pinned commit `fa68deb` (`settings.py:137`, `:164`)
-- [ ] F2: in `docs/setup.md`, "The Stop hook does not fire" (line 268): add the cause "no reportable file changed, so `changed.py` skipped the sweep" (`claude/skills/auditme/checks/changed.py:229-231`)
-- [ ] F3: in `agents/specs/repeatable-phase-b/spec.md`, the command synopsis (lines 214-219): add `[--depth N]` to `candidates`, `plan`, `merge` and `report`, as `claude/skills/auditme/checks/phaseb.py` accepts it
-- [ ] Find each statement by its text; the line numbers are from 2026-11-22
+- [x] F1: in `docs/reference/cli.md`, the `bin/install-claude.sh` exit table's `1` row (line 52 on 2026-11-22): add that the installer also exits 1, before changing anything, when a key on the edit path is not an object or `hooks.Stop` is not a list. Review-5 read this from `install-in-claude` at the pinned commit `fa68deb` (`settings.py:137`, `:164`)
+- [x] F2: in `docs/setup.md`, "The Stop hook does not fire" (line 268): add the cause "no reportable file changed, so `changed.py` skipped the sweep" (`claude/skills/auditme/checks/changed.py:229-231`)
+- [x] F3: in `agents/specs/repeatable-phase-b/spec.md`, the command synopsis (lines 214-219): add `[--depth N]` to `candidates`, `plan`, `merge` and `report`, as `claude/skills/auditme/checks/phaseb.py` accepts it
+- [x] Find each statement by its text; the line numbers are from 2026-11-22
 
 **Acceptance Criteria:**
 
-- [ ] Each statement matches the code it describes
-- [ ] `uv run mkdocs build --strict` exits 0
+- [x] Each statement matches the code it describes
+- [x] `uv run mkdocs build --strict` exits 0
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
 
 **Notes:**
 
