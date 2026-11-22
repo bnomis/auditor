@@ -23,9 +23,7 @@ find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum
 
 Each group is described in full, with every site, in [review-6](review-6.md#phase-b-findings-consolidated).
 
-| Finding | Question | Severity | First raised |
-|---------|----------|----------|--------------|
-| None | | | |
+No finding is unresolved: every finding review-6 raised either shipped (below) or was dismissed (next paragraph).
 
 Dismissed (2026-11-22): `cached_source` returning `None` for an unreadable file, on the pages of review-2 to review-4, as review-1's D2 chose. On review-5's page: F4 and F7. On review-6's page: F10 (two pairwise checks, measured small).
 
