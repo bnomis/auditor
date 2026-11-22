@@ -51,7 +51,7 @@ def question_line(question: str) -> str:
     return next(line for line in skill.splitlines() if line.startswith(f'- **{question}.')).removeprefix('- ')
 
 
-DOC_BRIEF_VERSIONS = {'Doc1': 3, 'Doc2': 2, 'Doc4': 5, 'Doc5': 5}
+DOC_BRIEF_VERSIONS = {'Doc1': 3, 'Doc2': 2, 'Doc4': 6, 'Doc5': 6}
 DOC_BRIEF_PHRASES = {'Doc1': 'tracked', 'Doc2': 'declared', 'Doc4': 'unresolved', 'Doc5': 'unresolved'}
 
 
@@ -111,7 +111,7 @@ def test_every_brief_output_asks_for_findings_with_its_registered_kinds() -> Non
 
 
 def test_brief_versions_after_the_findings_shape() -> None:
-    expected = {'A4': 5, 'Doc1': 3, 'Doc2': 2, 'Doc4': 5, 'Doc5': 5, 'T1': 4, 'T2': 1, 'A1': 3, 'A11': 1, 'A17': 1, 'A19': 1}
+    expected = {'A4': 6, 'Doc1': 3, 'Doc2': 2, 'Doc4': 6, 'Doc5': 6, 'T1': 4, 'T2': 1, 'A1': 4, 'A11': 1, 'A17': 2, 'A19': 1}
     assert set(expected) == set(auditme.phaseb.candidates.REGISTRY)
     for question, version in expected.items():
         assert auditme.phaseb.brief_version(auditme.phaseb.question_brief(question)) == version, question
@@ -137,6 +137,23 @@ def test_brief_versions_after_the_findings_shape() -> None:
         ('A4', ('registered implementations', 'invariant guard')),
         ('Doc4', ('A dated sentence inside an undated section', '"Today" in an implemented spec', 'reported\n  once')),
         ('Doc5', ('names more than one\n  keyword', 'A dated sentence inside an undated section', '"Today" in an implemented spec', 'reported\n  once')),
+        # The rulings of agents/reviews/brief-thresholds-2-2026-11-22.md.
+        ('A1', ('only one `subprocess.SubprocessError`', 'registers as a check', 'Name it in the reason')),
+        ('A4', ("decorator's own body",)),
+        ('A17', ('non-empty',)),
+        (
+            'Doc4',
+            (
+                "bullet's lead",
+                'draft\n  docstring',
+                'reproduced file block',
+                'presents an order',
+                'Motivation is a record',
+                'complete list of what the\n  function declares',
+                'whose target the drift is about',
+            ),
+        ),
+        ('Doc5', ('causes under a symptom', 'Inline JSON', 'Words before a list', 'narrower than the code', 'note or warning box', 'setup\n  skill')),
         # The rulings of agents/reviews/brief-thresholds-2026-11-22.md.
         ('A1', ('pass no `timeout`', 'says it returns failures')),
         ('A4', ('registry lookup',)),

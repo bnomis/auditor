@@ -796,3 +796,23 @@ version and the expectation in `claude/skills/auditme/tests/phaseb/test_briefs.p
 deletes the request entry.
 
 Done: 2026-11-22 - agents/reviews/brief-thresholds-2026-11-22.md (answered 2026-11-22); briefs A1 3, A4 5, T1 4, Doc4 5 and Doc5 5 under `claude/skills/auditme/phaseb/briefs/`; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from `claude/skills/auditme/requests.md`.
+
+## Settle the thresholds review-2's reviewers left open
+
+Found on 2026-11-22 by `agents/audit-reviews/review-2.md` (decision D1) and
+filed as an open request in `claude/skills/auditme/requests.md` ("Settle the
+thresholds review-2's reviewers left open"), which lists each threshold for
+the A1, A4, A17, Doc4 and Doc5 briefs.
+
+Cause: each brief tells its reviewer to report, not decide, a threshold it
+does not settle, so the same case can be judged differently in another batch.
+
+Fix direction: put each threshold to the operator as a decision with a
+recommendation on a review page, as `agents/reviews/brief-thresholds-2026-11-22.md`
+did for review-1's; then settle each in its brief under
+`claude/skills/auditme/phaseb/briefs/`, bumping that brief's version and the
+expectation in `claude/skills/auditme/tests/phaseb/test_briefs.py`. The A1
+emitted-hit case goes with review-2's D2. Shipping it deletes the request
+entry; review-3 cannot start until it is shipped or rejected.
+
+Done: 2026-11-22 - agents/reviews/brief-thresholds-2-2026-11-22.md (answered 2026-11-22); briefs A1 4, A4 6, A17 2, Doc4 6 and Doc5 6 under `claude/skills/auditme/phaseb/briefs/`; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from `claude/skills/auditme/requests.md`.

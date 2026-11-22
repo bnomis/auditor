@@ -38,42 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Settle the thresholds review-2's reviewers left open
-
-- **Raised:** 2026-11-22, by this repository's second audit (review-2, decision D1).
-- **What happens:** each brief tells its reviewer to report, not decide, a
-  threshold it does not settle, and the reviewers of that audit reported
-  these, so each is judged case by case:
-  - A1: whether a handler for the only `subprocess.SubprocessError`
-    subclass the call can raise (`TimeoutExpired` with a `timeout`,
-    `CalledProcessError` with `check=True`) covers it; whether a failure a
-    registered check reports as an emitted hit, or records in a registry
-    the driver reports, is translated; whether a call to the package's own
-    translating wrapper is covered by that wrapper.
-  - A4: whether a decorator's raise at import time reaches the decorated
-    function's caller.
-  - A17: where a reach past a non-empty subpackage's `__all__` is reported
-    (today on the parent package's candidate).
-  - Doc4: whether a bullet that opens with a bold title, then "(amendment
-    1.x, found <date>)", is dated; whether a spec's step instruction or
-    draft docstring for its own change is a record of it; whether a
-    reproduced file block, or an "X has a, b and c" sentence, presents
-    itself as complete; whether a changed step order is drift; whether a
-    Motivation paragraph describing the state before the change, or an
-    acceptance criterion tagged with an amendment, is a record; whether a
-    missing `Raises:` in a spec's API block is drift; which candidate holds
-    a drift when every candidate of a section has the same span.
-  - Doc5: whether a troubleshooting list is a list of exit conditions;
-    whether a JSON value shown in prose is an output example; whether a
-    list that begins "any failure:" presents itself as complete; whether a
-    claim narrower than the code is drift; whether an admonition list
-    presents itself as complete; whether a concepts row is judged against
-    the published hook manifest or the setup template.
-- **Asked for:** settle each in its brief, bumping the brief's version, so
-  every reviewer applies the same threshold. The A1 emitted-hit case goes
-  with review-2's decision D2, which makes `check_lockfile` and
-  `check_ruff_version` report a missing tool as a hit.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.

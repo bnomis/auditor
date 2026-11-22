@@ -1,6 +1,6 @@
 # Listed Phase B architecture questions
 
-**Version:** 1.4
+**Version:** 1.5
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -56,7 +56,7 @@ The checker is not under `src/`; this repository keeps it with its skill.
 - `claude/skills/auditme/checks/auditme/core.py` - the corpus read index moved from `rules/state_and_effects.py` (see Hoists)
 - `checks/auditme/rules/error_handling.py`, `rules/state_and_effects.py` -
   site finders made public (see Hoists)
-- `claude/skills/auditme/phaseb/briefs/{A11,A19,A1,A17}.md` - briefs, version 1 when written; the A1 brief is at version 3 (amendment 1.4)
+- `claude/skills/auditme/phaseb/briefs/{A11,A19,A1,A17}.md` - briefs, version 1 when written; the A1 brief is at version 4 and the A17 brief at version 2 (amendment 1.5)
 - `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py` - tests
 - `claude/skills/auditme/SKILL.md` - names the new listed questions
 
@@ -211,7 +211,12 @@ the output (one JSON line per candidate: `id`, `findings`, `reason`), the
 rules every brief carries (report an unsettled threshold, never decide it;
 never list environment variables or print an env file) and
 `**Brief version:** 1` when written (the current versions are in
-`grep -n 'Brief version' claude/skills/auditme/phaseb/briefs/*.md`). Thresholds:
+`grep -n 'Brief version' claude/skills/auditme/phaseb/briefs/*.md`; amendment 1.5
+(operator, 2026-11-22, `agents/reviews/brief-thresholds-2-2026-11-22.md`) added to A1 that a handler for the
+only `SubprocessError` subclass a call can raise covers it, that a registered
+check emitting a hit translates, and that a call to the package's own
+translating function is covered; and to A17 that a read past a non-empty
+`__all__` is a bypass reported on that package). Thresholds:
 
 - **A11.** A hit when the subject is a `Literal` or `Enum` and the chain ends
   in `raise`, has no `else` and falls through, or ends in an `else` that

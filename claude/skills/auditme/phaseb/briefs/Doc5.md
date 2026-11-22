@@ -1,6 +1,6 @@
 # Doc5 brief
 
-**Brief version:** 5
+**Brief version:** 6
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -70,6 +70,23 @@ against the code.
 - A claim broader than the code is drift: a statement that a command acts on
   "any existing file" when the code checks named files only is one the code
   contradicts.
+- A list of causes under a symptom ("The Stop hook does not fire") is a list
+  of the conditions that produce it, and presents itself as complete unless
+  marked.
+- Inline JSON in a sentence shows keys and values, which are judged; its line
+  breaks and spacing are not. Only an example in a code block is judged line
+  for line.
+- Words before a list ("any failure:") do not mark it as examples; only "for
+  example", "such as", "including" or "e.g." do.
+- A claim narrower than the code is an omission, unless it states its scope
+  as the whole ("only", "just", "never") or the guide nowhere describes the
+  rest; then it is drift.
+- A list inside a note or warning box follows the same rule as any other
+  list.
+- A row or section that describes a project set up by the project's setup
+  skill is judged against that skill's template; one that describes the
+  published hooks is judged against the manifest. The section's own wording
+  is the evidence.
 
 A threshold that this brief does not settle is not yours to decide: report
 it in your reply, name the candidate, and judge the rest as the brief says.

@@ -1,6 +1,6 @@
 # Doc4 brief
 
-**Brief version:** 5
+**Brief version:** 6
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -64,6 +64,27 @@ against the code.
   "measured on <date>") is a record of that day for every sentence in it.
 - A table whose caption or lead sentence names the change or amendment it
   records is a record of that change, like a dated table.
+- A date in a bullet's lead - its bold title and the parenthetical straight
+  after it, as "**Title** (amendment 1.4, found on <date>)" - dates the
+  bullet like an opening date.
+- An instruction to the implementer of the spec's own change, and a draft
+  docstring describing the code that change replaced, are records of the
+  change, not drift.
+- A reproduced file block, or a sentence naming what something has ("T1 has
+  a, b and c"), presents itself as complete unless it is marked as an
+  excerpt or written with "for example", "such as", "including" or "e.g.": an
+  item the code also has is drift.
+- A list of steps that is numbered, or joined by "then", presents an order: a
+  different order in the code is drift. An unordered list is not.
+- A spec's Motivation is a record of the state before its change, and an
+  acceptance criterion tagged with an amendment ("1.4:") is a record of that
+  amendment; neither is drift.
+- A `Raises:` section in a spec's API block is the complete list of what the
+  function declares: a declared error the code raises and the section lacks,
+  or a missing section where the code declares one, is drift.
+- When several candidates of a section share the span that holds a drift,
+  report it under the candidate whose target the drift is about, and under
+  the first in the batch's order only when none names it.
 
 A threshold that this brief does not settle is not yours to decide: report
 it in your reply, name the candidate, and judge the rest as the brief says.

@@ -76,3 +76,4 @@ Dismissed on review-2's page (2026-11-22): F2, `cached_source` returning `None` 
 - 2026-11-22: a missing `uv` or `ruff` is a hit from the checks that call them, not a silent return (review-2 F3, Task 3 of the review-2 task list).
 - 2026-11-22: the A17 lister reads through the package's translating reader, so an unreadable file raises `PhaseBError` (review-2 F1, Task 4 of the review-2 task list).
 - 2026-11-22: file readers are renamed to say that they read, and `Candidate` is built in one place (review-2 F10 and F11, Task 5 of the review-2 task list).
+- 2026-11-22, `agents/reviews/brief-thresholds-2-2026-11-22.md`: the A1, A4, A17, Doc4 and Doc5 briefs settle the thresholds review-2's reviewers reported (A1 4, A4 6, A17 2, Doc4 6, Doc5 6). Each bump re-judges every candidate of its question in review-3.

@@ -1,6 +1,6 @@
 # Repeatable Phase B
 
-**Version:** 1.3
+**Version:** 1.4
 **Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/2L2gApX1M8DNzL5ivQF3D7
@@ -292,6 +292,11 @@ domain errors of the functions the registry holds when the registry is a
 module-level literal mapping, or one a registering decorator fills, of the
 package's own functions; a mapping built at run time or passed in counts as a
 callable passed in.
+
+Amendment 1.4 (operator, 2026-11-22, `agents/reviews/brief-thresholds-2-2026-11-22.md`;
+A4 brief version 6): a raise in a decorator's own body, which runs when the
+function is defined, is not owed by the decorated function; one in the wrapper
+it returns is.
 
 ### The result line (1.2)
 

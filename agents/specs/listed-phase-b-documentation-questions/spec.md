@@ -1,6 +1,6 @@
 # Listed Phase B documentation questions
 
-**Version:** 1.3
+**Version:** 1.4
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -219,6 +219,19 @@ record of that day; a table naming the change it records is a record of that
 change. In Doc5 a parenthetical list and a list of failure or exit conditions
 present themselves as complete unless marked "for example", "such as",
 "including" or "e.g.", and a claim broader than the code is drift.
+
+Amendment 1.4 (operator, 2026-11-22, `agents/reviews/brief-thresholds-2-2026-11-22.md`;
+briefs Doc4 and Doc5 at version 6): in Doc4 a date in a bullet's lead dates it;
+an implementer's instruction or draft docstring for the spec's own change, a
+Motivation, and a criterion tagged with an amendment are records; a reproduced
+file block or "X has a, b and c" is complete unless marked; a numbered or
+"then" list presents an order; an API block's `Raises:` is complete; a shared-span
+drift goes under the candidate naming its target. In Doc5 a list of causes
+under a symptom, a list inside a note, and a list after "any failure:" are
+complete unless marked; inline JSON is judged on content, not layout; a
+narrower claim is drift only when it states its scope as the whole or the
+rest is undescribed; a row about a set-up project is judged against the setup
+skill's template.
 
 Registered batch sizes, unmeasured: 24 for Doc4 and Doc5 (a section and its
 code per candidate), 12 for Doc1 and Doc2 (the tree or the inventories).
