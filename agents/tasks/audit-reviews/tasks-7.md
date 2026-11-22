@@ -58,23 +58,25 @@ what it does.
 
 **Subtasks:**
 
-- [ ] F3: in `claude/skills/auditme/checks/auditme/phaseb/architecture.py` (line 50 on 2026-11-22), unpack `auditme.core.cached_roots(scope)` into named parts (`roots, _modes = ...`), as `core.py` and `docrefs.py` do
-- [ ] F4: write a test first, in `claude/skills/auditme/tests/test_error_handling.py`, that `check_sibling_error_no_common_base` reports the same hit for an `errors.py` whose error classes have attribute, call and subscript bases; then remove the `contextlib.suppress(Exception)` around `ast.unparse(base)` in `claude/skills/auditme/checks/auditme/rules/error_handling.py` (line 418). `ast.unparse` of a parsed base expression does not fail; if a case is found that does, catch only that exception and test it
-- [ ] O1: replace the comments at `error_handling.py:442-446` with one that says what the check does: one finding per `errors.py` that holds two or more error classes with no shared parent in the file
-- [ ] Record `python3 claude/skills/auditme/checks/audit.py .` before and after, outside the repository, and diff them
+- [x] F3: in `claude/skills/auditme/checks/auditme/phaseb/architecture.py` (line 50 on 2026-11-22), unpack `auditme.core.cached_roots(scope)` into named parts (`roots, _modes = ...`), as `core.py` and `docrefs.py` do
+- [x] F4: write a test first, in `claude/skills/auditme/tests/test_error_handling.py`, that `check_sibling_error_no_common_base` reports the same hit for an `errors.py` whose error classes have attribute, call and subscript bases; then remove the `contextlib.suppress(Exception)` around `ast.unparse(base)` in `claude/skills/auditme/checks/auditme/rules/error_handling.py` (line 418). `ast.unparse` of a parsed base expression does not fail; if a case is found that does, catch only that exception and test it
+- [x] O1: replace the comments at `error_handling.py:442-446` with one that says what the check does: one finding per `errors.py` that holds two or more error classes with no shared parent in the file
+- [x] Record `python3 claude/skills/auditme/checks/audit.py .` before and after, outside the repository, and diff them
 
 **Acceptance Criteria:**
 
-- [ ] The audit output is identical before and after
-- [ ] The new test passes
+- [x] The audit output is identical before and after
+- [x] The new test passes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb/test_architecture_candidates.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb/test_architecture_candidates.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
+- The audit output differs only by one accepted finding's line number in `architecture.py` (793 to 794), from the extra unpack line.
+- F3 uses `roots, _ =` as `docrefs.py` does: `roots, _modes =` is flagged by the leading-underscore-binding check.
 - Key files: `claude/skills/auditme/checks/auditme/phaseb/architecture.py`, `claude/skills/auditme/checks/auditme/rules/error_handling.py`
 
 ---
