@@ -85,6 +85,7 @@ required finding.
 """
 
 import argparse
+import os
 import pathlib
 import sys
 import typing
@@ -207,6 +208,13 @@ def main() -> int:
         # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
         print(f'ERROR: {auditme.core.describe_error(exc)}', file=sys.stderr)
         return 2
+
+    named_ruff = os.environ.get('AUDITME_RUFF')
+    if named_ruff:
+        ruff_path = pathlib.Path(named_ruff)
+        if not (ruff_path.is_file() and os.access(ruff_path, os.X_OK)):
+            print(f'ERROR: AUDITME_RUFF={named_ruff} is not an executable file', file=sys.stderr)
+            return 2
 
     if not args.package:
         # A module directly in src/ belongs to no root, so no pass would read

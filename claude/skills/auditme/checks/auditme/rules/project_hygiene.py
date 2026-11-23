@@ -12,8 +12,10 @@ import auditme.core
 
 
 def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:
-    """Return (command, label) for the ruff the audit runs: the project's
-    `.venv/bin/ruff` when it is an executable file, else `ruff` from PATH.
+    """Return (command, label) for the ruff the audit runs: `$AUDITME_RUFF` when
+    set and not empty, else the project's `.venv/bin/ruff` when it is an
+    executable file, else `ruff` from PATH. The label for the first is
+    `AUDITME_RUFF`.
 
     The project's own ruff is the one its lockfile pins, so preferring it makes
     the answer the same in every shell and in CI, whatever else is on PATH.
@@ -22,7 +24,10 @@ def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:
     key = ('ruff-executable', scope)
     if key not in auditme.core.INDEX_CACHE:
         venv_ruff = scope / '.venv' / 'bin' / 'ruff'
-        if venv_ruff.is_file() and os.access(venv_ruff, os.X_OK):
+        named = os.environ.get('AUDITME_RUFF')
+        if named:
+            auditme.core.INDEX_CACHE[key] = (named, 'AUDITME_RUFF')
+        elif venv_ruff.is_file() and os.access(venv_ruff, os.X_OK):
             auditme.core.INDEX_CACHE[key] = (str(venv_ruff), '.venv/bin/ruff')
         else:
             auditme.core.INDEX_CACHE[key] = ('ruff', 'ruff on PATH')

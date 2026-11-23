@@ -6,7 +6,9 @@ import io
 import os
 import pathlib
 import subprocess
+import sys
 
+import audit
 import auditme.core
 import auditme.rules.project_hygiene
 import hypothesis
@@ -572,3 +574,63 @@ def test_ruff_executable_is_resolved_once_per_run(project: Builder, monkeypatch:
     second = auditme.rules.project_hygiene.ruff_executable(root)
     assert first == second
     assert len(calls) == 1
+
+
+def make_executable(path: pathlib.Path) -> pathlib.Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('#!/bin/sh\n')
+    path.chmod(0o755)
+    return path
+
+
+def test_auditme_ruff_wins_over_the_project_venv(project: Builder, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    root = project({'.venv/bin/ruff': '#!/bin/sh\n'})
+    (root / '.venv' / 'bin' / 'ruff').chmod(0o755)
+    shared = make_executable(tmp_path / 'shared' / 'ruff')
+    monkeypatch.setenv('AUDITME_RUFF', str(shared))
+    auditme.core.clear_source_cache()
+    assert auditme.rules.project_hygiene.ruff_executable(root) == (str(shared), 'AUDITME_RUFF')
+
+
+def unset_or_empty(monkeypatch: pytest.MonkeyPatch, value: str | None) -> None:
+    if value is None:
+        monkeypatch.delenv('AUDITME_RUFF', raising=False)
+    else:
+        monkeypatch.setenv('AUDITME_RUFF', value)
+    auditme.core.clear_source_cache()
+
+
+@pytest.mark.parametrize('value', [None, ''])
+def test_unset_or_empty_auditme_ruff_falls_through_to_the_venv(project: Builder, monkeypatch: pytest.MonkeyPatch, value: str | None) -> None:
+    root = project({'.venv/bin/ruff': '#!/bin/sh\n'})
+    (root / '.venv' / 'bin' / 'ruff').chmod(0o755)
+    unset_or_empty(monkeypatch, value)
+    assert auditme.rules.project_hygiene.ruff_executable(root)[1] == '.venv/bin/ruff'
+
+
+@pytest.mark.parametrize('value', [None, ''])
+def test_unset_or_empty_auditme_ruff_falls_through_to_path(project: Builder, monkeypatch: pytest.MonkeyPatch, value: str | None) -> None:
+    root = project({'src/probe/mod.py': 'x = 1\n'})
+    unset_or_empty(monkeypatch, value)
+    assert auditme.rules.project_hygiene.ruff_executable(root) == ('ruff', 'ruff on PATH')
+
+
+@pytest.mark.parametrize('kind', ['missing', 'not-executable'])
+def test_an_invalid_auditme_ruff_exits_2_before_anything_is_printed(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: pathlib.Path,
+    kind: str,
+) -> None:
+    root = project({'src/probe/mod.py': 'x = 1\n'})
+    target = tmp_path / 'ruff'
+    if kind == 'not-executable':
+        target.write_text('#!/bin/sh\n')
+        target.chmod(0o644)
+    monkeypatch.setenv('AUDITME_RUFF', str(target))
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+    assert audit.main() == 2
+    captured = capsys.readouterr()
+    assert captured.out == ''
+    assert captured.err.strip() == f'ERROR: AUDITME_RUFF={target} is not an executable file'

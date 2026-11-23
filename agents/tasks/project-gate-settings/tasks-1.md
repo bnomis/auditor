@@ -108,7 +108,7 @@ listed rule is reported unaccepted with its marker's text in `refused_reason`.
 
 ## Task 3: `AUDITME_RUFF` names the ruff the sweep runs
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** API (`ruff_executable`); Settings (`AUDITME_RUFF`); Implementation (`AUDITME_RUFF`); Error handling (row 2); Testing (`test_project_hygiene.py`)
@@ -119,19 +119,19 @@ PATH; a value naming no executable stops the sweep.
 
 **Subtasks:**
 
-- [ ] Tests first, in `claude/skills/auditme/tests/test_project_hygiene.py`, each setting the variable with `monkeypatch.setenv` or removing it with `monkeypatch.delenv(..., raising=False)`: an executable named by `AUDITME_RUFF` wins over an executable `.venv/bin/ruff`, with label `AUDITME_RUFF`; unset and empty each fall through to `.venv/bin/ruff`, then `ruff on PATH`; through `audit.py`, a value naming a missing file, and one naming a non-executable file, each exit 2 with `ERROR: AUDITME_RUFF=<value> is not an executable file` on stderr and nothing on stdout. Run them and see them fail
-- [ ] In `ruff_executable` (`claude/skills/auditme/checks/auditme/rules/project_hygiene.py`), check `os.environ.get('AUDITME_RUFF')` first; update its docstring to the spec's
-- [ ] In `claude/skills/auditme/checks/audit.py`, before the sweep and beside the settings read of Task 2: when the variable is set and not empty and does not name an executable file, print the error and return 2
+- [x] Tests first, in `claude/skills/auditme/tests/test_project_hygiene.py`, each setting the variable with `monkeypatch.setenv` or removing it with `monkeypatch.delenv(..., raising=False)`: an executable named by `AUDITME_RUFF` wins over an executable `.venv/bin/ruff`, with label `AUDITME_RUFF`; unset and empty each fall through to `.venv/bin/ruff`, then `ruff on PATH`; through `audit.py`, a value naming a missing file, and one naming a non-executable file, each exit 2 with `ERROR: AUDITME_RUFF=<value> is not an executable file` on stderr and nothing on stdout. Run them and see them fail
+- [x] In `ruff_executable` (`claude/skills/auditme/checks/auditme/rules/project_hygiene.py`), check `os.environ.get('AUDITME_RUFF')` first; update its docstring to the spec's
+- [x] In `claude/skills/auditme/checks/audit.py`, before the sweep and beside the settings read of Task 2: when the variable is set and not empty and does not name an executable file, print the error and return 2
 
 **Acceptance Criteria:**
 
-- [ ] With the variable unset, the ruff lookup and every existing test's output are unchanged
-- [ ] An invalid value exits 2 before any hit is printed
+- [x] With the variable unset, the ruff lookup and every existing test's output are unchanged
+- [x] An invalid value exits 2 before any hit is printed
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_project_hygiene.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
