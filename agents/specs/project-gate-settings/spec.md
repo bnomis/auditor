@@ -1,7 +1,7 @@
 # Project gate settings
 
 **Version:** 1.0
-**Status:** approved (review 1, 2026-11-23)
+**Status:** implemented
 **Date:** 2026-11-23
 
 Two settings that let a project run the published `auditme-all` hook as its

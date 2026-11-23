@@ -4,6 +4,7 @@ import ast
 import collections
 import collections.abc
 import json
+import os
 import pathlib
 import re
 import tomllib
@@ -342,6 +343,11 @@ NEVER_ACCEPTED: tuple[str, ...] = ()  # auditme: accept[mutable-module-level-exp
 def is_never_accepted(rule: str, patterns: tuple[str, ...]) -> bool:
     """True when `rule` equals a pattern, or a pattern ends in `*` and `rule` starts with the text before it."""
     return any(rule.startswith(pattern[:-1]) if pattern.endswith('*') else rule == pattern for pattern in patterns)
+
+
+def is_executable_file(path: pathlib.Path) -> bool:
+    """True when `path` is a file the current user can execute."""
+    return path.is_file() and os.access(path, os.X_OK)
 
 
 def path_inside(inner: pathlib.Path, outer: pathlib.Path) -> bool:
@@ -1023,6 +1029,7 @@ __all__ = [
     'emit',
     'from_import_bindings',
     'is_dunder_all_assignment',
+    'is_executable_file',
     'is_never_accepted',
     'is_test_relpath',
     'loose_src_modules',

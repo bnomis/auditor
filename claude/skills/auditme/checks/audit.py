@@ -212,7 +212,7 @@ def main() -> int:
     named_ruff = os.environ.get('AUDITME_RUFF')
     if named_ruff:
         ruff_path = pathlib.Path(named_ruff)
-        if not (ruff_path.is_file() and os.access(ruff_path, os.X_OK)):
+        if not auditme.core.is_executable_file(ruff_path):
             print(f'ERROR: AUDITME_RUFF={named_ruff} is not an executable file', file=sys.stderr)
             return 2
 

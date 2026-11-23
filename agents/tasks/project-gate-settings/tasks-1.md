@@ -209,7 +209,7 @@ from the guide, the CLI reference and the setup page.
 
 ## Task 6: Whole-tree checks, deduplication, and close the spec
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** whole spec
@@ -245,3 +245,28 @@ the spec implemented.
 
 - Depends on Tasks 1-5
 - After the merge, the merged commit on `main` is the pin the operator records in their coordinating note; that and every other project's move to the hook are outside this list
+
+---
+
+## Task 7: Make the install-hooks "pre-commit absent" test independent of the machine
+
+**Status:** todo
+**Priority:** high
+**Complexity:** small
+**Spec Reference:** none (found by Task 6's final test run)
+
+**Technical Goal:** `tests/test_install_hooks.py::test_installing_without_pre_commit_fails_before_writing` fails when `pre-commit` is on PATH (it expects exit 1 and gets 0). Make it hide `pre-commit` from the script's PATH itself, so the full run passes on any machine.
+
+**Subtasks:**
+
+- [ ] Confirm the failure on `main` (this branch does not touch `bin/` or `tests/test_install_hooks.py`)
+- [ ] Give the test a PATH without `pre-commit`, via `monkeypatch` or the `run` helper's environment
+- [ ] Re-run Task 6's final test command and the `pre-commit` checks
+
+**Definition of Done:**
+
+- [ ] The final test command in Task 6 exits 0 and prints `all selected test directories passed`
+
+**Notes:**
+
+- Task 6 stays `in-progress` until this passes; its other subtasks are done

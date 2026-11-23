@@ -27,7 +27,7 @@ def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:
         named = os.environ.get('AUDITME_RUFF')
         if named:
             auditme.core.INDEX_CACHE[key] = (named, 'AUDITME_RUFF')
-        elif venv_ruff.is_file() and os.access(venv_ruff, os.X_OK):
+        elif auditme.core.is_executable_file(venv_ruff):
             auditme.core.INDEX_CACHE[key] = (str(venv_ruff), '.venv/bin/ruff')
         else:
             auditme.core.INDEX_CACHE[key] = ('ruff', 'ruff on PATH')
