@@ -142,7 +142,7 @@ PATH; a value naming no executable stops the sweep.
 
 ## Task 4: `changed.py` names the never-accepted rule in its advice
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Implementation (`changed.py`'s advice); Testing (`test_changed.py`)
@@ -153,18 +153,18 @@ add one.
 
 **Subtasks:**
 
-- [ ] Tests first, in `claude/skills/auditme/tests/test_changed.py`: `--all` on a `probe` project with `never-accepted = ["literal-duplication"]` and a marked `literal-duplication` hit exits 1, prints the hit, and prints `literal-duplication: this project does not accept markers for this rule ([tool.auditme] never-accepted); fix the code.` once; a project with two such hits of one rule prints the line once. Run them and see them fail
-- [ ] In `claude/skills/auditme/checks/changed.py`, after the hit list: print that line once per rule whose reported hits carry `refused_reason`, beside `RULE_HELP`'s lines, and leave the generic `ACCEPT_HELP` for the other rules
+- [x] Tests first, in `claude/skills/auditme/tests/test_changed.py`: `--all` on a `probe` project with `never-accepted = ["literal-duplication"]` and a marked `literal-duplication` hit exits 1, prints the hit, and prints `literal-duplication: this project does not accept markers for this rule ([tool.auditme] never-accepted); fix the code.` once; a project with two such hits of one rule prints the line once. Run them and see them fail
+- [x] In `claude/skills/auditme/checks/changed.py`, after the hit list: print that line once per rule whose reported hits carry `refused_reason`, beside `RULE_HELP`'s lines, and leave the generic `ACCEPT_HELP` for the other rules
 
 **Acceptance Criteria:**
 
-- [ ] The advice appears once per refused rule and never for a hit without `refused_reason`
-- [ ] Output for a run with no refused hit is unchanged
+- [x] The advice appears once per refused rule and never for a hit without `refused_reason`
+- [x] Output for a run with no refused hit is unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_changed.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
