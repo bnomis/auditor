@@ -31,9 +31,20 @@ PINNED = f"""repos:
 """
 
 
-def run(repo: pathlib.Path, *args: str) -> subprocess.CompletedProcess[str]:
-    # No pre-commit on this PATH, so the script skips validation; tests pass --no-install.
-    env = {'PATH': '/usr/bin:/bin', 'HOME': str(repo.parent / 'home')}
+def path_without_pre_commit(directory: pathlib.Path) -> str:
+    """Make a directory of links to every tool on the system PATH except pre-commit, and return it as a PATH."""
+    directory.mkdir()
+    for system in ('/usr/bin', '/bin'):
+        for tool in pathlib.Path(system).iterdir():
+            link = directory / tool.name
+            if tool.name != 'pre-commit' and not link.exists():
+                link.symlink_to(tool)
+    return str(directory)
+
+
+def run(repo: pathlib.Path, *args: str, path: str = '/usr/bin:/bin') -> subprocess.CompletedProcess[str]:
+    # Tests pass --no-install, so a pre-commit on the default PATH only adds config validation.
+    env = {'PATH': path, 'HOME': str(repo.parent / 'home')}
     return subprocess.run(['bash', str(SCRIPT), *args], capture_output=True, text=True, env=env, cwd=repo, check=False)
 
 
@@ -170,8 +181,8 @@ def test_an_unknown_option_is_refused(repo: pathlib.Path) -> None:
     assert run(repo, '--force').returncode == 2
 
 
-def test_installing_without_pre_commit_fails_before_writing(repo: pathlib.Path) -> None:
-    result = run(repo, '--rev', NEW)
+def test_installing_without_pre_commit_fails_before_writing(repo: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    result = run(repo, '--rev', NEW, path=path_without_pre_commit(tmp_path / 'tools'))
     assert result.returncode == 1
     assert 'pre-commit is not installed' in result.stderr
     assert not (repo / '.pre-commit-config.yaml').exists()

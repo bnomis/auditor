@@ -250,7 +250,7 @@ the spec implemented.
 
 ## Task 7: Make the install-hooks "pre-commit absent" test independent of the machine
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** none (found by Task 6's final test run)
@@ -259,13 +259,13 @@ the spec implemented.
 
 **Subtasks:**
 
-- [ ] Confirm the failure on `main` (this branch does not touch `bin/` or `tests/test_install_hooks.py`)
-- [ ] Give the test a PATH without `pre-commit`, via `monkeypatch` or the `run` helper's environment
-- [ ] Re-run Task 6's final test command and the `pre-commit` checks
+- [x] Confirm the failure on `main` (this branch does not touch `bin/` or `tests/test_install_hooks.py`)
+- [x] Give the test a PATH without `pre-commit`, via `monkeypatch` or the `run` helper's environment
+- [x] Re-run Task 6's final test command and the `pre-commit` checks
 
 **Definition of Done:**
 
-- [ ] The final test command in Task 6 exits 0 and prints `all selected test directories passed`
+- [x] The final test command in Task 6 exits 0 and prints `all selected test directories passed`
 
 **Notes:**
 
