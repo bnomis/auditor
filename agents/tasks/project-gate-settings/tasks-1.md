@@ -174,7 +174,7 @@ add one.
 
 ## Task 5: Document both settings
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Implementation (Documentation); Settings; Error handling
@@ -184,22 +184,22 @@ from the guide, the CLI reference and the setup page.
 
 **Subtasks:**
 
-- [ ] `docs/guide/checker.md`: a "Never-accepted rules" section beside the declared-roots material under "Accepting a hit": the key, the `*` family syntax, that a misspelt name exits 2, the `refused_reason` key in the output, and when a project would use it (a rule it fixes and never accepts); describe `AUDITME_RUFF` where ruff's lookup is described
-- [ ] `docs/reference/cli.md`: both settings, and the two new exit-2 cases with their messages
-- [ ] `docs/setup.md`: the ruff prerequisite names `AUDITME_RUFF` for a ruff outside the project's `.venv`
-- [ ] `claude/skills/auditme/SKILL.md` (the acceptance mechanism) and `claude/skills/auditme/checks/audit.py`'s module docstring: a project can refuse markers for named rules
-- [ ] `grep -rn 'never accepted by a marker\|no accept marker' docs claude/skills/auditme/SKILL.md` and update each passage that lists only `ruff` and `lockfile-drift` as never accepted, so none says a project cannot add to them
+- [x] `docs/guide/checker.md`: a "Never-accepted rules" section beside the declared-roots material under "Accepting a hit": the key, the `*` family syntax, that a misspelt name exits 2, the `refused_reason` key in the output, and when a project would use it (a rule it fixes and never accepts); describe `AUDITME_RUFF` where ruff's lookup is described
+- [x] `docs/reference/cli.md`: both settings, and the two new exit-2 cases with their messages
+- [x] `docs/setup.md`: the ruff prerequisite names `AUDITME_RUFF` for a ruff outside the project's `.venv`
+- [x] `claude/skills/auditme/SKILL.md` (the acceptance mechanism) and `claude/skills/auditme/checks/audit.py`'s module docstring: a project can refuse markers for named rules
+- [x] `grep -rn 'never accepted by a marker\|no accept marker' docs claude/skills/auditme/SKILL.md` and update each passage that lists only `ruff` and `lockfile-drift` as never accepted, so none says a project cannot add to them
 
 **Acceptance Criteria:**
 
-- [ ] Each page names `never-accepted` or `AUDITME_RUFF` as the subtasks say, with an example
-- [ ] No page names a project the checker has been run on
+- [x] Each page names `never-accepted` or `AUDITME_RUFF` as the subtasks say, with an example
+- [x] No page names a project the checker has been run on
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes (the docs' rule tables are unchanged, so `RULE_IDS` still matches)
-- [ ] `uv run --group docs mkdocs build --strict` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes (the docs' rule tables are unchanged, so `RULE_IDS` still matches)
+- [x] `uv run --group docs mkdocs build --strict` passes
 
 **Notes:**
 
