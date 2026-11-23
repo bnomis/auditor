@@ -8,7 +8,9 @@ without a test.
 """
 
 import annotationlib
+import ast
 import inspect
+import itertools
 import pathlib
 
 import auditme.registry
@@ -194,3 +196,51 @@ def test_exactly_the_cross_file_rules_emit_related(project, run_check) -> None:
         if 'related' in hit:
             assert hit['related'] == sorted(set(hit['related']))
             assert hit['path'] not in hit['related']
+
+
+CHECKS_DIR = TESTS_DIR.parent / 'checks'
+
+CHECKER_GUIDE = TESTS_DIR.parents[3] / 'docs' / 'guide' / 'checker.md'
+
+
+def emitted_rule_literals() -> set[str]:
+    """Every `rule='<literal>'` keyword in the checker's source, read with `ast`."""
+    paths = [*sorted((CHECKS_DIR / 'auditme').rglob('*.py')), CHECKS_DIR / 'audit.py']
+    found: set[str] = set()
+    for path in paths:
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
+            if isinstance(node, ast.keyword) and node.arg == 'rule' and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                found.add(node.value.value)
+    return found
+
+
+def documented_rule_ids() -> set[str]:
+    """The first-column ids of every `Rule id` table under `## The rules` in the checker guide."""
+    section = CHECKER_GUIDE.read_text(encoding='utf-8').split('\n## The rules', 1)[1].split('\n## ', 1)[0]
+    lines = section.splitlines()
+    found: set[str] = set()
+    for index, line in enumerate(lines):
+        if not line.startswith('| Rule id'):
+            continue
+        for row in itertools.takewhile(lambda text: text.startswith('|'), lines[index + 2 :]):
+            found.add(row.split('|')[1].strip().strip('`'))
+    return found
+
+
+def test_every_rule_the_source_emits_is_in_rule_ids() -> None:
+    """`never-accepted` validates its names against `RULE_IDS`; a rule missing from it could not be listed."""
+    missing = emitted_rule_literals() - auditme.registry.RULE_IDS
+    assert not missing, f'emitted but not in RULE_IDS: {sorted(missing)}'
+
+
+def test_rule_ids_matches_the_rule_tables_in_the_checker_guide() -> None:
+    """The guide's tables and `RULE_IDS` list the same ids, so a rule added to one cannot go missing from the other."""
+    documented = documented_rule_ids()
+    assert documented, 'no Rule id table found under "## The rules"'
+    assert documented == set(auditme.registry.RULE_IDS), (
+        f'only in the guide: {sorted(documented - auditme.registry.RULE_IDS)}; only in RULE_IDS: {sorted(auditme.registry.RULE_IDS - documented)}'
+    )
+
+
+def test_rule_ids_includes_the_never_accepted_rules() -> None:
+    assert {'ruff', 'lockfile-drift'} <= auditme.registry.RULE_IDS

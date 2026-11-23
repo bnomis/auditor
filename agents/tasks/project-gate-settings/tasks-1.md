@@ -33,7 +33,7 @@ process environment, and never prints the environment.
 
 ## Task 1: Add `RULE_IDS` and keep it in step with the source and the docs
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** API (`RULE_IDS`); Implementation (`RULE_IDS`); Testing (`test_registry.py`)
@@ -44,20 +44,20 @@ rule is added to the source or the docs without it.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `grep -rnwE 'RULE_IDS|SettingsError|NEVER_ACCEPTED|never_accepted|is_never_accepted|AUDITME_RUFF|refused_reason' claude/skills/auditme/checks` prints nothing; if it prints anything, stop as `blocked` and name what it found
-- [ ] Tests first, in `claude/skills/auditme/tests/test_registry.py`: (a) every `rule='<literal>'` and `rule="<literal>"` keyword in `claude/skills/auditme/checks/auditme/` and `claude/skills/auditme/checks/audit.py` (read with `ast`, not a regex over text) is in `RULE_IDS`; (b) `RULE_IDS` equals the set of first-column ids of every Markdown table whose header's first cell is `Rule id` under the `## The rules` heading of `docs/guide/checker.md`, up to the next `## ` heading, backticks stripped; (c) `ruff` and `lockfile-drift` are in it. Run them and see them fail on the missing name
-- [ ] Add `RULE_IDS: frozenset[str]` to `claude/skills/auditme/checks/auditme/registry.py`, a literal with one id per line, sorted, with the spec's docstring as a comment above it. Fill it from the tests' failure output; for each of the five `rule=rule` call sites (`grep -rn 'rule=rule' claude/skills/auditme/checks`), read where `rule` comes from and confirm each value it can take is in the set
-- [ ] If (b) fails because an id the source emits has no row in `docs/guide/checker.md`, or a row names an id the source never emits, stop as `blocked`, naming each such id: which side is right is the operator's call, not this task's
+- [x] Starting-point check: `grep -rnwE 'RULE_IDS|SettingsError|NEVER_ACCEPTED|never_accepted|is_never_accepted|AUDITME_RUFF|refused_reason' claude/skills/auditme/checks` prints nothing; if it prints anything, stop as `blocked` and name what it found
+- [x] Tests first, in `claude/skills/auditme/tests/test_registry.py`: (a) every `rule='<literal>'` and `rule="<literal>"` keyword in `claude/skills/auditme/checks/auditme/` and `claude/skills/auditme/checks/audit.py` (read with `ast`, not a regex over text) is in `RULE_IDS`; (b) `RULE_IDS` equals the set of first-column ids of every Markdown table whose header's first cell is `Rule id` under the `## The rules` heading of `docs/guide/checker.md`, up to the next `## ` heading, backticks stripped; (c) `ruff` and `lockfile-drift` are in it. Run them and see them fail on the missing name
+- [x] Add `RULE_IDS: frozenset[str]` to `claude/skills/auditme/checks/auditme/registry.py`, a literal with one id per line, sorted, with the spec's docstring as a comment above it. Fill it from the tests' failure output; for each of the five `rule=rule` call sites (`grep -rn 'rule=rule' claude/skills/auditme/checks`), read where `rule` comes from and confirm each value it can take is in the set
+- [x] If (b) fails because an id the source emits has no row in `docs/guide/checker.md`, or a row names an id the source never emits, stop as `blocked`, naming each such id: which side is right is the operator's call, not this task's
 
 **Acceptance Criteria:**
 
-- [ ] `RULE_IDS` holds every id the source can emit and every id the docs' rule tables list, and nothing else
-- [ ] Removing any one id from `RULE_IDS`, or adding a row to a rules table, makes a `test_registry.py` test fail (checked by hand once, then reverted)
+- [x] `RULE_IDS` holds every id the source can emit and every id the docs' rule tables list, and nothing else
+- [x] Removing any one id from `RULE_IDS`, or adding a row to a rules table, makes a `test_registry.py` test fail (checked by hand once, then reverted)
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
