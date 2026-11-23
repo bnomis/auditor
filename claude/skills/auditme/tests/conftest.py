@@ -87,6 +87,14 @@ def restore_extra_roots() -> collections.abc.Iterator[None]:
     auditme.core.EXTRA_ROOT_NAMES = original
 
 
+@pytest.fixture(autouse=True)
+def restore_never_accepted() -> collections.abc.Iterator[None]:
+    """Put `NEVER_ACCEPTED` back after every test: the driver rebinds it for each run."""
+    original = auditme.core.NEVER_ACCEPTED
+    yield
+    auditme.core.NEVER_ACCEPTED = original
+
+
 @pytest.fixture
 def project(tmp_path: pathlib.Path) -> collections.abc.Callable[[dict[str, str]], pathlib.Path]:
     """Return a builder that writes a throwaway project tree and returns its root.

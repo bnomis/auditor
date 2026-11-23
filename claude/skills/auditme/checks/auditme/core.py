@@ -53,6 +53,10 @@ def emit(related: list[str] | None = None, **kwargs: object) -> None:
         kwargs['related'] = sorted(set(related) - {kwargs.get('path')})
         if not kwargs['related']:
             del kwargs['related']
+    if kwargs.get('accepted') and is_never_accepted(str(kwargs.get('rule')), NEVER_ACCEPTED):
+        kwargs['refused_reason'] = kwargs['accepted_reason']
+        kwargs['accepted'] = False
+        kwargs['accepted_reason'] = None
     line = json.dumps(kwargs, sort_keys=True)
     if line in EMITTED:
         return
@@ -322,26 +326,42 @@ class CachedReadError(OSError):
     It is an `OSError`, so a caller that already handles an unreadable file keeps working."""
 
 
-class RootsError(Exception):
-    """`[tool.auditme]` in `pyproject.toml` is invalid; the message is the error text."""
+class SettingsError(Exception):
+    """A project setting is invalid; the message is the error text."""
+
+
+class RootsError(SettingsError):
+    """`[tool.auditme]` in `pyproject.toml` declares an invalid root; the message is the error text."""
+
+
+# The current run's `never-accepted` patterns: rules whose accept markers do not
+# count in this project. The driver sets it before the sweep; `emit` reads it.
+NEVER_ACCEPTED: tuple[str, ...] = ()  # auditme: accept[mutable-module-level-exported] per-run setting the driver sets and the tests restore
+
+
+def is_never_accepted(rule: str, patterns: tuple[str, ...]) -> bool:
+    """True when `rule` equals a pattern, or a pattern ends in `*` and `rule` starts with the text before it."""
+    return any(rule.startswith(pattern[:-1]) if pattern.endswith('*') else rule == pattern for pattern in patterns)
 
 
 def path_inside(inner: pathlib.Path, outer: pathlib.Path) -> bool:
     return inner == outer or outer in inner.parents
 
 
-def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None:
-    """The roots `[tool.auditme]` declares, in order, or None when none are declared.
+SETTINGS_WHERE = 'pyproject.toml [tool.auditme]'
 
-    None when `pyproject.toml` or the table is absent. Invalid TOML is an error
-    only when the text mentions `[tool.auditme`; otherwise the defaults apply.
+
+def auditme_table(scope: pathlib.Path) -> dict[str, object] | None:
+    """The `[tool.auditme]` table of the project's `pyproject.toml`, or None when there is none.
+
+    Invalid TOML is an error only when the text mentions `[tool.auditme`;
+    otherwise the project does not use the table.
 
     Raises:
-        RootsError: the declaration is invalid (bad TOML, an unknown key, a
-            wrong type, a missing, empty or overlapping root).
+        RootsError: the TOML is invalid and mentions the table, or the table is not a table.
     """
     pyproject = scope / 'pyproject.toml'
-    if DECLARATION_IGNORED or not pyproject.is_file():
+    if not pyproject.is_file():
         return None
     text = read_source(pyproject)
     if text is None:
@@ -356,13 +376,54 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
     table = tool.get('auditme') if isinstance(tool, dict) else None
     if table is None:
         return None
-    where = 'pyproject.toml [tool.auditme]'
     if not isinstance(table, dict):
-        raise RootsError(f'{where}: must be a table')
-    unknown_table_keys = sorted(set(table) - {'roots'})
+        raise RootsError(f'{SETTINGS_WHERE}: must be a table')
+    return table
+
+
+def never_accepted(scope: pathlib.Path) -> tuple[str, ...]:
+    """The `never-accepted` patterns `[tool.auditme]` declares, in order; () when none.
+
+    The driver checks each pattern against the rule ids, which this module
+    cannot import without a cycle.
+
+    Raises:
+        SettingsError: the value is not a list of strings, or a `*` is not at the end of its pattern.
+    """
+    table = auditme_table(scope)
+    if table is None:
+        return ()
+    patterns = table.get('never-accepted', [])
+    if not isinstance(patterns, list) or not all(isinstance(p, str) for p in patterns):
+        raise SettingsError(f'{SETTINGS_WHERE}: never-accepted must be a list of strings')
+    for pattern in patterns:
+        if '*' in pattern[:-1]:
+            raise SettingsError(f'{SETTINGS_WHERE}: never-accepted {pattern!r} may use * only at the end')
+    return tuple(patterns)
+
+
+def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None:
+    """The roots `[tool.auditme]` declares, in order, or None when none are declared.
+
+    None when `pyproject.toml` or the table is absent. Invalid TOML is an error
+    only when the text mentions `[tool.auditme`; otherwise the defaults apply.
+
+    Raises:
+        RootsError: the declaration is invalid (bad TOML, an unknown key, a
+            wrong type, a missing, empty or overlapping root).
+    """
+    if DECLARATION_IGNORED:
+        return None
+    table = auditme_table(scope)
+    if table is None:
+        return None
+    where = SETTINGS_WHERE
+    unknown_table_keys = sorted(set(table) - {'never-accepted', 'roots'})
     if unknown_table_keys:
         raise RootsError(f'{where}: unknown key {unknown_table_keys[0]!r}')
-    entries = table.get('roots', [])
+    if 'roots' not in table:
+        return None
+    entries = table['roots']
     if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
         raise RootsError(f'{where}: roots must be a list of tables')
     roots: list[tuple[pathlib.Path, str]] = []
@@ -933,19 +994,23 @@ __all__ = [
     'DECLARATION_IGNORED',
     'EMITTED',
     'EXTRA_ROOT_NAMES',
+    'NEVER_ACCEPTED',
     'PACKAGE',
     'PRIVACY_ALL',
     'PRIVACY_SCRIPT',
     'PRIVACY_UNDERSCORE',
     'ROOT_MODULES',
     'RootsError',
+    'SETTINGS_WHERE',
     'SIDE_EFFECT_CALL_NAMES',
+    'SettingsError',
     'TOP_LEVEL',
     'UNREADABLE',
     'accept_reason',
     'accepted_lazy_imports',
     'all_py_files',
     'audit_roots',
+    'auditme_table',
     'cached_bytes',
     'cached_per_run',
     'call_bindings',
@@ -958,9 +1023,11 @@ __all__ = [
     'emit',
     'from_import_bindings',
     'is_dunder_all_assignment',
+    'is_never_accepted',
     'is_test_relpath',
     'loose_src_modules',
     'module_dotted',
+    'never_accepted',
     'packages_under',
     'path_inside',
     'privacy',

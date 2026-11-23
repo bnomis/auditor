@@ -56,15 +56,19 @@ it with the pinned `auditme-all` hook needs both settings.
 RULE_IDS: frozenset[str]
 """Every rule id the checker can emit, `ruff` and `lockfile-drift` included."""
 
+
 # auditme/core.py
 class SettingsError(Exception):
     """A project setting is invalid; the message is the error text."""
 
+
 class RootsError(SettingsError):
     """`[tool.auditme]` declares an invalid root (unchanged, now a SettingsError)."""
 
+
 NEVER_ACCEPTED: tuple[str, ...] = ()
 """The current run's `never-accepted` patterns; the driver sets it."""
+
 
 def never_accepted(scope: pathlib.Path) -> tuple[str, ...]:
     """The `never-accepted` patterns `[tool.auditme]` declares, in order; () when none.
@@ -74,8 +78,10 @@ def never_accepted(scope: pathlib.Path) -> tuple[str, ...]:
             matches no id in `auditme.registry.RULE_IDS`.
     """
 
+
 def is_never_accepted(rule: str, patterns: tuple[str, ...]) -> bool:
     """True when `rule` equals a pattern, or a pattern ends in `*` and `rule` starts with the text before it."""
+
 
 # auditme/rules/project_hygiene.py
 def ruff_executable(scope: pathlib.Path) -> tuple[str, str]:

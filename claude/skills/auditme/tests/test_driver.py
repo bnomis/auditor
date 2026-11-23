@@ -645,3 +645,39 @@ def test_a_file_with_bad_bytes_is_an_unreadable_hit(
     assert audit.main() == 0
     records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert [record['path'] for record in records if record['rule'] == 'unreadable-file'] == ['src/probe/bad.py']
+
+
+EXTRA_FLAGS = [(), ('--package', 'probe')]
+
+MARKED_DUPLICATE = {
+    'src/probe/a.py': "NAMES = ['alpha', 'beta']\n",
+    'src/probe/b.py': "# auditme: accept[literal-duplication] probe reason\nLABELS = ['alpha', 'beta']\n",
+}
+
+
+def duplication_hits(root: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], *extra: str) -> list[dict[str, object]]:
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), *extra])
+    audit.main()
+    hits = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    return [hit for hit in hits if hit['rule'] == 'literal-duplication' and hit['path'] == 'src/probe/b.py']
+
+
+@pytest.mark.parametrize('extra', EXTRA_FLAGS)
+def test_a_listed_rule_refuses_its_marker(
+    project: Builder, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], extra: tuple[str, ...]
+) -> None:
+    root = project({**MARKED_DUPLICATE, 'pyproject.toml': '[tool.auditme]\nnever-accepted = ["literal-duplication"]\n'})
+    (hit,) = duplication_hits(root, monkeypatch, capsys, *extra)
+    assert hit['accepted'] is False
+    assert hit['accepted_reason'] is None
+    assert hit['refused_reason'] == 'probe reason'
+
+
+@pytest.mark.parametrize('extra', EXTRA_FLAGS)
+def test_an_unlisted_rule_keeps_its_marker(
+    project: Builder, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], extra: tuple[str, ...]
+) -> None:
+    root = project(MARKED_DUPLICATE)
+    (hit,) = duplication_hits(root, monkeypatch, capsys, *extra)
+    assert hit['accepted'] is True
+    assert 'refused_reason' not in hit

@@ -652,3 +652,34 @@ def test_cached_bytes_of_a_missing_path_raises_cached_read_error(tmp_path: pathl
     auditme.core.clear_source_cache()
     with pytest.raises(auditme.core.CachedReadError, match='missing.txt'):
         auditme.core.cached_bytes(tmp_path / 'missing.txt')
+
+
+def test_is_never_accepted_matches_an_exact_id() -> None:
+    assert auditme.core.is_never_accepted('literal-duplication', ('literal-duplication',))
+    assert not auditme.core.is_never_accepted('literal-duplication', ('other',))
+
+
+def test_is_never_accepted_matches_a_family() -> None:
+    assert auditme.core.is_never_accepted('leading-underscore-parameter', ('leading-underscore-*',))
+
+
+def test_is_never_accepted_does_not_match_the_bare_family_prefix() -> None:
+    assert not auditme.core.is_never_accepted('leading-underscore', ('leading-underscore-*',))
+
+
+def test_emit_refuses_an_accepted_hit_of_a_listed_rule(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(auditme.core, 'NEVER_ACCEPTED', ('r',))
+    auditme.core.emit(rule='r', variant='v', path='a.py', line=1, evidence='x', accepted=True, accepted_reason='why')
+    hit = json.loads(capsys.readouterr().out)
+    assert hit['accepted'] is False
+    assert hit['accepted_reason'] is None
+    assert hit['refused_reason'] == 'why'
+
+
+def test_emit_leaves_an_accepted_hit_of_an_unlisted_rule(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(auditme.core, 'NEVER_ACCEPTED', ('other',))
+    auditme.core.emit(rule='r', variant='v', path='a.py', line=1, evidence='x', accepted=True, accepted_reason='why')
+    hit = json.loads(capsys.readouterr().out)
+    assert hit['accepted'] is True
+    assert hit['accepted_reason'] == 'why'
+    assert 'refused_reason' not in hit

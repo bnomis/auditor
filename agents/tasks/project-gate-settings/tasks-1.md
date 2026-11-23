@@ -67,7 +67,7 @@ rule is added to the source or the docs without it.
 
 ## Task 2: Read `never-accepted` and refuse markers in `emit`
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** API (`SettingsError`, `RootsError`, `NEVER_ACCEPTED`, `never_accepted`, `is_never_accepted`, `refused_reason`); Settings (`never-accepted`); Implementation (Reading `never-accepted`, Refusing markers); Error handling (rows 1 and 3); Testing (`test_roots.py`/`test_settings.py`, `test_core.py`, `test_driver.py`); Compatibility
@@ -78,26 +78,26 @@ listed rule is reported unaccepted with its marker's text in `refused_reason`.
 
 **Subtasks:**
 
-- [ ] Tests first:
+- [x] Tests first:
   - a new `claude/skills/auditme/tests/test_settings.py`: `never_accepted` returns the patterns in order; absent table or key gives `()`; a non-list, a non-string entry, an unknown id, a `*` pattern matching no id and a `*` not at the end each raise `SettingsError` and, through `audit.py`, exit 2 with `ERROR: pyproject.toml [tool.auditme]: <detail>` on stderr and nothing on stdout; `ruff` and `lockfile-drift` are accepted as entries
   - `test_core.py`: `is_never_accepted` for an exact id, a family (`leading-underscore-*` against `leading-underscore-parameter`), and a near miss (`leading-underscore` against the pattern `leading-underscore-*`); `emit` with `NEVER_ACCEPTED` set refuses an accepted hit of a listed rule (`accepted` false, `accepted_reason` null, `refused_reason` the old reason) and leaves an accepted hit of an unlisted rule as it was, with no `refused_reason` key
   - `test_driver.py`: a `probe` project with a `literal-duplication` hit carrying a scoped marker reports `accepted: false` with `refused_reason` when `never-accepted = ["literal-duplication"]`, and `accepted: true` with no `refused_reason` when the key is absent; the same with `--package`
   - Run them and see them fail
-- [ ] In `claude/skills/auditme/checks/auditme/core.py`: add `SettingsError(Exception)` and make `RootsError` subclass it; add `never-accepted` to the table's known keys in `declared_roots`; add `NEVER_ACCEPTED`, `never_accepted(scope)` and `is_never_accepted(rule, patterns)` as the spec's API gives them, reading the table the way `declared_roots` does and validating against `auditme.registry.RULE_IDS`; export the new names beside `RootsError` in the module's `__all__`
-- [ ] In `emit`, before de-duplication and printing: when `is_never_accepted(rule, NEVER_ACCEPTED)` and the hit is accepted, set `accepted` to false, move `accepted_reason` to `refused_reason` and set `accepted_reason` to None
-- [ ] In `claude/skills/auditme/checks/audit.py`: read `never_accepted(scope)` before the sweep on every run, `--package` and `--extra-root` included, and set `auditme.core.NEVER_ACCEPTED`; catch `SettingsError` (replacing the `RootsError` handler) and exit 2 with the existing `ERROR:` line
-- [ ] If `core.py` importing `registry.py` makes an import cycle, put the validation in `audit.py` instead (it imports both) and say so in the commit body; the API stays as the spec gives it
+- [x] In `claude/skills/auditme/checks/auditme/core.py`: add `SettingsError(Exception)` and make `RootsError` subclass it; add `never-accepted` to the table's known keys in `declared_roots`; add `NEVER_ACCEPTED`, `never_accepted(scope)` and `is_never_accepted(rule, patterns)` as the spec's API gives them, reading the table the way `declared_roots` does and validating against `auditme.registry.RULE_IDS`; export the new names beside `RootsError` in the module's `__all__`
+- [x] In `emit`, before de-duplication and printing: when `is_never_accepted(rule, NEVER_ACCEPTED)` and the hit is accepted, set `accepted` to false, move `accepted_reason` to `refused_reason` and set `accepted_reason` to None
+- [x] In `claude/skills/auditme/checks/audit.py`: read `never_accepted(scope)` before the sweep on every run, `--package` and `--extra-root` included, and set `auditme.core.NEVER_ACCEPTED`; catch `SettingsError` (replacing the `RootsError` handler) and exit 2 with the existing `ERROR:` line
+- [x] If `core.py` importing `registry.py` makes an import cycle, put the validation in `audit.py` instead (it imports both) and say so in the commit body; the API stays as the spec gives it
 
 **Acceptance Criteria:**
 
-- [ ] A project without `never-accepted` gets byte-identical output to before (no `refused_reason` key anywhere)
-- [ ] A listed rule's marked hit is unaccepted and carries `refused_reason`; an unlisted rule's marked hit stays accepted
-- [ ] Each invalid value exits 2 before any hit is printed
+- [x] A project without `never-accepted` gets byte-identical output to before (no `refused_reason` key anywhere)
+- [x] A listed rule's marked hit is unaccepted and carries `refused_reason`; an unlisted rule's marked hit stays accepted
+- [x] Each invalid value exits 2 before any hit is printed
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_settings.py claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests/test_settings.py claude/skills/auditme/tests/test_core.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
