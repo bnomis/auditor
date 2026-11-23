@@ -78,7 +78,7 @@ What it does to `.pre-commit-config.yaml`:
   entry:
 
   ```yaml
-  - repo: git@github.com:bnomis/auditor.git
+  - repo: https://github.com/bnomis/auditor
     rev: <commit>
     hooks:
       - id: auditme-changed
@@ -87,7 +87,9 @@ What it does to `.pre-commit-config.yaml`:
 
 - **An auditor entry** (by `git@github.com:bnomis/auditor.git` or
   `https://github.com/bnomis/auditor`, with or without `.git`): sets its
-  `rev:` to the commit, dropping any comment on that line, and adds
+  `rev:` to the commit, dropping any comment on that line, moves its
+  `repo:` to `https://github.com/bnomis/auditor` (which CI clones without a
+  key), and adds
   `auditme-changed` or `auditme-all` if the entry lacks one. Every other
   line, the entry's `stages:` and `args:` included, stays as it was.
 
@@ -98,7 +100,7 @@ repository. When `pre-commit` is on `PATH` the new file is checked with
 
 | Option | Effect |
 |---|---|
-| `--rev <commit>` | Pin this commit (7 to 40 hex digits) instead of the current `main` of `bnomis/auditor`, read with `git ls-remote git@github.com:bnomis/auditor.git refs/heads/main` |
+| `--rev <commit>` | Pin this commit (7 to 40 hex digits) instead of the current `main` of `bnomis/auditor`, read with `git ls-remote https://github.com/bnomis/auditor refs/heads/main` |
 | `--push` | When it adds `auditme-all`, give it `stages: [manual, pre-push]`, so every push sweeps the whole tree. Leave it off for a project that still has unaccepted hits (see [An existing project](../setup.md#an-existing-project)); an `auditme-all` already in the file keeps its stages |
 | `--no-install` | Edit the file only; do not run `pre-commit install` |
 | `--dry-run` | Print the change as a unified diff and change nothing |
@@ -109,8 +111,9 @@ repository. When `pre-commit` is on `PATH` the new file is checked with
 | `1` | Nothing changed, because: `main` of `bnomis/auditor` could not be read; `pre-commit` is needed and not installed; the file pins the audit hooks from `bnomis/agents` (move it first, see [Moving a project from agents](../setup.md#moving-a-project-from-agents)); it has more than one auditor entry, no block-style top-level `repos:` list, or an auditor entry with no `hooks:` list; or the new file fails `pre-commit validate-config` |
 | `2` | A bad argument, a `--rev` that is not a commit hash, or a path that is not in a git repository; nothing changed |
 
-It does not add the CI step or the deploy key: `/auditme-project-setup`
-does those (see [The deploy key](../setup.md#the-deploy-key)).
+It does not add the CI step: `/auditme-project-setup` does that (see
+[An existing project](../setup.md#an-existing-project)). The CI step needs no
+key, since the hooks clone over HTTPS from a public repository.
 
 ## `bin/check-foreign-names.sh`
 

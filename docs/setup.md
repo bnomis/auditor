@@ -84,9 +84,6 @@ Prerequisites:
 
 - `git`
 - `gh`, authenticated: `gh auth login`
-- an SSH key registered on GitHub with read access to this repository,
-  `bnomis/auditor` (see
-  [A new user](#a-new-user))
 - `uv`, from <https://docs.astral.sh/uv/>
 - `pre-commit`: `uv tool install pre-commit`
 - Python meeting `requires-python` in `pyproject.toml`; the hooks run with the
@@ -106,7 +103,7 @@ Prerequisites:
 Install:
 
 ```shell
-git clone git@github.com:bnomis/auditor.git <directory>
+git clone https://github.com/bnomis/auditor.git <directory>
 cd <directory>
 bin/install-claude.sh
 ```
@@ -135,11 +132,8 @@ grep -n 'auditme-stop.sh' ~/.claude/settings.json
 
 ## A new user
 
-1. Ask the repository owner for read access to `bnomis/auditor`.
-2. Create your own SSH key and add it to your GitHub account:
-   `ssh-keygen -t ed25519`, then `gh ssh-key add ~/.ssh/id_ed25519.pub`.
-3. Check access: `git ls-remote git@github.com:bnomis/auditor.git refs/heads/main`
-   prints a commit and a ref.
+This repository, `bnomis/auditor`, is public: cloning it and running its hooks
+needs no access grant and no SSH key.
 
 The shared rules and skills in the agents repository hold nothing specific
 to one project. A project's own rules and skills go in its `claude/` directory
@@ -163,23 +157,13 @@ It asks for the project's test command, then writes:
 - `AGENTS.md`, `CLAUDE.md`, `TODO.md`, `DONE.md` and `claude/rules/README.md`
 
 It installs the git hooks with `pre-commit install --hook-type pre-commit
---hook-type pre-push`, then offers to create the deploy key.
+--hook-type pre-push`.
 
-### The deploy key
+### No key in CI
 
-CI clones this repository over SSH, so it needs a read-only deploy key. The
-skill, asking before each step:
-
-1. generates a key pair in a scratch directory,
-2. adds the public half to `bnomis/auditor` with `gh repo deploy-key add`,
-3. stores the private half in the project's `AUDITOR_DEPLOY_KEY` secret with
-   `gh secret set`,
-4. deletes both files.
-
-GitHub accepts a deploy key on one repository only, so each project has its
-own key.
-The workflow installs it under the `github-auditor` host alias and rewrites the
-clone URL to use it.
+The hooks are pinned by their HTTPS URL, `https://github.com/bnomis/auditor`,
+and this repository is public, so pre-commit clones it in CI without a deploy
+key or secret. The workflow needs no step for it.
 
 ## An existing project
 
@@ -196,8 +180,7 @@ Then it counts unaccepted hits by rule over the whole tree:
 pre-commit run auditme-all --hook-stage manual --all-files
 ```
 
-- **No hits:** it runs `auditme-all` on push as well, adds the CI step and
-  offers the deploy key.
+- **No hits:** it runs `auditme-all` on push as well, adds the CI step.
 - **Hits:** it files one `TODO.md` item with the dated count by rule, and leaves
   the push stage and CI alone. Fix or accept every hit, then enable both.
 
@@ -225,14 +208,14 @@ installs the git hooks:
 the current directory. The first command prints the change; the second makes
 it. Add `--push` once the project has no unaccepted hits, so `auditme-all`
 runs on every push too. The script does not count the backlog, add the CI
-step or create the deploy key. See
+step. See
 [`bin/install-hooks.sh`](reference/cli.md#bininstall-hookssh) for every
 option.
 
 To enable the gates later, add `stages: [manual, pre-push]` under
 `- id: auditme-all` in `.pre-commit-config.yaml`, paste
 `claude/skills/auditme-project-setup/templates/ci-audit-step.yml` into the
-workflow after the project's own setup, and run the deploy-key steps.
+workflow after the project's own setup.
 
 ## Moving a project from agents
 
@@ -245,34 +228,49 @@ which land only here.
 To move it:
 
 1. In `.pre-commit-config.yaml`, change the audit hooks' `repo:` from
-   `git@github.com:bnomis/agents.git` to `git@github.com:bnomis/auditor.git`,
+   `git@github.com:bnomis/agents.git` to `https://github.com/bnomis/auditor`,
    and their `rev:` to a commit of this repository:
-   `git ls-remote git@github.com:bnomis/auditor.git refs/heads/main`, first
+   `git ls-remote https://github.com/bnomis/auditor refs/heads/main`, first
    field. The hook ids are unchanged.
-2. Add a deploy key for `bnomis/auditor` (see [The deploy key](#the-deploy-key)):
-   a key on `bnomis/agents` does not open this repository, and GitHub accepts
-   a deploy key on only one repository, so it is a new key. Store its private
-   half in a new `AUDITOR_DEPLOY_KEY` secret on the project; the old
-   `AGENTS_DEPLOY_KEY` secret can be deleted once CI passes.
-3. In the CI workflow, replace the deploy-key steps with those in
-   `claude/skills/auditme-project-setup/templates/ci-audit-step.yml`: they read
-   `AUDITOR_DEPLOY_KEY`, install it under the `github-auditor` host alias, and
-   rewrite `bnomis/auditor.git` rather than `bnomis/agents.git`.
-4. Run `pre-commit run auditme-all --hook-stage manual --all-files`, and fix or
+2. In the CI workflow, replace the agents deploy-key steps with the single
+   step in `claude/skills/auditme-project-setup/templates/ci-audit-step.yml`,
+   and delete the project's `AGENTS_DEPLOY_KEY` secret once CI passes (see
+   [Dropping the deploy key](#dropping-the-deploy-key)).
+3. Run `pre-commit run auditme-all --hook-stage manual --all-files`, and fix or
    accept any new hits in the same commit, as for an upgrade.
-5. If the project also pins the `no-project-names` hook from
+4. If the project also pins the `no-project-names` hook from
    `bnomis/agents`, move it into the auditor block beside the audit hooks,
    keeping its `args:`. It moved here too, and the agents repository no
-   longer publishes it. A project that pinned only that hook from agents
-   then needs no agents deploy key: remove the agents deploy-key steps from
-   its CI workflow and delete its `AGENTS_DEPLOY_KEY` secret.
+   longer publishes it.
 
 The old deploy key on `bnomis/agents` can then be removed.
+
+## Dropping the deploy key
+
+A project set up before this repository was public pins the hooks by SSH
+(`git@github.com:bnomis/auditor.git`), and its workflow installs an
+`AUDITOR_DEPLOY_KEY` secret so the runner can clone over SSH. An SSH clone
+needs a key even from a public repository, so the URL changes first:
+
+1. Run `~/src/auditor/bin/install-hooks.sh <project>`, or change the auditor
+   entry's `repo:` to `https://github.com/bnomis/auditor` by hand. The
+   script moves an SSH entry to the HTTPS URL and reports `cloned from
+   https://github.com/bnomis/auditor`.
+2. In the CI workflow, delete the `Install the audit deploy key` and
+   `Remove the audit deploy key` steps, leaving the `Audit the whole tree`
+   step as in
+   `claude/skills/auditme-project-setup/templates/ci-audit-step.yml`.
+3. Commit, push, and check that CI passes.
+4. Delete the project's secret: `gh secret delete AUDITOR_DEPLOY_KEY --repo
+   <owner>/<project>`.
+5. Remove the project's deploy key from this repository: list them with
+   `gh repo deploy-key list --repo bnomis/auditor`, then
+   `gh repo deploy-key delete <id> --repo bnomis/auditor`.
 
 ## Upgrading the checker
 
 ```shell
-pre-commit autoupdate --repo git@github.com:bnomis/auditor.git
+pre-commit autoupdate --repo https://github.com/bnomis/auditor
 pre-commit run auditme-all --hook-stage manual --all-files
 ```
 
@@ -286,10 +284,10 @@ the same commit as the upgrade, so `main` never carries a failing gate.
 ## Troubleshooting
 
 **The hook cannot clone this repository.** Run
-`git ls-remote git@github.com:bnomis/auditor.git refs/heads/main` on your
-machine. If it fails, your SSH key lacks access. In CI, check that the
-`AUDITOR_DEPLOY_KEY` secret exists, that the deploy key is on `bnomis/auditor`,
-and that the `Install the audit deploy key` step ran before `pre-commit`.
+`git ls-remote https://github.com/bnomis/auditor refs/heads/main`. If it
+fails, GitHub is unreachable from that machine. If CI fails with
+`Permission denied (publickey)`, the project still pins the SSH URL: see
+[Dropping the deploy key](#dropping-the-deploy-key).
 
 **The Stop hook does not fire.**
 

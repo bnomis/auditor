@@ -59,22 +59,18 @@ Path defaults to the current repository root. Templates are in
   `auditme-changed` and `auditme-all` hooks pinned to this repository's
   current `main` commit), `.github/workflows/ci.yml`, `AGENTS.md`,
   `CLAUDE.md`, `TODO.md`, `DONE.md` and `claude/rules/README.md`; installs the
-  pre-commit and pre-push hooks; then runs the deploy-key steps. Asks before
+  pre-commit and pre-push hooks. Asks before
   overwriting an existing `.pre-commit-config.yaml`,
   `.github/workflows/ci.yml`, `AGENTS.md`, `TODO.md` or `DONE.md`.
 - **`adopt`:** adds the auditme hooks, offers to remove a project-local hook
   doing the same job, and counts unaccepted hits with
   `pre-commit run auditme-all --hook-stage manual --all-files`. At zero hits
-  it enables the pre-push stage, adds the CI audit step and runs the
-  deploy-key steps; otherwise it files a dated `TODO.md` item instead and
+  it enables the pre-push stage and adds the CI audit step; otherwise it files a dated `TODO.md` item instead and
   enables neither gate.
-- **Deploy-key steps:** generate an ed25519 key in a temporary directory, add
-  the public key as a read-only deploy key on this repository, set it
-  as the `AUDITOR_DEPLOY_KEY` secret on the project, then delete the files.
-  The private key is never printed.
 - **Stops for:** the project name and test command; a failing
-  `git ls-remote` of the auditor repository (no SSH access); overwriting an
+  `git ls-remote` of the auditor repository (no network access); overwriting an
   existing project file (`new`); removing a project-local hook (`adopt`);
-  each deploy-key and secret command; commit. Never pushes.
+  commit. Never pushes. CI needs no key or secret: the hooks clone the public
+  auditor repository over HTTPS.
 
 See [Setup](../setup.md) for the full walk-through.

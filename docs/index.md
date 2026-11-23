@@ -9,7 +9,7 @@ Python rules the checker enforces. The other shared rules and skills live in the
 ([`bnomis/agents`](https://bnomis.github.io/agents/)).
 
 ```shell
-git clone git@github.com:bnomis/auditor.git ~/src/auditor
+git clone https://github.com/bnomis/auditor.git ~/src/auditor
 ~/src/auditor/bin/install-claude.sh
 ```
 
@@ -18,7 +18,7 @@ The installer links the `/auditme` and `/auditme-project-setup` skills, the rule
 `/auditme-project-setup adopt`, which pins the hooks in its `.pre-commit-config.yaml`:
 
 ```yaml
-- repo: git@github.com:bnomis/auditor.git
+- repo: https://github.com/bnomis/auditor
   rev: <commit>
   hooks:
     - id: auditme-changed

@@ -17,18 +17,8 @@ NAMES = [
     'pre-commit-config.yaml',
 ]
 PLACEHOLDERS = {'AUDITOR_REV', 'PROJECT_NAME', 'TEST_COMMAND'}
-ALIAS_REWRITE = 'url."git@github-auditor:bnomis/auditor.git".insteadOf "git@github.com:bnomis/auditor.git"'
 AUDIT_COMMAND = 'pre-commit run auditme-all --hook-stage manual --all-files'
-DEPLOY_KEY_LINES = (
-    'AUDITOR_DEPLOY_KEY',
-    'Host github-auditor',
-    'IdentitiesOnly yes',
-    'StrictHostKeyChecking yes',
-    'api.github.com/meta',
-    'if: always()',
-    'rm -f ~/.ssh/auditor_deploy_key',
-    ALIAS_REWRITE,
-)
+KEY_MARKERS = ('.ssh', 'DEPLOY_KEY', 'github-auditor', 'secrets.', 'ssh-keyscan')
 
 
 def read(name: str) -> str:
@@ -53,7 +43,8 @@ def test_claude_md_imports_agents_md() -> None:
 def test_pre_commit_config_structure() -> None:
     text = read('pre-commit-config.yaml')
     assert text.startswith('repos:\n')
-    assert '- repo: git@github.com:bnomis/auditor.git' in text
+    assert '- repo: https://github.com/bnomis/auditor\n' in text
+    assert 'git@github.com' not in text
     assert 'rev: {{AUDITOR_REV}}' in text
     for hook in (
         'ruff-check',
@@ -70,7 +61,6 @@ def test_ci_structure() -> None:
     for key in ('name:', 'on:', 'jobs:', 'steps:'):
         assert re.search(rf'^\s*{key}', text, re.MULTILINE), key
     for needle in (
-        *DEPLOY_KEY_LINES,
         'uv sync',
         'pre-commit run --all-files',
         AUDIT_COMMAND,
@@ -78,17 +68,21 @@ def test_ci_structure() -> None:
     ):
         assert needle in text, needle
     assert text.index('uv sync') < text.index(AUDIT_COMMAND)
-    assert text.index('{{TEST_COMMAND}}') < text.index('AUDITOR_DEPLOY_KEY')
-    assert 'ssh-keyscan' not in text
-    assert 'ssh-keyscan' not in read('ci-audit-step.yml')
 
 
-def test_ci_audit_step_shares_the_ci_deploy_key_step() -> None:
+def test_ci_needs_no_key_to_clone_the_public_auditor() -> None:
+    """The hooks are cloned over HTTPS from a public repository, so neither
+    CI template installs a key or reads a secret."""
+    for name in ('ci.yml', 'ci-audit-step.yml'):
+        text = read(name)
+        for marker in KEY_MARKERS:
+            assert marker not in text, (name, marker)
+
+
+def test_ci_audit_step_runs_the_ci_audit_command() -> None:
     step = read('ci-audit-step.yml')
-    ci = read('ci.yml')
-    for needle in (*DEPLOY_KEY_LINES, AUDIT_COMMAND):
-        assert needle in step, needle
-        assert needle in ci, needle
+    assert AUDIT_COMMAND in step
+    assert AUDIT_COMMAND in read('ci.yml')
     assert not re.search(r'\{\{\w+\}\}', step)
 
 

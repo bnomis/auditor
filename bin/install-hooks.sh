@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Install or update the auditor's pre-commit hooks in a git repository: add
 # the auditor block to its .pre-commit-config.yaml, or move the block's rev to
-# a newer commit, then install the git hooks. See docs/reference/cli.md.
+# a newer commit, then install the git hooks. An entry that clones over SSH
+# moves to the HTTPS URL, which CI can clone without a key. See
+# docs/reference/cli.md.
 set -euo pipefail
 
-AUDITOR_URL=git@github.com:bnomis/auditor.git
+AUDITOR_URL=https://github.com/bnomis/auditor
 AUDITOR_PATTERN='github\.com[:/]bnomis/auditor(\.git)?'
 AGENTS_PATTERN='github\.com[:/]bnomis/agents(\.git)?'
 
@@ -52,7 +54,7 @@ top=$(git -C "$target" rev-parse --show-toplevel 2>/dev/null) || fail 2 "not a g
 
 if [ -z "$rev" ]; then
     rev=$(git ls-remote "$AUDITOR_URL" refs/heads/main 2>/dev/null | cut -f1) || rev=''
-    [ -n "$rev" ] || fail 1 "cannot read the main branch of $AUDITOR_URL; check SSH access, or pass --rev <commit>"
+    [ -n "$rev" ] || fail 1 "cannot read the main branch of $AUDITOR_URL; check the network, or pass --rev <commit>"
 fi
 [[ "$rev" =~ ^[0-9a-f]{7,40}$ ]] || fail 2 "--rev must be a commit hash: $rev"
 
@@ -89,7 +91,7 @@ else
 
     if [ "$blocks" -eq 1 ]; then
         # Move the block's rev, and add whichever audit hook it lacks.
-        awk -v pattern="$AUDITOR_PATTERN" -v rev="$rev" -v push="$push" '
+        awk -v pattern="$AUDITOR_PATTERN" -v url="$AUDITOR_URL" -v rev="$rev" -v push="$push" '
             function indent_of(line) { match(line, /^[ ]*/); return RLENGTH }
             function flush_missing() {
                 if (!in_block || added) return
@@ -132,6 +134,16 @@ else
                         print old > "/dev/stderr"
                         continue
                     }
+                    if (i == start) {
+                        # Move an SSH or non-canonical URL to the HTTPS one.
+                        match(line, /repo:[ ]*/)
+                        head = substr(line, 1, RSTART + RLENGTH - 1)
+                        rest = substr(line, RSTART + RLENGTH)
+                        match(rest, /^[^ #]*/)
+                        old_url = substr(rest, 1, RLENGTH)
+                        gsub(/[\047"]/, "", old_url)
+                        if (old_url != url) line = head url substr(rest, RLENGTH + 1)
+                    }
                     print line
                     if (i == hooks_line) { in_block = 1; flush_missing() }
                 }
@@ -145,6 +157,10 @@ else
             action="the auditor hooks are pinned at $rev"
         else
             action="moved the auditor hooks from ${old_rev:-no rev} to $rev"
+        fi
+        canonical="repo:[[:space:]]*${AUDITOR_URL}[[:space:]]*\$"
+        if ! grep -Eq -- "$canonical" "$config"; then
+            action="$action, cloned from $AUDITOR_URL"
         fi
     else
         # Add the block at the end of the repos list.

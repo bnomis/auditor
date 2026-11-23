@@ -12,8 +12,8 @@ repos:
         args: ["--external-sources", "--source-path=SCRIPTDIR"]
 
   # The shared audit hooks, pinned to one commit of the checker.
-  # Upgrade with: pre-commit autoupdate --repo git@github.com:bnomis/auditor.git
-  - repo: git@github.com:bnomis/auditor.git
+  # Upgrade with: pre-commit autoupdate --repo https://github.com/bnomis/auditor
+  - repo: https://github.com/bnomis/auditor
     rev: {{AUDITOR_REV}}
     hooks:
       - id: auditme-changed

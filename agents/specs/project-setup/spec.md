@@ -1,6 +1,6 @@
 # Project setup
 
-**Version:** 1.12
+**Version:** 1.13
 **Status:** implemented
 **Date:** 2026-10-31
 **Review page (1.11):** https://claude.ai/artifact/XQ1bgLekKX9gPJJt9QGDFX
@@ -126,6 +126,14 @@ design, not the project:
   links into runs its own. Trust comes from the shared git directory, not from
   the files a repository holds: a global hook that ran any repository's
   `changed.py` would run untrusted code at the end of every turn.
+- **CI no longer needs a deploy key** (amendment 1.13, 2026-11-23). This
+  repository was made public, so its hooks can be cloned without
+  credentials - but only over HTTPS: an SSH clone needs a key even from a
+  public repository. Projects pin `https://github.com/bnomis/auditor`; the
+  templates drop the deploy-key and secret steps, the skill drops the
+  deploy-key steps, and `bin/install-hooks.sh` moves an existing SSH entry to
+  the HTTPS URL. Projects set up before 1.13 keep working until moved, since
+  their key still opens the repository; `docs/setup.md` says how to move them.
 
 ## Module location
 
@@ -514,7 +522,7 @@ rejected: it leaves a marker someone must remember to remove.
 A project adds them by revision, which is what pins the checker:
 
 ```yaml
-- repo: git@github.com:bnomis/auditor.git
+- repo: https://github.com/bnomis/auditor
   rev: <commit of this repository>
   hooks:
     - id: auditme-changed
@@ -524,7 +532,7 @@ A project adds them by revision, which is what pins the checker:
 `language: script` runs the file with its own `#!/usr/bin/env python3`, so the
 interpreter is the one on `PATH`, which must meet this repository's
 `requires-python`. Upgrading the checker is `pre-commit autoupdate --repo
-git@github.com:bnomis/auditor.git` in the project: one commit, whose CI run shows
+https://github.com/bnomis/auditor` in the project: one commit, whose CI run shows
 the new rules' catch-up surface.
 
 #### CI
@@ -536,17 +544,10 @@ The CI step, in the project's workflow after its own setup:
   run: pre-commit run auditme-all --hook-stage manual --all-files
 ```
 
-The repository is private, so the runner needs read access to it. Decided with
-the operator 2026-10-31: **a deploy key per project**. The project holds an
-`AUDITOR_DEPLOY_KEY` secret, the private half of an SSH key added read-only to
-this repository's deploy keys, and its workflow installs it before pre-commit
-runs, with `Host github-auditor` / `HostName github.com` / `IdentityFile` / `IdentitiesOnly yes` in
-`~/.ssh/config`. A project that already uses a deploy key for another private
-repository on the same host needs an `ssh` host alias per key, because GitHub
-admits one deploy key per repository; the template uses `github-auditor` as the
-alias and rewrites the hook's URL to it with `git config --global
-url."git@github-auditor:bnomis/auditor.git".insteadOf
-"git@github.com:bnomis/auditor.git"`.
+The repository is public and the hooks are pinned by their HTTPS URL, so
+the runner clones it with no key or secret (1.13). Until 1.13 it was private
+and each project held an `AUDITOR_DEPLOY_KEY` secret, installed under a
+`github-auditor` SSH host alias; that design is retired.
 
 ### The Stop hook
 
@@ -589,8 +590,7 @@ removed when the project adopts this one, or every turn runs the sweep twice.
 
 `claude/skills/auditme-project-setup/SKILL.md`, invoked as
 `/auditme-project-setup new [<path>]` or
-`/auditme-project-setup adopt [<path>]`. It confirms before each outward-facing step (creating a deploy key, setting a secret,
-committing) and never pushes.
+`/auditme-project-setup adopt [<path>]`. It confirms before committing and never pushes.
 
 **`new`**, in an empty or freshly initialised repository:
 
@@ -598,23 +598,22 @@ committing) and never pushes.
    check and format, shellcheck, and the two auditme hooks pinned to this
    repository's `origin/main` commit, with `auditme-all` at
    `[manual, pre-push]` (1.3).
-2. Write `.github/workflows/ci.yml` from `templates/ci.yml`: checkout, the deploy
-   key step, Python and uv, `uv tool install pre-commit`, `uv sync`, the
+2. Write `.github/workflows/ci.yml` from `templates/ci.yml`: checkout, Python
+   and uv, `uv tool install pre-commit`, `uv sync`, the
    `.venv/bin` PATH step, the project's test command (asked), `pre-commit run
-   --all-files`, the `auditme-all` step and the step that removes the deploy
-   key.
+   --all-files` and the `auditme-all` step.
 3. Write `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md`), `TODO.md`, `DONE.md` and
    `claude/rules/README.md` from templates, the title from the project name.
-4. Run `pre-commit install --hook-type pre-commit --hook-type pre-push`, then
-   the deploy-key steps below.
+4. Run `pre-commit install --hook-type pre-commit --hook-type pre-push`.
 
 **`adopt`**, in an existing project:
 
-1. Add the two hooks to `.pre-commit-config.yaml` (create it if absent); remove
+1. Add the two hooks to `.pre-commit-config.yaml` (create it if absent), moving
+   an SSH auditor entry to the HTTPS URL (1.13); remove
    any project-local hook or Stop hook that does the same job, after showing it.
 2. Run `pre-commit run auditme-all --hook-stage manual --all-files` and count the
    unaccepted hits by rule.
-3. **Zero**: add the push stage (1.3), the CI step and the deploy-key steps.
+3. **Zero**: add the push stage (1.3) and the CI step.
    **More than zero**: file
    one `TODO.md` item recording the count by rule and the date, whose Fix
    direction is to fix or accept every hit and then add the push stage and the CI
@@ -622,12 +621,6 @@ committing) and never pushes.
    off, and one that is not switched on cannot be.
 4. Commit the hook and `TODO.md` changes as `build(audit): adopt the shared audit
    hooks`, when the operator agrees.
-
-**Deploy-key steps** (asked before each): `ssh-keygen -t ed25519 -N '' -f
-<scratch>/auditor_deploy_key`; `gh repo deploy-key add <scratch>/auditor_deploy_key.pub
---repo bnomis/auditor --title <project>`; `gh secret set AUDITOR_DEPLOY_KEY --repo
-<owner>/<project> < <scratch>/auditor_deploy_key`; then delete both files. The
-private key is never printed.
 
 ## Settings
 
@@ -651,25 +644,25 @@ conversation or the project that motivated it, in this order:
 
 1. **What you get** - the guards, what each catches, and why the commit hook is
    scoped to changed files while CI sweeps the whole tree.
-2. **A new machine** - prerequisites (`git`, `gh` authenticated, an SSH key on
-   GitHub with access to this repository, `uv`, `pre-commit` via `uv tool
+2. **A new machine** - prerequisites (`git`, `gh` authenticated, `uv`, `pre-commit` via `uv tool
    install pre-commit`, Python meeting `requires-python`, `jq`); clone this
    repository; run `bin/install-claude.sh` (it needs `uv`); check it (`ls ~/.claude/skills`,
    the `Stop` entry in `~/.claude/settings.json`).
-3. **A new user** - being given read access to this repository; their own SSH
-   key; that rules and skills are shared and project specifics go in the
+3. **A new user** - that this repository is public and needs no access
+   grant; that rules and skills are shared and project specifics go in the
    project's `claude/` directory (the agents repository's
    `claude/rules/rule-scope.md`).
-4. **A new project** - `/auditme-project-setup new`, what it writes, and the
-   deploy key.
+4. **A new project** - `/auditme-project-setup new`, what it writes, and why CI
+   needs no key (1.13).
 5. **An existing project** - `/auditme-project-setup adopt`, the backlog step,
    and enabling the CI gate.
 6. **Moving a project from agents** - moving a project that carries the
-   agents repository's own hooks onto this repository's.
+   agents repository's own hooks onto this repository's; and dropping the
+   deploy key from a project set up before 1.13.
 7. **Upgrading the checker** - `pre-commit autoupdate`, and handling its
    catch-up hits in the same commit.
-8. **Troubleshooting** - the hook cannot clone (SSH, the deploy key, the host
-   alias); the Stop hook does not fire (not opted in, `jq` missing); hits appear
+8. **Troubleshooting** - the hook cannot clone (no network, or an SSH URL
+   left from before 1.13); the Stop hook does not fire (not opted in, `jq` missing); hits appear
    only after an upgrade (expected); `SKIP=auditme-changed` for one commit.
 
 Amendment 1.2: "What you get" says which files are audited - packages under
@@ -779,8 +772,8 @@ is and linking to `docs/setup.md`.
 ## External dependencies
 
 `git`, `pre-commit` (the remote-hook mechanism, `language: script`, the `manual`
-stage), `gh` (deploy keys and secrets), `ssh-keygen`, `jq` (the Stop hook), and
-GitHub deploy keys (read-only, one per repository). The checker stays
+stage), `jq` (the Stop hook), and anonymous HTTPS clones of this public repository
+from GitHub. The checker stays
 stdlib-only.
 
 ## Consumers

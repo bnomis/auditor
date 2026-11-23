@@ -17,7 +17,7 @@ RUFF = """repos:
 """
 
 PINNED = f"""repos:
-  - repo: git@github.com:bnomis/auditor.git
+  - repo: https://github.com/bnomis/auditor
     rev: {OLD}
     hooks:
       - id: auditme-changed
@@ -68,7 +68,7 @@ def test_a_repository_with_no_config_gets_one(repo: pathlib.Path) -> None:
     assert result.returncode == 0, result.stderr
     assert (
         config(repo)
-        == f'repos:\n  - repo: git@github.com:bnomis/auditor.git\n    rev: {NEW}\n    hooks:\n      - id: auditme-changed\n      - id: auditme-all\n'
+        == f'repos:\n  - repo: https://github.com/bnomis/auditor\n    rev: {NEW}\n    hooks:\n      - id: auditme-changed\n      - id: auditme-all\n'
     )
 
 
@@ -77,28 +77,28 @@ def test_the_block_is_added_at_the_end_of_the_repos_list(repo: pathlib.Path) -> 
     assert run(repo, '--rev', NEW, '--no-install').returncode == 0
     assert (
         config(repo)
-        == RUFF + f'\n  - repo: git@github.com:bnomis/auditor.git\n    rev: {NEW}\n    hooks:\n      - id: auditme-changed\n      - id: auditme-all\n'
+        == RUFF + f'\n  - repo: https://github.com/bnomis/auditor\n    rev: {NEW}\n    hooks:\n      - id: auditme-changed\n      - id: auditme-all\n'
     )
 
 
 def test_an_empty_repos_list_gets_the_block_straight_after_it(repo: pathlib.Path) -> None:
     write_config(repo, 'repos:\n')
     assert run(repo, '--rev', NEW, '--no-install').returncode == 0
-    assert config(repo).startswith('repos:\n  - repo: git@github.com:bnomis/auditor.git\n')
+    assert config(repo).startswith('repos:\n  - repo: https://github.com/bnomis/auditor\n')
 
 
 def test_the_block_goes_before_a_top_level_key_after_the_list(repo: pathlib.Path) -> None:
     write_config(repo, RUFF + '\ndefault_stages: [pre-commit]\n')
     assert run(repo, '--rev', NEW, '--no-install').returncode == 0
     text = config(repo)
-    assert text.index('bnomis/auditor.git') < text.index('default_stages:')
+    assert text.index('bnomis/auditor') < text.index('default_stages:')
     assert text.endswith('      - id: auditme-all\n\ndefault_stages: [pre-commit]\n')
 
 
 def test_the_block_follows_the_list_indentation(repo: pathlib.Path) -> None:
     write_config(repo, 'repos:\n- repo: https://github.com/astral-sh/ruff-pre-commit\n  rev: v0.17.3\n  hooks:\n  - id: ruff-check\n')
     assert run(repo, '--rev', NEW, '--no-install').returncode == 0
-    assert f'\n- repo: git@github.com:bnomis/auditor.git\n  rev: {NEW}\n  hooks:\n    - id: auditme-changed\n' in config(repo)
+    assert f'\n- repo: https://github.com/bnomis/auditor\n  rev: {NEW}\n  hooks:\n    - id: auditme-changed\n' in config(repo)
 
 
 def test_push_runs_the_whole_tree_sweep_on_push(repo: pathlib.Path) -> None:
@@ -112,6 +112,23 @@ def test_an_existing_block_moves_to_the_new_rev_and_nothing_else_changes(repo: p
     assert result.returncode == 0, result.stderr
     assert config(repo) == PINNED.replace(f'rev: {OLD}', f'rev: {NEW}')
     assert f'moved the auditor hooks from {OLD} to {NEW}' in result.stdout
+
+
+@pytest.mark.parametrize(
+    'old_url',
+    [
+        'git@github.com:bnomis/auditor.git',
+        "'git@github.com:bnomis/auditor.git'",
+        'https://github.com/bnomis/auditor.git',
+    ],
+)
+def test_an_ssh_entry_moves_to_the_https_url(repo: pathlib.Path, old_url: str) -> None:
+    """CI clones the public repository over HTTPS without a key; an SSH URL would need one."""
+    write_config(repo, PINNED.replace('https://github.com/bnomis/auditor', old_url))
+    result = run(repo, '--rev', OLD, '--no-install')
+    assert result.returncode == 0, result.stderr
+    assert config(repo) == PINNED
+    assert 'cloned from https://github.com/bnomis/auditor' in result.stdout
 
 
 def test_a_rev_comment_is_replaced_with_the_rev(repo: pathlib.Path) -> None:
@@ -145,7 +162,7 @@ def test_a_dry_run_prints_the_diff_and_writes_nothing(repo: pathlib.Path) -> Non
 
 
 def test_a_pin_from_the_agents_repository_is_refused(repo: pathlib.Path) -> None:
-    write_config(repo, PINNED.replace('bnomis/auditor.git', 'bnomis/agents.git'))
+    write_config(repo, PINNED.replace('https://github.com/bnomis/auditor', 'git@github.com:bnomis/agents.git'))
     result = run(repo, '--rev', NEW, '--no-install')
     assert result.returncode == 1
     assert 'Moving a project from agents' in result.stderr
