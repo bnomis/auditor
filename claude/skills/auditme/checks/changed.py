@@ -49,6 +49,7 @@ RULE_HELP = {
     'lockfile-drift': 'lockfile-drift: run `uv lock` and commit uv.lock; no accept marker applies.',
     'ruff': 'ruff: fix the code, or silence one line with `# noqa: <code>`; no accept marker applies.',
 }
+REFUSED_HELP = '{rule}: this project does not accept markers for this rule ([tool.auditme] never-accepted); fix the code.'
 SCOPE_SUFFIXES = frozenset({'.py', '.sh'})
 HUNK_HEADER = re.compile(r'^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
 SKIP_HELP = 'To skip this check for one commit: SKIP=auditme-changed git commit'
@@ -353,10 +354,13 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
     print(format_hits(hits))
     print()
     rules = {hit.get('rule') for hit in hits}
+    refused = {hit.get('rule') for hit in hits if hit.get('refused_reason')}
     for rule, advice in sorted(RULE_HELP.items()):
         if rule in rules:
             print(advice)
-    if rules - RULE_HELP.keys():
+    for rule in sorted(str(rule) for rule in refused if rule not in RULE_HELP):
+        print(REFUSED_HELP.format(rule=rule))
+    if rules - RULE_HELP.keys() - refused:
         print(ACCEPT_HELP)
     print(SKIP_ALL_HELP if args.all else SKIP_HELP)
     return 1

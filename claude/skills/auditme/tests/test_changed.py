@@ -276,6 +276,58 @@ def test_end_to_end_against_the_real_checker(tmp_path, capsys) -> None:
     assert 'src/pkg/old.py:1  future-annotations' in capsys.readouterr().out
 
 
+def never_accepted_project(tmp_path: pathlib.Path, files: dict[str, str]) -> pathlib.Path:
+    root = tmp_path / 'project'
+    root.mkdir()
+    conftest.git(root, 'init', '-q', '-b', 'main')
+    write(root, {'pyproject.toml': '[tool.auditme]\nnever-accepted = ["literal-duplication"]\n', 'src/probe/__init__.py': ''})
+    commit_all(root, 'base')
+    conftest.git(root, 'checkout', '-q', '-b', 'feature')
+    write(root, files)
+    commit_all(root, 'add files')
+    return root
+
+
+REFUSED_ADVICE = 'literal-duplication: this project does not accept markers for this rule ([tool.auditme] never-accepted); fix the code.'
+
+
+def test_a_refused_marker_names_the_never_accepted_rule(tmp_path, capsys) -> None:
+    root = never_accepted_project(
+        tmp_path,
+        {
+            'src/probe/a.py': "NAMES = ['alpha', 'beta']\n",
+            'src/probe/b.py': "# auditme: accept[literal-duplication] probe reason\nLABELS = ['alpha', 'beta']\n",
+        },
+    )
+    assert changed.main(['--all', str(root)]) == 1
+    out = capsys.readouterr().out
+    assert 'src/probe/b.py:2  literal-duplication' in out
+    assert out.count(REFUSED_ADVICE) == 1
+    assert 'auditme: accept[<rule>]' not in out
+
+
+def test_two_refused_hits_of_one_rule_print_the_advice_once(tmp_path, capsys) -> None:
+    root = never_accepted_project(
+        tmp_path,
+        {
+            'src/probe/a.py': "# auditme: accept[literal-duplication] one\nNAMES = ['alpha', 'beta']\n",
+            'src/probe/b.py': "# auditme: accept[literal-duplication] two\nLABELS = ['alpha', 'beta']\n",
+        },
+    )
+    assert changed.main(['--all', str(root)]) == 1
+    out = capsys.readouterr().out
+    assert out.count('literal-duplication  ') + out.count('  literal-duplication') >= 2
+    assert out.count(REFUSED_ADVICE) == 1
+
+
+def test_a_hit_without_refused_reason_gets_the_generic_advice(repo, stub_sweep, capsys) -> None:
+    stub_sweep([hit('src/pkg/a.py')])
+    assert changed.main(['--all', str(repo)]) == 1
+    out = capsys.readouterr().out
+    assert 'auditme: accept[<rule>]' in out
+    assert 'never-accepted' not in out
+
+
 def test_cross_file_hit_on_an_unchanged_file_fails_when_its_peer_changes(tmp_path, capsys) -> None:
     root = tmp_path / 'project'
     root.mkdir()

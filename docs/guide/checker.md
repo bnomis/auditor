@@ -10,8 +10,17 @@ one JSON object per hit. It reports; it never decides. Triage is the
 reviewer's job, and acceptance is the accept marker's.
 
 It needs Python 3.14 or later. The `ruff` and `ruff-version-drift` rules run
+the ruff named by the `AUDITME_RUFF` environment variable when it is set, else
 the project's `.venv/bin/ruff` when that is executable, else `ruff` from
-`PATH`, and `lockfile-drift` runs `uv lock --check`.
+`PATH`, and `lockfile-drift` runs `uv lock --check`. Set `AUDITME_RUFF` to the
+path of a ruff outside the project's `.venv`, for example one a CI job
+installs elsewhere:
+
+```shell
+AUDITME_RUFF=/opt/tools/ruff-0.17.4/bin/ruff uv run python claude/skills/auditme/checks/audit.py .
+```
+
+A value that is not an executable file stops the sweep with exit `2`.
 
 ## What it audits
 
@@ -198,6 +207,26 @@ line of a statement that spans several lines.
     `ruff` hits come from ruff and are silenced the ruff way (`# noqa: <code>`
     or the project's ruff config). `lockfile-drift`, `auditme-check-crash` and `unreadable-file`
     have no marker either: regenerate the lockfile, fix the checker, or make the file readable.
+    A project can add rules to this list with `never-accepted`, below.
+
+### Never-accepted rules
+
+A project that fixes every hit of a rule, and wants no marker to excuse one,
+lists the rule in `pyproject.toml`:
+
+```toml
+[tool.auditme]
+never-accepted = ["silent-broad-except", "layering-*"]
+```
+
+Each entry is a rule name, or a family: a name ending in `*` matches every
+rule that starts with the text before it (`layering-*`). The `*` may appear
+only at the end. A marker for a listed rule no longer accepts the hit: the hit
+is reported with `accepted` false, and the marker's reason is copied into
+`refused_reason`, so the reviewer sees what was refused. The hit has to be
+fixed. An entry that matches no rule exits `2`, so a misspelt name cannot
+leave every marker for that rule counting. `never-accepted` can sit beside
+`roots` in the same table.
 
 Nothing else counts as acceptance: not a prior review, a decision note, or a
 belief that the pattern is intentional.

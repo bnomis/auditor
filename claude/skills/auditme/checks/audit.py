@@ -55,6 +55,7 @@ Output schema (one JSON object per line):
         "evidence": "<source snippet or identifier>",
         "accepted": <bool>,
         "accepted_reason": "<why, if accepted>",
+        "refused_reason": "<the marker's reason, when never-accepted refused it>",
         "related": ["<other path>", ...]
     }
 
@@ -73,7 +74,9 @@ Acceptance is determined exclusively by:
        any line of a multi-line statement).
 
 `ruff` and `lockfile-drift` hits are never accepted by a marker: they are
-cleared with ruff's `# noqa` or `uv lock`.
+cleared with ruff's `# noqa` or `uv lock`. A project can refuse markers for
+more rules with `[tool.auditme] never-accepted`: a hit of a listed rule is
+reported with `accepted` false and the marker's text in `refused_reason`.
 
 No other signal acts as acceptance. The existence of a finding in a
 prior review, a decision note, or an assumption of intentionality does
@@ -82,6 +85,7 @@ required finding.
 """
 
 import argparse
+import os
 import pathlib
 import sys
 import typing
@@ -93,6 +97,16 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditme.core.EXTRA_ROOT_NAMES)
+
+
+def check_never_accepted(patterns: tuple[str, ...]) -> None:
+    """Raise SettingsError for a `never-accepted` pattern that matches no rule id.
+
+    A misspelt rule name would otherwise let every marker for that rule count.
+    """
+    for pattern in patterns:
+        if not any(auditme.core.is_never_accepted(rule, (pattern,)) for rule in auditme.registry.RULE_IDS):
+            raise auditme.core.SettingsError(f'{auditme.core.SETTINGS_WHERE}: never-accepted {pattern!r} matches no rule id')
 
 
 def report_unreadable(scope: pathlib.Path) -> None:
@@ -183,15 +197,26 @@ def main() -> int:
                 return 2
 
     default_roots: list[pathlib.Path] = []
-    if not args.package:
-        # Read first: an invalid declaration must exit before anything is emitted.
-        try:
+    # Read first: an invalid setting must exit before anything is emitted.
+    try:
+        patterns = auditme.core.never_accepted(scope)
+        check_never_accepted(patterns)
+        auditme.core.NEVER_ACCEPTED = patterns
+        if not args.package:
             default_roots = auditme.core.audit_roots(scope)
-        except auditme.core.RootsError as exc:
-            # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
-            print(f'ERROR: {auditme.core.describe_error(exc)}', file=sys.stderr)
+    except auditme.core.SettingsError as exc:
+        # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+        print(f'ERROR: {auditme.core.describe_error(exc)}', file=sys.stderr)
+        return 2
+
+    named_ruff = os.environ.get('AUDITME_RUFF')
+    if named_ruff:
+        ruff_path = pathlib.Path(named_ruff)
+        if not auditme.core.is_executable_file(ruff_path):
+            print(f'ERROR: AUDITME_RUFF={named_ruff} is not an executable file', file=sys.stderr)
             return 2
 
+    if not args.package:
         # A module directly in src/ belongs to no root, so no pass would read
         # it. The driver reports it, not a registered check: a check runs once
         # per root, and a project holding only src/a.py has none.

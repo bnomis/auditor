@@ -298,6 +298,8 @@ The script treats a hit as `accepted: true` only when one of these exists:
    - several markers on one line each answer for their own rule: `# auditme: accept[rule-a] <reason>  # auditme: accept[rule-b] <reason>`, each reason ending where the next marker begins
 2. **AGENTS.md table row** pairing the importer and imported module in backticks (for in-function imports). The importer module path is computed without a leading `src.` prefix (e.g. `pkg.config.structures`, not `src.pkg.config.structures`); AGENTS.md rows should use the same form.
 
+A project can refuse markers for named rules with `[tool.auditme] never-accepted` in `pyproject.toml` (rule names, or families ending in `*`): a hit of such a rule stays `accepted: false` and carries the marker's text in `refused_reason`. `ruff` and `lockfile-drift` hits are never accepted by a marker either.
+
 Nothing else acts as acceptance - not a decision note under `agents/audit-reviews/`, not a prior review that "agreed" the pattern is fine, not an assumption about HF / sklearn / PEP conventions.
 
 ### Scope your markers to a rule

@@ -195,6 +195,21 @@ list for one run. A declared root that resolves outside the project is an invali
 sit inside a `package` root. The hooks and the Phase B listers read the same
 list.
 
+### Never-accepted rules
+
+`never-accepted` lists rules whose accept markers a project refuses:
+
+```toml
+[tool.auditme]
+never-accepted = ["silent-broad-except", "layering-*"]
+```
+
+Each entry is a rule name, or a family ending in `*` (the `*` only at the
+end). A hit of a listed rule is reported with `accepted` false and the
+marker's reason in `refused_reason`; a hit with no marker carries no
+`refused_reason`. `changed.py` names the setting in its advice for such a hit.
+The key can sit beside `roots`.
+
 Each output line carries `rule`, `variant`, `path`, `line`, `evidence`,
 `accepted` and `accepted_reason`; a hit from a rule that compares several
 files also carries `related`, the other files involved. Identical hits are
@@ -204,7 +219,7 @@ hit, and the sweep continues.
 | Exit | Meaning |
 |---|---|
 | `0` | Sweep completed, whatever it found; also when there is no root to audit (a notice goes to stderr and only the project-level checks run) |
-| `2` | `scope` is not a directory; `--package` is not a plain directory name, or its directory does not exist or is a file; a named `--extra-root` is outside `scope` or is not a directory; an argument error (argparse's usage message on stderr); or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
+| `2` | `scope` is not a directory; `--package` is not a plain directory name, or its directory does not exist or is a file; a named `--extra-root` is outside `scope` or is not a directory; an argument error (argparse's usage message on stderr); `AUDITME_RUFF` is set to something that is not an executable file (`ERROR: AUDITME_RUFF=<value> is not an executable file`); or an invalid `[tool.auditme]` declaration, printed as `ERROR: <message>` on stderr with nothing on stdout (see below) |
 
 The declaration errors, each exit `2`:
 
@@ -212,7 +227,10 @@ The declaration errors, each exit `2`:
 |---|---|
 | `pyproject.toml: not valid TOML (<parse error>)` | `pyproject.toml` is not valid TOML and mentions `[tool.auditme` |
 | `pyproject.toml [tool.auditme]: must be a table` | `[tool.auditme]` is not a table |
-| `pyproject.toml [tool.auditme]: unknown key '<key>'` | a key other than `roots` |
+| `pyproject.toml [tool.auditme]: unknown key '<key>'` | a key other than `roots` or `never-accepted` |
+| `pyproject.toml [tool.auditme]: never-accepted must be a list of strings` | `never-accepted` is not a list of strings |
+| `pyproject.toml [tool.auditme]: never-accepted '<pattern>' may use * only at the end` | a `*` anywhere but the last character |
+| `pyproject.toml [tool.auditme]: never-accepted '<pattern>' matches no rule id` | a name or family that matches no rule |
 | `pyproject.toml [tool.auditme]: roots must be a list of tables` | `roots` is not a list of tables |
 | `pyproject.toml [tool.auditme]: unknown key '<key>' in a roots entry` | an entry has a key other than `path` or `modules` |
 | `pyproject.toml [tool.auditme]: a roots entry has no path` | an entry lacks `path` |
@@ -243,8 +261,9 @@ usage error.
 The exit status does not reflect hits: callers read stdout.
 
 Environment: the checks run `ruff` and `uv` as subprocesses with the caller's
-environment, finding them through `PATH` (ruff from the project's
-`.venv/bin/ruff` first). When `uv lock --check` fails because of a user-level
+environment, finding them through `PATH` (ruff from `$AUDITME_RUFF` when set,
+else the project's `.venv/bin/ruff`, first). `AUDITME_RUFF` is the path of an
+executable ruff; `audit.py` exits `2` when it names anything else. When `uv lock --check` fails because of a user-level
 `exclude-newer` setting, it is rerun with `UV_NO_CONFIG` set.
 
 ## `claude/skills/auditme/checks/changed.py`
@@ -277,7 +296,7 @@ Without `--all`, the sweep is skipped (exit `0`, with a message) when:
   `__pycache__`, `audit-reviews` and `tasks`.
 
 Each reported hit prints as `path:line  rule` with its variant indented
-beneath, then how to accept a hit (a `ruff` or `lockfile-drift` hit gets its own advice instead, as no accept marker applies to either) and how to skip the hook once
+beneath, then how to accept a hit (a `ruff`, `lockfile-drift` or `never-accepted` hit gets its own advice instead, as no accept marker applies to any of them) and how to skip the hook once
 (`SKIP=auditme-changed git commit`, or `SKIP=auditme-all git push` with
 `--all`). All output goes to stdout, except argparse's usage errors and the no-diff-base message of `--scope`, which go to stderr.
 
