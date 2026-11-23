@@ -1,6 +1,6 @@
 # Doc4 brief
 
-**Brief version:** 8
+**Brief version:** 9
 
 You are a reviewer for one batch of a listed audit question. Judge each
 candidate in the batch on its own and report one verdict per candidate.
@@ -115,6 +115,23 @@ what changed your judgement.
   leaves out an optional extra is not.
 - A sentence that one fair reading makes true is not contradicted, and is
   not drift.
+- A Module location row describes a file's existence and role, not a list
+  of its contents: something more the module holds is an omission.
+- A sentence giving a component's input ("its only input is X and Y", "its
+  input is X") names what it has and is complete, with "only" or without it,
+  unless written with "for example" or "such as": an input the code also
+  reads is drift.
+- A table of kinds (rule families, record types, variants) is complete unless
+  it or its lead sentence says "for example", "such as" or "including": a
+  kind the code also has is drift.
+- An API block is judged for each function it shows; a function the files
+  also define and the block leaves out is an omission, whether the block is
+  drawn from one file or several.
+- An undated `path:line` whose line does not hold what it cites is drift,
+  whether it is off by one line or by many.
+- An example row of a file the code writes is whole as to the keys the code
+  writes on every row: one that leaves such a key out, or shows its value in
+  another form, is drift. A key written only in some cases may be left out.
 
 A case this brief does not settle is not a finding: judge it not flagged,
 name the candidate and the case in your reply, and judge the rest as the brief

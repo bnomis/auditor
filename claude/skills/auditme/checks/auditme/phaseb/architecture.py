@@ -373,9 +373,19 @@ def handler_anchor_lines(handler: ast.ExceptHandler, function: FunctionNode | No
     return lines
 
 
+def carries_a19_marker(lines: list[str], anchors: list[int]) -> bool:
+    """Whether an accept marker for an A19 rule sits on a handler's lines or the line above one.
+
+    The marker records the user's decision to keep the handler, as SKILL.md's
+    "Conflicts with no winner" prescribes, so a handler the sweep does not
+    report is left out as a sweep hit is.
+    """
+    return any(auditme.core.accept_reason(lines, line, rule=rule) for line in anchors for rule in A19_RULES)
+
+
 @candidates.register_question('A19', A19_BRIEF, ('handler',))
 def list_a19_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
-    """Every broad handler and every handler logging `.exception(` that the sweep does not already report."""
+    """Every broad handler and every handler logging `.exception(` that neither a sweep hit nor an A19 accept marker already settles."""
     files = read_audited_files(scope)
     hits = capture_hits(scope, A19_CHECKS)
     found: list[candidates.Candidate] = []
@@ -395,7 +405,8 @@ def list_a19_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                 if not (auditme.rules.error_handling.is_broad_handler(handler) or logs_exception):
                     continue
                 number = counter.next(f'{qualname}::except')
-                if hit_on_anchor(hits, file.rel, handler_anchor_lines(handler, function), A19_RULES):
+                anchors = handler_anchor_lines(handler, function)
+                if hit_on_anchor(hits, file.rel, anchors, A19_RULES) or carries_a19_marker(file.lines, anchors):
                     continue
                 function_source = textwrap.dedent('\n'.join(file.lines[function.lineno - 1 : function.end_lineno])) if function is not None else try_source
                 handler_source = textwrap.dedent('\n'.join(file.lines[handler.lineno - 1 : handler.end_lineno]))

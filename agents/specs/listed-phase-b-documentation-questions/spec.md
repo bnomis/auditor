@@ -1,6 +1,6 @@
 # Listed Phase B documentation questions
 
-**Version:** 1.5
+**Version:** 1.6
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -251,6 +251,15 @@ Doc4 7, Doc5 7): every brief carries the default verdict of
 sections read as a whole, catch-all lists, Testing sections, drifts in split
 sections, commands and ambiguous sentences; Doc5 on "Stops for" lists and
 tools pinned in another repository.
+
+Amendment 1.6 (operator, 2026-11-23, `agents/reviews/brief-thresholds-4-2026-11-23.md`; briefs Doc4 9,
+Doc5 9): in both briefs a Module location row describes a file's role, not
+its contents; a sentence giving a component's input is complete, with "only"
+or without; a table of kinds is complete unless marked; an API block is
+judged per function shown, and a function it leaves out is an omission; an
+undated `path:line` that misses what it cites is drift at any distance; and
+an example row of a file the code writes is whole as to the keys written on
+every row.
 
 Registered batch sizes, unmeasured: 24 for Doc4 and Doc5 (a section and its
 code per candidate), 12 for Doc1 and Doc2 (the tree or the inventories).

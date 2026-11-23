@@ -1,6 +1,6 @@
 # Listed Phase B architecture questions
 
-**Version:** 1.6
+**Version:** 1.7
 **Status:** implemented
 **Date:** 2026-11-20
 
@@ -132,6 +132,18 @@ rules through `capture_hits` and drops a candidate when a hit, accepted or
 not, falls on an anchor line: an unaccepted hit is already in the review, an
 accepted one is the operator's ruling. Once the hit is fixed the site lists
 again and is judged as new.
+
+Amendment 1.7 (operator, 2026-11-23, `agents/reviews/brief-thresholds-4-2026-11-23.md`): the A19
+lister also drops a handler when an accept marker for one of its owning rules
+sits on an anchor line or the line above one, as `carries_a19_marker` checks.
+`SKILL.md`'s "Conflicts with no winner" prescribes that marker for a broad
+handler the user decided to keep, and the sweep's
+`logger-exception-graceful-degradation` rule reports only a handler ending
+in, or falling through to, `return <constant>`, so without this a kept
+handler that ends in `continue` or `pass` was judged against the user's
+decision. The A17 brief (version 5) says a project's own written exception
+does not settle a read of a submodule that `__all__` leaves out: the read is
+reported, and the operator dismisses it.
 
 | Question | Owning rules | Anchor lines |
 |----------|--------------|--------------|

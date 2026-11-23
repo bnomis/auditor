@@ -38,31 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Settle the brief cases reviewers left open (filed 2026-11-23)
-
-An audit on one project after the 2026-11-22 brief settlements found batch
-reviewers naming cases the briefs do not settle, with different batches
-judging the same shape differently (failure mode 2). Settle each in its brief:
-
-- **Doc4, Doc5:** whether these count as presenting a complete list: a
-  Module location table row saying what a module holds or becomes; a sentence
-  "its only input is X and Y" or "its input is X"; a table of kinds; an API
-  block drawn from several files. Whether a cited line number off by one is
-  drift. Whether an example row of a file the code writes must be whole, as
-  printed output must.
-- **T1:** whether a test reaches a function that a framework runs (a
-  pydantic validator), that runs at import to build a constant, that is a
-  property getter, that a third-party library calls back, or that a test
-  reaches through a server it talks to over a socket.
-- **A17:** whether a documented project exception (an import-cycle carve-out,
-  scripts treated as whitebox tooling) settles a read of a submodule that
-  `__all__` leaves out.
-- **A19:** the brief flags a broad graceful-degradation handler that carries
-  the scoped `accept[logger-exception-graceful-degradation]` marker the
-  2026-10-14 ruling prescribes for a handler the user decided to keep. The
-  brief should read that marker as the user's decision, or the lister should
-  leave such a site out, as it does for a sweep hit.
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.

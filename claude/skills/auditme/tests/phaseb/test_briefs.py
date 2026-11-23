@@ -51,7 +51,7 @@ def question_line(question: str) -> str:
     return next(line for line in skill.splitlines() if line.startswith(f'- **{question}.')).removeprefix('- ')
 
 
-DOC_BRIEF_VERSIONS = {'Doc1': 5, 'Doc2': 4, 'Doc4': 8, 'Doc5': 8}
+DOC_BRIEF_VERSIONS = {'Doc1': 5, 'Doc2': 4, 'Doc4': 9, 'Doc5': 9}
 DOC_BRIEF_PHRASES = {'Doc1': 'tracked', 'Doc2': 'declared', 'Doc4': 'unresolved', 'Doc5': 'unresolved'}
 
 
@@ -83,7 +83,7 @@ def test_doc5_question_covers_readme() -> None:
 def test_test_brief_holds_question_keys_and_security_rule(question: str, keys: tuple[str, ...]) -> None:
     brief = auditme.phaseb.question_brief(question)
     text = brief.read_text(encoding='utf-8')
-    version = {'T1': 6, 'T2': 3}[question]
+    version = {'T1': 7, 'T2': 3}[question]
     assert len(re.findall(rf'^\*\*Brief version:\*\* {version}$', text, re.MULTILINE)) == 1
     assert auditme.phaseb.brief_version(brief) == version
     assert question_line(question) in text
@@ -119,10 +119,14 @@ def test_every_brief_input_names_the_earlier_verdict() -> None:
 
 
 def test_brief_versions_after_the_findings_shape() -> None:
-    expected = {'A4': 8, 'Doc1': 5, 'Doc2': 4, 'Doc4': 8, 'Doc5': 8, 'T1': 6, 'T2': 3, 'A1': 6, 'A11': 3, 'A17': 4, 'A19': 3}
+    expected = {'A4': 8, 'Doc1': 5, 'Doc2': 4, 'Doc4': 9, 'Doc5': 9, 'T1': 7, 'T2': 3, 'A1': 6, 'A11': 3, 'A17': 5, 'A19': 3}
     assert set(expected) == set(auditme.phaseb.candidates.REGISTRY)
     for question, version in expected.items():
         assert auditme.phaseb.brief_version(auditme.phaseb.question_brief(question)) == version, question
+
+
+# Doc4 and Doc5 carry the same rulings from agents/reviews/brief-thresholds-4-2026-11-23.md.
+DOC_ROUND_4_PHRASES = ('API block is judged', 'Module location row', "component's input", 'example row of a file', 'table of kinds', 'undated `path:line`')
 
 
 @pytest.mark.parametrize(
@@ -145,6 +149,11 @@ def test_brief_versions_after_the_findings_shape() -> None:
         ('A4', ('registered implementations', 'invariant guard')),
         ('Doc4', ('A dated sentence inside an undated section', '"Today" in an implemented spec', 'reported\n  once')),
         ('Doc5', ('names more than one\n  keyword', 'A dated sentence inside an undated section', '"Today" in an implemented spec', 'reported\n  once')),
+        # The rulings of agents/reviews/brief-thresholds-4-2026-11-23.md.
+        ('Doc4', DOC_ROUND_4_PHRASES),
+        ('Doc5', DOC_ROUND_4_PHRASES),
+        ('T1', ('framework runs', 'build a module constant', 'reads a property', 'third-party library calls back', 'over a socket')),
+        ('A17', ('own written exception',)),
         # The rulings of agents/reviews/brief-thresholds-3-2026-11-22.md.
         ('A1', ('defines itself counts as a domain error',)),
         ('T2', ('`given` test is a direct call',)),

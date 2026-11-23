@@ -1,6 +1,6 @@
 # Listed Phase B test questions
 
-**Version:** 1.7
+**Version:** 1.8
 **Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/A2jYW6bvHGhR3JxqhppKuW (amendment 1.5)
@@ -271,7 +271,14 @@ reported, not decided, and the security rule every subagent brief carries.
   that runs a script's path as a subprocess is a caller test like a `runpy`
   load; a fixture the test requests, names in `usefixtures` or gets as
   `autouse` is part of the test; passing the candidate as an argument covers
-  it when the receiving package function calls that argument.
+  it when the receiving package function calls that argument. Amendment 1.8
+  (operator, 2026-11-23, `agents/reviews/brief-thresholds-4-2026-11-23.md`; brief version 7): a function a framework
+  runs (a pydantic validator) is called by the test that makes the framework
+  run it; one that builds a module constant at import, by a test that reads
+  the constant; a property's getter, by a test that reads it; a library
+  callback, by a test that calls the library entry point that calls it back;
+  a handler behind a socket, by a test that starts the server itself and
+  sends the request.
 - `T2.md`: findings `{"missing": ["property test"]}` or `{"missing": []}`.
   Covered when a test with `property: true` calls it directly. Flagged only
   when the reason states a property the domain supports (a round trip with
