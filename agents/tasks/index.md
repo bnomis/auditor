@@ -29,3 +29,4 @@
 | [Audit review 12](../audit-reviews/review-12.md) | [tasks-11.md](audit-reviews/tasks-11.md) | 11 | 2026-11-22 |
 | [Audit review 13](../audit-reviews/review-13.md) | [tasks-12.md](audit-reviews/tasks-12.md) | 12 | 2026-11-22 |
 | [Audit review 14](../audit-reviews/review-14.md) | [tasks-13.md](audit-reviews/tasks-13.md) | 13 | 2026-11-22 |
+| [Project gate settings](../specs/project-gate-settings/spec.md) | [tasks-1.md](project-gate-settings/tasks-1.md) | 1 | 2026-11-23 |
