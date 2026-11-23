@@ -37,7 +37,8 @@ def path_without_pre_commit(directory: pathlib.Path) -> str:
     for system in ('/usr/bin', '/bin'):
         for tool in pathlib.Path(system).iterdir():
             link = directory / tool.name
-            if tool.name != 'pre-commit' and not link.exists():
+            # is_symlink, not exists: /bin may be /usr/bin, whose dangling links exists() misses.
+            if tool.name != 'pre-commit' and not link.is_symlink():
                 link.symlink_to(tool)
     return str(directory)
 

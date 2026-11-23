@@ -7,8 +7,9 @@
 set -euo pipefail
 
 AUDITOR_URL=https://github.com/bnomis/auditor
-AUDITOR_PATTERN='github\.com[:/]bnomis/auditor(\.git)?'
-AGENTS_PATTERN='github\.com[:/]bnomis/agents(\.git)?'
+# [.], not \., so awk -v does not warn about (and so print) an escape.
+AUDITOR_PATTERN='github[.]com[:/]bnomis/auditor([.]git)?'
+AGENTS_PATTERN='github[.]com[:/]bnomis/agents([.]git)?'
 
 usage() {
     echo 'usage: install-hooks.sh [--rev <commit>] [--push] [--no-install] [--dry-run] [<repo-path>]' >&2
