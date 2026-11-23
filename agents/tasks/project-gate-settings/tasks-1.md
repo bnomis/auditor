@@ -209,7 +209,7 @@ from the guide, the CLI reference and the setup page.
 
 ## Task 6: Whole-tree checks, deduplication, and close the spec
 
-**Status:** in-progress
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** whole spec
@@ -220,26 +220,26 @@ the spec implemented.
 
 **Subtasks:**
 
-- [ ] Hoist anything the new code duplicates to a single owner: grep `claude/skills/auditme/checks/` for each literal and one-line helper Tasks 2-4 added (the `[tool.auditme]` table read, the executable-file test, the advice text), and import rather than copy. Prefer `core.py`, which every module already imports, over adding a new edge
-- [ ] Confirm `claude/skills/auditme/tests/registry-order.txt` and `CHECKS` are unchanged against the branch's base: `git diff <base> -- claude/skills/auditme/tests/registry-order.txt` prints nothing, and `git diff <base> -- claude/skills/auditme/checks/auditme/registry.py` shows only the `RULE_IDS` addition
-- [ ] Set the spec's `**Status:**` to `implemented` in `agents/specs/project-gate-settings/spec.md`
-- [ ] Run `pre-commit run --all-files` and `pre-commit run auditme-all --hook-stage manual --all-files`; fix what they report
-- [ ] Run the final full test run, saving it to the test log relative to the main checkout (the list may run in a worktree):
+- [x] Hoist anything the new code duplicates to a single owner: grep `claude/skills/auditme/checks/` for each literal and one-line helper Tasks 2-4 added (the `[tool.auditme]` table read, the executable-file test, the advice text), and import rather than copy. Prefer `core.py`, which every module already imports, over adding a new edge
+- [x] Confirm `claude/skills/auditme/tests/registry-order.txt` and `CHECKS` are unchanged against the branch's base: `git diff <base> -- claude/skills/auditme/tests/registry-order.txt` prints nothing, and `git diff <base> -- claude/skills/auditme/checks/auditme/registry.py` shows only the `RULE_IDS` addition
+- [x] Set the spec's `**Status:**` to `implemented` in `agents/specs/project-gate-settings/spec.md`
+- [x] Run `pre-commit run --all-files` and `pre-commit run auditme-all --hook-stage manual --all-files`; fix what they report
+- [x] Run the final full test run, saving it to the test log relative to the main checkout (the list may run in a worktree):
       `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/project-gate-settings/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run --no-project --with pytest --with pyyaml pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`
       The pass line `all selected test directories passed` is printed only when pytest exits 0
 
 **Acceptance Criteria:**
 
-- [ ] No literal or helper added by this list is defined twice under `claude/skills/auditme/checks/`
-- [ ] The spec's status is `implemented`
-- [ ] `$MAIN/logs/rro/project-gate-settings/tasks-1/final-tests.log` ends with `all selected test directories passed`
+- [x] No literal or helper added by this list is defined twice under `claude/skills/auditme/checks/`
+- [x] The spec's status is `implemented`
+- [x] `$MAIN/logs/rro/project-gate-settings/tasks-1/final-tests.log` ends with `all selected test directories passed`
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] The final test command above exits 0 and prints `all selected test directories passed`
-- [ ] `uv run --group docs mkdocs build --strict` passes
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The final test command above exits 0 and prints `all selected test directories passed`
+- [x] `uv run --group docs mkdocs build --strict` passes
 
 **Notes:**
 
