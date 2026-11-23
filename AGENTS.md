@@ -14,6 +14,10 @@ at the end of a turn (`claude/hooks/auditme-stop.sh`) and the
 `~/.claude/settings.json`. The other shared rules and skills come from the
 agents repository's own installer.
 
+`bin/install-hooks.sh [<repo-path>]` adds the audit hooks to another
+repository's `.pre-commit-config.yaml`, or moves them to the current `main`,
+and installs its git hooks (`docs/reference/cli.md`).
+
 ## Tests
 
 From the repository root:

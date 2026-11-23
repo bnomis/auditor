@@ -36,6 +36,7 @@ The installer links the `/auditme` and `/auditme-project-setup` skills, the rule
 | `claude/rules/auditme/` | The Python rules the checker enforces: coding standards, imports, dependencies. See [Rules](reference/rules.md). |
 | `claude/hooks/` | The Claude Code Stop hook that runs the checker before a turn ends. |
 | `bin/install-claude.sh` | The installer: runs the shared `install-in-claude` at a pinned commit. See [Command line and hooks](reference/cli.md). |
+| `bin/install-hooks.sh` | Adds the audit hooks to a project's `.pre-commit-config.yaml`, or moves them to the latest commit, and installs the git hooks. See [Command line and hooks](reference/cli.md). |
 | `bin/check-foreign-names.sh` | The `no-project-names` check, which keeps project names out of repositories used across projects. See [Command line and hooks](reference/cli.md). |
 | `.pre-commit-hooks.yaml` | The hooks other projects pin. |
 

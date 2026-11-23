@@ -207,6 +207,26 @@ A hit is accepted with a comment on its line or the line above:
 
 Why no gate over a backlog: a gate that fails every push gets switched off.
 
+### Without Claude Code
+
+`bin/install-hooks.sh` in this repository does the hook part of `adopt` from
+a shell: it adds the auditor entry to the project's `.pre-commit-config.yaml`
+(or creates the file), pinned to the current `main` of `bnomis/auditor`, and
+installs the git hooks:
+
+```shell
+~/src/auditor/bin/install-hooks.sh --dry-run <project>
+~/src/auditor/bin/install-hooks.sh <project>
+```
+
+`<project>` is a path inside the project's repository; leave it out to use
+the current directory. The first command prints the change; the second makes
+it. Add `--push` once the project has no unaccepted hits, so `auditme-all`
+runs on every push too. The script does not count the backlog, add the CI
+step or create the deploy key. See
+[`bin/install-hooks.sh`](reference/cli.md#bininstall-hookssh) for every
+option.
+
 To enable the gates later, add `stages: [manual, pre-push]` under
 `- id: auditme-all` in `.pre-commit-config.yaml`, paste
 `claude/skills/auditme-project-setup/templates/ci-audit-step.yml` into the
@@ -253,6 +273,10 @@ The old deploy key on `bnomis/agents` can then be removed.
 pre-commit autoupdate --repo git@github.com:bnomis/auditor.git
 pre-commit run auditme-all --hook-stage manual --all-files
 ```
+
+Or, from this repository, `bin/install-hooks.sh <project>`: it moves the
+auditor entry's `rev:` to the current `main` and changes nothing else in the
+file.
 
 A new rule can report hits in code that passed before. Fix or accept them in
 the same commit as the upgrade, so `main` never carries a failing gate.

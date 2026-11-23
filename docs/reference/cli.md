@@ -58,6 +58,60 @@ To upgrade the installer, set `INSTALL_IN_CLAUDE_REV` to a newer commit
 (`git ls-remote git@github.com:bnomis/install-in-claude.git refs/heads/main`,
 first field) and run `bin/install-claude.sh --dry-run` to see what it changes.
 
+## `bin/install-hooks.sh`
+
+```text
+bin/install-hooks.sh [--rev <commit>] [--push] [--no-install] [--dry-run] [<repo-path>]
+```
+
+Installs the audit hooks in another git repository, or moves them to a newer
+commit of this one, by editing that repository's `.pre-commit-config.yaml`,
+then installs its git hooks. `<repo-path>` is any path inside the repository;
+the default is the current directory. Run it again whenever you want the
+latest checker: a second run at the same commit changes nothing.
+
+What it does to `.pre-commit-config.yaml`:
+
+- **No file:** writes one holding only the auditor entry.
+- **No auditor entry:** adds one at the end of the `repos:` list (before any
+  top-level key that follows the list), indented like the list's first
+  entry:
+
+  ```yaml
+  - repo: git@github.com:bnomis/auditor.git
+    rev: <commit>
+    hooks:
+      - id: auditme-changed
+      - id: auditme-all
+  ```
+
+- **An auditor entry** (by `git@github.com:bnomis/auditor.git` or
+  `https://github.com/bnomis/auditor`, with or without `.git`): sets its
+  `rev:` to the commit, dropping any comment on that line, and adds
+  `auditme-changed` or `auditme-all` if the entry lacks one. Every other
+  line, the entry's `stages:` and `args:` included, stays as it was.
+
+Then, unless `--no-install` or `--dry-run`, it runs
+`pre-commit install --hook-type pre-commit --hook-type pre-push` in the
+repository. When `pre-commit` is on `PATH` the new file is checked with
+`pre-commit validate-config` before it replaces the old one.
+
+| Option | Effect |
+|---|---|
+| `--rev <commit>` | Pin this commit (7 to 40 hex digits) instead of the current `main` of `bnomis/auditor`, read with `git ls-remote git@github.com:bnomis/auditor.git refs/heads/main` |
+| `--push` | When it adds `auditme-all`, give it `stages: [manual, pre-push]`, so every push sweeps the whole tree. Leave it off for a project that still has unaccepted hits (see [An existing project](../setup.md#an-existing-project)); an `auditme-all` already in the file keeps its stages |
+| `--no-install` | Edit the file only; do not run `pre-commit install` |
+| `--dry-run` | Print the change as a unified diff and change nothing |
+
+| Exit | Meaning |
+|---|---|
+| `0` | Installed or updated, already at the commit, or a dry run |
+| `1` | Nothing changed, because: `main` of `bnomis/auditor` could not be read; `pre-commit` is needed and not installed; the file pins the audit hooks from `bnomis/agents` (move it first, see [Moving a project from agents](../setup.md#moving-a-project-from-agents)); it has more than one auditor entry, no block-style top-level `repos:` list, or an auditor entry with no `hooks:` list; or the new file fails `pre-commit validate-config` |
+| `2` | A bad argument, a `--rev` that is not a commit hash, or a path that is not in a git repository; nothing changed |
+
+It does not add the CI step or the deploy key: `/auditme-project-setup`
+does those (see [The deploy key](../setup.md#the-deploy-key)).
+
 ## `bin/check-foreign-names.sh`
 
 ```text
