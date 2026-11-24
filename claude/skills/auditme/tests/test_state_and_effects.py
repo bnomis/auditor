@@ -3,6 +3,7 @@
 import ast
 import collections.abc
 import pathlib
+import typing
 
 import auditme.rules.state_and_effects
 import hypothesis
@@ -400,6 +401,132 @@ def test_a_two_arm_chain_is_legitimately_bi_valued(project: Builder, run_check: 
         }
     )
     assert run_check(ASSERT_NEVER, root) == []
+
+
+def assert_never_hits(project: Builder, run_check: Runner, body: str) -> list[dict[str, typing.Any]]:
+    return run_check(ASSERT_NEVER, project({'src/probe/mod.py': body}))
+
+
+def test_a_three_arm_chain_on_a_dotted_subject_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        class Probe:
+            def score(self) -> int:
+                if self.kind == 'alpha':
+                    return 1
+                elif self.kind == 'beta':
+                    return 2
+                elif self.kind == 'gamma':
+                    return 3
+                return 0
+        """,
+    )
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+    assert 'self.kind' in hits[0]['variant']
+
+
+def test_an_in_arm_counts_as_an_arm(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        def score(kind: str) -> int:
+            if kind in ('alpha', 'beta'):
+                return 1
+            elif kind == 'gamma':
+                return 2
+            elif 'delta' == kind:
+                return 3
+            return 0
+        """,
+    )
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+
+
+def test_a_two_arm_chain_on_a_three_member_literal_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        import typing
+
+
+        def score(kind: typing.Literal['a', 'b', 'c']) -> int:
+            if kind == 'a':
+                return 1
+            elif kind == 'b':
+                return 2
+            return 0
+        """,
+    )
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+
+
+def test_a_two_arm_chain_on_a_two_member_literal_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        import typing
+
+
+        def score(kind: typing.Literal['a', 'b']) -> int:
+            if kind == 'a':
+                return 1
+            elif kind == 'b':
+                return 2
+            return 0
+        """,
+    )
+    assert hits == []
+
+
+def test_a_two_arm_chain_on_a_local_literal_annotation_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        import typing
+
+
+        def score(raw: str) -> int:
+            kind: typing.Literal['a', 'b', 'c'] = raw
+            if kind == 'a':
+                return 1
+            elif kind == 'b':
+                return 2
+            return 0
+        """,
+    )
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+
+
+MATCH_BODY = """
+import typing
+
+
+def score(kind: str) -> int:
+    match kind:
+        case 'a':
+            return 1
+        case 'b' | 'c':
+            return 2
+        case 'd':
+            return 3
+        {tail}
+"""
+
+
+def test_a_three_case_match_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(project, run_check, MATCH_BODY.format(tail='case _:\n            return 0'))
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+
+
+def test_a_match_ending_in_assert_never_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(project, run_check, MATCH_BODY.format(tail='case _:\n            typing.assert_never(kind)'))
+    assert hits == []
 
 
 # --------------------------------------------------------------------------

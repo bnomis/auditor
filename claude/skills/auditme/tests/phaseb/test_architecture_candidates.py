@@ -293,6 +293,21 @@ def test_a11_drops_a_chain_the_assert_never_rule_flags(project: Project) -> None
     assert run_a11(write_a11_project(project, A11_STRING_CHAIN)) == {}
 
 
+def test_a11_drops_a_dotted_in_chain_the_assert_never_rule_flags(project: Project) -> None:
+    body = """
+class Probe:
+    def run(self):
+        if self.mode in ('a', 'b'):
+            return 1
+        elif self.mode == 'c':
+            return 2
+        elif self.mode == 'd':
+            return 3
+        return 0
+"""
+    assert run_a11(write_a11_project(project, body)) == {}
+
+
 def test_a11_drops_a_chain_whose_hit_is_accepted(project: Project) -> None:
     accepted = A11_STRING_CHAIN.replace("if mode == 'a':", "if mode == 'a':  # auditme: accept[assert-never-missing] probe", 1)
     assert run_a11(write_a11_project(project, accepted)) == {}

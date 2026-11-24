@@ -514,15 +514,77 @@ def if_chain(node: ast.If, subject_of: collections.abc.Callable[[ast.expr], str 
     return IfChain(subject=subject, tests=tests, orelse=orelse)
 
 
-def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag `if/elif` chains that dispatch on string equality of a single
-    variable and either (a) terminate without an `else` or (b) end with a
-    plain `else:` body, instead of `else: typing.assert_never(var)`.
+def ends_in_assert_never(body: list[ast.stmt] | None) -> bool:
+    """True when a statement list calls a function whose name contains `assert_never`."""
+    return any(isinstance(sub, ast.Call) and 'assert_never' in ast.unparse(sub.func) for stmt in body or [] for sub in ast.walk(stmt))
 
-    Only chains with >= 3 string-equality tests are considered (a 2-arm
-    if/else is legitimately bi-valued). The variable may be typed as
-    `Literal[...]` or an enum, but we cannot verify the type mechanically
-    across files; the predicate is kept purely structural (count + shape).
+
+def literal_member_count(function: ast.FunctionDef | ast.AsyncFunctionDef | None, subject: str) -> int:
+    """String members of the `Literal[...]` the function annotates `subject` with, as a parameter or a local; else 0."""
+    if function is None:
+        return 0
+    arguments = function.args
+    annotations = [
+        argument.annotation
+        for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs, arguments.vararg, arguments.kwarg]
+        if argument is not None and argument.arg == subject and argument.annotation is not None
+    ]
+    annotations += [node.annotation for node in ast.walk(function) if isinstance(node, ast.AnnAssign) and ast.unparse(node.target) == subject]
+    for annotation in annotations:
+        if isinstance(annotation, ast.Subscript) and ast.unparse(annotation.value).rpartition('.')[2] == 'Literal':
+            members = annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
+            return sum(isinstance(member, ast.Constant) and isinstance(member.value, str) for member in members)
+    return 0
+
+
+def match_string_cases(node: ast.Match) -> int:
+    """How many `case` patterns are a string constant or a `|` of them."""
+
+    def is_string_pattern(pattern: ast.pattern) -> bool:
+        if isinstance(pattern, ast.MatchValue):
+            return isinstance(pattern.value, ast.Constant) and isinstance(pattern.value.value, str)
+        return isinstance(pattern, ast.MatchOr) and all(is_string_pattern(sub) for sub in pattern.patterns)
+
+    return sum(is_string_pattern(case.pattern) for case in node.cases)
+
+
+def assert_never_sites(
+    tree: ast.AST,
+) -> collections.abc.Iterator[tuple[ast.If | ast.Match, str, int, list[ast.stmt] | None, bool]]:
+    """Each chain head or `match` as (node, subject, arm count, final else body, a third value is known).
+
+    A `match` reports its last case body as the else body; a two-arm chain is "known" three-valued
+    when its subject is annotated `Literal[...]` with three or more string members."""
+    else_ifs = {id(node.orelse[0]) for node in ast.walk(tree) if isinstance(node, ast.If) and len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If)}
+    functions = [node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    owner: dict[int, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    for function in functions:
+        owner.update({id(inner): function for inner in ast.walk(function)})
+    for node in ast.walk(tree):
+        function = owner.get(id(node))
+        if isinstance(node, ast.If) and id(node) not in else_ifs:
+            chain = if_chain(node, extract_string_eq_var)
+            if chain is not None:
+                known = literal_member_count(function, chain.subject) >= 3
+                yield node, chain.subject, len(chain.tests), chain.orelse, known
+        elif isinstance(node, ast.Match):
+            last = node.cases[-1] if node.cases else None
+            wildcard = last is not None and isinstance(last.pattern, ast.MatchAs) and last.pattern.pattern is None
+            yield node, ast.unparse(node.subject), match_string_cases(node), last.body if wildcard and last else None, False
+
+
+def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `if/elif` chains and `match` statements that dispatch on string
+    values of one subject and end without `assert_never`.
+
+    The subject is a name or a dotted name (`self.kind`). An arm is
+    `subject == 'x'` (either order) or `subject in ('x', 'y')` (a tuple, list
+    or set of string constants). A chain needs three arms, or two when the
+    subject is a parameter or an annotated local typed `Literal[...]` with
+    three or more string members: the annotation is the evidence that a third
+    value exists, so an unannotated two-arm chain stays exempt as bi-valued.
+    A `match` needs three string-constant `case` patterns and is exhausted
+    only by a final `case _:` calling `assert_never`.
 
     Cure: replace the trailing `else:` (or absent `else`) with
         else:
@@ -535,38 +597,15 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
         tree = auditme.core.read_and_parse(path)
         if tree is None:
             continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.If):
+        for node, subject, arms, terminal_else, known in assert_never_sites(tree):
+            if arms < (2 if known else 3) or ends_in_assert_never(terminal_else):
                 continue
-            chain = if_chain(node, extract_string_eq_var)
-            if chain is None or len(chain.tests) < 3:
-                continue
-            chain_var = chain.subject
-            chain_len = len(chain.tests)
-            terminal_else = chain.orelse
-            # Already uses assert_never? OK.
-            if terminal_else is not None:
-                has_assert_never = False
-                for stmt in terminal_else:
-                    for sub in ast.walk(stmt):
-                        if isinstance(sub, ast.Call):
-                            src = ''
-                            src = ast.unparse(sub.func)
-                            if 'assert_never' in src:
-                                has_assert_never = True
-                                break
-                    if has_assert_never:
-                        break
-                if has_assert_never:
-                    continue
+            kind = 'match' if isinstance(node, ast.Match) else 'if/elif chain'
+            ending = 'has fall-through else' if terminal_else else 'has no else'
             accept = auditme.core.accept_reason(lines, node.lineno, rule='assert-never-missing')
             auditme.core.emit(
                 rule='assert-never-missing',
-                variant=(
-                    f'if/elif chain on `{chain_var}` with {chain_len} string-equality arms '
-                    f'{"has fall-through else" if terminal_else else "has no else"}; '
-                    f'should end with `else: typing.assert_never({chain_var})`'
-                ),
+                variant=(f'{kind} on `{subject}` with {arms} string arms {ending}; should end with `else: typing.assert_never({subject})`'),
                 path=rel,
                 line=node.lineno,
                 evidence=(lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''),
@@ -575,19 +614,38 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
             )
 
 
+def string_constants(node: ast.expr) -> bool:
+    """True for a non-empty tuple, list or set of string constants."""
+    return (
+        isinstance(node, (ast.Tuple, ast.List, ast.Set))
+        and bool(node.elts)
+        and all(isinstance(element, ast.Constant) and isinstance(element.value, str) for element in node.elts)
+    )
+
+
 def extract_string_eq_var(test: ast.expr) -> str | None:
-    """Return `name` if `test` is `name == "literal"` or `"literal" == name`,
+    """Return the subject's source text (a name or dotted name) if `test` is
+    `subject == "literal"`, `"literal" == subject` or `subject in ("a", "b")`,
     otherwise None."""
-    if not isinstance(test, ast.Compare):
+    if not isinstance(test, ast.Compare) or len(test.ops) != 1:
         return None
-    if len(test.ops) != 1 or not isinstance(test.ops[0], ast.Eq):
-        return None
-    left = test.left
-    right = test.comparators[0]
-    if isinstance(left, ast.Name) and isinstance(right, ast.Constant) and isinstance(right.value, str):
-        return left.id
-    if isinstance(right, ast.Name) and isinstance(left, ast.Constant) and isinstance(left.value, str):
-        return right.id
+    left, right = test.left, test.comparators[0]
+
+    def is_subject(node: ast.expr) -> bool:
+        while isinstance(node, ast.Attribute):
+            node = node.value
+        return isinstance(node, ast.Name)
+
+    def is_string(node: ast.expr) -> bool:
+        return isinstance(node, ast.Constant) and isinstance(node.value, str)
+
+    if isinstance(test.ops[0], ast.Eq):
+        if is_subject(left) and is_string(right):
+            return ast.unparse(left)
+        if is_subject(right) and is_string(left):
+            return ast.unparse(right)
+    elif isinstance(test.ops[0], ast.In) and is_subject(left) and string_constants(right):
+        return ast.unparse(left)
     return None
 
 

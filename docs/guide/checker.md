@@ -325,7 +325,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | `parameter-mutation-in-pure-function` | A function named or documented as a check that mutates a parameter |
 | `pure-name-has-side-effect` | A function with a query-like name calling a write or I/O side effect |
 | `mutable-store-without-copy` | `__init__` storing a dict or list parameter on `self` without a copy |
-| `assert-never-missing` | An `if`/`elif` chain on string equality ending without `else: typing.assert_never(...)` |
+| `assert-never-missing` | An `if`/`elif` chain, or a `match`, on string values of one name or dotted name (`==` or `in` arms) ending without `assert_never`; three arms, or two when the subject is annotated `Literal[...]` with three or more string members |
 | `build-name-has-side-effect` | A `build_*` or `compute_*` function calling subprocess, the clock, `uuid`, `random` or a filesystem write |
 | `mutable-module-level-exported` | A mutable module-level container read by name from another module |
 | `mutable-members-in-immutable-wrapper` | An externally read container in a shallow immutable wrapper that still holds mutable members |

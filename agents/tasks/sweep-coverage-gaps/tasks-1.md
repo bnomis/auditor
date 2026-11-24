@@ -137,7 +137,7 @@ the rule as its mechanical part.
 
 ## Task 4: Widen `assert-never-missing`
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Implementation 4; Testing 4
@@ -148,19 +148,19 @@ lists; an unannotated two-arm chain stays exempt.
 
 **Subtasks:**
 
-- [ ] Tests first in `claude/skills/auditme/tests/test_state_and_effects.py` (the spec's Testing 4 rule cases) and `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py` (A11 no longer lists a chain the rule now hits); see them fail
-- [ ] Change `check_assert_never_missing`, `if_chain` and `extract_string_eq_var` in `claude/skills/auditme/checks/auditme/rules/state_and_effects.py` as Implementation 4 says; read the `Literal` from the enclosing function's parameter annotation or a same-scope `AnnAssign`
-- [ ] Update the rule's docstring and its row in `docs/guide/checker.md`
+- [x] Tests first in `claude/skills/auditme/tests/test_state_and_effects.py` (the spec's Testing 4 rule cases) and `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py` (A11 no longer lists a chain the rule now hits); see them fail
+- [x] Change `check_assert_never_missing`, `if_chain` and `extract_string_eq_var` in `claude/skills/auditme/checks/auditme/rules/state_and_effects.py` as Implementation 4 says; read the `Literal` from the enclosing function's parameter annotation or a same-scope `AnnAssign`
+- [x] Update the rule's docstring and its row in `docs/guide/checker.md`
 
 **Acceptance Criteria:**
 
-- [ ] The spec's Testing 4 cases pass; `test_a_two_arm_chain_is_legitimately_bi_valued` and `test_a11_drops_a_chain_the_assert_never_rule_flags` pass unchanged
+- [x] The spec's Testing 4 cases pass; `test_a_two_arm_chain_is_legitimately_bi_valued` and `test_a11_drops_a_chain_the_assert_never_rule_flags` pass unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/phaseb/test_architecture_candidates.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/phaseb/test_architecture_candidates.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
