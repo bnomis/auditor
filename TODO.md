@@ -34,7 +34,7 @@ change exposes, then delete the entry. The A23 rule is new and the
 `assert-never-missing` change adds an inference path (the `Literal`
 annotation as positive evidence), so start from a spec (`/todo-do`).
 
-Spec: `agents/specs/sweep-coverage-gaps/spec.md` (proposed, in review: `agents/reviews/sweep-coverage-gaps-spec-2026-11-24.md`); tasks: not yet written.
+Spec: `agents/specs/sweep-coverage-gaps/spec.md` (approved 2026-11-24: `agents/reviews/sweep-coverage-gaps-spec-2026-11-24.md`); tasks: `agents/tasks/sweep-coverage-gaps/tasks-1.md`.
 
 ## `raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep
 

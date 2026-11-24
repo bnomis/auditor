@@ -81,4 +81,15 @@ project already holds, and the spec follows them:
 
 ## Answers
 
-(empty until the review page is answered)
+Answered on the review page on 2026-11-24 (read back at 10:26 UTC):
+
+1. Bare inner generics - approved.
+2. Discarded tuple return - approved.
+3. Two stdlib raises - approved.
+4. Wider `assert-never-missing` - approved.
+5. Pure-name I/O - approved.
+6. Asymmetric translation needs something to translate - approved.
+7. A17 lists submodules - approved.
+
+No item was flagged and no comment was left. The spec stands as written;
+the next step is its task list.
