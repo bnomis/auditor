@@ -1,7 +1,7 @@
 # Raises section resolution
 
 **Version:** 1.3
-**Status:** proposed (amendment 1.3; version 1.2 is implemented)
+**Status:** implemented
 **Date:** 2026-11-20
 
 Widens the auditme rule `raises-section-drift` so it sees the domain errors

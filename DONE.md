@@ -949,3 +949,23 @@ validated) were accepted with markers: the rule cannot be expected to
 follow them.
 
 Done: 2026-11-24 - the first two findings: `raises_section_names` reads each name of a combined entry, and `tuple_constants` with `expand_level` in `claude/skills/auditme/checks/auditme/rules/error_handling.py` let a handler naming a module-level tuple of classes catch its members; tests in `claude/skills/auditme/tests/test_error_handling.py`; `docs/guide/checker.md` and the documented refinements in `claude/skills/auditme/SKILL.md`. The third finding (another first-party library) moved to its own `TODO.md` item.
+
+## `raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep
+
+Split on 2026-11-24 from "`raises-section-drift` misreads three common
+shapes" (found on 2026-11-23, now in `DONE.md`), whose other two findings
+were fixed. Its third finding, unchanged:
+
+- **Exceptions declared by another first-party library are not followed.**
+  A callee in a sibling package installed alongside (not under `src/`)
+  whose `Raises:` names an exception is ignored, so a function that lets it
+  escape is not reported. A false negative; lower priority than the two
+  above.
+
+Fix direction: resolving a callee outside the swept package widens the rule
+beyond the same-package callees `agents/specs/raises-section-resolution/spec.md`
+covers, so it goes through that spec first (`/todo-do`).
+
+Spec: `agents/specs/raises-section-resolution/spec.md` amendment 1.3 (approved 2026-11-24; the operator chose declared paths in a new `[tool.auditme] first-party` key; review: `agents/reviews/raises-first-party-amendment-2026-11-24.md`); tasks: `agents/tasks/raises-section-resolution/tasks-2.md`.
+
+Done: 2026-11-24 - amendment 1.3 of agents/specs/raises-section-resolution/spec.md, agents/tasks/raises-section-resolution/tasks-2.md.

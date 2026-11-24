@@ -287,7 +287,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | `failure-as-absence` | A clean-absence return (`None`, empty) reached from a caught exception or a non-200 response |
 | `get-container-default-then-method-call` | `x = d.get(k, {})` later used as a method receiver: the default does not fire for an explicit null |
 | `translator-envelope-gap` | A body whose only error envelope is a translating decorator or context manager with too narrow an `except` |
-| `raises-section-drift` | A `Raises:` section naming an error that never reaches the caller, or omitting one that does (a callee error guarded only by optional arguments the call leaves unset does not count). Errors are followed through callees with no `Raises:` section and through `Class.method()` calls. A combined entry (`ParseError, FetchError:`) declares each name, and `except NAME:` naming a module-level tuple of classes catches each member |
+| `raises-section-drift` | A `Raises:` section naming an error that never reaches the caller, or omitting one that does (a callee error guarded only by optional arguments the call leaves unset does not count). Errors are followed through callees with no `Raises:` section and through `Class.method()` calls. A combined entry (`ParseError, FetchError:`) declares each name, and `except NAME:` naming a module-level tuple of classes catches each member. Callees in libraries that `[tool.auditme] first-party` lists are followed too |
 
 ### `imports_and_surfaces.py`
 

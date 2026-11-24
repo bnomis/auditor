@@ -102,7 +102,7 @@ the swept package's files.
 
 ## Task 3: Document the setting and close the list
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Amendment 1.3: Documentation; Motivation
@@ -113,25 +113,25 @@ every check passes over the whole branch, and the `TODO.md` item moves to
 
 **Subtasks:**
 
-- [ ] `docs/reference/cli.md`: a `### First-party libraries` section after "Declared roots", giving the key, an example, that entries may lie outside the project, that they are read but never swept, and that a listed directory must exist wherever the sweep runs (CI included); add the new errors to the errors table there
-- [ ] `docs/guide/checker.md`: the `raises-section-drift` row adds that callees in libraries `[tool.auditme] first-party` lists are followed
-- [ ] `claude/skills/auditme/SKILL.md` A4: the rule also follows callees into the libraries `first-party` lists
-- [ ] Run every test tree, with its log kept:
+- [x] `docs/reference/cli.md`: a `### First-party libraries` section after "Declared roots", giving the key, an example, that entries may lie outside the project, that they are read but never swept, and that a listed directory must exist wherever the sweep runs (CI included); add the new errors to the errors table there
+- [x] `docs/guide/checker.md`: the `raises-section-drift` row adds that callees in libraries `[tool.auditme] first-party` lists are followed
+- [x] `claude/skills/auditme/SKILL.md` A4: the rule also follows callees into the libraries `first-party` lists
+- [x] Run every test tree, with its log kept:
       `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/raises-section-resolution/tasks-2/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Move the `TODO.md` item "`raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep" to the end of `DONE.md`: append its heading and body unchanged, then `Done: <the day this task runs> - amendment 1.3 of agents/specs/raises-section-resolution/spec.md, agents/tasks/raises-section-resolution/tasks-2.md.`, and remove it from `TODO.md`
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Move the `TODO.md` item "`raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep" to the end of `DONE.md`: append its heading and body unchanged, then `Done: <the day this task runs> - amendment 1.3 of agents/specs/raises-section-resolution/spec.md, agents/tasks/raises-section-resolution/tasks-2.md.`, and remove it from `TODO.md`
 
 **Acceptance Criteria:**
 
-- [ ] `$MAIN/logs/rro/raises-section-resolution/tasks-2/final-tests.log` ends with `all selected test directories passed`
+- [x] `$MAIN/logs/rro/raises-section-resolution/tasks-2/final-tests.log` ends with `all selected test directories passed`
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] The final test command above exits 0 and prints `all selected test directories passed`
-- [ ] `uv run --group docs mkdocs build --strict` passes
-- [ ] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, where `<baseline>` is `TODO.md` at the commit that added this list: `git show $(git log --diff-filter=A --format=%H -- agents/tasks/raises-section-resolution/tasks-2.md):TODO.md`
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The final test command above exits 0 and prints `all selected test directories passed`
+- [x] `uv run --group docs mkdocs build --strict` passes
+- [x] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, where `<baseline>` is `TODO.md` at the commit that added this list: `git show $(git log --diff-filter=A --format=%H -- agents/tasks/raises-section-resolution/tasks-2.md):TODO.md`
 
 **Notes:**
 

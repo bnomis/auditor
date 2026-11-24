@@ -39,21 +39,3 @@ Spec: `agents/specs/sweep-coverage-gaps/spec.md` (approved 2026-11-24: `agents/r
 Note 2026-11-24: the checker work shipped; the item waits on the operator's
 runs of the sweep on the projects that use the hooks and on the deletion of
 the `requests.md` entry.
-
-## `raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep
-
-Split on 2026-11-24 from "`raises-section-drift` misreads three common
-shapes" (found on 2026-11-23, now in `DONE.md`), whose other two findings
-were fixed. Its third finding, unchanged:
-
-- **Exceptions declared by another first-party library are not followed.**
-  A callee in a sibling package installed alongside (not under `src/`)
-  whose `Raises:` names an exception is ignored, so a function that lets it
-  escape is not reported. A false negative; lower priority than the two
-  above.
-
-Fix direction: resolving a callee outside the swept package widens the rule
-beyond the same-package callees `agents/specs/raises-section-resolution/spec.md`
-covers, so it goes through that spec first (`/todo-do`).
-
-Spec: `agents/specs/raises-section-resolution/spec.md` amendment 1.3 (approved 2026-11-24; the operator chose declared paths in a new `[tool.auditme] first-party` key; review: `agents/reviews/raises-first-party-amendment-2026-11-24.md`); tasks: `agents/tasks/raises-section-resolution/tasks-2.md`.
