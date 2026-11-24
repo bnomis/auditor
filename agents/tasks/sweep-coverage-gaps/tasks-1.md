@@ -239,7 +239,7 @@ same-module translator.
 
 ## Task 7: List a submodule's `__all__` for A17
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Implementation 7; Testing 7
@@ -250,20 +250,20 @@ brief covers the case and goes up one version.
 
 **Subtasks:**
 
-- [ ] Tests first in `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py`: the spec's Testing 7 lister cases; see them fail
-- [ ] In `list_a17_candidates` (`claude/skills/auditme/checks/auditme/phaseb/architecture.py`), list a submodule with a module-level `__all__` as Implementation 7 says; leave every `__init__.py` candidate's id and hash as they are
-- [ ] In `claude/skills/auditme/phaseb/briefs/A17.md`, add the submodule case to the question and input text and raise `**Brief version:**` by one; mirror the question text in A17 in `claude/skills/auditme/SKILL.md`
+- [x] Tests first in `claude/skills/auditme/tests/phaseb/test_architecture_candidates.py`: the spec's Testing 7 lister cases; see them fail
+- [x] In `list_a17_candidates` (`claude/skills/auditme/checks/auditme/phaseb/architecture.py`), list a submodule with a module-level `__all__` as Implementation 7 says; leave every `__init__.py` candidate's id and hash as they are
+- [x] In `claude/skills/auditme/phaseb/briefs/A17.md`, add the submodule case to the question and input text and raise `**Brief version:**` by one; mirror the question text in A17 in `claude/skills/auditme/SKILL.md`
 
 **Acceptance Criteria:**
 
-- [ ] The spec's Testing 7 cases pass; `test_a17_lists_an_all_init_with_its_consumers` and `test_a17_leaves_out_a_test_tree_reader_and_its_hash` pass unchanged
-- [ ] `claude/skills/auditme/tests/phaseb/test_briefs.py` passes on the new brief version
+- [x] The spec's Testing 7 cases pass; `test_a17_lists_an_all_init_with_its_consumers` and `test_a17_leaves_out_a_test_tree_reader_and_its_hash` pass unchanged
+- [x] `claude/skills/auditme/tests/phaseb/test_briefs.py` passes on the new brief version
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/phaseb -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 ---
 

@@ -119,7 +119,7 @@ def test_every_brief_input_names_the_earlier_verdict() -> None:
 
 
 def test_brief_versions_after_the_findings_shape() -> None:
-    expected = {'A4': 8, 'Doc1': 5, 'Doc2': 4, 'Doc4': 9, 'Doc5': 9, 'T1': 7, 'T2': 3, 'A1': 6, 'A11': 3, 'A17': 5, 'A19': 3}
+    expected = {'A4': 8, 'Doc1': 5, 'Doc2': 4, 'Doc4': 9, 'Doc5': 9, 'T1': 7, 'T2': 3, 'A1': 6, 'A11': 3, 'A17': 6, 'A19': 3}
     assert set(expected) == set(auditme.phaseb.candidates.REGISTRY)
     for question, version in expected.items():
         assert auditme.phaseb.brief_version(auditme.phaseb.question_brief(question)) == version, question

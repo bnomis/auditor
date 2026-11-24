@@ -826,6 +826,34 @@ def test_a17_leaves_out_a_test_tree_reader_and_its_hash(project: Project) -> Non
     assert with_test.hash == first.hash
 
 
+A17_SUBMODULE_KEY = 'src/pkg/mod.py'
+A17_SUBMODULE = "__all__ = ['f']\n\n\ndef f():\n    return 1\n"
+
+
+def test_a17_lists_a_submodule_all_with_a_consumer_in_another_module(project: Project) -> None:
+    root = project({'src/pkg/__init__.py': '', A17_SUBMODULE_KEY: A17_SUBMODULE, 'src/pkg/user.py': 'from pkg.mod import f\n'})
+    candidate = run_a17(root)[A17_SUBMODULE_KEY]
+    assert candidate.payload['all'] == ['f']
+    assert candidate.payload['consumers'] == {'f': ['src/pkg/user.py: from pkg.mod import f']}
+
+
+def test_a17_lists_a_submodule_all_read_only_by_a_test_with_no_consumer(project: Project) -> None:
+    root = project({'src/pkg/__init__.py': '', A17_SUBMODULE_KEY: A17_SUBMODULE, 'src/tests/test_mod.py': 'from pkg.mod import f\n'})
+    assert run_a17(root)[A17_SUBMODULE_KEY].payload['consumers'] == {'f': []}
+
+
+def test_a17_leaves_out_a_submodule_without_all(project: Project) -> None:
+    root = project({'src/pkg/__init__.py': '', A17_SUBMODULE_KEY: 'def f():\n    return 1\n'})
+    assert A17_SUBMODULE_KEY not in run_a17(root)
+
+
+def test_a17_keeps_an_init_candidate_when_a_submodule_is_listed(project: Project) -> None:
+    plain = run_a17(write_a17_project(project))[A17_KEY]
+    both = run_a17(write_a17_project(project, {'src/pkg/mod.py': A17_SUBMODULE}))
+    assert both[A17_KEY].hash == plain.hash
+    assert 'src/pkg/mod.py' in both
+
+
 def test_a17_counts_a_project_script_target_as_a_consumer(project: Project) -> None:
     root = write_a17_project(project, {'pyproject.toml': '[project.scripts]\nprobe = "pkg.sub:Probe"\n'})
     assert run_a17(root)[A17_KEY].payload['consumers'] == {'Probe': ['pyproject.toml: probe = "pkg.sub:Probe"']}
