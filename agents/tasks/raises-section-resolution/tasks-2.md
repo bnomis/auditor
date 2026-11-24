@@ -65,7 +65,7 @@ invalid entry, before any check runs.
 
 ## Task 2: Follow callees into the listed libraries
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Amendment 1.3: Implementation (second to fifth bullets), Testing (first four bullets)
@@ -77,21 +77,21 @@ the swept package's files.
 
 **Subtasks:**
 
-- [ ] Tests first in `claude/skills/auditme/tests/test_error_handling.py`, under the `# --- raises-section-drift` heading: the amendment's first four Testing bullets, with the library built beside the project fixture and listed in its `pyproject.toml`; see them fail
-- [ ] In `check_raises_section_drift` (`claude/skills/auditme/checks/auditme/rules/error_handling.py`), add each first-party module to `modules` under `module_dotted(path, dir)`, so its functions join `known`, `declared_by` and `node_of` and its classes join `parents`; keep the subject loop to the swept package's functions
-- [ ] Name a first-party file in `related` with `os.path.relpath(path, scope)`
-- [ ] Add an `Extension (<the day this task runs>):` paragraph to the rule's docstring
+- [x] Tests first in `claude/skills/auditme/tests/test_error_handling.py`, under the `# --- raises-section-drift` heading: the amendment's first four Testing bullets, with the library built beside the project fixture and listed in its `pyproject.toml`; see them fail
+- [x] In `check_raises_section_drift` (`claude/skills/auditme/checks/auditme/rules/error_handling.py`), add each first-party module to `modules` under `module_dotted(path, dir)`, so its functions join `known`, `declared_by` and `node_of` and its classes join `parents`; keep the subject loop to the swept package's functions
+- [x] Name a first-party file in `related` with `os.path.relpath(path, scope)`
+- [x] Add an `Extension (<the day this task runs>):` paragraph to the rule's docstring
 
 **Acceptance Criteria:**
 
-- [ ] The amendment's first four Testing cases pass
-- [ ] Every existing `raises-section-drift` test passes unchanged
+- [x] The amendment's first four Testing cases pass
+- [x] Every existing `raises-section-drift` test passes unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb/test_a4_candidates.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb/test_a4_candidates.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
