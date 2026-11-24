@@ -148,7 +148,7 @@ def question_kinds(question: str) -> tuple[str, ...]:
     Raises:
         PhaseBError: question has no registered lister.
     """
-    registered(question)
+    registered(question)  # auditme: accept[discarded-tuple-return] called only for the PhaseBError it raises on an unknown question
     return KINDS[question]
 
 

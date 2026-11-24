@@ -26,6 +26,7 @@ CALLBACK_IO = auditme.rules.state_and_effects.check_callback_hotpath_io
 DATACLASS_OPTIONAL = auditme.rules.state_and_effects.check_dataclass_optional_always_set
 DEAD_LOCAL = auditme.rules.state_and_effects.check_dead_local_init
 SUBPROCESS = auditme.rules.state_and_effects.check_subprocess_without_memoisation
+DISCARDED_TUPLE = auditme.rules.state_and_effects.check_discarded_tuple_return
 
 
 # --------------------------------------------------------------------------
@@ -1066,3 +1067,65 @@ def test_hazard_summary_has_one_located_entry_per_hazard(hazards: list[tuple[int
     assert len(parts) == len(hazards)
     for part, hazard in zip(parts, hazards, strict=True):
         assert part.endswith(f' at line {hazard[0]}')
+
+
+# --------------------------------------------------------------------------
+# check_discarded_tuple_return
+# --------------------------------------------------------------------------
+
+TUPLE_CALLEE = """
+def f(x: int) -> tuple[int, str]:
+    return x, 'a'
+
+
+def h(x: int) -> tuple[int, ...]:
+    return (x,)
+"""
+
+
+def test_a_discarded_tuple_return_from_another_module_is_a_hit_with_related(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/callee.py': TUPLE_CALLEE,
+            'src/probe/caller.py': """
+            import probe.callee
+
+
+            def run(x: int) -> None:
+                probe.callee.f(x)
+            """,
+        }
+    )
+    hits = run_check(DISCARDED_TUPLE, root)
+    assert [(hit['rule'], hit['path'], hit['line']) for hit in hits] == [('discarded-tuple-return', 'src/probe/caller.py', 5)]
+    assert hits[0]['variant'] == 'probe.callee.f returns tuple[...]; the result is discarded'
+    assert hits[0]['related'] == ['src/probe/callee.py']
+
+
+def test_a_discarded_awaited_tuple_return_is_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/mod.py': """
+            async def g() -> tuple[int, str]:
+                return 1, 'a'
+
+
+            async def run() -> None:
+                await g()
+            """
+        }
+    )
+    hits = run_check(DISCARDED_TUPLE, root)
+    assert [(hit['rule'], hit['line']) for hit in hits] == [('discarded-tuple-return', 6)]
+    assert 'related' not in hits[0]
+
+
+@pytest.mark.parametrize(
+    'statement',
+    ['_ = f(x)', 'a, _ = f(x)', 'h(x)', 'unknown(x)', 'value = f(x)'],
+    ids=['named-discard', 'unpacked', 'variadic-tuple', 'unresolved', 'bound'],
+)
+def test_a_used_or_unprovable_tuple_call_is_not_a_hit(project: Builder, run_check: Runner, statement: str) -> None:
+    source = TUPLE_CALLEE + f'\n\ndef run(x: int) -> None:\n    {statement}\n'
+    root = project({'src/probe/mod.py': source})
+    assert run_check(DISCARDED_TUPLE, root) == []

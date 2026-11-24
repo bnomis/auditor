@@ -118,6 +118,7 @@ def test_registered_order_is_preserved() -> None:
 CROSS_FILE_RULES = frozenset(
     {
         'asymmetric-exception-translation',
+        'discarded-tuple-return',
         'duplicate-call-sequence',
         'literal-duplication',
         'mutable-module-level-exported',
@@ -184,6 +185,8 @@ def test_exactly_the_cross_file_rules_emit_related(project, run_check) -> None:
             'src/probe/mod.py': 'def extract_directory(settings, output_path=None):\n    return None\n',
             'agents/specs/probe/spec.md': '## API\n\n```python\ndef extract_directory(settings: Settings) -> Batch:\n```\n',
             'src/probe/declares.py': 'class ProbeError(Exception):\n    pass\n\n\ndef check(text):\n    """Check.\n\n    Raises:\n        ProbeError: bad.\n    """\n    return text\n',
+            'src/probe/tup_a.py': "def pair(x: int) -> tuple[int, str]:\n    return x, 'a'\n",
+            'src/probe/tup_b.py': 'import probe.tup_a\n\n\ndef run(x: int) -> None:\n    probe.tup_a.pair(x)\n',
             'src/probe/calls.py': 'import probe.declares\n\n\ndef run(text):\n    """Run.\n\n    Raises:\n        ValueError: never.\n    """\n    return probe.declares.check(text)\n',
         }
     )

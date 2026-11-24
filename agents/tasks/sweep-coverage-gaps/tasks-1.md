@@ -106,7 +106,7 @@ and `FileNotFoundError` as A3 asks.
 
 ## Task 3: Add the `discarded-tuple-return` rule
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** API; Implementation 2; Testing 2
@@ -117,21 +117,21 @@ the rule as its mechanical part.
 
 **Subtasks:**
 
-- [ ] Tests first in `claude/skills/auditme/tests/test_state_and_effects.py`: the spec's Testing 2 cases; see them fail
-- [ ] Add `check_discarded_tuple_return` to `claude/skills/auditme/checks/auditme/rules/state_and_effects.py` with the spec's signature and docstring; resolve calls as `check_raises_section_drift` does (`auditme.core.resolve_call` with `class_methods=True`, `call_bindings`, `reexport_aliases`); variant and `related` as the spec's API says
-- [ ] Register it: `CHECKS` in `claude/skills/auditme/checks/auditme/registry.py` and `claude/skills/auditme/tests/registry-order.txt` (appended at the end), `RULE_IDS`, `CROSS_FILE_RULES` in `claude/skills/auditme/tests/test_registry.py`, and a row in `docs/guide/checker.md`
-- [ ] Add a sentence to A23 in `claude/skills/auditme/SKILL.md` naming the rule as its mechanical part; the dataclass and partial-use cases stay Phase B
+- [x] Tests first in `claude/skills/auditme/tests/test_state_and_effects.py`: the spec's Testing 2 cases; see them fail
+- [x] Add `check_discarded_tuple_return` to `claude/skills/auditme/checks/auditme/rules/state_and_effects.py` with the spec's signature and docstring; resolve calls as `check_raises_section_drift` does (`auditme.core.resolve_call` with `class_methods=True`, `call_bindings`, `reexport_aliases`); variant and `related` as the spec's API says
+- [x] Register it: `CHECKS` in `claude/skills/auditme/checks/auditme/registry.py` and `claude/skills/auditme/tests/registry-order.txt` (appended at the end), `RULE_IDS`, `CROSS_FILE_RULES` in `claude/skills/auditme/tests/test_registry.py`, and a row in `docs/guide/checker.md`
+- [x] Add a sentence to A23 in `claude/skills/auditme/SKILL.md` naming the rule as its mechanical part; the dataclass and partial-use cases stay Phase B
 
 **Acceptance Criteria:**
 
-- [ ] The spec's Testing 2 cases pass, including `related` on the cross-module hit
-- [ ] `test_registry.py` passes with the new id in the source, `RULE_IDS` and the guide
+- [x] The spec's Testing 2 cases pass, including `related` on the cross-module hit
+- [x] `test_registry.py` passes with the new id in the source, `RULE_IDS` and the guide
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/test_registry.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/test_registry.py claude/skills/auditme/tests/test_driver.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 ---
 

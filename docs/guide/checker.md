@@ -329,6 +329,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | `build-name-has-side-effect` | A `build_*` or `compute_*` function calling subprocess, the clock, `uuid`, `random` or a filesystem write |
 | `mutable-module-level-exported` | A mutable module-level container read by name from another module |
 | `mutable-members-in-immutable-wrapper` | An externally read container in a shallow immutable wrapper that still holds mutable members |
+| `discarded-tuple-return` | A call, as a bare statement or awaited, to a package function annotated `-> tuple[A, B, ...]` (two or more element types), so the result is thrown away; `_ = f()` and `a, _ = f()` name the discard and `tuple[X, ...]` is a sequence |
 | `callback-hotpath-io` | A `Trainer` callback method doing filesystem I/O on every event |
 | `dataclass-optional-always-set` | A dataclass field typed as optional, defaulting to `None`, that `__post_init__` always sets |
 | `dead-local-init` | A local initialised at the top of a function and overwritten on every path before use |

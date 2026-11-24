@@ -73,6 +73,7 @@ CHECKS = (
     auditme.rules.imports_and_surfaces.check_from_import,
     auditme.rules.style_and_naming.check_typing_deprecated_alias,
     auditme.rules.error_handling.check_raises_section_drift,
+    auditme.rules.state_and_effects.check_discarded_tuple_return,
 )
 
 # The checks that read only the project, never the root they are handed. The
@@ -107,6 +108,7 @@ RULE_IDS = frozenset(
         'dataclass-optional-always-set',
         'dead-local-init',
         'def-class-in-init',
+        'discarded-tuple-return',
         'docstring-raises-mismatch',
         'duplicate-call-sequence',
         'duplicate-side-effect-per-target',
