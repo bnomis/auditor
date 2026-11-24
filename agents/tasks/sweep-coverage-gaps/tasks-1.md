@@ -170,7 +170,7 @@ lists; an unannotated two-arm chain stays exempt.
 
 ## Task 5: Read I/O in the pure-name rules
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Implementation 5; Testing 5
@@ -180,22 +180,22 @@ skips registered checks; `build-name-has-side-effect` reads `make_`.
 
 **Subtasks:**
 
-- [ ] Tests first in `claude/skills/auditme/tests/test_state_and_effects.py`: the spec's Testing 5 cases; see them fail
-- [ ] Add `PURE_NAME_IO_CALLS` beside `check_pure_name_has_side_effect` in `claude/skills/auditme/checks/auditme/rules/state_and_effects.py` with the calls Implementation 5 lists; read it besides `SIDE_EFFECT_CALL_NAMES`, which does not change
-- [ ] Skip a `check_` function registered as Implementation 5 says (a member of a module-level tuple, list, set or dict-value literal in the corpus, or decorated by a package function)
-- [ ] Add `make_` to the build rule's prefixes and to A9's prefix list in `claude/skills/auditme/SKILL.md`
-- [ ] Correct `check_pure_name_has_side_effect`'s docstring to the prefixes and calls it reads; update both rules' rows in `docs/guide/checker.md`
+- [x] Tests first in `claude/skills/auditme/tests/test_state_and_effects.py`: the spec's Testing 5 cases; see them fail
+- [x] Add `PURE_NAME_IO_CALLS` beside `check_pure_name_has_side_effect` in `claude/skills/auditme/checks/auditme/rules/state_and_effects.py` with the calls Implementation 5 lists; read it besides `SIDE_EFFECT_CALL_NAMES`, which does not change
+- [x] Skip a `check_` function registered as Implementation 5 says (a member of a module-level tuple, list, set or dict-value literal in the corpus, or decorated by a package function)
+- [x] Add `make_` to the build rule's prefixes and to A9's prefix list in `claude/skills/auditme/SKILL.md`
+- [x] Correct `check_pure_name_has_side_effect`'s docstring to the prefixes and calls it reads; update both rules' rows in `docs/guide/checker.md`
 
 **Acceptance Criteria:**
 
-- [ ] The spec's Testing 5 cases pass; `test_a_load_function_may_do_io` and the T2 lister's tests pass unchanged
-- [ ] The whole-tree sweep reports no new unaccepted hit for `check_ruff`, `check_lockfile` or `check_ruff_version`
+- [x] The spec's Testing 5 cases pass; `test_a_load_function_may_do_io` and the T2 lister's tests pass unchanged
+- [x] The whole-tree sweep reports no new unaccepted hit for `check_ruff`, `check_lockfile` or `check_ruff_version`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/phaseb/test_t2_candidates.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_state_and_effects.py claude/skills/auditme/tests/phaseb/test_t2_candidates.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 

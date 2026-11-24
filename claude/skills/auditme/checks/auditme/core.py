@@ -347,6 +347,7 @@ def is_never_accepted(rule: str, patterns: tuple[str, ...]) -> bool:
 
 def is_executable_file(path: pathlib.Path) -> bool:
     """True when `path` is a file the current user can execute."""
+    # auditme: accept[pure-name-has-side-effect] the predicate exists to test the file's state
     return path.is_file() and os.access(path, os.X_OK)
 
 

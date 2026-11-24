@@ -323,10 +323,10 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | `silent-self-mutation` | A method other than `__post_init__`, `__setattr__`, a setter, `clear`, `reset`, `update`, `mutate`, `merge`, `replace`, `apply`, `patch` or `override` (or a name that is one of these words followed by `_` and more, such as `update_cache`) reassigning an attribute set from a constructor argument |
 | `return-shadows-instance-attr` | A method returning a value named like an instance attribute, leaving the caller to reassign it |
 | `parameter-mutation-in-pure-function` | A function named or documented as a check that mutates a parameter |
-| `pure-name-has-side-effect` | A function with a query-like name calling a write or I/O side effect |
+| `pure-name-has-side-effect` | A function with a query-like name opening or reading a file, testing existence, running a subprocess, reading the clock or writing to disk; a registered `check_` function is skipped |
 | `mutable-store-without-copy` | `__init__` storing a dict or list parameter on `self` without a copy |
 | `assert-never-missing` | An `if`/`elif` chain, or a `match`, on string values of one name or dotted name (`==` or `in` arms) ending without `assert_never`; three arms, or two when the subject is annotated `Literal[...]` with three or more string members |
-| `build-name-has-side-effect` | A `build_*` or `compute_*` function calling subprocess, the clock, `uuid`, `random` or a filesystem write |
+| `build-name-has-side-effect` | A `build_*`, `compute_*` or `make_*` function calling subprocess, the clock, `uuid`, `random` or a filesystem write |
 | `mutable-module-level-exported` | A mutable module-level container read by name from another module |
 | `mutable-members-in-immutable-wrapper` | An externally read container in a shallow immutable wrapper that still holds mutable members |
 | `discarded-tuple-return` | A call, as a bare statement or awaited, to a package function annotated `-> tuple[A, B, ...]` (two or more element types), so the result is thrown away; `_ = f()` and `a, _ = f()` name the discard and `tuple[X, ...]` is a sequence |
