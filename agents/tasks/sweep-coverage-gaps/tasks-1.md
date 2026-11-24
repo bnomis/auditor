@@ -269,7 +269,7 @@ brief covers the case and goes up one version.
 
 ## Task 8: Close the list
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Testing; After this ships
@@ -279,23 +279,23 @@ spec implemented.
 
 **Subtasks:**
 
-- [ ] Run every test tree, with its log kept:
+- [x] Run every test tree, with its log kept:
       `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/sweep-coverage-gaps/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`
-- [ ] Read the "Documented refinements" and rule rows changed by Tasks 1 to 7 once more against the code, and fix any that disagree
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Add a `Note 2026-MM-DD:` line (the day this task runs) to the `TODO.md` item saying the checker work shipped and the item waits on the operator's runs and the `requests.md` entry's deletion; change nothing else in the item
+- [x] Read the "Documented refinements" and rule rows changed by Tasks 1 to 7 once more against the code, and fix any that disagree
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Add a `Note 2026-MM-DD:` line (the day this task runs) to the `TODO.md` item saying the checker work shipped and the item waits on the operator's runs and the `requests.md` entry's deletion; change nothing else in the item
 
 **Acceptance Criteria:**
 
-- [ ] `$MAIN/logs/rro/sweep-coverage-gaps/tasks-1/final-tests.log` ends with `all selected test directories passed`
+- [x] `$MAIN/logs/rro/sweep-coverage-gaps/tasks-1/final-tests.log` ends with `all selected test directories passed`
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] The final test command above exits 0 and prints `all selected test directories passed`
-- [ ] `uv run --group docs mkdocs build --strict` passes
-- [ ] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, where `<baseline>` is `TODO.md` at the commit that added this list: `git show $(git log --diff-filter=A --format=%H -- agents/tasks/sweep-coverage-gaps/tasks-1.md):TODO.md`
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The final test command above exits 0 and prints `all selected test directories passed`
+- [x] `uv run --group docs mkdocs build --strict` passes
+- [x] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, where `<baseline>` is `TODO.md` at the commit that added this list: `git show $(git log --diff-filter=A --format=%H -- agents/tasks/sweep-coverage-gaps/tasks-1.md):TODO.md`
 
 **Notes:**
 

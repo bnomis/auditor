@@ -36,6 +36,10 @@ annotation as positive evidence), so start from a spec (`/todo-do`).
 
 Spec: `agents/specs/sweep-coverage-gaps/spec.md` (approved 2026-11-24: `agents/reviews/sweep-coverage-gaps-spec-2026-11-24.md`); tasks: `agents/tasks/sweep-coverage-gaps/tasks-1.md`.
 
+Note 2026-11-24: the checker work shipped; the item waits on the operator's
+runs of the sweep on the projects that use the hooks and on the deletion of
+the `requests.md` entry.
+
 ## `raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep
 
 Split on 2026-11-24 from "`raises-section-drift` misreads three common
