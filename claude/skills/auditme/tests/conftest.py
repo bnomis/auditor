@@ -115,7 +115,7 @@ def project(tmp_path: pathlib.Path) -> collections.abc.Callable[[dict[str, str]]
 
 
 @pytest.fixture
-def run_check() -> collections.abc.Callable[..., list[dict]]:
+def run_check() -> collections.abc.Callable[..., list[dict[str, typing.Any]]]:
     """Return a runner that executes one check over one root and parses its hits.
 
     The root is `src/<package>/` unless `src_root` names another one relative
@@ -131,7 +131,7 @@ def run_check() -> collections.abc.Callable[..., list[dict]]:
         root: pathlib.Path,
         package: str = 'probe',
         src_root: str | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, typing.Any]]:
         auditme.core.EMITTED.clear()
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):

@@ -3,6 +3,7 @@
 import ast
 import collections.abc
 import pathlib
+import typing
 
 import auditme.rules.state_and_effects
 import hypothesis
@@ -26,6 +27,7 @@ CALLBACK_IO = auditme.rules.state_and_effects.check_callback_hotpath_io
 DATACLASS_OPTIONAL = auditme.rules.state_and_effects.check_dataclass_optional_always_set
 DEAD_LOCAL = auditme.rules.state_and_effects.check_dead_local_init
 SUBPROCESS = auditme.rules.state_and_effects.check_subprocess_without_memoisation
+DISCARDED_TUPLE = auditme.rules.state_and_effects.check_discarded_tuple_return
 
 
 # --------------------------------------------------------------------------
@@ -293,6 +295,166 @@ def test_a_side_effect_inside_a_returned_closure_is_not_the_function_s_own(proje
     assert run_check(PURE_NAME, root) == []
 
 
+def pure_name_hits(project: Builder, run_check: Runner, files: dict[str, str]) -> list[dict[str, typing.Any]]:
+    return run_check(PURE_NAME, project(files))
+
+
+def test_a_get_function_that_reads_a_file_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(
+        project,
+        run_check,
+        {
+            'src/probe/mod.py': """
+            import pathlib
+
+
+            def get_text(path: pathlib.Path) -> str:
+                return path.read_text()
+            """
+        },
+    )
+    assert [hit['rule'] for hit in hits] == ['pure-name-has-side-effect']
+    assert '`read_text`' in hits[0]['variant']
+
+
+def test_a_get_function_that_runs_a_subprocess_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(
+        project,
+        run_check,
+        {
+            'src/probe/mod.py': """
+            import subprocess
+
+
+            def get_version() -> str:
+                return subprocess.run(['probe', '--version'], check=True).stdout
+            """
+        },
+    )
+    assert [hit['rule'] for hit in hits] == ['pure-name-has-side-effect']
+
+
+def test_a_get_function_that_tests_existence_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(
+        project,
+        run_check,
+        {
+            'src/probe/mod.py': """
+            import pathlib
+
+
+            def get_found(path: pathlib.Path) -> bool:
+                return path.exists()
+            """
+        },
+    )
+    assert [hit['rule'] for hit in hits] == ['pure-name-has-side-effect']
+
+
+def test_a_get_function_that_only_normalises_a_path_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(
+        project,
+        run_check,
+        {
+            'src/probe/mod.py': """
+            import pathlib
+
+
+            def get_full(path: pathlib.Path) -> pathlib.Path:
+                return path.resolve()
+            """
+        },
+    )
+    assert hits == []
+
+
+def test_a_run_method_that_is_not_a_subprocess_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(
+        project,
+        run_check,
+        {
+            'src/probe/mod.py': """
+            def get_result(job: object) -> object:
+                return job.run()
+            """
+        },
+    )
+    assert hits == []
+
+
+CHECK_READING_A_FILE = """
+import pathlib
+
+
+def check_x(path: pathlib.Path) -> str:
+    return path.read_text()
+"""
+
+
+def test_a_check_named_in_a_module_level_tuple_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(
+        project,
+        run_check,
+        {
+            'src/probe/checks.py': CHECK_READING_A_FILE,
+            'src/probe/registry.py': """
+            import probe.checks
+
+            CHECKS = (probe.checks.check_x,)
+            """,
+        },
+    )
+    assert hits == []
+
+
+def test_a_check_named_in_a_dict_value_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(
+        project,
+        run_check,
+        {
+            'src/probe/checks.py': CHECK_READING_A_FILE,
+            'src/probe/registry.py': """
+            from probe.checks import check_x
+
+            CHECKS = {'x': check_x}
+            """,
+        },
+    )
+    assert hits == []
+
+
+def test_a_check_decorated_by_a_package_function_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(
+        project,
+        run_check,
+        {
+            'src/probe/registry.py': """
+            import collections.abc
+
+
+            def register(func: collections.abc.Callable[..., str]) -> collections.abc.Callable[..., str]:
+                return func
+            """,
+            'src/probe/checks.py': """
+            import pathlib
+
+            import probe.registry
+
+
+            @probe.registry.register
+            def check_x(path: pathlib.Path) -> str:
+                return path.read_text()
+            """,
+        },
+    )
+    assert hits == []
+
+
+def test_an_unregistered_check_that_reads_a_file_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = pure_name_hits(project, run_check, {'src/probe/checks.py': CHECK_READING_A_FILE})
+    assert [hit['rule'] for hit in hits] == ['pure-name-has-side-effect']
+
+
 # --------------------------------------------------------------------------
 # check_mutable_store_without_copy
 # --------------------------------------------------------------------------
@@ -401,6 +563,132 @@ def test_a_two_arm_chain_is_legitimately_bi_valued(project: Builder, run_check: 
     assert run_check(ASSERT_NEVER, root) == []
 
 
+def assert_never_hits(project: Builder, run_check: Runner, body: str) -> list[dict[str, typing.Any]]:
+    return run_check(ASSERT_NEVER, project({'src/probe/mod.py': body}))
+
+
+def test_a_three_arm_chain_on_a_dotted_subject_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        class Probe:
+            def score(self) -> int:
+                if self.kind == 'alpha':
+                    return 1
+                elif self.kind == 'beta':
+                    return 2
+                elif self.kind == 'gamma':
+                    return 3
+                return 0
+        """,
+    )
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+    assert 'self.kind' in hits[0]['variant']
+
+
+def test_an_in_arm_counts_as_an_arm(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        def score(kind: str) -> int:
+            if kind in ('alpha', 'beta'):
+                return 1
+            elif kind == 'gamma':
+                return 2
+            elif 'delta' == kind:
+                return 3
+            return 0
+        """,
+    )
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+
+
+def test_a_two_arm_chain_on_a_three_member_literal_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        import typing
+
+
+        def score(kind: typing.Literal['a', 'b', 'c']) -> int:
+            if kind == 'a':
+                return 1
+            elif kind == 'b':
+                return 2
+            return 0
+        """,
+    )
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+
+
+def test_a_two_arm_chain_on_a_two_member_literal_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        import typing
+
+
+        def score(kind: typing.Literal['a', 'b']) -> int:
+            if kind == 'a':
+                return 1
+            elif kind == 'b':
+                return 2
+            return 0
+        """,
+    )
+    assert hits == []
+
+
+def test_a_two_arm_chain_on_a_local_literal_annotation_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(
+        project,
+        run_check,
+        """
+        import typing
+
+
+        def score(raw: str) -> int:
+            kind: typing.Literal['a', 'b', 'c'] = raw
+            if kind == 'a':
+                return 1
+            elif kind == 'b':
+                return 2
+            return 0
+        """,
+    )
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+
+
+MATCH_BODY = """
+import typing
+
+
+def score(kind: str) -> int:
+    match kind:
+        case 'a':
+            return 1
+        case 'b' | 'c':
+            return 2
+        case 'd':
+            return 3
+        {tail}
+"""
+
+
+def test_a_three_case_match_is_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(project, run_check, MATCH_BODY.format(tail='case _:\n            return 0'))
+    assert [hit['rule'] for hit in hits] == ['assert-never-missing']
+
+
+def test_a_match_ending_in_assert_never_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    hits = assert_never_hits(project, run_check, MATCH_BODY.format(tail='case _:\n            typing.assert_never(kind)'))
+    assert hits == []
+
+
 # --------------------------------------------------------------------------
 # check_build_name_has_side_effect
 # --------------------------------------------------------------------------
@@ -433,6 +721,22 @@ def test_a_build_function_that_only_assembles_is_not_a_hit(project: Builder, run
         }
     )
     assert run_check(BUILD_NAME, root) == []
+
+
+def test_a_make_function_that_reads_the_clock_is_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/mod.py': """
+            import datetime
+
+
+            def make_run_name(prefix: str) -> str:
+                return prefix + datetime.datetime.now().isoformat()
+            """
+        }
+    )
+    hits = run_check(BUILD_NAME, root)
+    assert [hit['rule'] for hit in hits] == ['build-name-has-side-effect']
 
 
 def test_a_function_that_promises_nothing_may_read_the_clock(project: Builder, run_check: Runner) -> None:
@@ -1066,3 +1370,65 @@ def test_hazard_summary_has_one_located_entry_per_hazard(hazards: list[tuple[int
     assert len(parts) == len(hazards)
     for part, hazard in zip(parts, hazards, strict=True):
         assert part.endswith(f' at line {hazard[0]}')
+
+
+# --------------------------------------------------------------------------
+# check_discarded_tuple_return
+# --------------------------------------------------------------------------
+
+TUPLE_CALLEE = """
+def f(x: int) -> tuple[int, str]:
+    return x, 'a'
+
+
+def h(x: int) -> tuple[int, ...]:
+    return (x,)
+"""
+
+
+def test_a_discarded_tuple_return_from_another_module_is_a_hit_with_related(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/callee.py': TUPLE_CALLEE,
+            'src/probe/caller.py': """
+            import probe.callee
+
+
+            def run(x: int) -> None:
+                probe.callee.f(x)
+            """,
+        }
+    )
+    hits = run_check(DISCARDED_TUPLE, root)
+    assert [(hit['rule'], hit['path'], hit['line']) for hit in hits] == [('discarded-tuple-return', 'src/probe/caller.py', 5)]
+    assert hits[0]['variant'] == 'probe.callee.f returns tuple[...]; the result is discarded'
+    assert hits[0]['related'] == ['src/probe/callee.py']
+
+
+def test_a_discarded_awaited_tuple_return_is_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/mod.py': """
+            async def g() -> tuple[int, str]:
+                return 1, 'a'
+
+
+            async def run() -> None:
+                await g()
+            """
+        }
+    )
+    hits = run_check(DISCARDED_TUPLE, root)
+    assert [(hit['rule'], hit['line']) for hit in hits] == [('discarded-tuple-return', 6)]
+    assert 'related' not in hits[0]
+
+
+@pytest.mark.parametrize(
+    'statement',
+    ['_ = f(x)', 'a, _ = f(x)', 'h(x)', 'unknown(x)', 'value = f(x)'],
+    ids=['named-discard', 'unpacked', 'variadic-tuple', 'unresolved', 'bound'],
+)
+def test_a_used_or_unprovable_tuple_call_is_not_a_hit(project: Builder, run_check: Runner, statement: str) -> None:
+    source = TUPLE_CALLEE + f'\n\ndef run(x: int) -> None:\n    {statement}\n'
+    root = project({'src/probe/mod.py': source})
+    assert run_check(DISCARDED_TUPLE, root) == []

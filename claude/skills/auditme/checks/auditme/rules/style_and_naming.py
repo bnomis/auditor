@@ -337,6 +337,10 @@ def check_bare_parametric_annotation(scope: pathlib.Path, src_root: pathlib.Path
     etc.). Bare `dict` / `list` loses type information that pyright /
     mypy / readers need.
 
+    The element types inside a subscript are read too (`list[dict]`,
+    `dict[str, dict]`), except `Literal[...]` arguments, `Annotated`
+    metadata and string forward references.
+
     Applies to:
       - function parameter annotations
       - function return annotations
@@ -359,7 +363,14 @@ def bare_parametric_annotation_in_file(rel: str, lines: list[str], tree: ast.Mod
         # `dict | None`, `dict | Other`, etc. by descending into BinOp.
         def visit(node: ast.AST) -> None:
             if isinstance(node, ast.Subscript):
-                # parametric; if slice is `dict` itself that's fine too, stop
+                tail = node.value.attr if isinstance(node.value, ast.Attribute) else getattr(node.value, 'id', '')
+                if tail == 'Literal':
+                    return
+                if tail == 'Annotated':
+                    if isinstance(node.slice, ast.Tuple) and node.slice.elts:
+                        visit(node.slice.elts[0])
+                    return
+                visit(node.slice)
                 return
             if isinstance(node, ast.Name) and node.id in auditme.core.BARE_GENERIC_NAMES:
                 lineno = getattr(node, 'lineno', None)

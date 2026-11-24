@@ -7,6 +7,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import typing
 
 import audit
 import auditme.core
@@ -330,7 +331,7 @@ def stub_ruff(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.Monk
     return install
 
 
-def drift_hits(run_check: Runner, root: pathlib.Path) -> list[dict]:
+def drift_hits(run_check: Runner, root: pathlib.Path) -> list[dict[str, typing.Any]]:
     return [hit for hit in run_check(RUFF_VERSION, root) if hit['rule'] == 'ruff-version-drift']
 
 
@@ -577,6 +578,7 @@ def test_ruff_executable_is_resolved_once_per_run(project: Builder, monkeypatch:
 
 
 def make_executable(path: pathlib.Path) -> pathlib.Path:
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text('#!/bin/sh\n')
     path.chmod(0o755)

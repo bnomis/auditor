@@ -43,7 +43,7 @@ def check_literal_duplication(scope: pathlib.Path, src_root: pathlib.Path) -> No
     shared data, and are not counted. A multi-member literal in test set-up
     still counts, and so does any literal in source.
     """
-    bucket: dict[tuple, set[tuple[str, int, str]]] = collections.defaultdict(set)
+    bucket: dict[tuple[typing.Any, ...], set[tuple[str, int, str]]] = collections.defaultdict(set)
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         tree = auditme.core.read_and_parse(path)

@@ -17,6 +17,7 @@ pytestmark = pytest.mark.skipif(shutil.which('jq') is None, reason='jq not insta
 def make_home(tmp_path: pathlib.Path, exit_code: int) -> pathlib.Path:
     home = tmp_path / 'home'
     checks = home / '.claude' / 'skills' / 'auditme' / 'checks'
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
     checks.mkdir(parents=True)
     (checks / 'changed.py').write_text(f"import sys\nprint({REPORT!r}, end='')\nsys.exit({exit_code})\n")
     return home
@@ -24,6 +25,7 @@ def make_home(tmp_path: pathlib.Path, exit_code: int) -> pathlib.Path:
 
 def make_repo(tmp_path: pathlib.Path, opted_in: bool) -> pathlib.Path:
     repo = tmp_path / 'repo'
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
     repo.mkdir()
     subprocess.run(['git', 'init', '-q', str(repo)], check=True)
     if opted_in:
@@ -164,6 +166,7 @@ FUTURE_IMPORT = 'from __future__ import annotations\n'
 def make_real_home(tmp_path: pathlib.Path) -> pathlib.Path:
     """A HOME whose installed checker is a link to this repository's real changed.py."""
     home = tmp_path / 'home'
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
     checker_path(home).parent.mkdir(parents=True)
     checker_path(home).symlink_to(CHECKER)
     return home
@@ -172,6 +175,7 @@ def make_real_home(tmp_path: pathlib.Path) -> pathlib.Path:
 def make_real_repo(tmp_path: pathlib.Path, new_source: str) -> pathlib.Path:
     """An opted-in repository on branch `feature`, one commit after `main`, adding src/pkg/new.py."""
     repo = tmp_path / 'project'
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
     repo.mkdir()
     git(repo, 'init', '-q', '-b', 'main')
     (repo / '.pre-commit-config.yaml').write_text('repos:\n  - hooks:\n      - id: auditme-changed\n')

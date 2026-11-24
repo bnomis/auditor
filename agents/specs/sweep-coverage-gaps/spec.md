@@ -1,7 +1,7 @@
 # Sweep coverage gaps
 
 **Version:** 1.0
-**Status:** proposed
+**Status:** implemented
 **Date:** 2026-11-24
 
 Closes seven gaps in the auditme sweep that one project's audits found by

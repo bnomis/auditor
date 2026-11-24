@@ -339,25 +339,98 @@ def check_parameter_mutation(scope: pathlib.Path, src_root: pathlib.Path) -> Non
                         )
 
 
+# Calls A9 counts as I/O, besides the filesystem writes in
+# `SIDE_EFFECT_CALL_NAMES` (which the build rule and the T2 lister share).
+# An entry is a dotted suffix of the callee's source text, so `run` only
+# counts as `subprocess.run`. Path normalisation (`resolve`, `absolute`,
+# `expanduser`, `os.path.realpath`) is deliberately absent.
+PURE_NAME_IO_CALLS = frozenset(
+    {
+        'datetime.now',
+        'datetime.utcnow',
+        'exists',
+        'is_dir',
+        'is_file',
+        'open',
+        'os.system',
+        'read_bytes',
+        'read_text',
+        'subprocess.Popen',
+        'subprocess.call',
+        'subprocess.check_call',
+        'subprocess.check_output',
+        'subprocess.run',
+        'time.time',
+    }
+)
+
+
+def io_call_name(call: ast.Call) -> str | None:
+    """The `PURE_NAME_IO_CALLS` entry the call matches, or None."""
+    text = ast.unparse(call.func)
+    for entry in sorted(PURE_NAME_IO_CALLS):
+        if text == entry or text.endswith('.' + entry):
+            return entry
+    return None
+
+
+def registered_check_names(src_root: pathlib.Path) -> frozenset[str]:
+    """Names of functions the corpus registers: a member of a module-level
+    tuple, list, set or dict-value literal, or decorated by a function the
+    corpus defines. The registration is the positive evidence A9 asks for.
+    """
+    trees = [tree for tree in (auditme.core.read_and_parse(path) for path in auditme.core.all_py_files(src_root)) if tree]
+    defined = {node.name for tree in trees for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+    def short(expr: ast.expr) -> str | None:
+        if isinstance(expr, ast.Call):
+            expr = expr.func
+        if isinstance(expr, ast.Name):
+            return expr.id
+        if isinstance(expr, ast.Attribute):
+            return expr.attr
+        return None
+
+    names: set[str] = set()
+    for tree in trees:
+        for stmt in tree.body:
+            value = stmt.value if isinstance(stmt, (ast.Assign, ast.AnnAssign)) else None
+            if isinstance(value, ast.Dict):
+                members: list[ast.expr] = [v for v in value.values if v is not None]
+            elif isinstance(value, (ast.Tuple, ast.List, ast.Set)):
+                members = list(value.elts)
+            else:
+                continue
+            names.update(name for name in (short(m) for m in members) if name)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(short(dec) in defined for dec in node.decorator_list):
+                names.add(node.name)
+    return frozenset(names)
+
+
 def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions whose name suggests a pure query/resolution but
-    whose body calls a disk-write/IO side-effect function.
+    whose body calls a disk-write or I/O function.
 
     Signal:
-      - Function name starts with `resolve_`, `find_`, `get_`, `compute_`,
-        `check_`, `parse_`, `is_`, `has_`, `validate_`, `count_`, `build_`.
+      - Function name starts with `resolve_`, `find_`, `get_`, `check_`,
+        `parse_`, `is_`, `has_`, `validate_`, `count_` or `allocate_`.
       - Function body contains a call whose callee short-name is in
-        {mkdir, rmdir, unlink, rmtree, makedirs, remove, write_text,
-         write_bytes, touch, copy, copytree, move, rename, replace,
-         symlink_to, mkstemp, mkdtemp, dump, dumps, save}.
-      - The side-effect call is not inside a nested `def` (otherwise
-        we'd flag factory functions that return a closure).
+        `auditme.core.SIDE_EFFECT_CALL_NAMES` (filesystem writes), or a call
+        in `PURE_NAME_IO_CALLS` (opening or reading a file, testing for
+        existence, subprocess, the clock).
+      - The call is not inside a nested `def` (otherwise we'd flag factory
+        functions that return a closure).
+      - A `check_` function the corpus registers (a member of a module-level
+        tuple, list, set or dict-value literal, or decorated by a package
+        function) is not read as pure-named.
     """
     # `compute_` / `build_` are covered by check_build_name_has_side_effect
     # which documents allowed exceptions per-call-site rather than banning
     # the prefix outright. `load_` is deliberately omitted: load_* functions
     # legitimately perform IO.
     PURE_PREFIXES = ('resolve_', 'find_', 'get_', 'check_', 'parse_', 'is_', 'has_', 'validate_', 'count_', 'allocate_')
+    registered = registered_check_names(src_root)
     for path in auditme.core.all_py_files(src_root):
         rel = auditme.core.relpath(path, scope)
         lines = auditme.core.source_lines(path)
@@ -368,6 +441,8 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             if not any(node.name.startswith(p) for p in PURE_PREFIXES):
+                continue
+            if node.name.startswith('check_') and node.name in registered:
                 continue
 
             # Walk only the direct body (and its nested statements) but not
@@ -388,11 +463,13 @@ def check_pure_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path)
                 elif isinstance(sub.func, ast.Attribute):
                     callee_short = sub.func.attr
                 if callee_short not in auditme.core.SIDE_EFFECT_CALL_NAMES:
+                    callee_short = io_call_name(sub)
+                if callee_short is None:
                     continue
                 accept = auditme.core.accept_reason(lines, sub.lineno, rule='pure-name-has-side-effect')
                 auditme.core.emit(
                     rule='pure-name-has-side-effect',
-                    variant=f'{node.name} calls side-effect `{callee_short}` despite name implying a pure query',
+                    variant=f'{node.name} calls side-effect `{callee_short.rpartition(".")[2]}` despite name implying a pure query',
                     path=rel,
                     line=sub.lineno,
                     evidence=(lines[sub.lineno - 1].strip()[:200] if sub.lineno <= len(lines) else ''),
@@ -514,15 +591,77 @@ def if_chain(node: ast.If, subject_of: collections.abc.Callable[[ast.expr], str 
     return IfChain(subject=subject, tests=tests, orelse=orelse)
 
 
-def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag `if/elif` chains that dispatch on string equality of a single
-    variable and either (a) terminate without an `else` or (b) end with a
-    plain `else:` body, instead of `else: typing.assert_never(var)`.
+def ends_in_assert_never(body: list[ast.stmt] | None) -> bool:
+    """True when a statement list calls a function whose name contains `assert_never`."""
+    return any(isinstance(sub, ast.Call) and 'assert_never' in ast.unparse(sub.func) for stmt in body or [] for sub in ast.walk(stmt))
 
-    Only chains with >= 3 string-equality tests are considered (a 2-arm
-    if/else is legitimately bi-valued). The variable may be typed as
-    `Literal[...]` or an enum, but we cannot verify the type mechanically
-    across files; the predicate is kept purely structural (count + shape).
+
+def literal_member_count(function: ast.FunctionDef | ast.AsyncFunctionDef | None, subject: str) -> int:
+    """String members of the `Literal[...]` the function annotates `subject` with, as a parameter or a local; else 0."""
+    if function is None:
+        return 0
+    arguments = function.args
+    annotations = [
+        argument.annotation
+        for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs, arguments.vararg, arguments.kwarg]
+        if argument is not None and argument.arg == subject and argument.annotation is not None
+    ]
+    annotations += [node.annotation for node in ast.walk(function) if isinstance(node, ast.AnnAssign) and ast.unparse(node.target) == subject]
+    for annotation in annotations:
+        if isinstance(annotation, ast.Subscript) and ast.unparse(annotation.value).rpartition('.')[2] == 'Literal':
+            members = annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
+            return sum(isinstance(member, ast.Constant) and isinstance(member.value, str) for member in members)
+    return 0
+
+
+def match_string_cases(node: ast.Match) -> int:
+    """How many `case` patterns are a string constant or a `|` of them."""
+
+    def is_string_pattern(pattern: ast.pattern) -> bool:
+        if isinstance(pattern, ast.MatchValue):
+            return isinstance(pattern.value, ast.Constant) and isinstance(pattern.value.value, str)
+        return isinstance(pattern, ast.MatchOr) and all(is_string_pattern(sub) for sub in pattern.patterns)
+
+    return sum(is_string_pattern(case.pattern) for case in node.cases)
+
+
+def assert_never_sites(
+    tree: ast.AST,
+) -> collections.abc.Iterator[tuple[ast.If | ast.Match, str, int, list[ast.stmt] | None, bool]]:
+    """Each chain head or `match` as (node, subject, arm count, final else body, a third value is known).
+
+    A `match` reports its last case body as the else body; a two-arm chain is "known" three-valued
+    when its subject is annotated `Literal[...]` with three or more string members."""
+    else_ifs = {id(node.orelse[0]) for node in ast.walk(tree) if isinstance(node, ast.If) and len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If)}
+    functions = [node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    owner: dict[int, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    for function in functions:
+        owner.update({id(inner): function for inner in ast.walk(function)})
+    for node in ast.walk(tree):
+        function = owner.get(id(node))
+        if isinstance(node, ast.If) and id(node) not in else_ifs:
+            chain = if_chain(node, extract_string_eq_var)
+            if chain is not None:
+                known = literal_member_count(function, chain.subject) >= 3
+                yield node, chain.subject, len(chain.tests), chain.orelse, known
+        elif isinstance(node, ast.Match):
+            last = node.cases[-1] if node.cases else None
+            wildcard = last is not None and isinstance(last.pattern, ast.MatchAs) and last.pattern.pattern is None
+            yield node, ast.unparse(node.subject), match_string_cases(node), last.body if wildcard and last else None, False
+
+
+def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag `if/elif` chains and `match` statements that dispatch on string
+    values of one subject and end without `assert_never`.
+
+    The subject is a name or a dotted name (`self.kind`). An arm is
+    `subject == 'x'` (either order) or `subject in ('x', 'y')` (a tuple, list
+    or set of string constants). A chain needs three arms, or two when the
+    subject is a parameter or an annotated local typed `Literal[...]` with
+    three or more string members: the annotation is the evidence that a third
+    value exists, so an unannotated two-arm chain stays exempt as bi-valued.
+    A `match` needs three string-constant `case` patterns and is exhausted
+    only by a final `case _:` calling `assert_never`.
 
     Cure: replace the trailing `else:` (or absent `else`) with
         else:
@@ -535,38 +674,15 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
         tree = auditme.core.read_and_parse(path)
         if tree is None:
             continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.If):
+        for node, subject, arms, terminal_else, known in assert_never_sites(tree):
+            if arms < (2 if known else 3) or ends_in_assert_never(terminal_else):
                 continue
-            chain = if_chain(node, extract_string_eq_var)
-            if chain is None or len(chain.tests) < 3:
-                continue
-            chain_var = chain.subject
-            chain_len = len(chain.tests)
-            terminal_else = chain.orelse
-            # Already uses assert_never? OK.
-            if terminal_else is not None:
-                has_assert_never = False
-                for stmt in terminal_else:
-                    for sub in ast.walk(stmt):
-                        if isinstance(sub, ast.Call):
-                            src = ''
-                            src = ast.unparse(sub.func)
-                            if 'assert_never' in src:
-                                has_assert_never = True
-                                break
-                    if has_assert_never:
-                        break
-                if has_assert_never:
-                    continue
+            kind = 'match' if isinstance(node, ast.Match) else 'if/elif chain'
+            ending = 'has fall-through else' if terminal_else else 'has no else'
             accept = auditme.core.accept_reason(lines, node.lineno, rule='assert-never-missing')
             auditme.core.emit(
                 rule='assert-never-missing',
-                variant=(
-                    f'if/elif chain on `{chain_var}` with {chain_len} string-equality arms '
-                    f'{"has fall-through else" if terminal_else else "has no else"}; '
-                    f'should end with `else: typing.assert_never({chain_var})`'
-                ),
+                variant=(f'{kind} on `{subject}` with {arms} string arms {ending}; should end with `else: typing.assert_never({subject})`'),
                 path=rel,
                 line=node.lineno,
                 evidence=(lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''),
@@ -575,30 +691,49 @@ def check_assert_never_missing(scope: pathlib.Path, src_root: pathlib.Path) -> N
             )
 
 
+def string_constants(node: ast.expr) -> bool:
+    """True for a non-empty tuple, list or set of string constants."""
+    return (
+        isinstance(node, (ast.Tuple, ast.List, ast.Set))
+        and bool(node.elts)
+        and all(isinstance(element, ast.Constant) and isinstance(element.value, str) for element in node.elts)
+    )
+
+
 def extract_string_eq_var(test: ast.expr) -> str | None:
-    """Return `name` if `test` is `name == "literal"` or `"literal" == name`,
+    """Return the subject's source text (a name or dotted name) if `test` is
+    `subject == "literal"`, `"literal" == subject` or `subject in ("a", "b")`,
     otherwise None."""
-    if not isinstance(test, ast.Compare):
+    if not isinstance(test, ast.Compare) or len(test.ops) != 1:
         return None
-    if len(test.ops) != 1 or not isinstance(test.ops[0], ast.Eq):
-        return None
-    left = test.left
-    right = test.comparators[0]
-    if isinstance(left, ast.Name) and isinstance(right, ast.Constant) and isinstance(right.value, str):
-        return left.id
-    if isinstance(right, ast.Name) and isinstance(left, ast.Constant) and isinstance(left.value, str):
-        return right.id
+    left, right = test.left, test.comparators[0]
+
+    def is_subject(node: ast.expr) -> bool:
+        while isinstance(node, ast.Attribute):
+            node = node.value
+        return isinstance(node, ast.Name)
+
+    def is_string(node: ast.expr) -> bool:
+        return isinstance(node, ast.Constant) and isinstance(node.value, str)
+
+    if isinstance(test.ops[0], ast.Eq):
+        if is_subject(left) and is_string(right):
+            return ast.unparse(left)
+        if is_subject(right) and is_string(left):
+            return ast.unparse(right)
+    elif isinstance(test.ops[0], ast.In) and is_subject(left) and string_constants(right):
+        return ast.unparse(left)
     return None
 
 
 def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag `build_*` / `compute_*` functions that call subprocess, clock,
+    """Flag `build_*` / `compute_*` / `make_*` functions that call subprocess, clock,
     uuid, random, or filesystem-write primitives. `build_*` names imply
     pure assembly from inputs; the listed side-effect calls contradict
     that contract.
 
     Signal:
-      - Function name starts with `build_` or `compute_`.
+      - Function name starts with `build_`, `compute_` or `make_`.
       - Function body contains a call whose callee short-name is in the
         side-effect set below (extends `SIDE_EFFECT_CALL_NAMES` with
         `subprocess.run`, `datetime.now`, `uuid.uuid4`, `time.time`).
@@ -639,7 +774,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            if not (node.name.startswith('build_') or node.name.startswith('compute_')):
+            if not node.name.startswith(('build_', 'compute_', 'make_')):
                 continue
 
             def walk_non_nested(n: ast.AST) -> collections.abc.Iterator[ast.AST]:
@@ -662,7 +797,7 @@ def check_build_name_has_side_effect(scope: pathlib.Path, src_root: pathlib.Path
                 accept = auditme.core.accept_reason(lines, sub.lineno, rule='build-name-has-side-effect')
                 auditme.core.emit(
                     rule='build-name-has-side-effect',
-                    variant=f'{node.name} calls side-effect `{callee_short}` despite `build_`/`compute_` name',
+                    variant=f'{node.name} calls side-effect `{callee_short}` despite `build_`/`compute_`/`make_` name',
                     path=rel,
                     line=sub.lineno,
                     evidence=(lines[sub.lineno - 1].strip()[:200] if sub.lineno <= len(lines) else ''),
@@ -1343,6 +1478,90 @@ def check_subprocess_without_memoisation(scope: pathlib.Path, src_root: pathlib.
             )
 
 
+TUPLE_ANNOTATION_NAMES = {'Tuple', 'tuple', 'typing.Tuple'}
+
+
+def is_multi_return_annotation(returns: ast.expr | None) -> bool:
+    """Whether a return annotation is `tuple[A, B, ...]` with two or more element types. Pure."""
+    if not isinstance(returns, ast.Subscript) or ast.unparse(returns.value) not in TUPLE_ANNOTATION_NAMES:
+        return False
+    if not isinstance(returns.slice, ast.Tuple) or len(returns.slice.elts) < 2:
+        return False
+    return not any(isinstance(element, ast.Constant) and element.value is Ellipsis for element in returns.slice.elts)
+
+
+def check_discarded_tuple_return(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Flag a call whose tuple result is thrown away (A23, mechanical part).
+
+    Signal: an expression statement (`ast.Expr`) whose value is a call, or
+    an `await` of one, that `auditme.core.resolve_call` resolves to a
+    function of the swept package annotated `-> tuple[A, B, ...]` with two
+    or more element types (the `typing` alias `Tuple` too). `tuple[X, ...]` is a
+    sequence, not a multi-return, and does not count. `_ = f()` and
+    `a, _ = f()` name the discard and are not hits.
+
+    Calls resolve as `raises-section-drift` resolves them, so an unresolved
+    call is not a hit, and a function returning a tuple without annotating
+    it is left to Phase B. `related` names the callee's file when it
+    differs from the caller's.
+    """
+    modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
+    for path in auditme.core.all_py_files(src_root):
+        tree = auditme.core.read_and_parse(path)
+        if tree is not None:
+            modules[auditme.core.module_dotted(path, src_root)] = (path, tree, auditme.core.source_lines(path))
+
+    known: dict[str, str | None] = {}
+    multi: set[str] = set()
+    path_of: dict[str, pathlib.Path] = {}
+    for module, (path, tree, _) in modules.items():
+        for node in tree.body:
+            members = [(f'{module}.{node.name}', None, node)] if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) else []
+            if isinstance(node, ast.ClassDef):
+                members = [
+                    (f'{module}.{node.name}.{member.name}', node.name, member)
+                    for member in node.body
+                    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+                ]
+            for qualname, cls, function in members:
+                known[qualname] = cls
+                path_of[qualname] = path
+                if is_multi_return_annotation(function.returns):
+                    multi.add(qualname)
+
+    bindings_of = {module: auditme.core.call_bindings(tree, module, path.name == '__init__.py') for module, (path, tree, _) in modules.items()}
+    aliases = auditme.core.reexport_aliases(bindings_of, known)
+
+    for module, (path, tree, lines) in modules.items():
+        class_of: dict[int, str] = {}
+        for top in tree.body:
+            if isinstance(top, ast.ClassDef):
+                for inner in ast.walk(top):
+                    class_of[id(inner)] = top.name
+        rel = auditme.core.relpath(path, scope)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Expr):
+                continue
+            call = node.value.value if isinstance(node.value, ast.Await) else node.value
+            if not isinstance(call, ast.Call):
+                continue
+            callee = auditme.core.resolve_call(call, module, class_of.get(id(node)), bindings_of[module], known, aliases, class_methods=True)
+            if callee is None or callee not in multi:
+                continue
+            accept = auditme.core.accept_reason(lines, node.lineno, rule='discarded-tuple-return')
+            related = [auditme.core.relpath(path_of[callee], scope)] if path_of[callee] != path else []
+            auditme.core.emit(
+                related=related,
+                rule='discarded-tuple-return',
+                variant=f'{callee} returns tuple[...]; the result is discarded',
+                path=rel,
+                line=node.lineno,
+                evidence=lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else '',
+                accepted=bool(accept),
+                accepted_reason=accept,
+            )
+
+
 __all__ = [
     'check_assert_never_missing',
     'check_build_name_has_side_effect',
@@ -1350,6 +1569,7 @@ __all__ = [
     'check_constructor_disk_io',
     'check_dataclass_optional_always_set',
     'check_dead_local_init',
+    'check_discarded_tuple_return',
     'check_mutable_members_in_immutable_wrapper',
     'check_mutable_module_level_exported',
     'check_mutable_store_without_copy',
@@ -1360,4 +1580,5 @@ __all__ = [
     'check_subprocess_without_memoisation',
     'extract_string_eq_var',
     'if_chain',
+    'is_multi_return_annotation',
 ]

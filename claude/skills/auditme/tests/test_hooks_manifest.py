@@ -77,6 +77,7 @@ def test_entry_script_is_executable_in_the_index(hook_id: str) -> None:
 def make_hook_repo(tmp_path: pathlib.Path) -> pathlib.Path:
     """A copy of the manifest and the checker, committed, for try-repo to run."""
     root = tmp_path / 'hooks'
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
     root.mkdir()
     shutil.copy(MANIFEST, root / '.pre-commit-hooks.yaml')
     checks = REPO_ROOT / 'claude' / 'skills' / 'auditme' / 'checks'
@@ -94,6 +95,7 @@ def make_hook_repo(tmp_path: pathlib.Path) -> pathlib.Path:
 def make_project(tmp_path: pathlib.Path) -> pathlib.Path:
     """A project whose last commit touches a file other than the one with the hit."""
     root = tmp_path / 'project'
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
     (root / 'src' / 'pkg').mkdir(parents=True)
     (root / 'src' / 'pkg' / '__init__.py').write_text('', encoding='utf-8')
     (root / 'src' / 'pkg' / 'old.py').write_text(conftest.FUTURE_IMPORT, encoding='utf-8')

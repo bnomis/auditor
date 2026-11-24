@@ -769,14 +769,15 @@ def entry_point_targets(scope: pathlib.Path) -> list[tuple[str, str, str]]:
 
 @candidates.register_question('A17', A17_BRIEF, ('surface',))
 def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
-    """Every `__init__.py` with an `__all__` or no exports, with who reads from it.
+    """Every `__init__.py` with an `__all__` or no exports, and every submodule with an `__all__`, with who reads from it.
 
     A reader in the package's own directory or the test tree is not a
-    consumer. A consumer line a `migration-shim-consumer` hit names is left
+    consumer; for a submodule only the submodule itself and the test tree are
+    left out, as its `__all__` declares its surface to its own package too. A consumer line a `migration-shim-consumer` hit names is left
     out, and an `__init__.py` with an `empty-init-while-siblings-export` hit
     is not listed.
 
-    A candidate is one `__init__.py`, so its id is the file's repo-relative
+    A candidate is one file, so its id is the file's repo-relative
     path, with no `::` qualname part as the other questions' ids have; the
     form is kept so ledger ids already written stay valid.
 
@@ -793,7 +794,7 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     entry_points = entry_point_targets(scope)
     line_cache: dict[pathlib.Path, list[str]] = {}
 
-    def read_entries(module: str, names: collections.abc.Iterable[str] | None, directory: str) -> list[tuple[str, str]]:
+    def read_entries(module: str, names: collections.abc.Iterable[str] | None, own: collections.abc.Callable[[str], bool]) -> list[tuple[str, str]]:
         """Each outside read of `module` or its submodules, as (name, entry), by the read's name when `names` is None."""
         wanted = None if names is None else set(names)
         entries: list[tuple[str, str]] = []
@@ -804,7 +805,7 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
                 continue
             for path, line in where:
                 rel = auditme.core.relpath(path, scope)
-                if rel.startswith(f'{directory}/') or auditme.core.is_test_relpath(rel) or (A17_SHIM_RULE, rel, line) in hits:
+                if own(rel) or auditme.core.is_test_relpath(rel) or (A17_SHIM_RULE, rel, line) in hits:
                     continue
                 # auditme: accept[filesystem-op-without-envelope] `candidates.read_text` translates the read's errors to PhaseBError
                 text = line_cache.setdefault(path, candidates.read_text(path).splitlines())[line - 1].strip()
@@ -820,23 +821,25 @@ def list_a17_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
     found: list[candidates.Candidate] = []
     for file in files:
-        if file.path.name != '__init__.py':
-            continue
+        is_init = file.path.name == '__init__.py'
         names = dunder_all_names(file.tree)
+        if not is_init and names is None:
+            continue
         exports_nothing = names is None and not any(isinstance(node, ast.ImportFrom) for node in file.tree.body)
         if names is None and not exports_nothing:
             continue
-        if hit_on_anchor(hits, file.rel, [1], ('empty-init-while-siblings-export',)):
+        if is_init and hit_on_anchor(hits, file.rel, [1], ('empty-init-while-siblings-export',)):
             continue
         directory = str(pathlib.PurePosixPath(file.rel).parent)
+        own = (lambda rel, directory=directory: rel.startswith(f'{directory}/')) if is_init else (lambda rel, own_rel=file.rel: rel == own_rel)
         payload: dict[str, object] = {}
         keyed: list[tuple[str, str]]
         if names is not None:
-            keyed = read_entries(file.module, names, directory)
+            keyed = read_entries(file.module, names, own)
             payload['all'] = names
             payload['consumers'] = {name: sorted({entry for key, entry in keyed if key == name}) for name in names}
         else:
-            keyed = read_entries(file.module, None, directory)
+            keyed = read_entries(file.module, None, own)
             payload['all'] = []
             payload['consumers'] = {}
             payload['reach_ins'] = sorted({entry for _, entry in keyed})

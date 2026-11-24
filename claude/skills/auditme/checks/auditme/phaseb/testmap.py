@@ -332,7 +332,7 @@ def load_test_index(root: pathlib.Path) -> TestIndex:
 
     direct = {site.qualname: sorted(called(parsed_sources[site.module], site.node, site.cls) - {site.qualname}) for site in site_list}
 
-    def direct_targets(file: ParsedFile, node: ast.FunctionDef | ast.AsyncFunctionDef, chain: list[tuple[ParsedFile, dict]]) -> set[str]:
+    def direct_targets(file: ParsedFile, node: ast.FunctionDef | ast.AsyncFunctionDef, chain: list[tuple[ParsedFile, dict[str, typing.Any]]]) -> set[str]:
         reached = called(file, node)
         seen: set[str] = set()
         pending = [argument.arg for argument in node.args.args + node.args.kwonlyargs]

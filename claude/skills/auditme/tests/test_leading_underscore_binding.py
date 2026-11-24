@@ -7,6 +7,7 @@ anchor on: starred targets, later tuple positions, parameters and locals.
 
 import collections.abc
 import pathlib
+import typing
 
 import auditme.rules.style_and_naming
 import pytest
@@ -18,7 +19,7 @@ BINDING = auditme.rules.style_and_naming.check_leading_underscore_binding
 TEXT_PATTERNS = auditme.rules.style_and_naming.check_text_patterns
 
 
-def found(hits: list[dict]) -> list[tuple[int, str]]:
+def found(hits: list[dict[str, typing.Any]]) -> list[tuple[int, str]]:
     return [(hit['line'], hit['variant']) for hit in hits if hit['rule'] == 'leading-underscore-binding']
 
 

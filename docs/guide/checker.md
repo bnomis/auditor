@@ -272,7 +272,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | `broad-except-wrong-level` | A broad `except` logging at warning, error, info or debug instead of `logger.exception` |
 | `except-interpolation` | A caught exception interpolated into an f-string or passed as a logger argument |
 | `mixed-raise-types` | A function raising both stdlib and project exceptions with no shared base |
-| `asymmetric-exception-translation` | A function with no error translation of its own whose every caller wraps it |
+| `asymmetric-exception-translation` | A function with no error translation of its own whose every caller wraps it, and whose own body calls something that can raise (filesystem, subprocess or an external module); not one that translates through a same-module translator |
 | `sibling-errors-no-common-base` | Error classes in one `errors.py` that do not share a parent |
 | `cli-entry-missing-error-envelope` | A `run_*` function in `cli/*.py` with no top-level `try`/`except` |
 | `try-wrapping-with-block-too-broad` | A `try: with X():` whose handler repeats work from the `with` body |
@@ -323,12 +323,13 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | `silent-self-mutation` | A method other than `__post_init__`, `__setattr__`, a setter, `clear`, `reset`, `update`, `mutate`, `merge`, `replace`, `apply`, `patch` or `override` (or a name that is one of these words followed by `_` and more, such as `update_cache`) reassigning an attribute set from a constructor argument |
 | `return-shadows-instance-attr` | A method returning a value named like an instance attribute, leaving the caller to reassign it |
 | `parameter-mutation-in-pure-function` | A function named or documented as a check that mutates a parameter |
-| `pure-name-has-side-effect` | A function with a query-like name calling a write or I/O side effect |
+| `pure-name-has-side-effect` | A function with a query-like name opening or reading a file, testing existence, running a subprocess, reading the clock or writing to disk; a registered `check_` function is skipped |
 | `mutable-store-without-copy` | `__init__` storing a dict or list parameter on `self` without a copy |
-| `assert-never-missing` | An `if`/`elif` chain on string equality ending without `else: typing.assert_never(...)` |
-| `build-name-has-side-effect` | A `build_*` or `compute_*` function calling subprocess, the clock, `uuid`, `random` or a filesystem write |
+| `assert-never-missing` | An `if`/`elif` chain, or a `match`, on string values of one name or dotted name (`==` or `in` arms) ending without `assert_never`; three arms, or two when the subject is annotated `Literal[...]` with three or more string members |
+| `build-name-has-side-effect` | A `build_*`, `compute_*` or `make_*` function calling subprocess, the clock, `uuid`, `random` or a filesystem write |
 | `mutable-module-level-exported` | A mutable module-level container read by name from another module |
 | `mutable-members-in-immutable-wrapper` | An externally read container in a shallow immutable wrapper that still holds mutable members |
+| `discarded-tuple-return` | A call, as a bare statement or awaited, to a package function annotated `-> tuple[A, B, ...]` (two or more element types), so the result is thrown away; `_ = f()` and `a, _ = f()` name the discard and `tuple[X, ...]` is a sequence |
 | `callback-hotpath-io` | A `Trainer` callback method doing filesystem I/O on every event |
 | `dataclass-optional-always-set` | A dataclass field typed as optional, defaulting to `None`, that `__post_init__` always sets |
 | `dead-local-init` | A local initialised at the top of a function and overwritten on every path before use |
@@ -361,7 +362,7 @@ nested in a function, which comes from an AST check.
 | `underscore-forloop-target-read` | A `for _x in ...` target read inside the loop |
 | `non-alphabetical-literal` | A collection of string members not in alphabetical order (`__all__` may instead follow ruff's RUF022 order) |
 | `non-alphabetical-dict-keys` | A module-level dict with string keys not in alphabetical order |
-| `bare-parametric-annotation` | `dict`, `list`, `tuple`, `set` or `frozenset` in an annotation without type parameters |
+| `bare-parametric-annotation` | `dict`, `list`, `tuple`, `set` or `frozenset` in an annotation without type parameters, including inside a subscript (`list[dict]`) |
 | `bare-nonbuiltin-generic-annotation` | A parameterisable non-builtin class (`collections.deque`, `queue.Queue`, ...) annotated without its parameter |
 | `typing-deprecated-alias` | A `typing` alias deprecated by PEP 585, such as `typing.Sequence` |
 | `duplicated-word` | A word repeated in a comment or string ("the the") |

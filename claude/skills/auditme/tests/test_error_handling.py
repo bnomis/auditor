@@ -7,6 +7,7 @@
 import ast
 import collections.abc
 import pathlib
+import typing
 
 import auditme.core
 import auditme.rules.error_handling
@@ -294,7 +295,7 @@ def test_a_function_raising_only_project_errors_is_not_a_hit(project: Builder, r
 # --------------------------------------------------------------------------
 
 
-ASYMMETRIC_HELPER = 'def setup_experiment(name: str) -> int:\n    return len(name)\n'
+ASYMMETRIC_HELPER = 'import pathlib\n\n\ndef setup_experiment(name: str) -> int:\n    return len(pathlib.Path(name).read_text())\n'
 
 WRAPPED_CALLER = """
 import probe.errors
@@ -329,6 +330,43 @@ def test_one_unwrapped_caller_makes_the_contract_symmetric_enough(project: Build
             'src/probe/helper.py': ASYMMETRIC_HELPER,
             'src/probe/a.py': WRAPPED_CALLER.format(name='run_a'),
             'src/probe/b.py': 'import probe.helper\n\n\ndef run_b(label: str) -> int:\n    return probe.helper.setup_experiment(label)\n',
+        }
+    )
+    assert run_check(ASYMMETRIC, root) == []
+
+
+def test_a_helper_of_pure_string_work_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/helper.py': 'def setup_experiment(name: str) -> int:\n    return len(name)\n',
+            'src/probe/a.py': WRAPPED_CALLER.format(name='run_a'),
+            'src/probe/b.py': WRAPPED_CALLER.format(name='run_b'),
+        }
+    )
+    assert run_check(ASYMMETRIC, root) == []
+
+
+def test_a_helper_that_translates_through_a_same_module_function_is_not_a_hit(project: Builder, run_check: Runner) -> None:
+    root = project(
+        {
+            'src/probe/helper.py': """
+            import pathlib
+
+            import probe.errors
+
+
+            def read_guarded(name: str) -> str:
+                try:
+                    return pathlib.Path(name).read_text()
+                except OSError as exc:
+                    raise probe.errors.ProbeError('read failed') from exc
+
+
+            def setup_experiment(name: str) -> int:
+                return len(read_guarded(name))
+            """,
+            'src/probe/a.py': WRAPPED_CALLER.format(name='run_a'),
+            'src/probe/b.py': WRAPPED_CALLER.format(name='run_b'),
         }
     )
     assert run_check(ASYMMETRIC, root) == []
@@ -486,6 +524,7 @@ def test_a_handler_that_only_reports_is_not_a_hit(project: Builder, run_check: R
 
 
 DOMAIN_ERRORS = 'class DataError(Exception):\n    pass\n'
+NEWLY_READ_STDLIB_RAISES = ['FileNotFoundError', 'TypeError']
 
 
 def test_raising_stdlib_where_the_package_has_a_domain_error_is_a_hit(project: Builder, run_check: Runner) -> None:
@@ -497,6 +536,29 @@ def test_raising_stdlib_where_the_package_has_a_domain_error_is_a_hit(project: B
     )
     hits = run_check(STDLIB_RAISE, root)
     assert [(hit['rule'], hit['line']) for hit in hits] == [('layer-has-domain-error-raises-stdlib', 3)]
+
+
+@pytest.mark.parametrize('exception', NEWLY_READ_STDLIB_RAISES)
+def test_raising_type_or_file_not_found_error_is_a_hit(project: Builder, run_check: Runner, exception: str) -> None:
+    root = project(
+        {
+            'src/probe/data/errors.py': DOMAIN_ERRORS,
+            'src/probe/data/loader.py': f"def load(value: int) -> int:\n    if value < 0:\n        raise {exception}('negative')\n    return value\n",
+        }
+    )
+    hits = run_check(STDLIB_RAISE, root)
+    assert [(hit['rule'], hit['line']) for hit in hits] == [('layer-has-domain-error-raises-stdlib', 3)]
+
+
+@pytest.mark.parametrize('exception', NEWLY_READ_STDLIB_RAISES)
+def test_type_or_file_not_found_error_inside_a_handler_is_not_a_hit(project: Builder, run_check: Runner, exception: str) -> None:
+    root = project(
+        {
+            'src/probe/data/errors.py': DOMAIN_ERRORS,
+            'src/probe/data/loader.py': f"def load(path: str) -> str:\n    try:\n        return open(path).read()\n    except OSError:\n        raise {exception}('bad')\n",
+        }
+    )
+    assert run_check(STDLIB_RAISE, root) == []
 
 
 def test_a_re_raise_inside_a_handler_is_the_narrowing_pattern(project: Builder, run_check: Runner) -> None:
@@ -2411,7 +2473,7 @@ def subject_file(call: str = '    return probe.wrap.wrapper()', raises: str = ' 
     return head + SUBJECT.format(raises=raises, call=call)
 
 
-def sectionless_hits(project: Builder, run_check: Runner, files: dict[str, str]) -> list[dict]:
+def sectionless_hits(project: Builder, run_check: Runner, files: dict[str, str]) -> list[dict[str, typing.Any]]:
     root = project({'src/probe/errors.py': ERRORS, 'src/probe/inner.py': INNER, **files})
     return [hit for hit in run_check(RAISES_DRIFT, root) if hit['rule'] == 'raises-section-drift' and hit['path'] == 'src/probe/use.py']
 

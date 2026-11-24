@@ -3,6 +3,7 @@
 import ast
 import collections.abc
 import pathlib
+import typing
 
 import auditme.rules.style_and_naming
 import hypothesis
@@ -24,7 +25,7 @@ FORLOOP_READ = auditme.rules.style_and_naming.check_underscore_forloop_target_re
 TYPING_ALIAS = auditme.rules.style_and_naming.check_typing_deprecated_alias
 
 
-def rules_found(hits: list[dict]) -> set[str]:
+def rules_found(hits: list[dict[str, typing.Any]]) -> set[str]:
     return {hit['rule'] for hit in hits}
 
 
@@ -393,6 +394,40 @@ def test_a_bare_builtin_generic_annotation_is_a_hit(source: str, project: Builde
 
 def test_a_parametric_annotation_is_not_a_hit(project: Builder, run_check: Runner) -> None:
     root = project({'src/probe/mod.py': 'def f(values: dict[str, int]) -> list[str]:\n    return []\n'})
+    assert run_check(BARE_PARAMETRIC, root) == []
+
+
+@pytest.mark.parametrize(
+    'source',
+    [
+        pytest.param('def f(values: list[dict]) -> None:\n    return None\n', id='list-of-dict'),
+        pytest.param('def f(values: dict[str, dict]) -> None:\n    return None\n', id='dict-value'),
+        pytest.param('def f(values: list[list]) -> None:\n    return None\n', id='list-of-list'),
+        pytest.param(
+            'import typing\n\n\ndef f(values: typing.Annotated[list, "meta"]) -> None:\n    return None\n',
+            id='annotated-first-argument',
+        ),
+    ],
+)
+def test_a_bare_generic_inside_a_subscript_is_a_hit(source: str, project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': source})
+    hits = run_check(BARE_PARAMETRIC, root)
+    assert [hit['rule'] for hit in hits] == ['bare-parametric-annotation']
+
+
+@pytest.mark.parametrize(
+    'source',
+    [
+        pytest.param('import typing\n\n\ndef f(mode: typing.Literal["dict"]) -> None:\n    return None\n', id='literal'),
+        pytest.param('def f(values: "list[dict]") -> None:\n    return None\n', id='string-forward-reference'),
+        pytest.param(
+            'import typing\n\n\ndef f(values: typing.Annotated[int, dict]) -> None:\n    return None\n',
+            id='annotated-metadata',
+        ),
+    ],
+)
+def test_a_name_that_is_not_a_type_inside_a_subscript_is_not_a_hit(source: str, project: Builder, run_check: Runner) -> None:
+    root = project({'src/probe/mod.py': source})
     assert run_check(BARE_PARAMETRIC, root) == []
 
 
