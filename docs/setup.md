@@ -200,8 +200,8 @@ a shell: it adds the auditor entry to the project's `.pre-commit-config.yaml`
 installs the git hooks:
 
 ```shell
-~/src/auditor/bin/install-hooks.sh --dry-run <project>
-~/src/auditor/bin/install-hooks.sh <project>
+$AUDITOR_PATH/bin/install-hooks.sh --dry-run <project>
+$AUDITOR_PATH/bin/install-hooks.sh <project>
 ```
 
 `<project>` is a path inside the project's repository; leave it out to use
@@ -252,7 +252,7 @@ A project set up before this repository was public pins the hooks by SSH
 `AUDITOR_DEPLOY_KEY` secret so the runner can clone over SSH. An SSH clone
 needs a key even from a public repository, so the URL changes first:
 
-1. Run `~/src/auditor/bin/install-hooks.sh <project>`, or change the auditor
+1. Run `$AUDITOR_PATH/bin/install-hooks.sh <project>`, or change the auditor
    entry's `repo:` to `https://github.com/bnomis/auditor` by hand. The
    script moves an SSH entry to the HTTPS URL and reports `cloned from
    https://github.com/bnomis/auditor`.

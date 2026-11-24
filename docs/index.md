@@ -9,8 +9,8 @@ Python rules the checker enforces. The other shared rules and skills live in the
 ([`bnomis/agents`](https://bnomis.github.io/agents/)).
 
 ```shell
-git clone https://github.com/bnomis/auditor.git ~/src/auditor
-~/src/auditor/bin/install-claude.sh
+git clone https://github.com/bnomis/auditor.git $AUDITOR_PATH
+$AUDITOR_PATH/bin/install-claude.sh
 ```
 
 The installer links the `/auditme` and `/auditme-project-setup` skills, the rules in
@@ -29,7 +29,7 @@ The installer links the `/auditme` and `/auditme-project-setup` skills, the rule
 ## What is in the repository
 
 | Path | What it is |
-|---|---|
+| --- | --- |
 | `claude/skills/auditme/checks/` | The checker: a standard-library-only sweep over `src/` and `bin/`. See [The audit checker](guide/checker.md). |
 | `claude/skills/auditme/` | The `/auditme` skill: the sweep, then the interpretive review. See [Skills](reference/skills.md). |
 | `claude/skills/auditme-project-setup/` | The `/auditme-project-setup` skill and its templates. See [Skills](reference/skills.md). |
