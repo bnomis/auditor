@@ -31,3 +31,4 @@
 | [Audit review 14](../audit-reviews/review-14.md) | [tasks-13.md](audit-reviews/tasks-13.md) | 13 | 2026-11-22 |
 | [Project gate settings](../specs/project-gate-settings/spec.md) | [tasks-1.md](project-gate-settings/tasks-1.md) | 1 | 2026-11-23 |
 | [Sweep coverage gaps](../specs/sweep-coverage-gaps/spec.md) | [tasks-1.md](sweep-coverage-gaps/tasks-1.md) | 1 | 2026-11-24 |
+| [Raises section resolution](../specs/raises-section-resolution/spec.md) | [tasks-2.md](raises-section-resolution/tasks-2.md) | 2 | 2026-11-24 |

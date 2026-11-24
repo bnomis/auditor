@@ -55,3 +55,5 @@ were fixed. Its third finding, unchanged:
 Fix direction: resolving a callee outside the swept package widens the rule
 beyond the same-package callees `agents/specs/raises-section-resolution/spec.md`
 covers, so it goes through that spec first (`/todo-do`).
+
+Spec: `agents/specs/raises-section-resolution/spec.md` amendment 1.3 (approved 2026-11-24; the operator chose declared paths in a new `[tool.auditme] first-party` key; review: `agents/reviews/raises-first-party-amendment-2026-11-24.md`); tasks: `agents/tasks/raises-section-resolution/tasks-2.md`.

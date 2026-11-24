@@ -1,7 +1,7 @@
 # Raises section resolution
 
-**Version:** 1.2
-**Status:** implemented
+**Version:** 1.3
+**Status:** proposed (amendment 1.3; version 1.2 is implemented)
 **Date:** 2026-11-20
 
 Widens the auditme rule `raises-section-drift` so it sees the domain errors
@@ -238,3 +238,102 @@ Answered on the review page of
 2. **A section-less callee's own raises (D2):** counted. A `raise` in a
    wrapper with no section reaches its caller's verdict, as `escapes`
    describes; the second hit, on the caller, for one root cause is accepted.
+
+## Amendment 1.3: first-party libraries outside the project (proposed 2026-11-24)
+
+**Motivation.** The `TODO.md` item "`raises-section-drift` does not follow
+`Raises:` sections of first-party libraries outside the sweep" (finding
+dated 2026-11-23, split on 2026-11-24 from an item whose other two findings
+shipped in `8fd601d`): a callee in a sibling first-party package installed
+alongside the project, not under `src/`, whose `Raises:` names an exception
+is ignored, so a function that lets it escape is not reported. A false
+negative. Declared roots cannot reach such a package: a root must resolve
+inside the project (`docs/reference/cli.md`, "Declared roots").
+
+**Decision (operator, 2026-11-24).** The project names its first-party
+libraries' source directories in a new `[tool.auditme]` key; nothing is
+inferred (not from `[tool.uv.sources]`, not from the environment). An error
+class such a library defines counts as a domain error, as the swept
+package's own do.
+
+**Setting.**
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `[tool.auditme] first-party` | `list[str]` | absent (no library is followed) | Package directories, relative to the project, that `raises-section-drift` reads for `Raises:` sections and error classes but never sweeps. Each is a directory named as its import name (`../lib/src/lib` for `import lib`); it may lie outside the project. |
+
+**API**, in `claude/skills/auditme/checks/auditme/core.py`, beside
+`declared_roots`:
+
+```python
+def first_party_dirs(scope: pathlib.Path) -> list[pathlib.Path]:
+    """The package directories `[tool.auditme] first-party` names, in order, resolved.
+
+    Empty when `pyproject.toml`, the table or the key is absent.
+
+    Raises:
+        RootsError: the key is not a list of non-empty strings, or an entry
+            is missing, not a directory, holds no `.py` file, or lies inside
+            a root the sweep audits.
+    """
+```
+
+with `cached_first_party_dirs(scope)` reading it once per run, as
+`cached_declared_roots` does. `declared_roots`' unknown-key check admits
+`first-party`.
+
+**Implementation.**
+
+- `audit.py` reads `first_party_dirs` where it reads the roots (`changed.py`
+  runs `audit.py`, so it inherits this), before any check runs, so an invalid entry stops the sweep with
+  the roots' error and exit status, naming the entry: `first-party path
+  ../lib/src/lib not found`. A missing directory is an error, never a skip:
+  a sweep that silently drops a library reports fewer hits than the same
+  code gives with it. `--package` and `--extra-root` do not change it.
+- `check_raises_section_drift` adds every module under each first-party
+  directory to its module table, named by `module_dotted(path, dir)` (so
+  `lib.errors` under `../lib/src/lib`). Their functions join `known`,
+  `declared_by` and `node_of`; their classes join `parents`, so
+  `package_classes`, and with it `is_domain`, include them. Subjects stay
+  the swept package's functions only: no hit is ever emitted on a
+  first-party file.
+- A call into a first-party module resolves as a same-package call does
+  (`resolve_call` over the joined table, `class_methods=True`), and is then
+  followed exactly as today: through its declared `Raises:` section, or,
+  section-less, into its raises and callees up to `SECTIONLESS_DEPTH`.
+- `related` names a first-party file by its path relative to the project
+  (`os.path.relpath`, so `../lib/src/lib/errors.py`); `core.relpath` is not
+  used for it, as it fails outside the project.
+- The A4 lister (`claude/skills/auditme/checks/auditme/phaseb/`) is
+  unchanged: a call into a first-party library stays unresolved there, and
+  Phase B keeps judging such calls by hand.
+
+**Error handling.** `RootsError` as the API says; a first-party module that
+does not parse is skipped, as a swept one is. An existing test whose
+expected hits change stops the task for the operator.
+
+**Testing**, in `claude/skills/auditme/tests/test_error_handling.py` and
+the settings tests beside the roots tests, each written first and seen to
+fail; the first-party library lives in a sibling directory of the project
+fixture:
+
+- a subject calling `lib.load()`, whose section declares `LibError`
+  (defined in `lib/errors.py`), with a section omitting it: one hit,
+  `declared by lib.load`, `related` naming `../lib/src/lib/...`; declaring
+  it gives none; a catching handler gives none;
+- a section-less wrapper in the library calling a declaring function: the
+  hit names the chain, as for an in-package wrapper;
+- without the key, the same subject gives no hit (today's behaviour);
+- no hit is emitted on a file under a first-party directory;
+- a missing entry, a file entry, an entry holding no `.py` file, a
+  non-list value and an entry inside a swept root each stop the sweep with
+  `RootsError` naming the entry; `first-party` beside `roots` and
+  `never-accepted` is accepted.
+
+**Documentation.** `docs/reference/cli.md`: the setting, beside "Declared
+roots", with the CI consequence (a listed directory must exist wherever the
+sweep runs). `docs/guide/checker.md`: the rule's row adds that callees in
+listed first-party libraries are followed. `SKILL.md` A4: the rule also
+follows callees into the libraries `first-party` lists. The rule's
+docstring gains an `Extension (<ship date>):` paragraph.
+
