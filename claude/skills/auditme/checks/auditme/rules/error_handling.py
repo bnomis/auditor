@@ -262,6 +262,48 @@ def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None
             )
 
 
+def raising_call_roots(tree: ast.Module, package_root_name: str) -> frozenset[str]:
+    """Names bound by an import of a module from outside the swept package."""
+    roots: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.partition('.')[0] != package_root_name:
+                    roots.add(alias.asname or alias.name.partition('.')[0])
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module and node.module.partition('.')[0] != package_root_name:
+            roots.update(alias.asname or alias.name for alias in node.names)
+    return frozenset(roots)
+
+
+def has_something_to_translate(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    external_roots: frozenset[str],
+    module_functions: frozenset[str],
+    envelopes: collections.abc.Mapping[str, frozenset[str]],
+) -> bool:
+    """True when the function's own body can raise what callers translate.
+
+    That is a call to a filesystem-touching name, a subprocess call, or a call
+    rooted at a module imported from outside the package. A body that calls a
+    same-module translating function translates through it and gives False.
+    """
+    raises = False
+    for stmt in node.body:
+        for sub in (stmt, *auditme.core.walk_within_scope(stmt)):
+            if not isinstance(sub, ast.Call):
+                continue
+            func = sub.func
+            short = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+            if isinstance(func, ast.Name) and short in module_functions and short in envelopes:
+                return False
+            root = func
+            while isinstance(root, (ast.Attribute, ast.Call, ast.Subscript)):
+                root = root.func if isinstance(root, ast.Call) else root.value
+            if short in FILESYSTEM_TOUCHING_CALLS or (isinstance(root, ast.Name) and root.id in external_roots):
+                raises = True
+    return raises
+
+
 def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Detect functions F such that:
       - F is a module-level (or public-looking) function that itself does
@@ -273,10 +315,16 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
 
     The asymmetric contract is a smell: a new caller that doesn't wrap F
     will leak the third-party exception. Mechanical signal the finding.
+
+    F must also have something to translate: its own body (nested defs
+    skipped) calls a filesystem-touching name or a module imported from outside
+    the package, and does not call a same-module translating function.
     """
     # First pass: enumerate every module-level function and whether its body
     # contains a top-level try/except handler.
     function_index: dict[str, tuple[str, int, bool]] = {}
+    translatable: set[str] = set()
+    envelopes = translator_envelopes(src_root)
     # function_index key is full dotted path (e.g. 'pkg.registry.runs.setup_experiment')
     package_root_name = src_root.name
 
@@ -290,9 +338,13 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
             mod = package_root_name + '.' + '.'.join(rel_parts[:-1]) if len(rel_parts) > 1 else package_root_name
         else:
             mod = package_root_name + '.' + '.'.join(rel_parts)[:-3]
+        external_roots = raising_call_roots(tree, package_root_name)
+        module_functions = frozenset(n.name for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)))
         for node in tree.body:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
+            if has_something_to_translate(node, external_roots, module_functions, envelopes):
+                translatable.add(f'{mod}.{node.name}')
             # Check if function's OWN body has a try/except that catches anything
             has_own_try = any(isinstance(child, ast.Try) for child in node.body)
             function_index[f'{mod}.{node.name}'] = (rel, node.lineno, has_own_try)
@@ -359,7 +411,7 @@ def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathli
         if len(sites) < 2:
             continue
         callee_path, callee_line, callee_has_try = function_index[callee]
-        if callee_has_try:
+        if callee_has_try or callee not in translatable:
             continue
         if not all(is_wrapped for (_, _, is_wrapped) in sites):
             continue

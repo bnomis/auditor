@@ -177,7 +177,7 @@ def test_exactly_the_cross_file_rules_emit_related(project, run_check) -> None:
             'src/probe/seq_b.py': CALL_CHAIN.format(name='run_second'),
             'src/probe/re_a.py': "import re\n\nTOKEN_RE = re.compile(r'^[a-z]+$')\n",
             'src/probe/re_b.py': "import re\n\nTOKEN_RE = re.compile(r'^[a-z]+$')\n",
-            'src/probe/setup.py': 'def setup_experiment(name: str) -> int:\n    return len(name)\n',
+            'src/probe/setup.py': 'import pathlib\n\n\ndef setup_experiment(name: str) -> int:\n    return len(pathlib.Path(name).read_text())\n',
             'src/probe/wrap_a.py': WRAPPED_CALLER.format(name='run_a'),
             'src/probe/wrap_b.py': WRAPPED_CALLER.format(name='run_b'),
             'src/probe/settings.py': "DEFAULTS = {'a': 1}\n",

@@ -272,7 +272,7 @@ Emitted by `checks/audit.py` itself, not by a registered check.
 | `broad-except-wrong-level` | A broad `except` logging at warning, error, info or debug instead of `logger.exception` |
 | `except-interpolation` | A caught exception interpolated into an f-string or passed as a logger argument |
 | `mixed-raise-types` | A function raising both stdlib and project exceptions with no shared base |
-| `asymmetric-exception-translation` | A function with no error translation of its own whose every caller wraps it |
+| `asymmetric-exception-translation` | A function with no error translation of its own whose every caller wraps it, and whose own body calls something that can raise (filesystem, subprocess or an external module); not one that translates through a same-module translator |
 | `sibling-errors-no-common-base` | Error classes in one `errors.py` that do not share a parent |
 | `cli-entry-missing-error-envelope` | A `run_*` function in `cli/*.py` with no top-level `try`/`except` |
 | `try-wrapping-with-block-too-broad` | A `try: with X():` whose handler repeats work from the `with` body |

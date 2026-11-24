@@ -205,7 +205,7 @@ skips registered checks; `build-name-has-side-effect` reads `make_`.
 
 ## Task 6: Require something to translate in `asymmetric-exception-translation`
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Implementation 6; Testing 6
@@ -216,19 +216,24 @@ same-module translator.
 
 **Subtasks:**
 
-- [ ] Change `ASYMMETRIC_HELPER` in `claude/skills/auditme/tests/test_error_handling.py` to read a file (`pathlib.Path(name).read_text()`), and add the spec's two Testing 6 non-hit cases; see them fail
-- [ ] In `check_asymmetric_exception_translation` (`claude/skills/auditme/checks/auditme/rules/error_handling.py`), require a call in the callee's own body (nested defs skipped) to a `FILESYSTEM_TOUCHING_CALLS` name, a subprocess call, or a call rooted at a module imported from outside the swept package; skip a callee that calls a same-module function `translator_envelopes` lists
-- [ ] Update the docstring, the rule's row in `docs/guide/checker.md`, and add a dated entry under "Documented refinements" in `claude/skills/auditme/SKILL.md`
+- [x] Change `ASYMMETRIC_HELPER` in `claude/skills/auditme/tests/test_error_handling.py` to read a file (`pathlib.Path(name).read_text()`), and add the spec's two Testing 6 non-hit cases; see them fail
+- [x] In `check_asymmetric_exception_translation` (`claude/skills/auditme/checks/auditme/rules/error_handling.py`), require a call in the callee's own body (nested defs skipped) to a `FILESYSTEM_TOUCHING_CALLS` name, a subprocess call, or a call rooted at a module imported from outside the swept package; skip a callee that calls a same-module function `translator_envelopes` lists
+- [x] Update the docstring, the rule's row in `docs/guide/checker.md`, and add a dated entry under "Documented refinements" in `claude/skills/auditme/SKILL.md`
 
 **Acceptance Criteria:**
 
-- [ ] The tests built on `ASYMMETRIC_HELPER` pass with the changed fixture, and the two new non-hit cases pass
+- [x] The tests built on `ASYMMETRIC_HELPER` pass with the changed fixture, and the two new non-hit cases pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+
+**Notes:**
+
+- BLOCKED 2026-11-24: `claude/skills/auditme/tests/test_registry.py::test_exactly_the_cross_file_rules_emit_related` now fails. Its fixture `src/probe/setup.py` is `def setup_experiment(name: str) -> int: return len(name)`, which has nothing to translate, so `asymmetric-exception-translation` no longer emits `related` for it. Before: the emitting set equalled `CROSS_FILE_RULES`; after: it lacks `asymmetric-exception-translation`. The test is not built on `ASYMMETRIC_HELPER`, so this list forbids editing it; Task 9 asks the operator to allow the fixture change. The implementation, the docstring, the guide row and the `SKILL.md` entry are done and uncommitted.
+- Unblocked 2026-11-24: the operator approved the fixture change Task 9 asks for; with it, both test files pass and the whole-tree sweep is clean.
 
 ---
 
@@ -295,3 +300,28 @@ spec implemented.
 **Notes:**
 
 - Depends on Tasks 1 to 7
+
+---
+
+## Task 9: Change the registry cross-file fixture for Task 6
+
+**Status:** done
+**Priority:** medium
+**Complexity:** small
+**Spec Reference:** Implementation 6
+
+**Technical Goal:** `test_exactly_the_cross_file_rules_emit_related` keeps `asymmetric-exception-translation` in its emitting set with a fixture that has something to translate.
+
+**Subtasks:**
+
+- [x] Operator approves editing the existing test (the task list forbids it otherwise)
+- [x] In `claude/skills/auditme/tests/test_registry.py`, change the `src/probe/setup.py` fixture to read a file (`import pathlib` and `pathlib.Path(name).read_text()`); `CROSS_FILE_RULES` does not change
+
+**Acceptance Criteria:**
+
+- [x] `test_registry.py` passes; Task 6 can then be committed and set to `done`
+
+**Notes:**
+
+- Depends on the operator's approval; blocks Task 6's commit
+- Approved by the operator on 2026-11-24 ("unblock task 6"); done in Task 6's commit
