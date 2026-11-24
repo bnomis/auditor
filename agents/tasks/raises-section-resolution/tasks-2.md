@@ -29,7 +29,7 @@ the `no-project-names` hook requires.
 
 ## Task 1: Read and validate `[tool.auditme] first-party`
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Amendment 1.3: Setting, API, Implementation (first bullet), Error handling, Testing (last bullet)
@@ -40,21 +40,21 @@ invalid entry, before any check runs.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `grep -rnwE 'first_party_dirs|cached_first_party_dirs' claude/skills/auditme/checks` prints nothing; if it prints anything, stop as `blocked` and name it
-- [ ] Tests first in `claude/skills/auditme/tests/test_settings.py` (reading and each `RootsError` case in the amendment's Testing list, `first-party` beside `roots` and `never-accepted` accepted) and `claude/skills/auditme/tests/test_driver.py` (a missing entry exits with the roots' status and names the entry before any hit is printed); see them fail
-- [ ] Add `first_party_dirs` and `cached_first_party_dirs` to `claude/skills/auditme/checks/auditme/core.py` beside `declared_roots`, with the amendment's signature and docstring; admit `first-party` in `declared_roots`' unknown-key check
-- [ ] Call `cached_first_party_dirs(scope)` in `claude/skills/auditme/checks/audit.py` where the roots are read, inside the existing `SettingsError` handling
+- [x] Starting-point check: `grep -rnwE 'first_party_dirs|cached_first_party_dirs' claude/skills/auditme/checks` prints nothing; if it prints anything, stop as `blocked` and name it
+- [x] Tests first in `claude/skills/auditme/tests/test_settings.py` (reading and each `RootsError` case in the amendment's Testing list, `first-party` beside `roots` and `never-accepted` accepted) and `claude/skills/auditme/tests/test_driver.py` (a missing entry exits with the roots' status and names the entry before any hit is printed); see them fail
+- [x] Add `first_party_dirs` and `cached_first_party_dirs` to `claude/skills/auditme/checks/auditme/core.py` beside `declared_roots`, with the amendment's signature and docstring; admit `first-party` in `declared_roots`' unknown-key check
+- [x] Call `cached_first_party_dirs(scope)` in `claude/skills/auditme/checks/audit.py` where the roots are read, inside the existing `SettingsError` handling
 
 **Acceptance Criteria:**
 
-- [ ] Without the key, `first_party_dirs` returns `[]` and the sweep's output is unchanged
-- [ ] Each invalid entry in the amendment's Testing list stops `audit.py` with a message naming the entry
+- [x] Without the key, `first_party_dirs` returns `[]` and the sweep's output is unchanged
+- [x] Each invalid entry in the amendment's Testing list stops `audit.py` with a message naming the entry
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_settings.py claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_core.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_settings.py claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_core.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
@@ -65,7 +65,7 @@ invalid entry, before any check runs.
 
 ## Task 2: Follow callees into the listed libraries
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Amendment 1.3: Implementation (second to fifth bullets), Testing (first four bullets)
@@ -77,21 +77,21 @@ the swept package's files.
 
 **Subtasks:**
 
-- [ ] Tests first in `claude/skills/auditme/tests/test_error_handling.py`, under the `# --- raises-section-drift` heading: the amendment's first four Testing bullets, with the library built beside the project fixture and listed in its `pyproject.toml`; see them fail
-- [ ] In `check_raises_section_drift` (`claude/skills/auditme/checks/auditme/rules/error_handling.py`), add each first-party module to `modules` under `module_dotted(path, dir)`, so its functions join `known`, `declared_by` and `node_of` and its classes join `parents`; keep the subject loop to the swept package's functions
-- [ ] Name a first-party file in `related` with `os.path.relpath(path, scope)`
-- [ ] Add an `Extension (<the day this task runs>):` paragraph to the rule's docstring
+- [x] Tests first in `claude/skills/auditme/tests/test_error_handling.py`, under the `# --- raises-section-drift` heading: the amendment's first four Testing bullets, with the library built beside the project fixture and listed in its `pyproject.toml`; see them fail
+- [x] In `check_raises_section_drift` (`claude/skills/auditme/checks/auditme/rules/error_handling.py`), add each first-party module to `modules` under `module_dotted(path, dir)`, so its functions join `known`, `declared_by` and `node_of` and its classes join `parents`; keep the subject loop to the swept package's functions
+- [x] Name a first-party file in `related` with `os.path.relpath(path, scope)`
+- [x] Add an `Extension (<the day this task runs>):` paragraph to the rule's docstring
 
 **Acceptance Criteria:**
 
-- [ ] The amendment's first four Testing cases pass
-- [ ] Every existing `raises-section-drift` test passes unchanged
+- [x] The amendment's first four Testing cases pass
+- [x] Every existing `raises-section-drift` test passes unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb/test_a4_candidates.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/phaseb/test_a4_candidates.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
@@ -102,7 +102,7 @@ the swept package's files.
 
 ## Task 3: Document the setting and close the list
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Amendment 1.3: Documentation; Motivation
@@ -113,25 +113,25 @@ every check passes over the whole branch, and the `TODO.md` item moves to
 
 **Subtasks:**
 
-- [ ] `docs/reference/cli.md`: a `### First-party libraries` section after "Declared roots", giving the key, an example, that entries may lie outside the project, that they are read but never swept, and that a listed directory must exist wherever the sweep runs (CI included); add the new errors to the errors table there
-- [ ] `docs/guide/checker.md`: the `raises-section-drift` row adds that callees in libraries `[tool.auditme] first-party` lists are followed
-- [ ] `claude/skills/auditme/SKILL.md` A4: the rule also follows callees into the libraries `first-party` lists
-- [ ] Run every test tree, with its log kept:
+- [x] `docs/reference/cli.md`: a `### First-party libraries` section after "Declared roots", giving the key, an example, that entries may lie outside the project, that they are read but never swept, and that a listed directory must exist wherever the sweep runs (CI included); add the new errors to the errors table there
+- [x] `docs/guide/checker.md`: the `raises-section-drift` row adds that callees in libraries `[tool.auditme] first-party` lists are followed
+- [x] `claude/skills/auditme/SKILL.md` A4: the rule also follows callees into the libraries `first-party` lists
+- [x] Run every test tree, with its log kept:
       `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/raises-section-resolution/tasks-2/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Move the `TODO.md` item "`raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep" to the end of `DONE.md`: append its heading and body unchanged, then `Done: <the day this task runs> - amendment 1.3 of agents/specs/raises-section-resolution/spec.md, agents/tasks/raises-section-resolution/tasks-2.md.`, and remove it from `TODO.md`
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Move the `TODO.md` item "`raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep" to the end of `DONE.md`: append its heading and body unchanged, then `Done: <the day this task runs> - amendment 1.3 of agents/specs/raises-section-resolution/spec.md, agents/tasks/raises-section-resolution/tasks-2.md.`, and remove it from `TODO.md`
 
 **Acceptance Criteria:**
 
-- [ ] `$MAIN/logs/rro/raises-section-resolution/tasks-2/final-tests.log` ends with `all selected test directories passed`
+- [x] `$MAIN/logs/rro/raises-section-resolution/tasks-2/final-tests.log` ends with `all selected test directories passed`
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] The final test command above exits 0 and prints `all selected test directories passed`
-- [ ] `uv run --group docs mkdocs build --strict` passes
-- [ ] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, where `<baseline>` is `TODO.md` at the commit that added this list: `git show $(git log --diff-filter=A --format=%H -- agents/tasks/raises-section-resolution/tasks-2.md):TODO.md`
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The final test command above exits 0 and prints `all selected test directories passed`
+- [x] `uv run --group docs mkdocs build --strict` passes
+- [x] `python3 ~/.claude/skills/todo-review/verify_bodies.py <baseline> TODO.md DONE.md` exits 0, where `<baseline>` is `TODO.md` at the commit that added this list: `git show $(git log --diff-filter=A --format=%H -- agents/tasks/raises-section-resolution/tasks-2.md):TODO.md`
 
 **Notes:**
 

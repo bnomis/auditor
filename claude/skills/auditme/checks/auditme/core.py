@@ -425,7 +425,7 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
     if table is None:
         return None
     where = SETTINGS_WHERE
-    unknown_table_keys = sorted(set(table) - {'never-accepted', 'roots'})
+    unknown_table_keys = sorted(set(table) - {'first-party', 'never-accepted', 'roots'})
     if unknown_table_keys:
         raise RootsError(f'{where}: unknown key {unknown_table_keys[0]!r}')
     if 'roots' not in table:
@@ -458,6 +458,36 @@ def declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]] | None
             if nested:
                 raise RootsError(f'declared roots {a.relative_to(scope)} and {b.relative_to(scope)} overlap')
     return roots
+
+
+def first_party_dirs(scope: pathlib.Path) -> list[pathlib.Path]:
+    """The package directories `[tool.auditme] first-party` names, in order, resolved.
+
+    Empty when `pyproject.toml`, the table or the key is absent.
+
+    Raises:
+        RootsError: the key is not a list of non-empty strings, or an entry
+            is missing, not a directory, holds no `.py` file, or lies inside
+            a root the sweep audits.
+    """
+    table = auditme_table(scope)
+    if table is None or 'first-party' not in table:
+        return []
+    entries = table['first-party']
+    if not isinstance(entries, list) or not all(isinstance(e, str) and e for e in entries):
+        raise RootsError(f'{SETTINGS_WHERE}: first-party must be a list of strings')
+    swept = [root.resolve() for root in audit_roots(scope)]
+    found: list[pathlib.Path] = []
+    for entry in entries:
+        directory = (scope / entry).resolve()
+        if not directory.is_dir():
+            raise RootsError(f'first-party path {entry} not found')
+        if not py_files(directory, PACKAGE):
+            raise RootsError(f'first-party path {entry} holds no .py file')
+        if any(path_inside(directory, root) for root in swept):
+            raise RootsError(f'first-party path {entry} lies inside a root the sweep audits')
+        found.append(directory)
+    return found
 
 
 def packages_under(src: pathlib.Path) -> list[pathlib.Path]:
@@ -519,6 +549,18 @@ def cached_declared_roots(scope: pathlib.Path) -> list[tuple[pathlib.Path, str]]
     if key not in INDEX_CACHE:
         INDEX_CACHE[key] = declared_roots(scope)
     return typing.cast('list[tuple[pathlib.Path, str]] | None', INDEX_CACHE[key])
+
+
+def cached_first_party_dirs(scope: pathlib.Path) -> list[pathlib.Path]:
+    """`first_party_dirs`, read once per run.
+
+    Raises:
+        RootsError: as `first_party_dirs` does; a failure is not cached.
+    """
+    key = ('first-party-dirs', scope)
+    if key not in INDEX_CACHE:
+        INDEX_CACHE[key] = first_party_dirs(scope)
+    return typing.cast('list[pathlib.Path]', INDEX_CACHE[key])
 
 
 def cached_per_run(name: str, scope: pathlib.Path, compute: collections.abc.Callable[[pathlib.Path], object]) -> object:
@@ -1020,6 +1062,7 @@ __all__ = [
     'audit_roots',
     'auditme_table',
     'cached_bytes',
+    'cached_first_party_dirs',
     'cached_per_run',
     'call_bindings',
     'clear_source_cache',
@@ -1029,6 +1072,7 @@ __all__ = [
     'declared_roots',
     'describe_error',
     'emit',
+    'first_party_dirs',
     'from_import_bindings',
     'is_dunder_all_assignment',
     'is_executable_file',

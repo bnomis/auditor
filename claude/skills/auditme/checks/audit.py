@@ -204,6 +204,7 @@ def main() -> int:
         auditme.core.NEVER_ACCEPTED = patterns
         if not args.package:
             default_roots = auditme.core.audit_roots(scope)
+        auditme.core.cached_first_party_dirs(scope)
     except auditme.core.SettingsError as exc:
         # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
         print(f'ERROR: {auditme.core.describe_error(exc)}', file=sys.stderr)

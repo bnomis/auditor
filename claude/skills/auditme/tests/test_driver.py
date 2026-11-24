@@ -564,6 +564,24 @@ def test_an_invalid_declaration_exits_2_with_nothing_on_stdout(
     assert message in out.err
 
 
+def test_a_missing_first_party_entry_exits_2_before_any_hit_is_printed(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def hitting_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        auditme.core.emit(rule='probe', variant='v', path='x.py', line=1, evidence='e', accepted=False, accepted_reason=None)
+
+    monkeypatch.setattr(auditme.registry, 'CHECKS', (hitting_check,))
+    root = project({'pyproject.toml': '[tool.auditme]\nfirst-party = ["../lib/src/lib"]\n', 'src/probe/mod.py': 'x = 1\n'})
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 2
+    out = capsys.readouterr()
+    assert out.out == ''
+    assert out.err.strip() == 'ERROR: first-party path ../lib/src/lib not found'
+
+
 def test_the_extra_root_flag_overrides_the_declaration(
     project: Builder,
     monkeypatch: pytest.MonkeyPatch,

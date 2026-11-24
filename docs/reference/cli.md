@@ -198,6 +198,24 @@ list for one run. A declared root that resolves outside the project is an invali
 sit inside a `package` root. The hooks and the Phase B listers read the same
 list.
 
+### First-party libraries
+
+`raises-section-drift` follows a call into a first-party library only when
+the project lists the library's package directory:
+
+```toml
+[tool.auditme]
+first-party = ["../lib/src/lib"]
+```
+
+Each entry is a directory named as its import name (`../lib/src/lib` for
+`import lib`), relative to the project. It may lie outside the project. The
+rule reads its `Raises:` sections and error classes, so an error the library
+declares counts as a domain error, but never sweeps it: no hit is reported on
+its files. A listed directory must exist wherever the sweep runs, CI
+included, or the sweep stops with the errors below. Nothing is inferred from
+`[tool.uv.sources]` or the environment.
+
 ### Never-accepted rules
 
 `never-accepted` lists rules whose accept markers a project refuses:
@@ -230,7 +248,7 @@ The declaration errors, each exit `2`:
 |---|---|
 | `pyproject.toml: not valid TOML (<parse error>)` | `pyproject.toml` is not valid TOML and mentions `[tool.auditme` |
 | `pyproject.toml [tool.auditme]: must be a table` | `[tool.auditme]` is not a table |
-| `pyproject.toml [tool.auditme]: unknown key '<key>'` | a key other than `roots` or `never-accepted` |
+| `pyproject.toml [tool.auditme]: unknown key '<key>'` | a key other than `roots`, `first-party` or `never-accepted` |
 | `pyproject.toml [tool.auditme]: never-accepted must be a list of strings` | `never-accepted` is not a list of strings |
 | `pyproject.toml [tool.auditme]: never-accepted '<pattern>' may use * only at the end` | a `*` anywhere but the last character |
 | `pyproject.toml [tool.auditme]: never-accepted '<pattern>' matches no rule id` | a name or family that matches no rule |
@@ -242,6 +260,10 @@ The declaration errors, each exit `2`:
 | `declared root <path> holds no .py file` | no `.py` file (for `top-level`, none directly in it) |
 | `declared roots <a> and <b> overlap` | two roots would sweep a file twice |
 | `declared root <path> is outside the project` | the path resolves outside `scope`, as an absolute path or `..` does |
+| `pyproject.toml [tool.auditme]: first-party must be a list of strings` | `first-party` is not a list of non-empty strings |
+| `first-party path <path> not found` | the entry does not exist or is not a directory |
+| `first-party path <path> holds no .py file` | no `.py` file in the directory |
+| `first-party path <path> lies inside a root the sweep audits` | the entry is inside a swept root |
 
 The hooks treat any of these as a sweep that cannot run, and `phaseb.py`
 exits `2` with the same message.

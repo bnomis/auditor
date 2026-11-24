@@ -2731,3 +2731,106 @@ def test_sibling_error_check_walks_the_root_once_however_many_errors_files_it_ho
     hits = run_check(SIBLING_ERRORS, root)
     assert len(hits) == 2
     assert len(calls) == 1
+
+
+# --- raises-section-drift: first-party libraries outside the project --------
+
+LIB_ERRORS = """class LibError(Exception):
+    \"\"\"Raised by lib.\"\"\"
+"""
+LIB_LOAD = """import lib.errors
+
+
+def load() -> int:
+    \"\"\"Load it.
+
+    Raises:
+        LibError: always.
+    \"\"\"
+    raise lib.errors.LibError('x')
+"""
+LIB_WRAP = """import lib.load
+
+
+def wrapped() -> int:
+    \"\"\"Defer to load.\"\"\"
+    return lib.load.load()
+"""
+LIB_SUBJECT = """import lib.errors
+import lib.load
+import lib.wrap
+
+
+def run() -> int:
+    \"\"\"Run it.
+
+    Raises:
+{raises}
+    \"\"\"
+{call}
+"""
+FIRST_PARTY_KEY = '[tool.auditme]\nfirst-party = ["../lib/src/lib"]\n'
+
+
+def first_party_project(
+    tmp_path: pathlib.Path,
+    project: Builder,
+    *,
+    raises: str = '        ValueError: never.',
+    call: str = '    return lib.load.load()',
+    key: str = FIRST_PARTY_KEY,
+    lib_extra: dict[str, str] | None = None,
+) -> pathlib.Path:
+    """Build `tmp_path/app` (the project) with a library beside it in `tmp_path/lib/src/lib`."""
+    project(
+        {
+            'lib/src/lib/__init__.py': '',
+            'lib/src/lib/errors.py': LIB_ERRORS,
+            'lib/src/lib/load.py': LIB_LOAD,
+            'lib/src/lib/wrap.py': LIB_WRAP,
+            **{f'lib/src/lib/{name}': text for name, text in (lib_extra or {}).items()},
+            'app/pyproject.toml': key,
+            'app/src/probe/__init__.py': '',
+            'app/src/probe/use.py': LIB_SUBJECT.format(raises=raises, call=call),
+        }
+    )
+    return tmp_path / 'app'
+
+
+def first_party_hits(root: pathlib.Path, run_check: Runner) -> list[dict[str, typing.Any]]:
+    return [hit for hit in run_check(RAISES_DRIFT, root) if hit['rule'] == 'raises-section-drift']
+
+
+def test_a_first_party_callee_declaring_an_error_the_section_omits_is_a_hit(tmp_path: pathlib.Path, project: Builder, run_check: Runner) -> None:
+    root = first_party_project(tmp_path, project)
+    hits = first_party_hits(root, run_check)
+    assert [hit['variant'] for hit in hits] == ['run: Raises: omits LibError, declared by lib.load.load']
+    assert hits[0]['path'] == 'src/probe/use.py'
+    assert hits[0]['related'] == ['../lib/src/lib/load.py']
+
+
+def test_a_declared_or_caught_first_party_error_is_no_hit(tmp_path: pathlib.Path, project: Builder, run_check: Runner) -> None:
+    declared = first_party_project(tmp_path / 'a', project, raises='        LibError: always.')
+    assert first_party_hits(declared, run_check) == []
+    call = '    try:\n        return lib.load.load()\n    except lib.errors.LibError:\n        return 0'
+    caught = first_party_project(tmp_path / 'b', project, call=call)
+    assert first_party_hits(caught, run_check) == []
+
+
+def test_a_section_less_first_party_wrapper_names_the_chain(tmp_path: pathlib.Path, project: Builder, run_check: Runner) -> None:
+    root = first_party_project(tmp_path, project, call='    return lib.wrap.wrapped()')
+    hits = first_party_hits(root, run_check)
+    assert [hit['variant'] for hit in hits] == ['run: Raises: omits LibError, declared by lib.load.load via lib.wrap.wrapped']
+    assert hits[0]['related'] == ['../lib/src/lib/load.py', '../lib/src/lib/wrap.py']
+
+
+def test_without_the_key_a_first_party_callee_is_not_followed(tmp_path: pathlib.Path, project: Builder, run_check: Runner) -> None:
+    root = first_party_project(tmp_path, project, key='[tool.auditme]\n')
+    assert first_party_hits(root, run_check) == []
+
+
+def test_no_hit_is_emitted_on_a_first_party_file(tmp_path: pathlib.Path, project: Builder, run_check: Runner) -> None:
+    lib_subject = 'import lib.load\n\n\ndef again() -> int:\n    """Again.\n\n    Raises:\n        ValueError: never.\n    """\n    return lib.load.load()\n'
+    root = first_party_project(tmp_path, project, lib_extra={'again.py': lib_subject})
+    paths = {hit['path'] for hit in first_party_hits(root, run_check)}
+    assert paths == {'src/probe/use.py'}

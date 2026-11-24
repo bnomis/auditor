@@ -3,6 +3,7 @@
 import ast
 import collections
 import collections.abc
+import os.path
 import re
 import typing
 
@@ -2585,6 +2586,16 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     Refinement (2026-11-24): a combined entry (`ParseError, FetchError:`)
     declares each name, and an `except` naming a module-level tuple of classes
     the package defines (`tuple_constants`) catches each member.
+
+    Extension (2026-11-24): the modules under each directory `[tool.auditme]
+    first-party` lists (`first_party_dirs`) join the tables, so a call into such
+    a library resolves as a same-package call, its `Raises:` sections are
+    followed and its error classes count as domain errors. Only the swept
+    package's functions are subjects: no hit lands on a library file, which
+    `related` names by its path relative to the project.
+
+    Raises:
+        RootsError: a `first-party` entry is invalid (`first_party_dirs`).
     """
     modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
     for path in auditme.core.all_py_files(src_root):
@@ -2593,6 +2604,13 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         if tree is None:
             continue
         modules[auditme.core.module_dotted(path, src_root)] = (path, tree, lines)
+    swept = set(modules)
+    for library in auditme.core.cached_first_party_dirs(scope):
+        for path in auditme.core.all_py_files(library):
+            tree = auditme.core.read_and_parse(path)
+            if tree is None:
+                continue
+            modules.setdefault(auditme.core.module_dotted(path, library), (path, tree, auditme.core.source_lines(path)))
 
     parents = package_class_parents(tree for _, tree, _ in modules.values())
     package_classes = set(parents)
@@ -2688,7 +2706,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
 
     for module, qualname, cls, node in functions:
         doc = ast.get_docstring(node) or ''
-        if 'Raises:' not in doc:
+        if module not in swept or 'Raises:' not in doc:
             continue
         declared = {name for name in raises_section_names(doc) if is_domain(name)}
         path, tree, lines = modules[module]
@@ -2721,7 +2739,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
             chains = reached[name]
             on_chains = {function for chain in chains for function in chain if function}
             auditme.core.emit(
-                related=sorted({auditme.core.relpath(path_of[function], scope) for function in on_chains if path_of[function] != path}),
+                related=sorted({os.path.relpath(path_of[function], scope) for function in on_chains if path_of[function] != path}),
                 rule='raises-section-drift',
                 variant=f'{node.name}: Raises: omits {name}, {describe(min(chains, key=lambda chain: (len(chain), chain)))}',
                 path=rel,
