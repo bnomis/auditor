@@ -361,7 +361,7 @@ nested in a function, which comes from an AST check.
 | `underscore-forloop-target-read` | A `for _x in ...` target read inside the loop |
 | `non-alphabetical-literal` | A collection of string members not in alphabetical order (`__all__` may instead follow ruff's RUF022 order) |
 | `non-alphabetical-dict-keys` | A module-level dict with string keys not in alphabetical order |
-| `bare-parametric-annotation` | `dict`, `list`, `tuple`, `set` or `frozenset` in an annotation without type parameters |
+| `bare-parametric-annotation` | `dict`, `list`, `tuple`, `set` or `frozenset` in an annotation without type parameters, including inside a subscript (`list[dict]`) |
 | `bare-nonbuiltin-generic-annotation` | A parameterisable non-builtin class (`collections.deque`, `queue.Queue`, ...) annotated without its parameter |
 | `typing-deprecated-alias` | A `typing` alias deprecated by PEP 585, such as `typing.Sequence` |
 | `duplicated-word` | A word repeated in a comment or string ("the the") |

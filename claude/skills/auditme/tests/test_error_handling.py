@@ -7,6 +7,7 @@
 import ast
 import collections.abc
 import pathlib
+import typing
 
 import auditme.core
 import auditme.rules.error_handling
@@ -2411,7 +2412,7 @@ def subject_file(call: str = '    return probe.wrap.wrapper()', raises: str = ' 
     return head + SUBJECT.format(raises=raises, call=call)
 
 
-def sectionless_hits(project: Builder, run_check: Runner, files: dict[str, str]) -> list[dict]:
+def sectionless_hits(project: Builder, run_check: Runner, files: dict[str, str]) -> list[dict[str, typing.Any]]:
     root = project({'src/probe/errors.py': ERRORS, 'src/probe/inner.py': INNER, **files})
     return [hit for hit in run_check(RAISES_DRIFT, root) if hit['rule'] == 'raises-section-drift' and hit['path'] == 'src/probe/use.py']
 

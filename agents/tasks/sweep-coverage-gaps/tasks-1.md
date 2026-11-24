@@ -40,7 +40,7 @@ this repository and this list.
 
 ## Task 1: Read bare generics inside a subscript
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation 1; Testing 1
@@ -51,20 +51,20 @@ metadata and string forward references.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `grep -rnwE 'check_discarded_tuple_return|discarded-tuple-return' claude/skills/auditme/checks` prints nothing; if it prints anything, stop as `blocked` and name it
-- [ ] Tests first in `claude/skills/auditme/tests/test_style_and_naming.py`, the cases of the spec's Testing 1; run them and see the three hit cases fail
-- [ ] In `bare_parametric_annotation_in_file` (`claude/skills/auditme/checks/auditme/rules/style_and_naming.py`), descend into a `Subscript`'s slice (each element of a `Tuple` slice, or the slice itself) instead of returning; skip `Literal` by tail name, read only the first argument of `Annotated`, and do not read a string constant. Keep one hit per line
-- [ ] Update the rule's docstring and its row in `docs/guide/checker.md`
+- [x] Starting-point check: `grep -rnwE 'check_discarded_tuple_return|discarded-tuple-return' claude/skills/auditme/checks` prints nothing; if it prints anything, stop as `blocked` and name it
+- [x] Tests first in `claude/skills/auditme/tests/test_style_and_naming.py`, the cases of the spec's Testing 1; run them and see the three hit cases fail
+- [x] In `bare_parametric_annotation_in_file` (`claude/skills/auditme/checks/auditme/rules/style_and_naming.py`), descend into a `Subscript`'s slice (each element of a `Tuple` slice, or the slice itself) instead of returning; skip `Literal` by tail name, read only the first argument of `Annotated`, and do not read a string constant. Keep one hit per line
+- [x] Update the rule's docstring and its row in `docs/guide/checker.md`
 
 **Acceptance Criteria:**
 
-- [ ] The spec's Testing 1 cases pass; `test_a_parametric_annotation_is_not_a_hit` and `test_one_line_with_two_bare_annotations_reports_once` pass unchanged
+- [x] The spec's Testing 1 cases pass; `test_a_parametric_annotation_is_not_a_hit` and `test_one_line_with_two_bare_annotations_reports_once` pass unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_style_and_naming.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_style_and_naming.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 

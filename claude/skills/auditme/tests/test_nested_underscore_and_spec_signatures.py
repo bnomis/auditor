@@ -7,6 +7,7 @@ the second asks a question about specs that nothing asked before.
 
 import collections.abc
 import pathlib
+import typing
 
 import auditme.rules.project_hygiene
 import auditme.rules.style_and_naming
@@ -18,7 +19,7 @@ NESTED_UNDERSCORE = auditme.rules.style_and_naming.check_leading_underscore_nest
 SPEC_SIGNATURE = auditme.rules.project_hygiene.check_spec_api_signature_drift
 
 
-def rows(hits: list[dict], rule: str) -> list[dict]:
+def rows(hits: list[dict[str, typing.Any]], rule: str) -> list[dict[str, typing.Any]]:
     return [hit for hit in hits if hit['rule'] == rule]
 
 
