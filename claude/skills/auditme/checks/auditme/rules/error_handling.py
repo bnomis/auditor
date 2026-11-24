@@ -610,15 +610,15 @@ def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Pat
 
 
 def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag modules that raise stdlib exceptions (ValueError, RuntimeError,
-    TypeError, KeyError) for domain errors when a sibling `errors.py` in
+    """Flag modules that raise stdlib exceptions (FileNotFoundError, KeyError,
+    RuntimeError, TypeError, ValueError) for domain errors when a sibling `errors.py` in
     the same package defines a domain-error class.
 
     Signal:
       - Package P contains an `errors.py` defining at least one `*Error`
         class.
       - Another module M in the same package P raises a stdlib exception
-        (ValueError, RuntimeError, TypeError, KeyError) at module-level
+        (FileNotFoundError, KeyError, RuntimeError, TypeError, ValueError) at module-level
         or function scope.
       - The stdlib raise is NOT inside an `except` block (which is the
         re-raise-with-narrower-type pattern and is fine).
@@ -631,7 +631,7 @@ def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root
     narrow cross-stage violation). The narrower same-package predicate is
     the stable form.
     """
-    STDLIB_EXCS = {'ValueError', 'RuntimeError', 'KeyError'}
+    STDLIB_EXCS = {'FileNotFoundError', 'KeyError', 'RuntimeError', 'TypeError', 'ValueError'}
     # First pass: find every package with a domain error class
     package_has_domain_error: set[tuple[str, ...]] = set()
     for path in auditme.core.all_py_files(src_root):

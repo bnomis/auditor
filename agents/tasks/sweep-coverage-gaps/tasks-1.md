@@ -74,7 +74,7 @@ metadata and string forward references.
 
 ## Task 2: Add `TypeError` and `FileNotFoundError` to the stdlib raises
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation 3; Testing 3
@@ -84,19 +84,19 @@ and `FileNotFoundError` as A3 asks.
 
 **Subtasks:**
 
-- [ ] Tests first in `claude/skills/auditme/tests/test_error_handling.py`, beside `test_raising_stdlib_where_the_package_has_a_domain_error_is_a_hit`: the spec's Testing 3 cases; see the two hit cases fail
-- [ ] Set `STDLIB_EXCS` in `check_layer_has_domain_error_but_raises_stdlib` (`claude/skills/auditme/checks/auditme/rules/error_handling.py`) to the five names, sorted; make the docstring name the same five
-- [ ] Add `FileNotFoundError` to A3's list in `claude/skills/auditme/SKILL.md`
+- [x] Tests first in `claude/skills/auditme/tests/test_error_handling.py`, beside `test_raising_stdlib_where_the_package_has_a_domain_error_is_a_hit`: the spec's Testing 3 cases; see the two hit cases fail
+- [x] Set `STDLIB_EXCS` in `check_layer_has_domain_error_but_raises_stdlib` (`claude/skills/auditme/checks/auditme/rules/error_handling.py`) to the five names, sorted; make the docstring name the same five
+- [x] Add `FileNotFoundError` to A3's list in `claude/skills/auditme/SKILL.md`
 
 **Acceptance Criteria:**
 
-- [ ] The spec's Testing 3 cases pass; the existing tests of the rule pass unchanged
+- [x] The spec's Testing 3 cases pass; the existing tests of the rule pass unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_error_handling.py claude/skills/auditme/tests/test_registry.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
