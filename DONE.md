@@ -923,3 +923,29 @@ root, or skip the directories `SPEC_SKIP_PARTS` and the hidden-directory rule
 already skip. Add the reproduction as a test. Small, no spec.
 
 Done: 2026-11-24 - `corpus_py_files` in `claude/skills/auditme/checks/auditme/core.py` returns no files when the project has no root, instead of walking the project the driver hands its project-level checks; regression test `test_a_project_with_no_root_does_not_sweep_its_venv` in `claude/skills/auditme/tests/test_driver.py`.
+
+## `raises-section-drift` misreads three common shapes
+
+Found on 2026-11-23 clearing the rule's first hits in other projects,
+each checked by hand:
+
+- **A combined entry is not read.** `Raises:` with `ErrorA, ErrorB: <when>`
+  on one line counts as declaring neither, so the function is reported for
+  an exception it names. Read each comma-separated name before the colon.
+- **A tuple constant in a handler is not resolved.** `except
+  pkg.errors.HANDLED_ERRORS:`, where `HANDLED_ERRORS` is a module-level tuple
+  of exception classes, is treated as catching nothing, so every exception
+  its members (or their subclasses) cover is reported as escaping. Resolve
+  a name or attribute that refers to a module-level tuple of classes.
+- **Exceptions declared by another first-party library are not followed.**
+  A callee in a sibling package installed alongside (not under `src/`)
+  whose `Raises:` names an exception is ignored, so a function that lets it
+  escape is not reported. A false negative; lower priority than the two
+  above.
+
+Path-sensitive cases (a callee reached only under a condition that cannot
+hold, or a call repeated after an earlier call on the same input was
+validated) were accepted with markers: the rule cannot be expected to
+follow them.
+
+Done: 2026-11-24 - the first two findings: `raises_section_names` reads each name of a combined entry, and `tuple_constants` with `expand_level` in `claude/skills/auditme/checks/auditme/rules/error_handling.py` let a handler naming a module-level tuple of classes catch its members; tests in `claude/skills/auditme/tests/test_error_handling.py`; `docs/guide/checker.md` and the documented refinements in `claude/skills/auditme/SKILL.md`. The third finding (another first-party library) moved to its own `TODO.md` item.

@@ -1681,6 +1681,80 @@ def load(text: str) -> int:
     assert [hit.get('related') for hit in hits] == [['src/probe/parse.py']]
 
 
+def test_a_combined_raises_entry_declares_each_name(project: Builder, run_check: Runner) -> None:
+    caller = """import probe.errors
+import probe.parse
+
+
+def load(text: str) -> int:
+    \"\"\"Load it.
+
+    Raises:
+        FetchError, ParseError: nothing to load, or bad text.
+    \"\"\"
+    if not text:
+        raise probe.errors.FetchError('empty')
+    return probe.parse.parse(text)
+"""
+    assert drift(project, run_check, caller) == []
+
+
+HANDLED = ERRORS + '\n\nHANDLED_ERRORS = (ParseError, FetchError)\n'
+
+
+def tuple_drift(project: Builder, run_check: Runner, caller: str) -> list[tuple[str, str]]:
+    root = project({'src/probe/errors.py': HANDLED, 'src/probe/parse.py': CALLEE, 'src/probe/use.py': caller})
+    return sorted((hit['path'], hit['variant']) for hit in run_check(RAISES_DRIFT, root) if hit['rule'] == 'raises-section-drift')
+
+
+def test_a_handler_naming_a_tuple_constant_catches_its_members(project: Builder, run_check: Runner) -> None:
+    caller = """import probe.errors
+import probe.parse
+
+
+def load(text: str) -> int:
+    \"\"\"Load it.
+
+    Raises:
+        FetchError: nothing to load.
+    \"\"\"
+    if not text:
+        raise probe.errors.FetchError('empty')
+    try:
+        return probe.parse.parse(text)
+    except probe.errors.HANDLED_ERRORS:
+        return 0
+"""
+    assert tuple_drift(project, run_check, caller) == []
+
+
+def test_an_error_a_tuple_constant_handler_always_catches_is_an_extra(project: Builder, run_check: Runner) -> None:
+    caller = """import probe.parse
+from probe.errors import HANDLED_ERRORS
+
+
+def load(text: str) -> int:
+    \"\"\"Load it.
+
+    Raises:
+        ParseError: bad text.
+    \"\"\"
+    try:
+        return probe.parse.parse(text)
+    except HANDLED_ERRORS:
+        return 0
+"""
+    assert tuple_drift(project, run_check, caller) == [('src/probe/use.py', 'load: Raises: declares ParseError, which never reaches the caller')]
+
+
+def test_tuple_constants_reads_class_tuples_and_leaves_out_ambiguous_names() -> None:
+    trees = [
+        ast.parse('HANDLED = (ParseError, errors.FetchError)\nCODES = (1, 2)\nTWICE = (ParseError,)\nTWICE = (FetchError,)\nCLASH = (ParseError,)\n'),
+        ast.parse('CLASH = (FetchError,)\n'),
+    ]
+    assert auditme.rules.error_handling.tuple_constants(trees) == {'HANDLED': frozenset({'FetchError', 'ParseError'})}
+
+
 def test_an_error_its_own_except_always_catches_is_an_extra(project: Builder, run_check: Runner) -> None:
     caller = """import probe.errors
 import probe.parse
@@ -2492,6 +2566,11 @@ def test_raises_section_names_reads_each_entry_and_stops_at_the_section_end() ->
     doc = 'Summary.\n\nRaises:\n    ParseError: bad input.\n        Continuation line.\n    - store.WriteError: disk full.\n\nReturns:\n    LaterError is not an entry.\n'
     assert auditme.rules.error_handling.raises_section_names(doc) == {'ParseError', 'WriteError'}
     assert auditme.rules.error_handling.raises_section_names('No section here.') == set()
+
+
+def test_raises_section_names_reads_every_name_of_a_combined_entry() -> None:
+    doc = 'Summary.\n\nRaises:\n    ParseError, store.WriteError: bad input or a full disk.\n    - FetchError ,LoadError: none.\n'
+    assert auditme.rules.error_handling.raises_section_names(doc) == {'FetchError', 'LoadError', 'ParseError', 'WriteError'}
 
 
 def test_translator_envelopes_map_a_translating_function_to_what_it_catches(project: Builder) -> None:

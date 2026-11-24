@@ -1320,10 +1320,11 @@ def raises_section_names(doc: str) -> set[str]:
     """Return the class name of every entry in a Google-style `Raises:` section.
 
     An entry is a line at the section's first indent, optionally bulleted,
-    naming a `*Error`; deeper lines continue the entry before them, and the
-    first line back at the header's indent ends the section.
+    naming a `*Error`, or several comma-separated (`ParseError, FetchError:`);
+    deeper lines continue the entry before them, and the first line back at
+    the header's indent ends the section.
     """
-    entry_re = re.compile(r'\s*(?:[-*]\s+)?([A-Za-z_][\w.]*Error)\b')
+    entry_re = re.compile(r'\s*(?:[-*]\s+)?([A-Za-z_][\w.]*Error(?:\s*,\s*[A-Za-z_][\w.]*Error)*)\b')
     lines = doc.splitlines()
     names: set[str] = set()
     for start, header in enumerate(lines):
@@ -1343,7 +1344,7 @@ def raises_section_names(doc: str) -> set[str]:
                 continue
             match = entry_re.match(line)
             if match:
-                names.add(match.group(1).rsplit('.', 1)[-1])
+                names.update(name.strip().rsplit('.', 1)[-1] for name in match.group(1).split(','))
     return names
 
 
@@ -2310,6 +2311,32 @@ def handler_level(node: ast.Try | ast.TryStar) -> HandlerLevel:
     return tuple((handler_types(handler), handler_passes_on(handler)) for handler in node.handlers)
 
 
+def tuple_constants(trees: collections.abc.Iterable[ast.Module]) -> dict[str, frozenset[str]]:
+    """Each module-level tuple of class names in the package, by name, to its members' tails. Pure.
+
+    Built on `module_tuple_constants`, so a name assigned twice in a module is
+    left out, and a member is read one level deep. Only a tuple whose members
+    are all names or attributes counts, and a name two modules bind to
+    different members is left out: either way a handler naming it keeps the
+    name test. `expand_level` reads the result.
+    """
+    found: dict[str, frozenset[str]] = {}
+    ambiguous: set[str] = set()
+    for tree in trees:
+        for name, members in module_tuple_constants(tree).items():
+            if not members or not all(isinstance(member, (ast.Name, ast.Attribute)) for member in members):
+                continue
+            tails = frozenset(ast.unparse(member).rsplit('.', 1)[-1] for member in members)
+            if found.setdefault(name, tails) != tails:
+                ambiguous.add(name)
+    return {name: tails for name, tails in found.items() if name not in ambiguous}
+
+
+def expand_level(level: HandlerLevel, constants: collections.abc.Mapping[str, frozenset[str]]) -> HandlerLevel:
+    """`level` with each tuple constant a handler names replaced by its members. Pure."""
+    return tuple((None if types is None else frozenset().union(*(constants.get(name, {name}) for name in types)), passes_on) for types, passes_on in level)
+
+
 def level_catches(level: HandlerLevel, lineage: set[str]) -> bool:
     """Whether a `try` stops an error of this lineage. Pure.
 
@@ -2502,6 +2529,10 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     is followed into its own raises and callees up to `SECTIONLESS_DEPTH`
     calls deep, with the chain named in the hit's variant. Omission hits grow;
     an extra declaration is reported only if it still never reaches the caller.
+
+    Refinement (2026-11-24): a combined entry (`ParseError, FetchError:`)
+    declares each name, and an `except` naming a module-level tuple of classes
+    the package defines (`tuple_constants`) catches each member.
     """
     modules: dict[str, tuple[pathlib.Path, ast.Module, list[str]]] = {}
     for path in auditme.core.all_py_files(src_root):
@@ -2513,6 +2544,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
 
     parents = package_class_parents(tree for _, tree, _ in modules.values())
     package_classes = set(parents)
+    constants = tuple_constants(tree for _, tree, _ in modules.values())
     declared_by: dict[str, set[str]] = {}
     path_of: dict[str, pathlib.Path] = {}
     functions: list[tuple[str, str, str | None, ast.FunctionDef | ast.AsyncFunctionDef]] = []
@@ -2542,7 +2574,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
 
     def caught(name: str, around: tuple[HandlerLevel, ...]) -> bool:
         lineage = {name} | ancestors(name)
-        return any(level_catches(level, lineage) for level in around)
+        return any(level_catches(expand_level(level, constants), lineage) for level in around)
 
     module_of = {qualname: module for module, qualname, _, _ in functions}
 
@@ -2651,7 +2683,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
             if any(name == found or name in ancestors(found) for found in reached):
                 continue
             lineage = {name} | ancestors(name)
-            if not any(level_catches(level, lineage) for level in levels):
+            if not any(level_catches(expand_level(level, constants), lineage) for level in levels):
                 continue
             auditme.core.emit(
                 rule='raises-section-drift',

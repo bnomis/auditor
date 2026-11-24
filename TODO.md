@@ -4,30 +4,6 @@ Open work only, in implementation order, nearest first. Finished items move to
 `DONE.md` unchanged. See the shared `todo-add` and `todo-review` skills for
 the shape of an item.
 
-## `raises-section-drift` misreads three common shapes
-
-Found on 2026-11-23 clearing the rule's first hits in other projects,
-each checked by hand:
-
-- **A combined entry is not read.** `Raises:` with `ErrorA, ErrorB: <when>`
-  on one line counts as declaring neither, so the function is reported for
-  an exception it names. Read each comma-separated name before the colon.
-- **A tuple constant in a handler is not resolved.** `except
-  pkg.errors.HANDLED_ERRORS:`, where `HANDLED_ERRORS` is a module-level tuple
-  of exception classes, is treated as catching nothing, so every exception
-  its members (or their subclasses) cover is reported as escaping. Resolve
-  a name or attribute that refers to a module-level tuple of classes.
-- **Exceptions declared by another first-party library are not followed.**
-  A callee in a sibling package installed alongside (not under `src/`)
-  whose `Raises:` names an exception is ignored, so a function that lets it
-  escape is not reported. A false negative; lower priority than the two
-  above.
-
-Path-sensitive cases (a callee reached only under a condition that cannot
-hold, or a call repeated after an earlier call on the same input was
-validated) were accepted with markers: the rule cannot be expected to
-follow them.
-
 ## The sweep misses seven patterns one project's audits found by hand
 
 Found on 2026-11-24 in `claude/skills/auditme/requests.md`, whose open entry
@@ -57,3 +33,19 @@ the sweep on a real project and landing fixes or accept markers for what each
 change exposes, then delete the entry. The A23 rule is new and the
 `assert-never-missing` change adds an inference path (the `Literal`
 annotation as positive evidence), so start from a spec (`/todo-do`).
+
+## `raises-section-drift` does not follow `Raises:` sections of first-party libraries outside the sweep
+
+Split on 2026-11-24 from "`raises-section-drift` misreads three common
+shapes" (found on 2026-11-23, now in `DONE.md`), whose other two findings
+were fixed. Its third finding, unchanged:
+
+- **Exceptions declared by another first-party library are not followed.**
+  A callee in a sibling package installed alongside (not under `src/`)
+  whose `Raises:` names an exception is ignored, so a function that lets it
+  escape is not reported. A false negative; lower priority than the two
+  above.
+
+Fix direction: resolving a callee outside the swept package widens the rule
+beyond the same-package callees `agents/specs/raises-section-resolution/spec.md`
+covers, so it goes through that spec first (`/todo-do`).
