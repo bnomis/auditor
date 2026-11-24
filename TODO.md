@@ -4,25 +4,6 @@ Open work only, in implementation order, nearest first. Finished items move to
 `DONE.md` unchanged. See the shared `todo-add` and `todo-review` skills for
 the shape of an item.
 
-## A project with no audit root has its `.venv` swept
-
-Found on 2026-11-23 running the sweep on another project with no `src/`
-and no `.py` in `bin/`: it reported `unreadable-file` for a non-UTF-8 test
-file inside `.venv/lib/.../site-packages/`. The sweep prints "running the
-project-level checks only", yet `corpus_py_files` in
-`claude/skills/auditme/checks/auditme/core.py` falls back to
-`all_py_files(src_root)` when there are no roots, and that walks the whole
-project, `.venv` and every hidden directory included.
-
-Reproduce: a directory with a `pyproject.toml`, a `git init`, and
-`.venv/lib/bad.py` holding bytes that are not UTF-8; `audit.py <dir>`
-reports it. Declaring `[tool.auditme] roots = []` avoids it, which is the
-workaround the affected project uses.
-
-Fix: with no root, return no files instead of falling back to the swept
-root, or skip the directories `SPEC_SKIP_PARTS` and the hidden-directory rule
-already skip. Add the reproduction as a test. Small, no spec.
-
 ## `raises-section-drift` misreads three common shapes
 
 Found on 2026-11-23 clearing the rule's first hits in other projects,

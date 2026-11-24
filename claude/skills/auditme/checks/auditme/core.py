@@ -673,9 +673,10 @@ def corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib
     project that hid mutable exported dicts whose only cross-module readers were
     in `src/tests/`. A script in `bin/` is a reader on the same argument.
 
-    Falls back to the root being swept when the project has neither a `src/`
-    nor an extra root, which only happens when a check is called directly
-    rather than by the driver.
+    A project with neither a `src/` nor an extra root has no corpus, so this is
+    empty: the driver then runs the project-level checks with the project
+    itself as the root, and walking that would read `.venv` and every hidden
+    directory.
     """
     declared = cached_declared_roots(scope)
     if declared is not None:
@@ -685,7 +686,7 @@ def corpus_py_files(scope: pathlib.Path, src_root: pathlib.Path) -> list[pathlib
     if src.is_dir():
         roots.insert(0, src)
     if not roots:
-        return all_py_files(src_root)
+        return []
     return sorted(path for root in roots for path in all_py_files(root))
 
 

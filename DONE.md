@@ -902,3 +902,24 @@ lister leave such a site out, as it does for a sweep hit. Shipping it deletes
 the request entry.
 
 Done: 2026-11-23 - agents/reviews/brief-thresholds-4-2026-11-23.md (answered 2026-11-23, every recommendation taken): briefs Doc4 9, Doc5 9, T1 7 and A17 5 settle the cases; `carries_a19_marker` in `claude/skills/auditme/checks/auditme/phaseb/architecture.py` leaves a handler carrying an A19 accept marker out of the A19 list; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py` and `test_architecture_candidates.py`; amendments 1.6 of the documentation-questions spec, 1.7 of the architecture-questions spec and 1.8 of the test-questions spec; the request entry removed from `claude/skills/auditme/requests.md`.
+
+## A project with no audit root has its `.venv` swept
+
+Found on 2026-11-23 running the sweep on another project with no `src/`
+and no `.py` in `bin/`: it reported `unreadable-file` for a non-UTF-8 test
+file inside `.venv/lib/.../site-packages/`. The sweep prints "running the
+project-level checks only", yet `corpus_py_files` in
+`claude/skills/auditme/checks/auditme/core.py` falls back to
+`all_py_files(src_root)` when there are no roots, and that walks the whole
+project, `.venv` and every hidden directory included.
+
+Reproduce: a directory with a `pyproject.toml`, a `git init`, and
+`.venv/lib/bad.py` holding bytes that are not UTF-8; `audit.py <dir>`
+reports it. Declaring `[tool.auditme] roots = []` avoids it, which is the
+workaround the affected project uses.
+
+Fix: with no root, return no files instead of falling back to the swept
+root, or skip the directories `SPEC_SKIP_PARTS` and the hidden-directory rule
+already skip. Add the reproduction as a test. Small, no spec.
+
+Done: 2026-11-24 - `corpus_py_files` in `claude/skills/auditme/checks/auditme/core.py` returns no files when the project has no root, instead of walking the project the driver hands its project-level checks; regression test `test_a_project_with_no_root_does_not_sweep_its_venv` in `claude/skills/auditme/tests/test_driver.py`.

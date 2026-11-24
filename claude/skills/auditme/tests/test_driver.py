@@ -87,6 +87,21 @@ def test_an_empty_project_gives_a_notice_and_exit_0(
     assert 'audit.py: no package under src/ and no extra root; running the project-level checks only' in captured.err
 
 
+def test_a_project_with_no_root_does_not_sweep_its_venv(
+    project: Builder,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """With no root there is no corpus: the project-level checks read no `.py` file."""
+    root = project({'docs/index.md': '# Notes\n'})
+    (root / '.venv/lib').mkdir(parents=True)
+    (root / '.venv/lib/bad.py').write_bytes(b'x = "\xff\xfe"\n')
+    monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
+
+    assert audit.main() == 0
+    assert [json.loads(line) for line in capsys.readouterr().out.splitlines()] == []
+
+
 def test_a_project_with_no_root_runs_only_the_project_level_checks_once(
     project: Builder,
     monkeypatch: pytest.MonkeyPatch,
