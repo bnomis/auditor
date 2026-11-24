@@ -29,7 +29,7 @@ the `no-project-names` hook requires.
 
 ## Task 1: Read and validate `[tool.auditme] first-party`
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Amendment 1.3: Setting, API, Implementation (first bullet), Error handling, Testing (last bullet)
@@ -40,21 +40,21 @@ invalid entry, before any check runs.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `grep -rnwE 'first_party_dirs|cached_first_party_dirs' claude/skills/auditme/checks` prints nothing; if it prints anything, stop as `blocked` and name it
-- [ ] Tests first in `claude/skills/auditme/tests/test_settings.py` (reading and each `RootsError` case in the amendment's Testing list, `first-party` beside `roots` and `never-accepted` accepted) and `claude/skills/auditme/tests/test_driver.py` (a missing entry exits with the roots' status and names the entry before any hit is printed); see them fail
-- [ ] Add `first_party_dirs` and `cached_first_party_dirs` to `claude/skills/auditme/checks/auditme/core.py` beside `declared_roots`, with the amendment's signature and docstring; admit `first-party` in `declared_roots`' unknown-key check
-- [ ] Call `cached_first_party_dirs(scope)` in `claude/skills/auditme/checks/audit.py` where the roots are read, inside the existing `SettingsError` handling
+- [x] Starting-point check: `grep -rnwE 'first_party_dirs|cached_first_party_dirs' claude/skills/auditme/checks` prints nothing; if it prints anything, stop as `blocked` and name it
+- [x] Tests first in `claude/skills/auditme/tests/test_settings.py` (reading and each `RootsError` case in the amendment's Testing list, `first-party` beside `roots` and `never-accepted` accepted) and `claude/skills/auditme/tests/test_driver.py` (a missing entry exits with the roots' status and names the entry before any hit is printed); see them fail
+- [x] Add `first_party_dirs` and `cached_first_party_dirs` to `claude/skills/auditme/checks/auditme/core.py` beside `declared_roots`, with the amendment's signature and docstring; admit `first-party` in `declared_roots`' unknown-key check
+- [x] Call `cached_first_party_dirs(scope)` in `claude/skills/auditme/checks/audit.py` where the roots are read, inside the existing `SettingsError` handling
 
 **Acceptance Criteria:**
 
-- [ ] Without the key, `first_party_dirs` returns `[]` and the sweep's output is unchanged
-- [ ] Each invalid entry in the amendment's Testing list stops `audit.py` with a message naming the entry
+- [x] Without the key, `first_party_dirs` returns `[]` and the sweep's output is unchanged
+- [x] Each invalid entry in the amendment's Testing list stops `audit.py` with a message naming the entry
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme/tests/test_settings.py claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_core.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme/tests/test_settings.py claude/skills/auditme/tests/test_roots.py claude/skills/auditme/tests/test_driver.py claude/skills/auditme/tests/test_core.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
