@@ -38,42 +38,6 @@ found something new and no cycle converged.
 
 ## Open
 
-### Close the sweep gaps one project's audits carried as script candidates (filed 2026-11-24)
-
-One project's audits carried these as "script coverage" candidates across two
-cycles, and the second dropped them without filing a request. Each was checked on
-2026-11-24 against the checker at `3e23236`; a candidate the sweep already
-catches is not listed.
-
-- **`bare-parametric-annotation` misses bare inner generics.** The visitor
-  returns at the first `Subscript`, so `list[dict]`, `dict[str, dict]` and
-  `list[list]` never fire; only a top-level or union-member bare name does.
-- **Discarded multi-return has no check.** A23 is Phase B prose only, with no
-  rule and no lister: a call to a function annotated `-> tuple[...]` used as a
-  bare expression statement is not listed anywhere.
-- **`layer-has-domain-error-raises-stdlib` misses `FileNotFoundError`.** Its
-  set is `ValueError`, `RuntimeError` and `KeyError`; the docstring also names
-  `TypeError`, which the set lacks.
-- **`assert-never-missing` needs three `==` arms.** A two-arm chain on a name
-  annotated with a `Literal`, whose `else` assigns or returns for the remaining
-  values, is not a sweep hit, though A11 lists it for a reviewer. The `Literal`
-  annotation is the positive evidence the bi-valued exemption lacks; dotted
-  subjects (`self.x`), `in` and `match` are not read either.
-- **The pure-name rules miss `make_` and non-write IO.**
-  `build-name-has-side-effect` reads only `build_` and `compute_`;
-  `pure-name-has-side-effect` matches only filesystem writes, so a `get_` that
-  reads a file or runs a subprocess is not a hit.
-- **`asymmetric-exception-translation` fires on callees with nothing to
-  translate.** A callee is skipped only when its own body has a top-level
-  `try`. One that does no third-party IO (pure string work), or that
-  translates through a helper it calls, is still a hit, and needs an accept
-  marker.
-- **A17 lists only an `__init__.py`'s `__all__`.** A submodule's `__all__`
-  entry that no other file imports is never listed. (The candidate also asked
-  for a carve-out for names only a public-API test reads; the A17 brief rules
-  the opposite, "a name only tests read is a finding", so that part is not
-  requested.)
-
 ## Rejected
 
 Kept so a rejected idea is not re-raised by a later audit that rediscovers it.
