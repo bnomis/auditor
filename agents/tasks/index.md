@@ -32,3 +32,7 @@
 | [Project gate settings](../specs/project-gate-settings/spec.md) | [tasks-1.md](project-gate-settings/tasks-1.md) | 1 | 2026-11-23 |
 | [Sweep coverage gaps](../specs/sweep-coverage-gaps/spec.md) | [tasks-1.md](sweep-coverage-gaps/tasks-1.md) | 1 | 2026-11-24 |
 | [Raises section resolution](../specs/raises-section-resolution/spec.md) | [tasks-2.md](raises-section-resolution/tasks-2.md) | 2 | 2026-11-24 |
+| [Auditor CLI](../specs/auditor-cli/spec.md) | [tasks-1.md](auditor-cli/tasks-1.md) | 1 | 2026-11-25 |
+| [Rules repository](../specs/rules-repository/spec.md) | [tasks-1.md](rules-repository/tasks-1.md) | 1 | 2026-11-25 |
+| [Default rule catalogue](../specs/default-rule-catalogue/spec.md) | [tasks-1.md](default-rule-catalogue/tasks-1.md) | 1 | 2026-11-25 |
+| [Rules init](../specs/rules-init/spec.md) | [tasks-1.md](rules-init/tasks-1.md) | 1 | 2026-11-25 |

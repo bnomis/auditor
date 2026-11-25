@@ -122,6 +122,17 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
   `entry: auditor changed` and `entry: auditor changed --all`. pre-commit
   installs the package at the pinned `rev`. The `no-project-names` hook is
   unchanged.
+- **This repository's own hooks and CI.** `.pre-commit-config.yaml` runs the
+  audit hooks from this repository's own tree rather than from a pinned
+  `rev`. It keeps doing so: its local `auditme-changed` and `auditme-all`
+  hooks become `language: system` with `entry: uv run auditor changed` and
+  `entry: uv run auditor changed --all`, so that a commit is judged by the
+  checker it changes.
+
+  `.github/workflows/ci.yml` changes its pytest step to the new test command
+  (`uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider`). Its other steps already go
+  through these hooks. (Amendment of 2026-11-25: these two files were missing
+  from the approved text.)
 - **Installer.** `bin/install-claude.sh` runs
   `uv tool install --editable "$REPO"` before the `install-in-claude` step,
   and records the repository's git directory as above.
@@ -159,7 +170,7 @@ The existing settings are unchanged.
 
 - Every existing test passes from its new location under `tests/checker/`.
   The `AGENTS.md` and `README.md` test commands become
-  `uv run pytest tests -q -p no:cacheprovider`.
+  `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider`.
 - A test runs `auditor --version` and `auditor check` on a fixture project
   through the installed entry point, as a subprocess.
 - `tests/test_published_hooks.py` checks that the hooks are `language: python`

@@ -178,9 +178,9 @@ None beyond those in the Rules repository spec.
   `AUDITOR_RULES_PATH=src/auditor/catalogue`.
 - `tests/catalogue/test_catalogue.py` checks the following:
   - `auditor rules check` passes;
-  - every rule directory is in exactly one pack;
+  - every rule directory is in exactly one pack (this assertion is added by the Rules init task list, which writes `packs.toml`);
   - `rule_ids()` equals the ids the guide's rule tables document in
-    `docs/reference/rules.md`, which replaces today's `RULE_IDS` test;
+    `docs/guide/checker.md` (the file today's `RULE_IDS` test reads), which replaces that test;
   - every `standards` entry names a `standard` rule.
 - The equivalence comparison from step 7 is kept as a test over the fixture
   projects. The comparison over this repository's own sweep is run once, in
