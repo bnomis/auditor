@@ -451,7 +451,7 @@ required, and the tests and CI set it to the catalogue.
   - `rule_ids()` equals the ids in the rule tables of `docs/guide/checker.md`;
   - `ruff` and `lockfile-drift` are always included
 - [ ] `tests/conftest.py` sets `AUDITOR_RULES_PATH` to `src/auditor/catalogue` for the suite. `.github/workflows/ci.yml` and the local audit hooks in `.pre-commit-config.yaml` pass it to their commands
-- [ ] Set `version = "0.3.0"`. In `docs/setup.md`, add the upgrade steps for a project that pins the hooks: create a rules repository, set the variable with direnv, and set it in CI
+- [ ] In `docs/setup.md`, add the upgrade steps for a project that pins the hooks: create a rules repository, set the variable with direnv, and set it in CI
 - [ ] Test that every command exits 2 with the spec's message when the variable is unset
 
 **Acceptance Criteria:**
@@ -486,7 +486,9 @@ fixture comparison stays as a test, and the spec is closed.
 - [ ] Run the suite with `AUDITOR_DUMP_FIXTURES=$BASELINE/fixtures-after`. Compare each fixture file with its baseline as a set of `(rule, variant, path, line, evidence, accepted)`
 - [ ] Do the same for the sweep of this repository and for every question's candidates, ids and hashes included. Map the paths of moved files before comparing. Any other difference stops the task as `blocked`, listing it
 - [ ] Commit the fixture comparison as `tests/catalogue/test_equivalence.py`, with the baseline fixture outputs as data under `tests/catalogue/baseline/`. These are small JSON lines recording expected results, not generated data. Then remove the `AUDITOR_DUMP_FIXTURES` hook
+- [ ] Set `version = "0.3.0"` in `pyproject.toml`, marking the breaking change (the bump is made at the list's last task, against `main`)
 - [ ] Set the spec's `**Status:**` to `implemented`
+- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/default-rule-catalogue/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 

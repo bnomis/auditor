@@ -350,6 +350,7 @@ docs describe rules repositories, and the spec is closed.
   - `docs/reference/cli.md`: every `auditor rules` command;
   - `docs/setup.md`: setting `AUDITOR_RULES_PATH` with direnv
 - [ ] Set the spec's `**Status:**` to `implemented`
+- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-repository/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 

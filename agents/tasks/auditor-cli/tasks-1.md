@@ -82,13 +82,12 @@ manipulation.
 - [ ] In `pyproject.toml`:
   - add `[build-system]` with `requires = ["uv_build>=0.13.0,<0.14"]` and `build-backend = "uv_build"`;
   - add `[project.scripts] auditor = "auditor.cli:main"`;
-  - set `version = "0.2.0"`;
   - update the `[tool.ruff.lint.per-file-ignores]` paths and the `[tool.auditme] roots` to the new locations
 - [ ] Rewrite every `import auditme...` and `auditme.` reference in code to `auditor.`, by full path. Remove every `sys.path.insert` from the moved modules and from `tests/checker/conftest.py`
 - [ ] Each moved script keeps a `main(argv) -> int` that the dispatcher of Task 3 can call. The `if __name__ == '__main__'` blocks go
 - [ ] Find the briefs with `importlib.resources.files('auditor') / 'briefs'`
 - [ ] Tests first, in `tests/checker/test_cli.py`:
-  - `auditor --version` prints `auditor 0.2.0`;
+  - `auditor --version` prints `auditor <version>`, with the version read from `importlib.metadata.version('auditor')`;
   - `auditor check <fixture>` emits the same lines as `auditor.sweep.main([<fixture>])`;
   - an unknown command exits 2;
   - all three run as a subprocess of the installed entry point
@@ -235,7 +234,9 @@ spec is closed.
 
 - [ ] `uv run auditor check . > "$BASELINE/sweep-after.jsonl"`, then compare it with `$BASELINE/sweep.jsonl`. Ignore paths that the move changed. To do so, map each path in the old file through the moves of Task 2 before comparing. Any other difference stops the task as `blocked`, naming the hit
 - [ ] Do the same for each `auditor phaseb candidates --question <Q> .` and for `auditor changed --all .`, including the exit statuses
+- [ ] Set `version = "0.2.0"` in `pyproject.toml` (the bump is made at the list's last task, against `main`, so that the order's lists merge cleanly)
 - [ ] Set the spec's `**Status:**` to `implemented`
+- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/auditor-cli/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 
