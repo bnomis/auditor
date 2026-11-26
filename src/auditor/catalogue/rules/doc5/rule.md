@@ -1,0 +1,1 @@
+- **Doc5. User docs match implementation.** Drift between `docs/` or `README.md` and `src/`.

@@ -16,6 +16,7 @@ import pytest
 if typing.TYPE_CHECKING:
     import collections.abc
 
+import auditor.api.candidates
 import auditor.phaseb.candidates
 import auditor.testing
 
@@ -31,10 +32,10 @@ def pytest_configure(config: pytest.Config) -> None:
 FUTURE_IMPORT = 'from __future__ import annotations\n'
 
 
-def make_candidate(candidate_id: str, **overrides) -> auditor.phaseb.candidates.Candidate:
+def make_candidate(candidate_id: str, **overrides) -> auditor.api.candidates.Candidate:
     fields = {'question': 'Q1', 'id': candidate_id, 'path': 'src/pkg/mod.py', 'start': 1, 'end': 2, 'payload': {}, 'hash': 'h'}
     fields.update(overrides)
-    return auditor.phaseb.candidates.Candidate(**fields)
+    return auditor.api.candidates.Candidate(**fields)
 
 
 def make_verdict(candidate_id: str = 'src/pkg/mod.py::probe', **overrides) -> auditor.phaseb.candidates.Verdict:

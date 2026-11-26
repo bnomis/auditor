@@ -1,0 +1,1 @@
+- **Doc1. AGENTS.md project structure** matches actual directory layout.

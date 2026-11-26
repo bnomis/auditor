@@ -1,0 +1,4 @@
+kind = "question"
+id = "P1"
+category = "P"
+title = "O(n^2) on real-size inputs"

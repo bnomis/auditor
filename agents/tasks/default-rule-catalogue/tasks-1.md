@@ -390,7 +390,7 @@ because `AUDITME_RUFF` is a runner setting.
 
 ## Task 10: Move the Phase B questions and the prose standards
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** large
 **Spec Reference:** What becomes a rule directory (questions, standards); Implementation 3, 4
@@ -400,31 +400,31 @@ section of the three prose standards files is a `standard` rule.
 
 **Subtasks:**
 
-- [ ] Each listed question becomes a directory (`a4`, `doc1` and so on):
+- [x] Each listed question becomes a directory (`a4`, `doc1` and so on):
   - its lister moves into `lister.py`;
   - its brief moves into `brief.md`, with the `**Brief version:**` unchanged;
   - `kinds`, `batch-size` and `takes-depth` are copied from its registration.
 
   Then delete the listers' modules in `src/auditor/phaseb/` and `src/auditor/briefs/`
-- [ ] Each other question in the `SKILL.md` checklist becomes a directory with only `rule.md`, holding its checklist text word for word
-- [ ] Each `##` section of `claude/rules/auditme/coding-standards.md`, `imports.md` and `dependencies.md` becomes `std-<section-slug>`, with the section's text word for word in `rule.md`. Then delete `claude/rules/auditme/` and remove its link from `bin/install-claude.sh` and its tests
-- [ ] Add a `standards` key to each check whose rationale names a standards section
-- [ ] In `SKILL.md`:
+- [x] Each other question in the `SKILL.md` checklist becomes a directory with only `rule.md`, holding its checklist text word for word
+- [x] Each `##` section of `claude/rules/auditme/coding-standards.md`, `imports.md` and `dependencies.md` becomes `std-<section-slug>`, with the section's text word for word in `rule.md`. Then delete `claude/rules/auditme/` and remove its link from `bin/install-claude.sh` and its tests
+- [x] Add a `standards` key to each check whose rationale names a standards section
+- [x] In `SKILL.md`:
   - replace the checklist with `auditor rules questions`;
   - replace the standards references with the SessionStart hook;
   - move each "Documented conflicts" entry into the winning rule's `rule.md`
 
 **Acceptance Criteria:**
 
-- [ ] The candidates of every listed question match the baseline, ids and hashes included
-- [ ] `auditor rules questions` prints every question that the old checklist held
-- [ ] `auditor rules standards` prints every section that the three files held
+- [x] The candidates of every listed question match the baseline, ids and hashes included
+- [x] `auditor rules questions` prints every question that the old checklist held
+- [x] `auditor rules standards` prints every section that the three files held
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
-- [ ] `uv run pytest tests/checker/phaseb tests/catalogue tests/test_install_claude.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] `uv run pytest tests/checker/phaseb tests/catalogue tests/test_install_claude.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

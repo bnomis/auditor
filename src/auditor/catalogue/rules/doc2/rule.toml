@@ -1,0 +1,6 @@
+kind = "question"
+title = "AGENTS.md tools and libraries list"
+id = "Doc2"
+category = "Doc"
+kinds = ["stale", "missing"]
+batch-size = 12

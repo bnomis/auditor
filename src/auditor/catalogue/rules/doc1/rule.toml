@@ -1,0 +1,6 @@
+kind = "question"
+title = "AGENTS.md project structure"
+id = "Doc1"
+category = "Doc"
+kinds = ["stale", "missing"]
+batch-size = 12

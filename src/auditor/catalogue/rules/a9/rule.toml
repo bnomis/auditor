@@ -1,0 +1,4 @@
+kind = "question"
+id = "A9"
+category = "A"
+title = "Pure-named function side effects"

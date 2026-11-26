@@ -96,7 +96,7 @@ def root(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
-def listed(root: pathlib.Path, question: str) -> dict[str, auditor.phaseb.candidates.Candidate]:
+def listed(root: pathlib.Path, question: str) -> dict[str, auditor.api.candidates.Candidate]:
     auditor.core.clear_source_cache()
     return {candidate.id: candidate for candidate in auditor.phaseb.list_candidates(question, root)}
 
@@ -223,7 +223,7 @@ def test_second_call_is_identical(root: pathlib.Path, question: str) -> None:
 @pytest.mark.parametrize('question', DRIFT_QUESTIONS)
 def test_registered_with_brief_and_batch_size(question: str) -> None:
     assert auditor.phaseb.question_batch_size(question) == 24
-    assert auditor.phaseb.question_brief(question) == auditor.phaseb.candidates.A4_BRIEF.parent / f'{question}.md'
+    assert auditor.phaseb.question_brief(question).as_posix().endswith(f'rules/{question.lower()}/brief.md')
 
 
 # Doc1 and Doc2
@@ -367,5 +367,5 @@ def test_failing_git_ls_files_raises(tmp_path: pathlib.Path, question: str) -> N
 @pytest.mark.parametrize('question', AGENTS_QUESTIONS)
 def test_agents_listers_are_registered_and_stable(agents_root: pathlib.Path, question: str) -> None:
     assert auditor.phaseb.question_batch_size(question) == 12
-    assert auditor.phaseb.question_brief(question) == auditor.phaseb.candidates.A4_BRIEF.parent / f'{question}.md'
+    assert auditor.phaseb.question_brief(question).as_posix().endswith(f'rules/{question.lower()}/brief.md')
     assert auditor.phaseb.list_candidates(question, agents_root) == auditor.phaseb.list_candidates(question, agents_root)

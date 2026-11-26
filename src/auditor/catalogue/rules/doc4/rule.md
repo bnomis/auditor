@@ -1,0 +1,1 @@
+- **Doc4. Specs match implementation.** Drift between `agents/specs/` and `src/`.

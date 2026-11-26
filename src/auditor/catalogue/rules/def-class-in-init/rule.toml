@@ -1,3 +1,4 @@
 kind = "check"
 title = "A top-level def or class in an __init__.py"
 emits = ["def-class-in-init"]
+standards = ["std-clean-init-py-files"]

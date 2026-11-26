@@ -1,0 +1,1 @@
+**A12. assert misuse.** For every `assert` outside test files: is it a developer-only invariant that `python -O` may safely remove? Flag asserts used as runtime validation; those should be `if not X: raise DomainError(...)`.

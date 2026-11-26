@@ -1,0 +1,4 @@
+kind = "question"
+id = "P3"
+category = "P"
+title = "Repeated expensive computation per request"

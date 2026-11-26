@@ -51,7 +51,7 @@ Run these in parallel:
 
 1. Read `AGENTS.md` and `README.md`
 2. Read `agents/specs/index.md` if present
-3. Read coding-standards rule files referenced by AGENTS.md
+3. Read the standards the SessionStart hook put in the session's context (`auditor rules standards` prints them again), and any project rule files AGENTS.md references
 4. Read `agents/audit-reviews/summary.md` if present. Note unresolved findings - step 6 re-verifies them.
 5. Grep for `- [ ]` in `agents/tasks/audit-reviews/*.md`; read only files with incomplete items.
 
@@ -216,7 +216,7 @@ This is the cure for failure mode 2. When 24 architecture questions are split ac
 **Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The listed questions are A1, A4, A11, A17, A19, T1, T2, Doc1, Doc2, Doc4 and Doc5. For a listed question, run `auditor phaseb` (with `<root>` the project root) in this order:
 
 1. `auditor phaseb plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json` (which records the `--depth` it listed at; `merge` refuses a different one). A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again. A candidate planned again that the ledger holds a verdict for carries it as `earlier` in its batch line.
-2. Spawn one reviewer per batch, each given the question's brief (`briefs/<Q>.md` in the `auditor` package, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
+2. Spawn one reviewer per batch, each given the question's brief (its `brief.md` in the question's rule directory, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
 3. `auditor phaseb check <dir>` exits 1 and names each batch with a problem. Send a failing batch to a fresh reviewer, up to two retries per batch. A batch still failing after that is reported in the review, never merged.
 4. `auditor phaseb merge <root> --question <Q> <dir>` writes the verified results into the project's ledger.
 5. `auditor phaseb report <root> --question <Q>` prints the open findings, new and carried.
@@ -342,83 +342,9 @@ accepted hits before concluding the catch-up surface is empty.
 
 ## Phase B checklist
 
-The questions below are the entire Phase B surface. Each question is asked of every file in scope. The answer is `none` (no instances) or a list of `path:line` locations with a one-line description.
+The questions are the entire Phase B surface. Run `auditor rules questions` to print them (`--category <C>` restricts the output to one category). Each question is asked of every file in scope. The answer is `none` (no instances) or a list of `path:line` locations with a one-line description.
 
-Questions are organised by category. The `--category` flag restricts which sections run; if absent, all sections run.
-
-### Architecture (A)
-
-Each question is a deterministic predicate. The reviewer reads the file end-to-end and answers each question.
-
-- **A1. External call envelope.** For every call to a third-party library that can do I/O (HTTP, MLflow, S3, database, subprocess, file system, HuggingFace `from_pretrained` / `save_pretrained` / `download_artifacts`, pandas `read_*` / `to_*`, torch `load` / `save`): is the call inside a `try/except` that translates the exception to the package's domain `*Error` class? Flag any external-IO call that lets a third-party exception escape.
-- **A2. Except tuple coverage.** For every `try/except` whose body touches disk or pandas/json parsers: does the except tuple include EVERY exception in the locked set below? Locked set: `OSError` (covers `PermissionError`, `FileNotFoundError`, `IsADirectoryError`); `UnicodeDecodeError` if the body decodes text; `pandas.errors.ParserError` if the body calls `pd.read_*`; `json.JSONDecodeError` if the body calls `json.load*`; `gzip.BadGzipFile` if the body opens `.gz`. Bare `Exception` also satisfies. Flag any tuple missing one of the above when the body matches that branch. The envelope need not be a lexical `try` - a translating decorator or a `with` block over a contextmanager is one too, and is the shape the reviewer has to read a second file to judge. Do not extend this set during an audit; expansion is a skill change.
-  The `translator-envelope-gap` check now covers the non-lexical form mechanically, for the branches a machine can recognise without judgement: `json.load*`, `pd.read_*`, `gzip.open`, `read_text` and the filesystem primitives. Text decoding through any other route - `.decode()`, a codec, a library that reads bytes and returns `str` - is still this question's to answer by hand.
-- **A3. Domain-error layering.** For every `raise` statement: is the raised type the package's domain `*Error` (or a `*Error` from a strictly lower layer)? Flag stdlib `FileNotFoundError`/`KeyError`/`RuntimeError`/`TypeError`/`ValueError` raised in a package that defines its own `*Error` class.
-- **A4. Docstring `Raises` accuracy.** For every function whose docstring has a `Raises:` section: does the body actually raise each declared exception type, and only those? Flag mismatches. A declared type is raised if the body raises it, or calls a function in the same package that raises it and does not catch it; an undeclared domain error that reaches the caller that way is a mismatch. The sweep's `raises-section-drift` rule checks the mechanical part: it follows each same-package callee (and each callee in a library that `[tool.auditme] first-party` lists), including `<ClassName>.<method>(...)` for a class the package defines, through its declared `Raises:`, and follows a callee with no section into its own raises and callees, up to three calls deep; it nets out handlers that catch without re-raising, and reports each omitted name, and each declared name that a handler in the function catches and nothing else raises. It skips a callee error guarded only by optional arguments the call leaves unset (`if strict: raise ...` called without `strict`). Phase B reviews the other value-dependent cases (fixed names, pre-checked values, dispatch types) and what the sweep cannot resolve: calls on instances, `cls.<method>()` calls, inherited methods, callables passed in, errors stored and raised later, and declared names reaching only through those.
-- **A5. Two sources of truth.** For every state value that has both a config field and a method parameter (or two attributes that should always agree): is the precedence rule documented and enforced? Flag silent precedence (whichever path wins by coincidence of execution order).
-- **A6. Stage method dual-path.** For every method on a pipeline-stage class: does it both return a value AND mutate `self.<attr>` for the same field? Flag tuple-returning methods that also self-mutate.
-- **A7. Constructor purity.** For every `__init__`: does it perform I/O (open, mkdir, read_text, subprocess, network, expensive compute)? Does it mutate any of its arguments? Flag both.
-- **A8. Late dataclass mutation.** For every `@dataclass` instance constructed inside a function: is it mutated after construction (`x = Foo(...); x.field = ...`)? Flag late mutations - they bypass `__post_init__` and any `frozen=True` would have caught them.
-- **A9. Pure-named function side effects.** For every function whose name starts with a pure prefix (`get_`, `resolve_`, `find_`, `compute_`, `build_`, `make_`, `load_`, `parse_`, `is_`, `has_`, `validate_`, `count_`, `check_`, `allocate_`): does the body call I/O / subprocess / `datetime.now()` / network? Flag naming-vs-implementation gaps. Normalising a path (`Path.resolve`, `Path.absolute`, `Path.expanduser`, `os.path.realpath`) is not I/O; opening a file, reading its contents, testing for existence and writing are. A `load_` function that reads the file, module or directory its name or arguments say it loads is not a hit; any other I/O in it is. A function the project registers as a check is not read as pure-named by its `check_` prefix: its name is a member of the project's check registry (a tuple, list or mapping of check functions a runner calls, such as `CHECKS` in this checker's `auditor/registry.py`), or it is decorated by a function that adds it to such a registry. The registration is the positive evidence; the `check_` prefix alone is not, and an unregistered `check_` function is still read as pure-named.
-- **A10. Predicate semantics.** For every predicate function (`is_X`, `has_X`, `should_X`): does the body answer exactly the question the name asks, with no hidden conjuncts? Flag conflated predicates (e.g. `side_channel_active` returning `enabled and imputation != 'median'`).
-- **A11. Exhaustion via assert_never.** For every `if/elif/else` chain over a `typing.Literal` or enum: is the unreachable branch handled with `typing.assert_never`? Flag chains that end in `raise <SomeError>(...)` instead - the type-checker cannot verify exhaustion. A two-way split on a bool computed from a `Literal` or enum value counts as a chain over that value.
-- **A12. assert misuse.** For every `assert` outside test files: is it a developer-only invariant that `python -O` may safely remove? Flag asserts used as runtime validation; those should be `if not X: raise DomainError(...)`.
-- **A13. Same value to multiple structural slots.** For every constructor call that takes positional / keyword arguments for distinguishable slots (`train`, `val`, `test`): is the same value passed to 2+ slots? Flag (e.g. `DatasetSplits(train=ds, val=ds, test=ds)`) and require either an explicit factory or a docstring.
-- **A14. Repeated computation per request.** For every helper function whose value is a property of the project state (HEAD SHA, primary metric, resolved config): is it called more than twice in a single request flow? Flag candidates for memoisation / single-resolution.
-- **A15. Duplicate constructor / serialisation logic.** For every class whose constructor is called from 2+ sites with substantially the same field set: is the construction factored into one helper? Flag duplicated assembly that would silently drift on field addition.
-- **A16. CLI entry envelope.** For every top-level `run_*` function in `cli/*.py` that returns `int` or takes a cappa-typed parameter: does the body's `try/except` cover every `raise` in the function (including validation `raise`s before the try)? Flag `raise` statements outside the envelope.
-- **A17. Public-surface drift.** For every `__init__.py` with `__all__`: is every symbol in `__all__` used outside the package? For every empty `__init__.py`: do consumers reach into private submodules? Flag bypasses of the canonical owning module. A submodule with a module-level `__all__` is judged the same way as an `__init__.py` with one: is every symbol in its `__all__` used outside the module?
-- **A18. Hot-path setup.** For every callback method (`on_step`, `on_log`, `on_evaluate`, `on_batch_*`): does it perform setup (mkdir, file open) that should live in `__init__`? Flag per-event side effects.
-- **A19. Wrong logger level for broad-except.** For every `except Exception` / `except BaseException`: does the body use `logger.exception` (not `warning`/`error`/`info`/`debug`)? And conversely, is `logger.exception` reserved for unexpected failures, not expected graceful-degradation paths? A broad handler that degrades gracefully fails one half of this question whichever level it uses; the fix is to remove or narrow it - see [Conflicts with no winner](#conflicts-with-no-winner).
-- **A20. Mutable module-level singleton.** For every module-level mutable container that is read by name from another module: is it immutable per the locked set below? Locked set: `dict` -> must be `types.MappingProxyType(...)`; `set` -> must be `frozenset(...)`; `list` -> must be `tuple(...)`, whether the value is written as a literal, as a comprehension or as a call to the bare builtin constructor - `{k: f(k) for ...}` and `dict(a=1)` are the same mutable `dict` that `{...}` is. Any other call (`get_defaults()`) is out: it does not state its type. The predicate is "read elsewhere", and a project that mandates full import paths writes every one of those reads dotted: verify with grep for **all three** of `from <module> import <name>`, `<module>.<name>` and `sys.modules['<module>'].<name>`, across **every** root the sweep reads - every package under `src/` and `bin/` - not just the package under audit. A reader in the test tree is a reader, and so is a script. The `sys.modules` form is not exotic: it is the documented way to reach a module without importing it, so the projects most careful about import cycles are the ones a scan that missed it under-reported. Do not extend this predicate to private (non-read) module-level containers, nor to a value whose type is not knowable from the assignment (`DEFAULTS = get_defaults()`); those are different rules. A container the wrapper only *appears* to freeze is A25's.
-- **A21. Lazy init race.** For every `if X is None: X = ...` pattern at module scope (or in a module-level helper): is the assignment thread-safe under concurrent invocation? Flag idempotent-but-racy patterns in code paths that may be called concurrently (Optuna trials, multiprocessing).
-- **A22. Fall-through after partial handling.** For every `if/else` chain whose branches partly raise and partly return: is there a fall-through path where a raised-and-translated error in the first branch silently retries in the second? Flag with-block-or-elif-fall-through patterns (e.g. `if gz: ... except: raise` then code that re-runs as if `gz=False`).
-- **A23. Discarded multi-return.** For every call to a function that returns a tuple/dataclass: are all returned components used or explicitly named (`a, _ = f()`)? Flag silent discard of secondary returns that signal hidden state dependencies. Reading one attribute of a returned object discards the others when the function documents one of them as changing how the first is used; an attribute read that drops nothing documented is a use. The `discarded-tuple-return` rule is the mechanical part: a bare-statement call to a package function annotated `-> tuple[A, B, ...]`. The dataclass and partial-use cases stay Phase B.
-- **A24. Identity of subprocess / shell-out calls.** For every `subprocess.run` / `git`-shelling-out helper: is its result memoised when the source is invariant within a request? Flag repeated subprocess invocations per request.
-- **A25. Shallow immutable wrapper.** For every module-level container that A20 accepts as immutable - `types.MappingProxyType(...)`, `frozenset(...)`, `tuple(...)` - and that is read by name from another module: is every member of the wrapped literal itself immutable? Every one of those wrappers freezes the container it is given and nothing inside it, so `types.MappingProxyType({'a': []})` satisfies A20 and still hands each caller the same live `list`. Flag a `dict`/`list`/`set` member, a member one tuple deep, and a member that is an instance of a dataclass this project defines without `frozen=True`. The enumeration stops where A20's does: a member whose type the assignment does not state (`MappingProxyType({'a': build()})`) is not this question's. A20 and A25 are accepted separately - a marker that answers "this is wrapped" has not answered "and its members are frozen".
-
-### Standards (S)
-
-- **S1. Type annotations on every signature.** Parameter and return annotations everywhere. Flag bare untyped signatures. **Scope is locked and asymmetric.** Enumerate every missing annotation individually, with `path:line`, for non-test source only. For files under a `tests/` directory, do NOT enumerate: report a single count line (missing parameter annotations, missing return annotations, modules affected, modules fully annotated). Consecutive reviews of one project each chose differently here - one skipped tests, the next enumerated every one of them, the third counted - and the swing is the single largest source of apparent finding-count movement between cycles. If the project records a standing exemption for test annotations (as an AGENTS.md note that `ANN` is not enabled for tests), the count also serves as a drift check on that note's own figures; a discrepancy is a documentation finding under Doc1, not an S1 finding.
-- **S2. PascalCase / UPPER_SNAKE / lower_snake.** Names match project convention. Flag inconsistencies.
-- **S3. TYPE_CHECKING block placement.** Same idiom as the rest of the tree (top-of-file, after imports, etc.).
-- **S4. Project-specific rule files.** Any rule referenced by AGENTS.md not enforced by the script. Read the rule file; check the file under review.
-
-### Performance (P)
-
-- **P1. O(n^2) on real-size inputs.** Nested loops over project-data-shaped collections.
-- **P2. Blocking I/O in hot paths.** Reads / writes inside training loops, request handlers, callbacks.
-- **P3. Repeated expensive computation per request.** Same value derived more than once. (Overlaps A14 / A24.)
-
-### Security (Sec)
-
-- **Sec1. Secrets in source.** API keys, passwords, tokens.
-- **Sec2. Input validation at system boundaries.** CLI args, HTTP bodies, file paths from user.
-- **Sec3. Command injection.** Unsanitised input passed to `subprocess` or shell-execution helpers.
-- **Sec4. Path traversal.** User-supplied paths joined to project paths without containment.
-- **Sec5. PII in logs.** Raw text inputs at INFO level or above.
-
-### Testing (T)
-
-Assess by reading test files - do not run the suite.
-
-- **T1. Test coverage of branchy logic.** Every function with `if`/`try`/`except`/state transitions has at least one test case.
-- **T2. Property-based tests.** Domains that are well-defined (data shapes, config combinations) have hypothesis tests.
-- **T3. Integration vs unit balance.** Pipeline orchestrators have at least one end-to-end test.
-
-### Dependencies (D)
-
-- **D1. Declared in pyproject.** Every imported third-party module is declared.
-- **D2. Unused declarations.** Every declared dependency is imported somewhere, or run as a command. A dependency the project runs as a command is used though nothing imports it - a type checker, linter, formatter or hook runner declared so the environment installs it. It counts as run when the executable it installs is named in `.pre-commit-config.yaml` (a hook's `entry`, or the tool a hook's `repo` provides), in a CI workflow `run:` step, or as the first argument of a `subprocess` call in the project's own code, directly or through `uv run`, `python -m` or `pre-commit run`. A dependency a host tool loads as a plugin or theme is used too, when a declared dependency is that host and the plugin's installed metadata (`entry_points.txt` in its `.dist-info`) registers an entry point in a group the host loads. pytest loads every `pytest11` entry point, so a pytest plugin counts unless the project's pytest config disables it (`-p no:<name>`). mkdocs loads only what `mkdocs.yml` names, so an entry point in `mkdocs.themes` or `mkdocs.plugins` counts only when its name is the `theme: name:` or listed under `plugins:` (`mkdocs-material` registers `material`). A package name that merely resembles a tool's name, with no such entry point, is not evidence. A type-stub package (`*-stubs`, `types-*`) is used when the project runs a type checker (mypy, pyright or pyre) by the rule above, and a Jupyter kernel package (`ipykernel`) is used when a declared dependency executes notebooks (`nbclient`, `nbconvert`, `papermill`, `nbmake`); without that evidence each is flagged like any other. Flag a dependency that is neither imported, run nor loaded anywhere.
-- **D3. Lockfile coherence.** Already script-checked; flag if the script's lockfile-drift hit appears.
-
-### Documentation (Doc)
-
-- **Doc1. AGENTS.md project structure** matches actual directory layout.
-- **Doc2. AGENTS.md tools and libraries list** is current.
-- **Doc3. README.md and AGENTS.md** consistent.
-- **Doc4. Specs match implementation.** Drift between `agents/specs/` and `src/`.
-- **Doc5. User docs match implementation.** Drift between `docs/` or `README.md` and `src/`.
+Questions are organised by category (A, S, P, Sec, T, D, Doc). The `--category` flag restricts which sections run; if absent, all sections run. A question that has a lister is run through `auditor phaseb candidates`; every other question is sampled by its reviewer.
 
 ## Review template
 
@@ -655,9 +581,7 @@ Without this mechanism, audits ping-pong between the two rules forever - moving 
 
 ### Documented conflicts
 
-| Winner | Loser | Site pattern | Reason |
-|--------|-------|--------------|--------|
-| `A18` callbacks hot-path setup | `constructor-disk-io` | callback class `__init__` performing `mkdir` of a path that the callback writes to | one-time mkdir per Trainer instance is preferable to per-event mkdir; loser auto-accepted |
+Each documented conflict lives in the `rule.md` of the rule it names as the winner, under `## Documented conflicts` (print them with `auditor rules questions`, or read the rule directory). The one conflict where neither rule wins is below.
 
 ### Conflicts with no winner
 

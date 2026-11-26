@@ -1,0 +1,4 @@
+kind = "question"
+id = "S2"
+category = "S"
+title = "PascalCase / UPPER_SNAKE / lower_snake"

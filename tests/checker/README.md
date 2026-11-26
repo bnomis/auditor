@@ -30,8 +30,10 @@ cycle later.
 | `test_dispatch.py` | the string-dispatch chain walker behind `assert-never-missing` and the A11 lister |
 | `test_project_hygiene.py` | the spec-file discovery and ruff lookup helpers that the catalogue rules share |
 | `phaseb/` | the listed Phase B path: the A1, A4, A11, A17, A19, T1 and T2 listers and the Doc1, Doc2, Doc4 and Doc5 listers, the `docrefs` sections and name resolution, candidate hash, ledger read, merge and dismiss, batch planning and run checking, the command line, and the briefs |
-| `phaseb/test_architecture_candidates.py` | the A11, A19, A1 and A17 listers: positive shapes, carve-outs, sweep-hit drops, id stability and content hashes |
-| `phaseb/test_testmap.py`, `phaseb/test_t1_candidates.py`, `phaseb/test_t2_candidates.py` | the test tree index (test files, imports, direct tests, caller routes), and the T1 and T2 listers with their content hashes |
+| `phaseb/test_candidate_sites.py` | the helpers the listers share: `capture_hits`, the parsed-source index, qualnames and anchors |
+| `rules/a1`, `a11`, `a17`, `a19` `tests/` | the A1, A11, A17 and A19 listers: positive shapes, carve-outs, sweep-hit drops, id stability and content hashes |
+| `phaseb/test_testmap.py` | the test tree index (test files, imports, direct tests, caller routes) |
+| `rules/a4`, `t1`, `t2` `tests/` | the A4, T1 and T2 listers with their content hashes |
 
 Each predicate has at least one case for the shape it fires on and one for the
 nearest shape it must not fire on. Where a predicate documents a carve-out -

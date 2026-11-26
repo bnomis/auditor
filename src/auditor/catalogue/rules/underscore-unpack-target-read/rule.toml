@@ -1,3 +1,4 @@
 kind = "check"
 title = "An unpacked leading-underscore name that is later read"
 emits = ["underscore-unpack-target-read"]
+standards = ["std-no-leading-underscores"]

@@ -1,0 +1,1 @@
+- **Doc2. AGENTS.md tools and libraries list** is current.

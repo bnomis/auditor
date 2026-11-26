@@ -1,3 +1,4 @@
 kind = "check"
 title = "A `typing` alias that PEP 585 deprecated"
 emits = ["typing-deprecated-alias"]
+standards = ["std-type-annotations"]

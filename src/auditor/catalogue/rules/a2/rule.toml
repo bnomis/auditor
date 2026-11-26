@@ -1,0 +1,4 @@
+kind = "question"
+id = "A2"
+category = "A"
+title = "Except tuple coverage"

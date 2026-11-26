@@ -55,7 +55,7 @@ def test_register_question_records_lister_and_brief(isolated_registry: None, tmp
     brief = tmp_path / 'Q1.md'
 
     @auditor.phaseb.candidates.register_question('Q1', brief, ('missing',))
-    def lister(root: pathlib.Path) -> list[auditor.phaseb.candidates.Candidate]:
+    def lister(root: pathlib.Path) -> list[auditor.api.candidates.Candidate]:
         return [conftest.make_candidate('b'), conftest.make_candidate('a')]
 
     assert auditor.phaseb.question_brief('Q1') == brief
@@ -63,7 +63,7 @@ def test_register_question_records_lister_and_brief(isolated_registry: None, tmp
 
 
 def test_register_question_returns_the_lister(isolated_registry: None, tmp_path: pathlib.Path) -> None:
-    def lister(root: pathlib.Path) -> list[auditor.phaseb.candidates.Candidate]:
+    def lister(root: pathlib.Path) -> list[auditor.api.candidates.Candidate]:
         return []
 
     assert auditor.phaseb.candidates.register_question('Q1', tmp_path / 'Q1.md', ('missing',))(lister) is lister

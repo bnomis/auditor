@@ -1,3 +1,4 @@
 kind = "project-check"
 title = "A lockfile out of date or unverifiable"
 emits = ["lockfile-drift"]
+standards = ["std-the-lockfile"]

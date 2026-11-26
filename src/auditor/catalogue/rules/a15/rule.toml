@@ -1,0 +1,4 @@
+kind = "question"
+id = "A15"
+category = "A"
+title = "Duplicate constructor / serialisation logic"

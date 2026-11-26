@@ -8,22 +8,22 @@ import hypothesis
 import hypothesis.strategies
 import pytest
 
+import auditor.api.docrefs
 import auditor.core
 import auditor.phaseb
-import auditor.phaseb.docrefs
 
 if typing.TYPE_CHECKING:
     import pathlib
 
 
-def read_sections(tmp_path: pathlib.Path, text: str, name: str = 'docs/guide.md') -> list[auditor.phaseb.docrefs.DocSection]:
+def read_sections(tmp_path: pathlib.Path, text: str, name: str = 'docs/guide.md') -> list[auditor.api.docrefs.DocSection]:
     path = tmp_path / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(textwrap.dedent(text), encoding='utf-8')
-    return auditor.phaseb.docrefs.read_sections(path, tmp_path)
+    return auditor.api.docrefs.read_sections(path, tmp_path)
 
 
-def section_tokens(sections: list[auditor.phaseb.docrefs.DocSection]) -> list[str]:
+def section_tokens(sections: list[auditor.api.docrefs.DocSection]) -> list[str]:
     return [token for section in sections for _, token in section.names]
 
 
@@ -131,13 +131,13 @@ def test_undecodable_file_raises(tmp_path):
     path = tmp_path / 'bad.md'
     path.write_bytes(b'# A\n\xff\xfe\n')
     with pytest.raises(auditor.phaseb.PhaseBError):
-        auditor.phaseb.docrefs.read_sections(path, tmp_path)
+        auditor.api.docrefs.read_sections(path, tmp_path)
 
 
 def test_directory_raises(tmp_path):
     (tmp_path / 'dir.md').mkdir()
     with pytest.raises(auditor.phaseb.PhaseBError):
-        auditor.phaseb.docrefs.read_sections(tmp_path / 'dir.md', tmp_path)
+        auditor.api.docrefs.read_sections(tmp_path / 'dir.md', tmp_path)
 
 
 # resolution
@@ -193,7 +193,7 @@ def run_git(root: pathlib.Path, *args: str) -> None:
 
 
 @pytest.fixture
-def indexed(tmp_path: pathlib.Path) -> tuple[pathlib.Path, auditor.phaseb.docrefs.CorpusIndex]:
+def indexed(tmp_path: pathlib.Path) -> tuple[pathlib.Path, auditor.api.docrefs.CorpusIndex]:
     for name, text in FIXTURE.items():
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -201,12 +201,12 @@ def indexed(tmp_path: pathlib.Path) -> tuple[pathlib.Path, auditor.phaseb.docref
     run_git(tmp_path, 'init', '-q')
     run_git(tmp_path, 'add', '-A')
     (tmp_path / 'untracked.py').write_text('x = 1\n', encoding='utf-8')
-    return tmp_path, auditor.phaseb.docrefs.CorpusIndex.build(tmp_path)
+    return tmp_path, auditor.api.docrefs.CorpusIndex.build(tmp_path)
 
 
-def read_token(indexed, token: str, doc: str = 'docs/guide.md') -> list[auditor.phaseb.docrefs.DocTarget]:
+def read_token(indexed, token: str, doc: str = 'docs/guide.md') -> list[auditor.api.docrefs.DocTarget]:
     root, index = indexed
-    return auditor.phaseb.docrefs.read_name_targets(token, root / doc, index)
+    return auditor.api.docrefs.read_name_targets(token, root / doc, index)
 
 
 def test_one_index_build_resolves_the_roots_once(indexed, monkeypatch):
@@ -220,7 +220,7 @@ def test_one_index_build_resolves_the_roots_once(indexed, monkeypatch):
         return real(scope)
 
     monkeypatch.setattr(auditor.core, 'declared_roots', counting)
-    auditor.phaseb.docrefs.CorpusIndex.build(root)
+    auditor.api.docrefs.CorpusIndex.build(root)
     assert len(calls) == 1
 
 
@@ -300,7 +300,7 @@ def test_each_target_carries_path_and_lines(indexed):
 
 def test_git_failure_raises(tmp_path):
     with pytest.raises(auditor.phaseb.PhaseBError):
-        auditor.phaseb.docrefs.CorpusIndex.build(tmp_path)
+        auditor.api.docrefs.CorpusIndex.build(tmp_path)
 
 
 IDENT = hypothesis.strategies.from_regex(r'[A-Za-z_][A-Za-z0-9_]{0,8}', fullmatch=True)
@@ -311,14 +311,14 @@ IDENT = hypothesis.strategies.from_regex(r'[A-Za-z_][A-Za-z0-9_]{0,8}', fullmatc
     ident=IDENT, indent=hypothesis.strategies.text(alphabet=' ', max_size=4), kind=hypothesis.strategies.sampled_from(['def {}(', 'class {}(', 'class {}:'])
 )
 def test_api_fence_name_recovers_the_defined_name(ident: str, indent: str, kind: str) -> None:
-    assert auditor.phaseb.docrefs.api_fence_name(indent + kind.format(ident)) == ident
+    assert auditor.api.docrefs.api_fence_name(indent + kind.format(ident)) == ident
 
 
 @hypothesis.settings(max_examples=20, deadline=10000)
 @hypothesis.given(text=hypothesis.strategies.text(alphabet='abc xyz=()', max_size=15))
 def test_api_fence_name_is_none_for_other_lines(text: str) -> None:
     hypothesis.assume(not text.lstrip().startswith(('def', 'class', 'async')))
-    assert auditor.phaseb.docrefs.api_fence_name(text) is None
+    assert auditor.api.docrefs.api_fence_name(text) is None
 
 
 @hypothesis.settings(max_examples=20, deadline=10000)
@@ -328,7 +328,7 @@ def test_api_fence_name_is_none_for_other_lines(text: str) -> None:
     ),
 )
 def test_backticked_tokens_are_in_range_stripped_and_outside_fences(lines: list[str]) -> None:
-    found = auditor.phaseb.docrefs.backticked_tokens(lines, 1, len(lines))
+    found = auditor.api.docrefs.backticked_tokens(lines, 1, len(lines))
     numbers = [entry[0] for entry in found]
     assert numbers == sorted(numbers)
     fenced = False
@@ -348,9 +348,9 @@ def test_backticked_tokens_are_in_range_stripped_and_outside_fences(lines: list[
 @hypothesis.settings(max_examples=20, deadline=10000)
 @hypothesis.given(token=hypothesis.strategies.text(alphabet='abcXYZ_./~-<> ()', max_size=14))
 def test_code_shaped_is_idempotent_and_has_no_space(token: str) -> None:
-    shaped = auditor.phaseb.docrefs.code_shaped(token)
+    shaped = auditor.api.docrefs.code_shaped(token)
     if shaped is None:
         return
     assert ' ' not in shaped
     assert '<' not in shaped
-    assert auditor.phaseb.docrefs.code_shaped(shaped) == shaped
+    assert auditor.api.docrefs.code_shaped(shaped) == shaped

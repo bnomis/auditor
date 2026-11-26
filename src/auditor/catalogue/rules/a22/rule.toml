@@ -1,0 +1,4 @@
+kind = "question"
+id = "A22"
+category = "A"
+title = "Fall-through after partial handling"

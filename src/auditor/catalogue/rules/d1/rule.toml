@@ -1,0 +1,4 @@
+kind = "question"
+id = "D1"
+category = "D"
+title = "Declared in pyproject"

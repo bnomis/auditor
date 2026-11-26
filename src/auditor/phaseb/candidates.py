@@ -1,38 +1,16 @@
 """The Phase B data model and the registry of per-question candidate listers."""
 
-import ast
-import builtins
 import collections.abc
 import dataclasses
-import hashlib
-import importlib.resources
-import json
 import os
 import pathlib
 import re
-import tomllib
 import typing
 
-import auditor.core
-import auditor.errorsites
-import auditor.hygiene
-import auditor.phaseb.docrefs
-import auditor.phaseb.errors
-import auditor.phaseb.testmap
+import auditor.api.base
+import auditor.api.candidates
+import auditor.registry
 import auditor.rulesrepo
-
-
-@dataclasses.dataclass(frozen=True)
-class Candidate:
-    """One site a question applies to."""
-
-    question: str  # e.g. 'A4'
-    id: str  # '<repo-relative path>::<qualname>'; the A17 lister uses the path alone, one candidate per `__init__.py`
-    path: str
-    start: int
-    end: int
-    payload: dict[str, typing.Any]  # question-specific; A4: raises, callees, unresolved
-    hash: str  # sha256 hex over the candidate's source and its callees' source
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,7 +32,7 @@ class Verdict:
         return self.dismissed is None and any(self.findings.values())
 
 
-Lister = collections.abc.Callable[[pathlib.Path], list[Candidate]]
+Lister = collections.abc.Callable[[pathlib.Path], list[auditor.api.candidates.Candidate]]
 
 DEFAULT_BATCH_SIZE = 48
 
@@ -74,18 +52,6 @@ def registered_questions() -> list[str]:
 def depth_questions() -> list[str]:
     """The questions whose lister takes a `--depth`, sorted."""
     return sorted(TAKES_DEPTH)
-
-
-def read_test_files(scope: pathlib.Path, names: collections.abc.Iterable[str]) -> list[bytes]:
-    """Read each named test file under `scope`, for hashing into a candidate.
-
-    Raises:
-        PhaseBError: a test file cannot be read.
-    """
-    try:
-        return [auditor.core.cached_bytes(scope / name) for name in names]
-    except OSError as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot read test file under {scope}') from error
 
 
 def register_question(
@@ -108,9 +74,9 @@ def register_question(
         PhaseBError: kinds is empty or names a kind twice.
     """
     if not kinds:
-        raise auditor.phaseb.errors.PhaseBError(f'question {question!r} registers no finding kinds')
+        raise auditor.api.base.PhaseBError(f'question {question!r} registers no finding kinds')
     if len(set(kinds)) != len(kinds):
-        raise auditor.phaseb.errors.PhaseBError(f'question {question!r} registers a finding kind twice: {list(kinds)}')
+        raise auditor.api.base.PhaseBError(f'question {question!r} registers a finding kind twice: {list(kinds)}')
 
     def decorate(lister: Lister) -> Lister:
         REGISTRY[question] = (lister, brief, batch_size)
@@ -127,7 +93,7 @@ def register_question(
 def repository_lister(rule: auditor.rulesrepo.Rule) -> Lister:
     """A lister that imports the rule's `lister.py` when it first runs, so an import error is raised where the candidates are asked for."""
 
-    def lister(scope: pathlib.Path) -> list[Candidate]:
+    def lister(scope: pathlib.Path) -> list[auditor.api.candidates.Candidate]:
         return list(auditor.rulesrepo.import_entry(rule, 'lister.py').list_candidates(scope))
 
     return lister
@@ -136,25 +102,21 @@ def repository_lister(rule: auditor.rulesrepo.Rule) -> Lister:
 def repository_depth_lister(rule: auditor.rulesrepo.Rule) -> Lister:
     """Like `repository_lister`, for a question whose `rule.toml` sets `takes-depth`: the depth is handed on."""
 
-    def lister(scope: pathlib.Path, depth: int | None = None) -> list[Candidate]:
-        return list(auditor.rulesrepo.import_entry(rule, 'lister.py').list_candidates(scope, DEFAULT_DEPTH if depth is None else depth))
+    def lister(scope: pathlib.Path, depth: int | None = None) -> list[auditor.api.candidates.Candidate]:
+        return list(auditor.rulesrepo.import_entry(rule, 'lister.py').list_candidates(scope, auditor.api.candidates.DEFAULT_DEPTH if depth is None else depth))
 
     return lister
 
 
-def use_rules_repository() -> None:
-    """When `$AUDITOR_RULES_PATH` is set, replace the registrations with the repository's questions that have a lister.
+def register_repository(repo: auditor.rulesrepo.RulesRepo) -> None:
+    """Replace the registrations with the repository's questions that have a lister.
 
     `kinds`, `batch-size` and `takes-depth` come from `rule.toml` and the brief
-    is the rule's `brief.md`. Unset, the built-in registrations stay.
+    is the rule's `brief.md`.
 
     Raises:
-        RulesRepoError: the variable is set but empty, or the repository is invalid.
         PhaseBError: a question registers no kinds or names a kind twice.
     """
-    if auditor.rulesrepo.RULES_PATH_VARIABLE not in os.environ:
-        return
-    repo = auditor.rulesrepo.load(auditor.rulesrepo.rules_root())
     REGISTRY.clear()
     KINDS.clear()
     TAKES_DEPTH.clear()
@@ -171,6 +133,20 @@ def use_rules_repository() -> None:
         )(repository_depth_lister(rule) if takes_depth else repository_lister(rule))
 
 
+def use_rules_repository() -> None:
+    """When `$AUDITOR_RULES_PATH` is set, replace the registrations with the repository's questions that have a lister.
+
+    Unset, the registrations stay: the catalogue's questions, until the built-in registry is removed.
+
+    Raises:
+        RulesRepoError: the variable is set but empty, or the repository is invalid.
+        PhaseBError: a question registers no kinds or names a kind twice.
+    """
+    if auditor.rulesrepo.RULES_PATH_VARIABLE not in os.environ:
+        return
+    register_repository(auditor.rulesrepo.load(auditor.rulesrepo.rules_root()))
+
+
 def registered(question: str) -> tuple[Lister, pathlib.Path, int]:
     """Return a question's lister, brief path and batch size.
 
@@ -180,7 +156,7 @@ def registered(question: str) -> tuple[Lister, pathlib.Path, int]:
     try:
         return REGISTRY[question]
     except KeyError:
-        raise auditor.phaseb.errors.PhaseBError(f'no Phase B lister is registered for question {question!r}; known: {sorted(REGISTRY)}') from None
+        raise auditor.api.base.PhaseBError(f'no Phase B lister is registered for question {question!r}; known: {sorted(REGISTRY)}') from None
 
 
 def question_brief(question: str) -> pathlib.Path:
@@ -211,7 +187,7 @@ def question_batch_size(question: str) -> int:
     return registered(question)[2]
 
 
-def list_candidates(question: str, root: pathlib.Path, depth: int | None = None) -> list[Candidate]:
+def list_candidates(question: str, root: pathlib.Path, depth: int | None = None) -> list[auditor.api.candidates.Candidate]:
     """List every candidate for question under root, sorted by id.
 
     A depth is handed to a lister registered as taking one, which follows
@@ -228,7 +204,7 @@ def list_candidates(question: str, root: pathlib.Path, depth: int | None = None)
     elif question in TAKES_DEPTH:
         found = lister(root, depth)  # type: ignore[call-arg]
     else:
-        raise auditor.phaseb.errors.PhaseBError(f'question {question!r} takes no depth; only {sorted(TAKES_DEPTH)} do')
+        raise auditor.api.base.PhaseBError(f'question {question!r} takes no depth; only {sorted(TAKES_DEPTH)} do')
     return sorted(found, key=lambda candidate: candidate.id)
 
 
@@ -244,861 +220,11 @@ def brief_version(brief: pathlib.Path) -> int:
     try:
         text = brief.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot read brief {brief}') from error
+        raise auditor.api.base.PhaseBError(f'cannot read brief {brief}') from error
     found = BRIEF_VERSION_LINE.findall(text)
     if len(found) != 1 or int(found[0]) < 1:
-        raise auditor.phaseb.errors.PhaseBError(f'brief {brief} must have exactly one `**Brief version:** N` line with N a positive integer')
+        raise auditor.api.base.PhaseBError(f'brief {brief} must have exactly one `**Brief version:** N` line with N a positive integer')
     return int(found[0])
 
 
-DEFAULT_DEPTH = 3
-A4_BRIEF = pathlib.Path(str(importlib.resources.files('auditor') / 'briefs' / 'A4.md'))
-
-FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
-
-
-@dataclasses.dataclass(frozen=True)
-class Site:
-    """One function or method a root defines, with where it lives."""
-
-    module: str
-    qualname: str  # dotted, as the resolver knows it
-    cls: str | None
-    node: FunctionNode
-    path: str  # repo-relative
-    lines: list[str]
-
-    @property
-    def id(self) -> str:
-        return f'{self.path}::{self.qualname.removeprefix(self.module + ".")}'
-
-    @property
-    def start(self) -> int:
-        return min([self.node.lineno, *(decorator.lineno for decorator in self.node.decorator_list)])
-
-    @property
-    def end(self) -> int:
-        return self.node.end_lineno or self.node.lineno
-
-    @property
-    def source(self) -> str:
-        return '\n'.join(self.lines[self.start - 1 : self.end])
-
-
-def module_sites(module: str, tree: ast.Module, rel: str, lines: list[str]) -> list[Site]:
-    """Every top-level function and class method a parsed module defines."""
-    sites: list[Site] = []
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            sites.append(Site(module, f'{module}.{node.name}', None, node, rel, lines))
-        elif isinstance(node, ast.ClassDef):
-            sites.extend(
-                Site(module, f'{module}.{node.name}.{member.name}', node.name, member, rel, lines)
-                for member in node.body
-                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
-            )
-    return sites
-
-
-def site_candidate(question: str, site: Site, payload: dict[str, typing.Any], hash: str) -> Candidate:
-    """The candidate for one function or method."""
-    return Candidate(question=question, id=site.id, path=site.path, start=site.start, end=site.end, payload=payload, hash=hash)
-
-
-def span_candidate(question: str, id: str, path: str, start: int, end: int, payload: dict[str, typing.Any], hash_parts: list[str]) -> Candidate:
-    """The candidate for a line span of one file, hashed over `hash_parts`."""
-    return Candidate(question=question, id=id, path=path, start=start, end=end, payload=payload, hash=digest([part.encode('utf-8') for part in hash_parts]))
-
-
-def section_candidate(question: str, id: str, section: auditor.phaseb.docrefs.DocSection, payload: dict[str, typing.Any], hash: str) -> Candidate:
-    """The candidate for one document section."""
-    return Candidate(question=question, id=id, path=section.doc, start=section.start, end=section.end, payload=payload, hash=hash)
-
-
-def is_stub(node: FunctionNode) -> bool:
-    """True for an abstract or protocol body (D2): `...`, `pass`, a docstring alone or `raise NotImplementedError`."""
-    body = node.body
-    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
-        body = body[1:]
-    if not body:
-        return True
-    if len(body) != 1:
-        return False
-    only = body[0]
-    if isinstance(only, ast.Pass):
-        return True
-    if isinstance(only, ast.Expr) and isinstance(only.value, ast.Constant) and only.value.value is Ellipsis:
-        return True
-    if isinstance(only, ast.Raise) and only.exc is not None:
-        raised = only.exc.func if isinstance(only.exc, ast.Call) else only.exc
-        return isinstance(raised, ast.Name) and raised.id == 'NotImplementedError'
-    return False
-
-
-def is_builtin_call(call: ast.Call, site: Site, imported: collections.abc.Mapping[str, str], known: collections.abc.Mapping[str, str | None]) -> bool:
-    """True for a bare-name call to a builtin that the module neither imports nor defines."""
-    func = call.func
-    return isinstance(func, ast.Name) and hasattr(builtins, func.id) and func.id not in imported and f'{site.module}.{func.id}' not in known
-
-
-def root_sites(scope: pathlib.Path, src_root: pathlib.Path) -> tuple[list[Site], dict[str, ast.Module], dict[str, bool]]:
-    """Every top-level function and class method under one audited root, with each module's tree and package flag."""
-    sites: list[Site] = []
-    trees: dict[str, ast.Module] = {}
-    is_package: dict[str, bool] = {}
-    for path in auditor.core.all_py_files(src_root):
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        module = auditor.core.module_dotted(path, src_root)
-        trees[module] = tree
-        is_package[module] = path.name == '__init__.py'
-        sites.extend(module_sites(module, tree, auditor.core.relpath(path, scope), lines))
-    return sites, trees, is_package
-
-
-def root_candidates(scope: pathlib.Path, src_root: pathlib.Path, depth: int) -> list[Candidate]:
-    """The A4 candidates of one audited root."""
-    sites, trees, is_package = root_sites(scope, src_root)
-    by_name = {site.qualname: site for site in sites}
-    known = {site.qualname: site.cls for site in sites}
-    bindings = {module: auditor.core.call_bindings(tree, module, is_package[module]) for module, tree in trees.items()}
-    aliases = auditor.core.reexport_aliases(
-        {module: auditor.core.from_import_bindings(tree, module, is_package[module]) for module, tree in trees.items()},
-        known,
-    )
-
-    resolved_calls = {
-        site.qualname: [
-            (call, auditor.core.resolve_call(call, site.module, site.cls, bindings[site.module], known, aliases, class_methods=True))
-            for call in ast.walk(site.node)
-            if isinstance(call, ast.Call)
-        ]
-        for site in sites
-    }
-
-    def calls_of(site: Site) -> list[tuple[ast.Call, str | None]]:
-        return resolved_calls[site.qualname]
-
-    direct = {name: sorted({callee for _, callee in calls if callee and callee != name}) for name, calls in resolved_calls.items()}
-
-    def reach(site: Site) -> list[Site]:
-        seen = {site.qualname}
-        frontier = [site.qualname]
-        for _ in range(depth):
-            frontier = [callee for name in frontier for callee in direct[name] if callee not in seen]
-            seen.update(frontier)
-        return sorted((by_name[name] for name in seen - {site.qualname}), key=lambda callee: callee.id)
-
-    found: list[Candidate] = []
-    for site in sites:
-        doc = ast.get_docstring(site.node) or ''
-        if 'Raises:' not in doc or is_stub(site.node) or not auditor.errorsites.raises_section_names(doc):
-            continue
-        callees = reach(site)
-        unresolved = [
-            {'at': f'{site.path}:{call.lineno}', 'text': ast.unparse(call)}
-            for call, callee in calls_of(site)
-            if callee is None and not is_builtin_call(call, site, bindings[site.module], known)
-        ]
-        digest = hashlib.sha256('\0'.join([site.source, *(callee.source for callee in callees)]).encode('utf-8')).hexdigest()
-        found.append(
-            site_candidate(
-                'A4',
-                site,
-                {
-                    'raises': doc[doc.index('Raises:') :],
-                    'callees': [{'id': callee.id, 'path': callee.path, 'start': callee.start, 'end': callee.end} for callee in callees],
-                    'unresolved': unresolved,
-                },
-                digest,
-            )
-        )
-    return found
-
-
-@register_question('A4', A4_BRIEF, ('missing', 'extra'), takes_depth=True)
-def list_a4_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
-    """List every function or method with a `Raises:` section under the audited roots, minus D2's stubs.
-
-    Each carries its section, its resolved callees to `depth` (resolving
-    `<ClassName>.<method>(...)` too), its unresolved calls, and a sha256 over
-    its source then its callees' source in id order, NUL-separated.
-
-    Raises:
-        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
-    """
-    roots, _ = auditor.core.cached_roots(scope)
-    return [candidate for src_root in roots for candidate in root_candidates(scope, src_root, depth)]
-
-
-DOC_BATCH_SIZE = 24
-DOC_BRIEFS = A4_BRIEF.parent
-UNRESOLVED = '(unresolved)'
-IMPLEMENTED_RE = re.compile(r'^\*\*Status:\*\*\s*implemented\s*$', re.MULTILINE)
-
-
-def read_text(path: pathlib.Path) -> str:
-    """Return a listed document's text.
-
-    Raises:
-        PhaseBError: the file cannot be read or decoded as UTF-8.
-    """
-    try:
-        return auditor.core.cached_bytes(path).decode('utf-8')
-    except (OSError, UnicodeDecodeError) as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot read {path}') from error
-
-
-def target_bytes(target: auditor.phaseb.docrefs.DocTarget, index: auditor.phaseb.docrefs.CorpusIndex) -> bytes:
-    """The bytes a target's hash covers: its source lines, a file's content or a directory's sorted tracked entries.
-
-    Raises:
-        PhaseBError: the target's file cannot be read.
-    """
-    if target.kind == 'directory':
-        return '\n'.join(sorted(name for name in index.files if name.startswith(f'{target.path}/'))).encode('utf-8', errors='surrogateescape')
-    try:
-        data = auditor.core.cached_bytes(index.scope / target.path)
-    except OSError as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot read {target.path}') from error
-    if target.kind == 'file':
-        return data
-    return b'\n'.join(data.splitlines()[target.start - 1 : target.end])
-
-
-def digest(parts: list[bytes]) -> str:
-    return hashlib.sha256(b'\0'.join(parts)).hexdigest()
-
-
-def doc_candidates(question: str, scope: pathlib.Path, documents: list[pathlib.Path]) -> list[Candidate]:
-    """One candidate per (section, target) pair and one `(unresolved)` candidate per section with unresolved names."""
-    index = auditor.phaseb.docrefs.CorpusIndex.build(scope)
-    found: list[Candidate] = []
-    for document in documents:
-        lines = read_text(document).splitlines()
-        for section in auditor.phaseb.docrefs.read_sections(document, scope):
-            text = '\n'.join(lines[section.start - 1 : section.end]).encode('utf-8')
-            named: dict[str, tuple[auditor.phaseb.docrefs.DocTarget, list[int]]] = {}
-            unresolved: list[dict[str, typing.Any]] = []
-            for number, token in section.names:
-                targets = auditor.phaseb.docrefs.read_name_targets(token, document, index)
-                if len(targets) == 1:
-                    named.setdefault(targets[0].id, (targets[0], []))[1].append(number)
-                else:
-                    unresolved.append({'name': token, 'line': number, 'definitions': [dataclasses.asdict(target) for target in targets]})
-            prefix = f'{section.doc}::{section.heading_path}::'
-            for target, numbers in named.values():
-                found.append(
-                    section_candidate(
-                        question,
-                        prefix + target.id,
-                        section,
-                        {
-                            'target': dataclasses.asdict(target),
-                            'lines': [{'line': number, 'text': lines[number - 1].strip()} for number in sorted(set(numbers))],
-                        },
-                        digest([text, target_bytes(target, index)]),
-                    )
-                )
-            if unresolved:
-                tokens = '\n'.join(sorted(entry['name'] for entry in unresolved)).encode('utf-8')
-                found.append(section_candidate(question, prefix + UNRESOLVED, section, {'tokens': unresolved}, digest([text, tokens])))
-    return found
-
-
-# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
-@register_question('Doc4', DOC_BRIEFS / 'Doc4.md', ('drift',), batch_size=DOC_BATCH_SIZE)
-def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
-    """List the (section, target) pairs of every implemented spec under `agents/specs/`.
-
-    A proposed spec describes code not yet written, so it is not listed.
-
-    Raises:
-        PhaseBError: a spec cannot be read.
-        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
-    """
-    specs = [
-        path
-        for path in auditor.hygiene.spec_markdown_files(scope)
-        if path.relative_to(scope).as_posix().startswith('agents/specs/') and IMPLEMENTED_RE.search(read_text(path))
-    ]
-    return doc_candidates('Doc4', scope, specs)
-
-
-# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
-@register_question('Doc5', DOC_BRIEFS / 'Doc5.md', ('drift',), batch_size=DOC_BATCH_SIZE)
-def list_doc5_candidates(scope: pathlib.Path) -> list[Candidate]:
-    """List the (section, target) pairs of every `docs/**/*.md` and the root `README.md`.
-
-    Raises:
-        PhaseBError: a document cannot be read.
-        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
-    """
-    documents = [
-        path for path in auditor.hygiene.spec_markdown_files(scope) if (rel := path.relative_to(scope).as_posix()).startswith('docs/') or rel == 'README.md'
-    ]
-    return doc_candidates('Doc5', scope, documents)
-
-
-AGENTS_BATCH_SIZE = 12
-AGENTS_DOC = 'AGENTS.md'
-HOOK_FILE = '.pre-commit-config.yaml'
-HOOK_ID_RE = re.compile(r'^\s*-\s+id:\s*[\'"]?([^\'"\s]+)')
-REQUIREMENT_NAME_RE = re.compile(r'\s*([A-Za-z0-9][A-Za-z0-9._-]*)')
-
-
-def agents_document(scope: pathlib.Path) -> tuple[pathlib.Path, list[str]] | None:
-    """The root `AGENTS.md` and its lines, or None when the project has none."""
-    path = scope / AGENTS_DOC
-    if not path.exists():
-        return None
-    return path, read_text(path).splitlines()
-
-
-def tracked_directories(index: auditor.phaseb.docrefs.CorpusIndex) -> list[str]:
-    """The tracked directories down to the tree depth, sorted."""
-    return sorted(name for name in index.directories if name.count('/') < auditor.phaseb.docrefs.TREE_DEPTH)
-
-
-# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
-@register_question('Doc1', DOC_BRIEFS / 'Doc1.md', ('stale', 'missing'), batch_size=AGENTS_BATCH_SIZE)
-def list_doc1_candidates(scope: pathlib.Path) -> list[Candidate]:
-    """List each `AGENTS.md` section that names a path or holds a fence, with the tracked directory tree.
-
-    Raises:
-        PhaseBError: `AGENTS.md` cannot be read, or `git ls-files` fails.
-        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
-    """
-    document = agents_document(scope)
-    if document is None:
-        return []
-    path, lines = document
-    index = auditor.phaseb.docrefs.CorpusIndex.build(scope)
-    tree = tracked_directories(index)
-    tree_bytes = '\n'.join(tree).encode('utf-8', errors='surrogateescape')
-    found: list[Candidate] = []
-    for section in auditor.phaseb.docrefs.read_sections(path, scope):
-        text = lines[section.start - 1 : section.end]
-        named = [(number, token) for number, token in section.names if auditor.phaseb.docrefs.is_path_shaped(token)]
-        if not named and not any(auditor.phaseb.docrefs.FENCE_RE.match(line) for line in text):
-            continue
-        paths = [
-            {'path': token, 'line': number, 'resolved': [target.id for target in auditor.phaseb.docrefs.read_path_targets(token, path, index)]}
-            for number, token in named
-        ]
-        found.append(
-            section_candidate(
-                'Doc1', f'{section.doc}::{section.heading_path}', section, {'paths': paths, 'tree': tree}, digest(['\n'.join(text).encode('utf-8'), tree_bytes])
-            )
-        )
-    return found
-
-
-def normalise_name(name: str) -> str:
-    """The PEP 503 form of a distribution name."""
-    return re.sub(r'[-_.]+', '-', name).lower()
-
-
-def requirement_names(requirements: object) -> set[str]:
-    """Normalised names from a list of requirement strings; non-string entries (group includes) are skipped."""
-    names: set[str] = set()
-    if isinstance(requirements, list):
-        for entry in requirements:
-            match = REQUIREMENT_NAME_RE.match(entry) if isinstance(entry, str) else None
-            if match:
-                names.add(normalise_name(match.group(1)))
-    return names
-
-
-def read_pyproject(scope: pathlib.Path) -> dict[str, typing.Any]:
-    """Parse `pyproject.toml`; empty when absent.
-
-    Raises:
-        PhaseBError: the file exists but cannot be read or parsed.
-    """
-    path = scope / 'pyproject.toml'
-    if not path.exists():
-        return {}
-    try:
-        return tomllib.loads(path.read_bytes().decode('utf-8'))
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot read {path}') from error
-
-
-def declared_tables(pyproject: dict[str, typing.Any]) -> dict[str, dict[str, set[str]] | set[str]]:
-    """The four dependency tables as normalised names, keyed by their TOML location."""
-    project = pyproject.get('project', {})
-    optional = project.get('optional-dependencies', {})
-    groups = pyproject.get('dependency-groups', {})
-    return {
-        'project.dependencies': requirement_names(project.get('dependencies')),
-        'project.optional-dependencies': set().union(*(requirement_names(value) for value in optional.values())) if optional else set(),
-        'dependency-groups': set().union(*(requirement_names(value) for value in groups.values())) if groups else set(),
-        'build-system.requires': requirement_names(pyproject.get('build-system', {}).get('requires')),
-    }
-
-
-def read_hook_file(scope: pathlib.Path) -> bytes:
-    """The bytes of `.pre-commit-config.yaml`; empty when absent.
-
-    Raises:
-        PhaseBError: the file exists but cannot be read.
-    """
-    path = scope / HOOK_FILE
-    if not path.exists():
-        return b''
-    try:
-        return auditor.core.cached_bytes(path)
-    except OSError as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot read {path}') from error
-
-
-def imported_modules(scope: pathlib.Path) -> set[str]:
-    """The top-level module names the corpus imports; a file with a syntax error is skipped."""
-    roots, _ = auditor.core.cached_roots(scope)
-    src_root = roots[0] if roots else scope / 'src'
-    modules: set[str] = set()
-    for path in auditor.core.corpus_py_files(scope, src_root):
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                modules.update(alias.name.split('.')[0] for alias in node.names)
-            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                modules.add(node.module.split('.')[0])
-    return modules
-
-
-# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
-@register_question('Doc2', DOC_BRIEFS / 'Doc2.md', ('stale', 'missing'), batch_size=AGENTS_BATCH_SIZE)
-def list_doc2_candidates(scope: pathlib.Path) -> list[Candidate]:
-    """List each `AGENTS.md` section holding a backticked token, matched against the declared tools.
-
-    Raises:
-        PhaseBError: `AGENTS.md`, `pyproject.toml` or `.pre-commit-config.yaml` exists but cannot be read
-            or parsed, or `git ls-files` fails.
-        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
-    """
-    document = agents_document(scope)
-    if document is None:
-        return []
-    path, lines = document
-    auditor.phaseb.docrefs.tracked_files(scope)
-    tables = declared_tables(read_pyproject(scope))
-    hook_bytes = read_hook_file(scope)
-    hooks = {match.group(1) for line in hook_bytes.decode('utf-8', errors='replace').splitlines() if (match := HOOK_ID_RE.match(line))}
-    modules = imported_modules(scope)
-    canonical = json.dumps({key: sorted(value) for key, value in tables.items()}, sort_keys=True).encode('utf-8')
-    found: list[Candidate] = []
-    for section in auditor.phaseb.docrefs.read_sections(path, scope):
-        tokens = auditor.phaseb.docrefs.backticked_tokens(lines, section.start, section.end)
-        if not tokens:
-            continue
-        matched: list[dict[str, typing.Any]] = []
-        unmatched: set[str] = set()
-        for number, token in tokens:
-            words = auditor.phaseb.docrefs.TRAILING_CALL_RE.sub('', token).split()
-            name = words[0] if words else token
-            source = next((key for key, names in tables.items() if normalise_name(name) in names), None)
-            if source is None and name in hooks:
-                source = 'pre-commit hook'
-            if source is None and name.split('.')[0] in modules:
-                source = 'import'
-            if source is None:
-                unmatched.add(token)
-            else:
-                matched.append({'token': token, 'line': number, 'source': source})
-        found.append(
-            section_candidate(
-                'Doc2',
-                f'{section.doc}::{section.heading_path}',
-                section,
-                {'matched': matched, 'unmatched': sorted(unmatched)},
-                digest(['\n'.join(lines[section.start - 1 : section.end]).encode('utf-8'), canonical, hook_bytes]),
-            )
-        )
-    return found
-
-
-def self_attribute(node: ast.AST) -> str | None:
-    """The attribute name when node is `self.<attr>`, else None."""
-    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == 'self':
-        return node.attr
-    return None
-
-
-def tested_attributes(method: FunctionNode) -> set[str]:
-    """The `self.<attr>` names method tests in an `if`, a `match` subject or a comparison."""
-    tested: set[str] = set()
-    for node in auditor.core.walk_within_scope(method):
-        if isinstance(node, ast.If):
-            expressions: list[ast.AST] = [node.test]
-        elif isinstance(node, ast.Match):
-            expressions = [node.subject]
-        elif isinstance(node, ast.Compare):
-            expressions = [node]
-        else:
-            continue
-        for expression in expressions:
-            for inner in ast.walk(expression):
-                name = self_attribute(inner)
-                if name is not None:
-                    tested.add(name)
-    return tested
-
-
-def assigned_attributes(node: FunctionNode) -> set[str]:
-    """The `self.<attr>` names node assigns in its own body."""
-    assigned: set[str] = set()
-    for inner in auditor.core.walk_within_scope(node):
-        targets: list[ast.expr] = []
-        if isinstance(inner, ast.Assign):
-            targets = inner.targets
-        elif isinstance(inner, (ast.AugAssign, ast.AnnAssign)):
-            targets = [inner.target]
-        for target in targets:
-            for part in ast.walk(target):
-                name = self_attribute(part)
-                if name is not None:
-                    assigned.add(name)
-    return assigned
-
-
-def t1_reasons(node: ast.FunctionDef | ast.AsyncFunctionDef, cls: ast.ClassDef | None) -> list[str]:
-    """Why node is a T1 candidate: any of 'if', 'try', 'match', 'state'; empty if not."""
-    own = list(auditor.core.walk_within_scope(node))
-    reasons: list[str] = []
-    if any(isinstance(inner, ast.If) for inner in own):
-        reasons.append('if')
-    if any(isinstance(inner, (ast.Try, ast.TryStar)) and inner.handlers for inner in own):
-        reasons.append('try')
-    if any(isinstance(inner, ast.Match) for inner in own):
-        reasons.append('match')
-    if cls is not None:
-        assigned = assigned_attributes(node)
-        if assigned:
-            others = (method for method in cls.body if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method is not node)
-            if any(assigned & tested_attributes(method) for method in others):
-                reasons.append('state')
-    return reasons
-
-
-T1_BRIEF = DOC_BRIEFS / 'T1.md'
-
-
-def is_overload(node: FunctionNode) -> bool:
-    """True for a function decorated with `overload` or `typing.overload`."""
-    return any(ast.unparse(decorator).rpartition('.')[2] == 'overload' for decorator in node.decorator_list)
-
-
-# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
-@register_question('T1', T1_BRIEF, ('missing',), takes_depth=True)
-def list_t1_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
-    """List every function or method whose own body branches, with the tests that reach it.
-
-    Each carries its reasons, its direct and caller tests, its callers to
-    `depth`, its `test_files`, whether it is private and the `privacy` rule
-    that decided it (`auditor.core.privacy`). The hash is a sha256
-    over its source then each `test_files` file's text in path order,
-    NUL-separated. `@typing.overload` stubs and defs under `if TYPE_CHECKING:`
-    are left out.
-
-    Raises:
-        PhaseBError: a test file or audited source file does not parse.
-        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
-    """
-    index = auditor.phaseb.testmap.load_test_index(scope)
-    refs = index.refs(depth)
-    hidden = {module: auditor.core.type_checking_linenos(file.tree) for module, file in index.sources.items()}
-    classes = {(module, node.name): node for module, file in index.sources.items() for node in file.tree.body if isinstance(node, ast.ClassDef)}
-    found: list[Candidate] = []
-    for site in index.sites.values():
-        if is_overload(site.node) or site.node.lineno in hidden[site.module]:
-            continue
-        reasons = t1_reasons(site.node, classes.get((site.module, site.cls)) if site.cls else None)
-        if not reasons:
-            continue
-        test_files = index.test_files(site.id, depth)
-        parts = [site.source.encode('utf-8'), *read_test_files(scope, test_files)]
-        private, rule = auditor.core.privacy(site.qualname.removeprefix(f'{site.module}.'), site.module, scope)
-        found.append(
-            site_candidate(
-                'T1',
-                site,
-                {
-                    'reasons': reasons,
-                    'tests': [dataclasses.asdict(ref) for ref in refs.get(site.id, ())],
-                    'callers': index.callers(site.id, depth),
-                    'test_files': test_files,
-                    'private': private,
-                    'privacy': rule,
-                },
-                digest(parts),
-            )
-        )
-    return found
-
-
-# The type set and the extra call names below change only with a bump of the
-# T2 brief version: a change re-plans every candidate through its hash.
-T2_SCALAR_TYPES = frozenset({'Decimal', 'Fraction', 'bool', 'bytes', 'date', 'datetime', 'float', 'int', 'str', 'timedelta'})
-T2_CONTAINER_TYPES = frozenset({'Iterable', 'Mapping', 'Optional', 'Sequence', 'Union', 'dict', 'frozenset', 'list', 'set', 'tuple'})
-T2_ENUM_BASES = frozenset({'Enum', 'Flag', 'IntEnum', 'IntFlag', 'StrEnum'})
-T2_EXTRA_CALL_NAMES = frozenset(
-    {'Popen', 'check_call', 'check_output', 'choice', 'input', 'now', 'open', 'print', 'randint', 'randrange', 'shuffle', 'time', 'uniform'}
-)
-T2_EFFECT_MODULES = frozenset({'random', 'subprocess'})
-T2_BRANCHES = (ast.If, ast.IfExp, ast.Match, ast.For, ast.While, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
-
-
-def short_name(node: ast.AST) -> str | None:
-    """The last dotted component of a name or attribute, else None."""
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    return None
-
-
-def root_name(node: ast.AST) -> str | None:
-    """The leftmost name of an attribute, subscript or call chain, else None."""
-    while isinstance(node, (ast.Attribute, ast.Subscript, ast.Call)):
-        node = node.func if isinstance(node, ast.Call) else node.value
-    return node.id if isinstance(node, ast.Name) else None
-
-
-def is_frozen_dataclass(cls: ast.ClassDef) -> bool:
-    """True for a class decorated `dataclass(frozen=True)`."""
-    for decorator in cls.decorator_list:
-        if isinstance(decorator, ast.Call) and short_name(decorator.func) == 'dataclass':
-            if any(keyword.arg == 'frozen' and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in decorator.keywords):
-                return True
-    return False
-
-
-def is_well_defined_class(cls: ast.ClassDef, package_types: collections.abc.Mapping[str, ast.ClassDef], checking: set[str]) -> bool:
-    """True when cls is an Enum, or a frozen dataclass, NamedTuple or TypedDict of well-defined fields."""
-    bases = {short_name(base) for base in cls.bases}
-    if bases & T2_ENUM_BASES:
-        return True
-    if not (bases & {'NamedTuple', 'TypedDict'} or is_frozen_dataclass(cls)):
-        return False
-    checking = checking | {cls.name}
-    for field in cls.body:
-        if isinstance(field, ast.AnnAssign) and short_name(field.annotation) != 'ClassVar':
-            if not is_well_defined_type(field.annotation, package_types, checking):
-                return False
-    return True
-
-
-def is_well_defined_type(annotation: ast.expr, package_types: collections.abc.Mapping[str, ast.ClassDef], checking: set[str]) -> bool:
-    """True when annotation is built only from the T2 type set."""
-    if isinstance(annotation, ast.Constant):
-        if annotation.value is None or annotation.value is Ellipsis:
-            return True
-        if isinstance(annotation.value, str):
-            try:
-                inner = ast.parse(annotation.value, mode='eval').body
-            except SyntaxError:
-                return False
-            return is_well_defined_type(inner, package_types, checking)
-        return False
-    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
-        return is_well_defined_type(annotation.left, package_types, checking) and is_well_defined_type(annotation.right, package_types, checking)
-    if isinstance(annotation, ast.Subscript):
-        head = short_name(annotation.value)
-        if head == 'Literal':
-            return True
-        if head not in T2_CONTAINER_TYPES:
-            return False
-        arguments = annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
-        return all(is_well_defined_type(argument, package_types, checking) for argument in arguments)
-    name = short_name(annotation)
-    if name is None:
-        return False
-    if name in T2_SCALAR_TYPES:
-        return True
-    cls = package_types.get(name)
-    if cls is None:
-        return False
-    if name in checking:
-        return True
-    return is_well_defined_class(cls, package_types, checking)
-
-
-def is_t2_candidate(node: ast.FunctionDef, package_types: collections.abc.Mapping[str, ast.ClassDef]) -> bool:
-    """True when node is pure over well-defined types and has logic a property can test."""
-    if not isinstance(node, ast.FunctionDef):
-        return False
-    arguments = node.args
-    decorators = {short_name(decorator) for decorator in node.decorator_list}
-    parameters = [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
-    if arguments.vararg is not None:
-        parameters.append(arguments.vararg)
-    if arguments.kwarg is not None:
-        parameters.append(arguments.kwarg)
-    if not parameters or 'classmethod' in decorators:
-        return False
-    if parameters[0].arg in {'self', 'cls'} and 'staticmethod' not in decorators:
-        return False
-    returns = node.returns
-    if returns is None or (isinstance(returns, ast.Constant) and returns.value is None):
-        return False
-    annotations = [parameter.annotation for parameter in parameters]
-    if any(annotation is None for annotation in annotations):
-        return False
-    if not all(is_well_defined_type(annotation, package_types, set()) for annotation in [*annotations, returns] if annotation is not None):
-        return False
-    names = {parameter.arg for parameter in parameters}
-    effects = auditor.core.SIDE_EFFECT_CALL_NAMES | T2_EXTRA_CALL_NAMES
-    own = list(auditor.core.walk_within_scope(node))
-    for inner in own:
-        if isinstance(inner, (ast.Yield, ast.YieldFrom, ast.Global, ast.Nonlocal, ast.Await)):
-            return False
-        if isinstance(inner, ast.Call) and (short_name(inner.func) in effects or root_name(inner.func) in T2_EFFECT_MODULES):
-            return False
-        targets: list[ast.expr] = []
-        if isinstance(inner, ast.Assign):
-            targets = inner.targets
-        elif isinstance(inner, (ast.AugAssign, ast.AnnAssign)):
-            targets = [inner.target]
-        elif isinstance(inner, ast.Delete):
-            targets = inner.targets
-        for target in targets:
-            for part in ast.walk(target):
-                if isinstance(part, (ast.Attribute, ast.Subscript)) and root_name(part) in names:
-                    return False
-    return any(isinstance(inner, T2_BRANCHES) for inner in own)
-
-
-T2_BRIEF = DOC_BRIEFS / 'T2.md'
-T2_INVERSES = (('parse', 'format'), ('encode', 'decode'), ('to', 'from'), ('dumps', 'loads'))
-
-
-def inverse_names(name: str) -> set[str]:
-    """The names that invert `name`: `parse_x`/`format_x`, `encode`/`decode`, `to_x`/`from_x`, `dumps`/`loads`."""
-    head, separator, rest = name.partition('_')
-    found: set[str] = set()
-    for first, second in T2_INVERSES:
-        if head == first:
-            found.add(f'{second}{separator}{rest}')
-        elif head == second:
-            found.add(f'{first}{separator}{rest}')
-    return found
-
-
-def annotation_names(annotation: ast.expr) -> set[str]:
-    """Every name an annotation mentions, parsing string annotations."""
-    names: set[str] = set()
-    for part in ast.walk(annotation):
-        if isinstance(part, ast.Name):
-            names.add(part.id)
-        elif isinstance(part, ast.Attribute):
-            names.add(part.attr)
-        elif isinstance(part, ast.Constant) and isinstance(part.value, str):
-            try:
-                names |= annotation_names(ast.parse(part.value, mode='eval').body)
-            except SyntaxError:
-                continue
-    return names
-
-
-def referenced_types(annotations: list[ast.expr], package_types: collections.abc.Mapping[str, ast.ClassDef]) -> set[str]:
-    """The package class names the annotations name, directly or through a class's fields."""
-    found: set[str] = set()
-    pending = [name for annotation in annotations for name in annotation_names(annotation)]
-    while pending:
-        name = pending.pop()
-        if name in found or name not in package_types:
-            continue
-        found.add(name)
-        for field in package_types[name].body:
-            if isinstance(field, ast.AnnAssign):
-                pending.extend(annotation_names(field.annotation))
-    return found
-
-
-# auditme: accept[literal-duplication] each question declares its own kinds; equal values are coincidence
-@register_question('T2', T2_BRIEF, ('missing',), takes_depth=True)
-def list_t2_candidates(scope: pathlib.Path, depth: int = DEFAULT_DEPTH) -> list[Candidate]:
-    """List every function `is_t2_candidate` accepts, with its types, inverse pairs and tests.
-
-    The hash is a sha256 over its source, each `types` class's source in id
-    order, then each `test_files` file's text in path order, NUL-separated.
-
-    Raises:
-        PhaseBError: a test file or audited source file does not parse.
-        RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
-    """
-    index = auditor.phaseb.testmap.load_test_index(scope)
-    refs = index.refs(depth)
-    hidden = {module: auditor.core.type_checking_linenos(file.tree) for module, file in index.sources.items()}
-    class_sites: dict[str, tuple[auditor.phaseb.testmap.ParsedFile, ast.ClassDef]] = {}
-    for module in sorted(index.sources):
-        file = index.sources[module]
-        for node in file.tree.body:
-            if isinstance(node, ast.ClassDef):
-                class_sites[node.name] = (file, node)
-    package_types = {name: cls for name, (_, cls) in class_sites.items()}
-    accepted = [
-        site
-        for site in index.sites.values()
-        if isinstance(site.node, ast.FunctionDef)
-        and (site.cls is None or any(short_name(decorator) == 'staticmethod' for decorator in site.node.decorator_list))
-        and not is_overload(site.node)
-        and site.node.lineno not in hidden[site.module]
-        and is_t2_candidate(site.node, package_types)
-    ]
-    by_name: dict[str, list[str]] = {}
-    for site in accepted:
-        by_name.setdefault(site.node.name, []).append(site.id)
-    module_text: dict[str, str] = {}
-    found: list[Candidate] = []
-    for site in accepted:
-        node = site.node
-        arguments = node.args
-        parameters = [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
-        if arguments.vararg is not None:
-            parameters.append(arguments.vararg)
-        if arguments.kwarg is not None:
-            parameters.append(arguments.kwarg)
-        annotated = [(parameter.arg, parameter.annotation) for parameter in parameters if parameter.annotation is not None]
-        returns = node.returns
-        if returns is None:
-            continue
-        text = module_text.setdefault(site.path, '\n'.join(site.lines))
-        types: list[dict[str, str | int]] = []
-        class_sources: list[tuple[str, bytes]] = []
-        for name in referenced_types([*(annotation for _, annotation in annotated), returns], package_types):
-            file, cls = class_sites[name]
-            start = min([cls.lineno, *(decorator.lineno for decorator in cls.decorator_list)])
-            end = cls.end_lineno or cls.lineno
-            type_id = f'{file.rel}::{cls.name}'
-            types.append({'id': type_id, 'path': file.rel, 'start': start, 'end': end})
-            class_sources.append((type_id, '\n'.join(file.lines[start - 1 : end]).encode('utf-8')))
-        types.sort(key=lambda entry: str(entry['id']))
-        class_sources.sort()
-        test_files = index.test_files(site.id, depth)
-        parts = [site.source.encode('utf-8'), *(source for _, source in class_sources), *read_test_files(scope, test_files)]
-        pairs = sorted(other for inverse in inverse_names(node.name) for other in by_name.get(inverse, ()))
-        found.append(
-            site_candidate(
-                'T2',
-                site,
-                {
-                    'params': [
-                        {'name': name, 'annotation': ast.get_source_segment(text, annotation) or ast.unparse(annotation)} for name, annotation in annotated
-                    ],
-                    'returns': ast.get_source_segment(text, returns) or ast.unparse(returns),
-                    'types': types,
-                    'pairs': pairs,
-                    'tests': [dataclasses.asdict(ref) for ref in refs.get(site.id, ())],
-                    'test_files': test_files,
-                },
-                digest(parts),
-            )
-        )
-    return found
+register_repository(auditor.registry.CATALOGUE)  # transitional: the questions of the catalogue, until the built-in registry is removed

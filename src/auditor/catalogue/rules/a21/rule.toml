@@ -1,0 +1,4 @@
+kind = "question"
+id = "A21"
+category = "A"
+title = "Lazy init race"

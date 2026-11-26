@@ -1,0 +1,4 @@
+kind = "question"
+id = "A8"
+category = "A"
+title = "Late dataclass mutation"

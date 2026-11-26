@@ -1,0 +1,1 @@
+- **A11. Exhaustion via assert_never.** For every `if/elif/else` chain over a `typing.Literal` or enum: is the unreachable branch handled with `typing.assert_never`? Flag chains that end in `raise <SomeError>(...)` instead - the type-checker cannot verify exhaustion. A two-way split on a bool computed from a `Literal` or enum value counts as a chain over that value.

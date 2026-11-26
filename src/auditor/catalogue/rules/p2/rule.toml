@@ -1,0 +1,4 @@
+kind = "question"
+id = "P2"
+category = "P"
+title = "Blocking I/O in hot paths"

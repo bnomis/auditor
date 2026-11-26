@@ -1,0 +1,4 @@
+kind = "question"
+id = "A12"
+category = "A"
+title = "assert misuse"

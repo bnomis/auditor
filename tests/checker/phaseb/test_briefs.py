@@ -8,7 +8,7 @@ import pytest
 import auditor.phaseb
 import auditor.phaseb.candidates
 
-SKILL = pathlib.Path(__file__).resolve().parents[3] / 'claude' / 'skills' / 'auditme' / 'SKILL.md'
+RULES = pathlib.Path(__file__).resolve().parents[3] / 'src' / 'auditor' / 'catalogue' / 'rules'
 
 
 def test_every_registered_brief_exists_with_one_positive_version() -> None:
@@ -21,10 +21,9 @@ def test_every_registered_brief_exists_with_one_positive_version() -> None:
 
 
 def test_a4_brief_holds_the_a4_question_text_from_skill_md() -> None:
-    skill = SKILL.read_text(encoding='utf-8')
-    question = next(line for line in skill.splitlines() if line.startswith('- **A4.'))
+    question = question_line('A4')
     brief = auditor.phaseb.question_brief('A4').read_text(encoding='utf-8')
-    assert question.removeprefix('- ') in brief
+    assert question in brief
 
 
 def test_a4_brief_settles_each_threshold_and_the_output() -> None:
@@ -48,8 +47,8 @@ def test_brief_with_two_version_lines_is_refused(tmp_path: pathlib.Path) -> None
 
 
 def question_line(question: str) -> str:
-    skill = SKILL.read_text(encoding='utf-8')
-    return next(line for line in skill.splitlines() if line.startswith(f'- **{question}.')).removeprefix('- ')
+    text = (RULES / question.lower() / 'rule.md').read_text(encoding='utf-8')
+    return next(line for line in text.splitlines() if line.startswith(f'- **{question}.')).removeprefix('- ')
 
 
 DOC_BRIEF_VERSIONS = {'Doc1': 5, 'Doc2': 4, 'Doc4': 9, 'Doc5': 9}

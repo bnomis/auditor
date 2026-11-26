@@ -1,23 +1,19 @@
 # Rules
 
-The shared Claude Code rules the auditme checker enforces live here beside
-it, in `claude/rules/auditme/`.
-`bin/install-claude.sh` links that directory into `~/.claude/rules/auditme/`,
-next to the rules the agents repository installs
-(`bnomis/agents`, <https://bnomis.github.io/agents/reference/rules/>).
+The Python standards the auditme checker enforces are `standard` rules of the
+default rules catalogue, `src/auditor/catalogue/rules/std-*/`, one directory per
+section. `auditor rules standards` prints them, and the SessionStart hook
+(`claude/hooks/auditme-standards.sh`) puts them in the context of a session in
+a project that opts in. They sit beside the rules the agents repository
+installs (`bnomis/agents`, <https://bnomis.github.io/agents/reference/rules/>).
 
-Each starts with `paths:` frontmatter, so Claude Code loads it only when
-Claude works with a matching file. They name the rules that stay in agents
-by their installed path (`~/.claude/rules/python/testing.md`,
-`~/.claude/rules/security.md`, ...), not by a relative link: `~/.claude/rules/auditme`
-is a symlink into this repository, so a `../` link from it would be followed
-into this repository, where those rules are not.
+A check's `rule.toml` lists the standards it enforces in its `standards` key.
 
-| File | Requires |
+| Standards sections | Require |
 |---|---|
-| `auditme/coding-standards.md` | Python 3.14; ruff as configured; full type annotations with built-in generics and `\|` unions; no leading underscores; f-strings; alphabetical ordering of enum-like collections; nothing defined in `__init__.py`; `loguru` for logging. |
-| `auditme/dependencies.md` | Declare dependencies in `pyproject.toml` via `uv add`; commit `uv.lock` and never hand-edit it; no `pip install`. |
-| `auditme/imports.md` | Full import paths (no `from X import Y` outside `__init__.py` re-exports), no `as` imports, no wildcard imports, no `from __future__ import annotations`. |
+| `std-python-version`, `std-critical-rules`, `std-type-annotations`, `std-naming`, `std-no-leading-underscores`, `std-string-formatting`, `std-alphabetical-ordering`, `std-clean-init-py-files`, `std-logging` and the rest of the coding standards | Python 3.14; ruff as configured; full type annotations with built-in generics and `\|` unions; no leading underscores; f-strings; alphabetical ordering of enum-like collections; nothing defined in `__init__.py`; `loguru` for logging. |
+| `std-commands`, `std-the-lockfile`, `std-dependencies-python-version` | Declare dependencies in `pyproject.toml` via `uv add`; commit `uv.lock` and never hand-edit it; no `pip install`. |
+| `std-imports-in-init-files`, `std-no-as-imports` | Full import paths (no `from X import Y` outside `__init__.py` re-exports), no `as` imports, no wildcard imports, no `from __future__ import annotations`. |
 
 ## Rules enforced by a check
 
@@ -41,7 +37,7 @@ The requirement that a script-checkable rule be a hook is met by the
 the ruff and shellcheck hooks a project's `.pre-commit-config.yaml` pins.
 Nothing checks commit message format or branch names.
 
-### `auditme/coding-standards.md`
+### Coding standards (`std-*` sections)
 
 | Requirement | Checker rule |
 |---|---|
@@ -54,7 +50,7 @@ Nothing checks commit message format or branch names.
 | Nothing defined in `__init__.py` | `def-class-in-init` |
 | Alphabetical ordering | `non-alphabetical-literal`, `non-alphabetical-dict-keys` |
 
-### `auditme/imports.md`
+### Import standards (`std-imports-in-init-files`, `std-no-as-imports`)
 
 | Requirement | Checker rule |
 |---|---|
@@ -63,7 +59,7 @@ Nothing checks commit message format or branch names.
 | No `as` imports | `aliased-imports`; also `as-import`, which fires only when the project's `AGENTS.md` declares the ban |
 | No `from __future__ import annotations` | `future-annotations` |
 
-### `auditme/dependencies.md`
+### Dependency standards (`std-commands`, `std-the-lockfile`)
 
 `lockfile-drift` runs `uv lock --check` when the project has both
 `pyproject.toml` and `uv.lock`, and reports a lockfile that no longer matches
