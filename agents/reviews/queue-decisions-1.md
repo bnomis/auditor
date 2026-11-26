@@ -70,4 +70,13 @@ None beyond approving or flagging each item.
 
 ## Answers
 
-Left empty for the user's verdict, filled in afterwards with the date.
+Answered on the review page on 2026-11-26, copied here on 2026-11-26. Every
+decision was approved, and none has a comment.
+
+- 1. Fold Tasks 3 and 4 into Task 2's commit (`01ce68c`, auditor-cli Task 2): approved
+- 2. Accept the changed fixture hits in tests/test_stop_hook.py (`1c86aa5`, auditor-cli Task 6): approved
+- 3. Accept the T1, Doc4 and Doc5 candidate changes (`3bdb631`, auditor-cli Task 6): approved
+- 4. Keep src/auditor as the one sweep root for catalogue rules (`dba4e46`, default-rule-catalogue Task 2): approved
+- 5. Let the family tasks grow the rule API (`8939445`, default-rule-catalogue Tasks 3-9): approved
+- 6. Place AST-shape helpers in auditor.api.flow (`5e296ec`, default-rule-catalogue Tasks 4-9): approved
+- 7. Fold the nested def/class check into text-patterns (`d8c4815`, default-rule-catalogue Task 4): approved
