@@ -1,8 +1,8 @@
 """Tests for `.pre-commit-hooks.yaml`: the full set of hooks, and the names hook.
 
-The audit hooks' fields are tested beside the checker
-(`claude/skills/auditme/tests/test_hooks_manifest.py`). The manifest is flat,
-so a minimal reader stands in for a YAML parser.
+The manifest is flat, so a minimal reader stands in for a YAML parser. Running
+the published hooks from a fresh install is tested in
+`tests/checker/test_hooks_manifest.py`.
 """
 
 import pathlib
@@ -33,6 +33,26 @@ def read_manifest() -> dict[str, dict[str, str]]:
         if key.strip() == 'id':
             hooks[current['id']] = current
     return hooks
+
+
+AUDIT_HOOKS = {
+    'auditme-all': {'entry': 'auditor changed --all', 'stages': '[manual]'},
+    'auditme-changed': {'entry': 'auditor changed', 'stages': '[pre-commit]'},
+}
+AUDIT_COMMON = {
+    'always_run': 'true',
+    'language': 'python',
+    'pass_filenames': 'false',
+}
+
+
+def test_audit_hooks_run_the_auditor_command() -> None:
+    hooks = read_manifest()
+    for hook_id, expected in AUDIT_HOOKS.items():
+        hook = hooks[hook_id]
+        assert hook['entry'] == expected['entry']
+        assert hook['stages'] == expected['stages']
+        assert {key: hook[key] for key in AUDIT_COMMON} == AUDIT_COMMON
 
 
 def test_manifest_publishes_the_audit_and_names_hooks() -> None:

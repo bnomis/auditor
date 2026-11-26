@@ -16,5 +16,5 @@ with working guards, is [docs/setup.md](docs/setup.md); the docs site is
 Run the tests:
 
 ```shell
-uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider
+uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider
 ```

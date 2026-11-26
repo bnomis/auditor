@@ -62,7 +62,7 @@ prove the move changed nothing.
 
 ## Task 2: Move the checker into the `auditor` package
 
-**Status:** in-progress
+**Status:** done
 **Priority:** high
 **Complexity:** large
 **Spec Reference:** Module location; API; Error handling (Unknown command); Implementation (Package, Imports, Briefs; This repository's own hooks)
@@ -73,40 +73,40 @@ manipulation.
 
 **Subtasks:**
 
-- [ ] Move the files with `git mv`, so that history follows them:
+- [x] Move the files with `git mv`, so that history follows them:
   - `claude/skills/auditme/checks/auditme/` to `src/auditor/`
   - `checks/audit.py` to `src/auditor/sweep.py`
   - `checks/changed.py` to `src/auditor/changed.py`
   - `checks/phaseb.py` to `src/auditor/phasebcli.py`
   - `claude/skills/auditme/phaseb/briefs/` to `src/auditor/briefs/`
   - `claude/skills/auditme/tests/` to `tests/checker/`
-- [ ] In `pyproject.toml`:
+- [x] In `pyproject.toml`:
   - add `[build-system]` with `requires = ["uv_build>=0.13.0,<0.14"]` and `build-backend = "uv_build"`;
   - add `[project.scripts] auditor = "auditor.cli:main"`;
   - update the `[tool.ruff.lint.per-file-ignores]` paths and the `[tool.auditme] roots` to the new locations
-- [ ] Rewrite every `import auditme...` and `auditme.` reference in code to `auditor.`, by full path. Remove every `sys.path.insert` from the moved modules and from `tests/checker/conftest.py`
-- [ ] Each moved script keeps a `main(argv) -> int` that the dispatcher of Task 3 can call. The `if __name__ == '__main__'` blocks go
-- [ ] Find the briefs with `importlib.resources.files('auditor') / 'briefs'`
-- [ ] Tests first, in `tests/checker/test_cli.py`:
+- [x] Rewrite every `import auditme...` and `auditme.` reference in code to `auditor.`, by full path. Remove every `sys.path.insert` from the moved modules and from `tests/checker/conftest.py`
+- [x] Each moved script keeps a `main(argv) -> int` that the dispatcher of Task 3 can call. The `if __name__ == '__main__'` blocks go
+- [x] Find the briefs with `importlib.resources.files('auditor') / 'briefs'`
+- [x] Tests first, in `tests/checker/test_cli.py`:
   - `auditor --version` prints `auditor <version>`, with the version read from `importlib.metadata.version('auditor')`;
   - `auditor check <fixture>` emits the same lines as `auditor.sweep.main([<fixture>])`;
   - an unknown command exits 2;
   - all three run as a subprocess of the installed entry point
-- [ ] Write `src/auditor/cli.py` with `main(argv)`, which hands the remaining arguments to the chosen command's `main` unchanged
-- [ ] `uv sync`, then `uv run auditor --version`
-- [ ] In `.pre-commit-config.yaml`, set the local `auditme-changed` and `auditme-all` hooks to `language: system` and `entry: uv run auditor changed` (with `--all` for `auditme-all`), so that this commit's own hooks run the moved checker
-- [ ] Update the test command in `AGENTS.md` and `README.md` to `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider`
+- [x] Write `src/auditor/cli.py` with `main(argv)`, which hands the remaining arguments to the chosen command's `main` unchanged
+- [x] `uv sync`, then `uv run auditor --version`
+- [x] In `.pre-commit-config.yaml`, set the local `auditme-changed` and `auditme-all` hooks to `language: system` and `entry: uv run auditor changed` (with `--all` for `auditme-all`), so that this commit's own hooks run the moved checker
+- [x] Update the test command in `AGENTS.md` and `README.md` to `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider`
 
 **Acceptance Criteria:**
 
-- [ ] The full test command passes with every existing test unchanged apart from import paths and file paths
-- [ ] `grep -rnw 'auditme' src/auditor --include=*.py` finds only rule ids, accept markers and the `[tool.auditme]` table name, never a module path
+- [x] The full test command passes with every existing test unchanged apart from import paths and file paths
+- [x] `grep -rnw 'auditme' src/auditor --include=*.py` finds only rule ids, accept markers and the `[tool.auditme]` table name, never a module path
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
-- [ ] `uv run auditor check .` exits as `$BASELINE/sweep.status` records
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
+- [x] `uv run auditor check .` exits as `$BASELINE/sweep.status` records
 
 **Notes:**
 
@@ -118,13 +118,14 @@ manipulation.
   - `tests/checker` now sits under the `tests` root, so the `paired-sibling-helpers` rule reports `read_manifest` in `tests/checker/test_hooks_manifest.py` and `tests/test_published_hooks.py` as an unaccepted hit (it did not when they were in separate roots), and the `auditme-changed` pre-commit hook fails the commit. Task 3 rewrites both files.
   - Options: fold Tasks 3 and 4 into Task 2's commit, or relax Task 2's Definition of Done to exclude these tests and this hit.
 - **Decision 2026-11-26 (decided by Claude, not yet reviewed):** fold Tasks 3 and 4 into Task 2's commit. Relaxing the Definition of Done cannot give a commit: the `auditme-changed` hook still fails on the `read_manifest` hit, and `--no-verify` is never used. Folding keeps every commit passing its hooks and tests, as the note on the move already requires. So Task 2 also does every subtask of Task 3 and Task 4, meets their acceptance criteria and runs their Definition of Done commands, in the same commit; then set Tasks 3 and 4 to `done`, ticking their subtasks, with a note that Task 2's commit did them. The decision covers only Tasks 3 and 4
+- Task 2's commit also did Tasks 3 and 4, and all their checks passed with it. For the `try-repo` test, the test's copy of the manifest adds `language_version: python3.14`, because pre-commit picks the machine's newest `python3` (3.15 here), which `requires-python` (`<3.15`) rejects. The published manifest is as the spec words it; whether it should carry a `language_version` is a question for the operator
 - Message texts (`audit.py: no package under src/...`, `changed.py: ...`) were kept as they were, because existing tests assert them. The changed-files runner now starts the sweep through `changed.SWEEP_COMMAND`, which the stub-sweep tests set in place of the former `AUDIT_SCRIPT`
 
 ---
 
 ## Task 3: Point the published hooks and CI at `auditor`
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation (pre-commit hooks; This repository's own hooks and CI); Tests
@@ -133,31 +134,31 @@ manipulation.
 
 **Subtasks:**
 
-- [ ] Tests first: in `tests/test_published_hooks.py`, check that `auditme-changed` and `auditme-all` are `language: python` with an `entry` starting `auditor changed`. Update the path expectations in `tests/checker/test_hooks_manifest.py`
-- [ ] In `.pre-commit-hooks.yaml`, set `language: python` and `entry: auditor changed` (with `--all` for `auditme-all`)
-- [ ] In `.github/workflows/ci.yml`, change the pytest step to `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider`
-- [ ] `pre-commit try-repo . auditme-changed --all-files` runs the published hook from a fresh install of this checkout
+- [x] Tests first: in `tests/test_published_hooks.py`, check that `auditme-changed` and `auditme-all` are `language: python` with an `entry` starting `auditor changed`. Update the path expectations in `tests/checker/test_hooks_manifest.py`
+- [x] In `.pre-commit-hooks.yaml`, set `language: python` and `entry: auditor changed` (with `--all` for `auditme-all`)
+- [x] In `.github/workflows/ci.yml`, change the pytest step to `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider`
+- [x] `pre-commit try-repo . auditme-changed --all-files` runs the published hook from a fresh install of this checkout
 
 **Acceptance Criteria:**
 
-- [ ] `try-repo` installs the package and exits 0, and the tests pass
+- [x] `try-repo` installs the package and exits 0, and the tests pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_published_hooks.py tests/checker/test_hooks_manifest.py -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_published_hooks.py tests/checker/test_hooks_manifest.py -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
 - Depends on Task 2
-- Folded into Task 2's commit by the decision of 2026-11-26 recorded in Task 2's notes (decided by Claude, not yet reviewed)
+- Done by Task 2's commit, by the decision of 2026-11-26 recorded in Task 2's notes (decided by Claude, not yet reviewed)
 
 ---
 
 ## Task 4: The Stop hook and installer use the CLI
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Implementation (Stop hook, Installer); Error handling (`auditor` not on PATH); Tests
@@ -167,13 +168,13 @@ manipulation.
 
 **Subtasks:**
 
-- [ ] Tests first in `tests/test_stop_hook.py`, covering:
+- [x] Tests first in `tests/test_stop_hook.py`, covering:
   - `auditor` missing from PATH blocks once with the spec's message;
   - an opted-in project runs `auditor changed` from PATH;
   - a worktree of the repository recorded in `~/.claude/auditor-source` (under a test `HOME`) runs `uv run --project <root> auditor changed`;
   - another repository holding a `src/auditor/` never does
-- [ ] Rewrite the checker lookup in the hook, keeping its opt-in test, its block-once logic and its rule of trusting the shared git directory
-- [ ] In `bin/install-claude.sh`:
+- [x] Rewrite the checker lookup in the hook, keeping its opt-in test, its block-once logic and its rule of trusting the shared git directory
+- [x] In `bin/install-claude.sh`:
   - run `uv tool install --editable "$REPO"`;
   - write `git -C "$REPO" rev-parse --path-format=absolute --git-common-dir` to `~/.claude/auditor-source`;
   - do both before `install-in-claude`.
@@ -182,17 +183,17 @@ manipulation.
 
 **Acceptance Criteria:**
 
-- [ ] Every case above passes, and the existing Stop hook tests pass with only the checker path in their setup changed
+- [x] Every case above passes, and the existing Stop hook tests pass with only the checker path in their setup changed
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_stop_hook.py tests/test_install_claude.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_stop_hook.py tests/test_install_claude.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 2
-- Folded into Task 2's commit by the decision of 2026-11-26 recorded in Task 2's notes (decided by Claude, not yet reviewed)
+- Done by Task 2's commit, by the decision of 2026-11-26 recorded in Task 2's notes (decided by Claude, not yet reviewed)
 
 ---
 

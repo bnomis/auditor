@@ -18,36 +18,38 @@ block() {
     printf '%s' "$1" | jq -Rs '{decision: "block", reason: .}'
 }
 
-# The installed checker, not the project's pinned one: this is the early warning.
-checker="$HOME/.claude/skills/auditme/checks/changed.py"
-
-# A worktree of the very repository the installed checker links into runs its
-# own checker instead, so a branch that changes the checker is judged by that
-# branch. Trust comes from the shared git directory, never from the files a
-# repository holds: any other repository's changed.py is never run.
 git_dir() {
     git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null
 }
-own="$root/claude/skills/auditme/checks/changed.py"
-if [ -f "$own" ] && installed=$(realpath "$checker" 2>/dev/null); then
-    trusted=$(git_dir "$(dirname "$installed")")
+
+# The installed tool, not the project's pinned one: this is the early warning.
+# A worktree of the very repository the tool was installed from runs its own
+# code instead (`uv run --project`), so a branch that changes the checker is
+# judged by that branch. Trust comes from the shared git directory that the
+# installer recorded in ~/.claude/auditor-source, never from the files a
+# repository holds: any other repository's src/auditor is never run.
+source_file="$HOME/.claude/auditor-source"
+if [ -f "$source_file" ] && [ -f "$root/src/auditor/cli.py" ]; then
+    trusted=$(cat "$source_file")
     if [ -n "$trusted" ] && [ "$trusted" = "$(git_dir "$root")" ]; then
-        checker=$own
+        command=(uv run --project "$root" auditor changed)
     fi
 fi
-# -f follows a link, so a dangling one counts as missing.
-if [ ! -f "$checker" ]; then
-    block "The auditme checker is not installed: $checker is missing or a dangling link. Run bin/install-claude.sh in the auditor repository to install it."
-    exit 0
+if [ -z "${command+set}" ]; then
+    if ! command -v auditor >/dev/null 2>&1; then
+        block "The auditor CLI is not installed: run 'uv tool install <source>' (see docs/setup.md)."
+        exit 0
+    fi
+    command=(auditor changed)
 fi
 
-report=$(cd "$root" && python3 -I "$checker" 2>&1)
+report=$(cd "$root" && "${command[@]}" 2>&1)
 status=$?
-# changed.py exits only 0 or 1; any other status means it never ran.
+# auditor changed exits only 0 or 1; any other status means it never ran.
 if [ "$status" -eq 1 ]; then
     block "$report"
 elif [ "$status" -ne 0 ]; then
-    block "The auditme checker could not run (exit $status): $checker
+    block "The auditor CLI could not run (exit $status): ${command[*]}
 $report"
 fi
 exit 0

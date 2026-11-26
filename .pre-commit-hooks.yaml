@@ -1,14 +1,14 @@
 - id: auditme-changed
   name: no unaccepted audit hits in changed files
-  entry: claude/skills/auditme/checks/changed.py
-  language: script
+  entry: auditor changed
+  language: python
   pass_filenames: false
   always_run: true
   stages: [pre-commit]
 - id: auditme-all
   name: no unaccepted audit hits anywhere
-  entry: claude/skills/auditme/checks/changed.py --all
-  language: script
+  entry: auditor changed --all
+  language: python
   pass_filenames: false
   always_run: true
   stages: [manual]
