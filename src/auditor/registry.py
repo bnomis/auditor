@@ -8,7 +8,6 @@ catalogue's rules come in name order after the built-ins.
 import pathlib
 import typing
 
-import auditor.rules.duplication
 import auditor.rules.error_handling
 import auditor.rules.imports_and_surfaces
 import auditor.rules.project_hygiene
@@ -42,10 +41,8 @@ BUILTIN_CHECKS = (
     auditor.rules.error_handling.check_silent_broad_except,
     auditor.rules.error_handling.check_broad_except_wrong_level,
     auditor.rules.error_handling.check_except_interpolation,
-    auditor.rules.duplication.check_literal_duplication,
     auditor.rules.style_and_naming.check_nonalphabetical_literals,
     auditor.rules.imports_and_surfaces.check_unused_submodule_imports,
-    auditor.rules.duplication.check_paired_sibling_helpers,
     auditor.rules.imports_and_surfaces.check_layering_violations,
     auditor.rules.state_and_effects.check_constructor_disk_io,
     auditor.rules.imports_and_surfaces.check_passthrough_shim,
@@ -55,12 +52,9 @@ BUILTIN_CHECKS = (
     auditor.rules.state_and_effects.check_silent_self_mutation,
     auditor.rules.error_handling.check_asymmetric_exception_translation,
     auditor.rules.error_handling.check_sibling_error_no_common_base,
-    auditor.rules.duplication.check_duplicate_side_effect_per_target,
     auditor.rules.error_handling.check_cli_entry_missing_error_envelope,
-    auditor.rules.duplication.check_redundant_sink_caller_plus_callee,
     auditor.rules.state_and_effects.check_return_value_shadows_instance_attr,
     auditor.rules.error_handling.check_try_wrapping_with_too_broad,
-    auditor.rules.duplication.check_duplicate_call_sequence,
     auditor.rules.error_handling.check_layer_has_domain_error_but_raises_stdlib,
     auditor.rules.error_handling.check_inconsistent_error_translation,
     auditor.rules.state_and_effects.check_parameter_mutation,
@@ -72,7 +66,6 @@ BUILTIN_CHECKS = (
     auditor.rules.state_and_effects.check_build_name_has_side_effect,
     auditor.rules.state_and_effects.check_mutable_module_level_exported,
     auditor.rules.state_and_effects.check_callback_hotpath_io,
-    auditor.rules.duplication.check_recompile_duplication,
     auditor.rules.error_handling.check_logger_exception_graceful_degradation,
     auditor.rules.style_and_naming.check_non_alphabetical_dict_keys,
     auditor.rules.style_and_naming.check_bare_parametric_annotation,
@@ -146,8 +139,6 @@ BUILTIN_RULE_IDS = frozenset(
         'def-class-in-init',
         'discarded-tuple-return',
         'docstring-raises-mismatch',
-        'duplicate-call-sequence',
-        'duplicate-side-effect-per-target',
         'duplicated-word',
         'empty-init-while-siblings-export',
         'except-interpolation',
@@ -170,7 +161,6 @@ BUILTIN_RULE_IDS = frozenset(
         'legacy-formatting-format',
         'legacy-formatting-percent',
         'legacy-typing',
-        'literal-duplication',
         'lockfile-drift',
         'logger-exception-graceful-degradation',
         'migration-shim-consumer',
@@ -181,14 +171,11 @@ BUILTIN_RULE_IDS = frozenset(
         'mutable-store-without-copy',
         'non-alphabetical-dict-keys',
         'non-alphabetical-literal',
-        'paired-sibling-helpers',
         'parameter-mutation-in-pure-function',
         'passthrough-shim',
         'phase-section-doc-reference',
         'pure-name-has-side-effect',
         'raises-section-drift',
-        'recompile-duplication',
-        'redundant-sink-caller-plus-callee',
         'reexport-in-non-init',
         'relative-import-nonpackage',
         'return-shadows-instance-attr',

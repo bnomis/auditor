@@ -1,4 +1,6 @@
+import importlib
 import pathlib
+import pkgutil
 
 import pytest
 
@@ -49,11 +51,19 @@ def test_api_version() -> None:
     assert auditor.api.API_VERSION == (1, 0)
 
 
+def submodule_exports() -> list[str]:
+    """Every name that an `auditor.api` submodule lists in its own `__all__`."""
+    names: list[str] = []
+    for info in pkgutil.iter_modules(auditor.api.__path__):
+        names.extend(getattr(importlib.import_module(f'auditor.api.{info.name}'), '__all__', []))
+    return names
+
+
 def test_all_lists_exactly_the_exports() -> None:
-    assert sorted(auditor.api.__all__) == sorted([*CORE_NAMES, 'API_VERSION', 'Candidate'])
+    assert sorted(auditor.api.__all__) == sorted([*CORE_NAMES, 'API_VERSION', 'Candidate', *submodule_exports()])
 
 
 def test_no_existing_module_imports_the_api() -> None:
     root = pathlib.Path(auditor.__file__).parent
-    users = [p for p in root.rglob('*.py') if p.relative_to(root).parts[0] != 'api' and 'auditor.api' in p.read_text()]
+    users = [p for p in root.rglob('*.py') if p.relative_to(root).parts[0] not in {'api', 'catalogue'} and 'auditor.api' in p.read_text()]
     assert users == []

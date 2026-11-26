@@ -1,0 +1,3 @@
+kind = "check"
+title = "A string-literal collection repeated across files"
+emits = ["literal-duplication"]

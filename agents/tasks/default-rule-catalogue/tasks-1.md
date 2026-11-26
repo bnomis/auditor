@@ -134,7 +134,7 @@ sweep audits the catalogue's rule code in exactly one root.
 
 ## Task 3: Move the `duplication` family
 
-**Status:** in-progress
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** What becomes a rule directory; API; Implementation 2
@@ -144,18 +144,18 @@ catalogue rule, moved as the header's family task says.
 
 **Subtasks:**
 
-- [ ] Move each check as a family task (see the header)
-- [ ] Delete `src/auditor/rules/duplication.py` once it is empty
+- [x] Move each check as a family task (see the header)
+- [x] Delete `src/auditor/rules/duplication.py` once it is empty
 
 **Acceptance Criteria:**
 
-- [ ] The sweep of this repository gives the baseline's hits, and the moved tests pass under `auditor rules test`
+- [x] The sweep of this repository gives the baseline's hits, and the moved tests pass under `auditor rules test`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
-- [ ] `uv run pytest tests/checker/test_registry.py tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] `uv run pytest tests/checker/test_registry.py tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 

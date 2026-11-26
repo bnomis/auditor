@@ -8,6 +8,7 @@ checker's module-level state around every test.
 import contextlib
 import io
 import json
+import pathlib
 import subprocess
 import textwrap
 import typing
@@ -15,10 +16,10 @@ import typing
 import pytest
 
 import auditor.core
+import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
     import collections.abc
-    import pathlib
 
 # auditme: accept[non-alphabetical-literal] `-c` flag and value pairs, in order
 GIT_ENV_ARGS = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test']
@@ -26,6 +27,20 @@ GIT_ENV_ARGS = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test']
 
 def git(repo: pathlib.Path, *args: str) -> None:
     subprocess.run(['git', *GIT_ENV_ARGS, *args], cwd=repo, check=True, capture_output=True)
+
+
+def load_check(test_file: str) -> collections.abc.Callable[[pathlib.Path, pathlib.Path], None]:
+    """Return the `check` function of the rule directory that owns a test file.
+
+    A rule's tests sit in `<repo>/rules/<rule-dir>/tests/`, and the rule
+    directory name has hyphens, so a test cannot import `check.py` by name.
+    Pass `__file__`.
+    """
+    tests_dir = pathlib.Path(test_file).resolve().parent
+    rule_dir = tests_dir.parent
+    repo = auditor.rulesrepo.load(rule_dir.parent.parent)
+    rule = next(rule for rule in repo.rules if rule.name == rule_dir.name)
+    return auditor.rulesrepo.import_entry(rule, 'check.py').check
 
 
 @pytest.fixture(autouse=True)

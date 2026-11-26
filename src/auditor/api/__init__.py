@@ -5,6 +5,7 @@ rule code.
 """
 
 from auditor.api.base import API_VERSION
+from auditor.api.calls import SINK_TOKENS
 from auditor.core import (
     accept_reason,
     all_py_files,
@@ -37,6 +38,7 @@ from auditor.phaseb.candidates import Candidate
 __all__ = [
     'API_VERSION',
     'Candidate',
+    'SINK_TOKENS',
     'accept_reason',
     'all_py_files',
     'audit_roots',

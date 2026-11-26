@@ -63,6 +63,8 @@ ignore = ["E501", "E722", 'ICN001', 'SIM108', 'SIM102', 'S110', 'S112', 'S311']
 # checker does. Both are the behaviour under test.
 "tests/checker/*" = ["S101", "S603", "S607"]
 "claude/skills/auditme-project-setup/tests/*" = ["S101"]
+# A catalogue rule's own tests use bare asserts like every other test.
+"src/auditor/catalogue/rules/*/tests/*" = ["S101"]
 # The root-level tests run shipped scripts (the Stop hook, the installer) as
 # subprocesses from PATH; that is the behaviour under test.
 "tests/*" = ["S101", "S603", "S607"]

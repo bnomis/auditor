@@ -1,0 +1,3 @@
+kind = "check"
+title = "Identical function bodies in two or more files"
+emits = ["paired-sibling-helpers"]

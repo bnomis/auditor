@@ -1,0 +1,3 @@
+kind = "check"
+title = "Two functions share a long call skeleton"
+emits = ["duplicate-call-sequence"]

@@ -14,7 +14,6 @@ import itertools
 import pathlib
 
 import auditor.registry
-import auditor.rules.duplication
 import auditor.rules.error_handling
 import auditor.rules.imports_and_surfaces
 import auditor.rules.project_hygiene
@@ -22,7 +21,6 @@ import auditor.rules.state_and_effects
 import auditor.rules.style_and_naming
 
 RULE_MODULES = (
-    auditor.rules.duplication,
     auditor.rules.error_handling,
     auditor.rules.imports_and_surfaces,
     auditor.rules.project_hygiene,
