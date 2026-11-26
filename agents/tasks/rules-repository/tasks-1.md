@@ -57,7 +57,7 @@ import, re-exporting `emit`, `Candidate` and the readers and resolvers in
 
 ## Task 2: Load and validate a rules repository
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Repository format; API (`Rule`, `RulesRepo`, `rules_root`, `load`); Implementation (Loading, Caching); Error handling
@@ -68,7 +68,7 @@ imports no rule code.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_load.py`, with fixtures for:
+- [x] Tests first, in `tests/rulesrepo/test_load.py`, with fixtures for:
   - one valid rule of each kind;
   - an unknown key;
   - an unknown kind;
@@ -82,7 +82,7 @@ imports no rule code.
   - an unset or empty `AUDITOR_RULES_PATH`, and one naming a missing directory.
 
   Each error case asserts the spec's message, naming the file
-- [ ] Write `src/auditor/rulesrepo.py`, defining:
+- [x] Write `src/auditor/rulesrepo.py`, defining:
   - `RulesRepoError(SettingsError)`;
   - `Rule` and `RulesRepo` (with `rule_ids()`, which includes the runner's own ids);
   - `rules_root` and `load`;
@@ -90,12 +90,12 @@ imports no rule code.
 
 **Acceptance Criteria:**
 
-- [ ] Every case passes, and `load` imports nothing: a fixture `check.py` that raises at import does not fail `load`
+- [x] Every case passes, and `load` imports nothing: a fixture `check.py` that raises at import does not fail `load`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_load.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_load.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

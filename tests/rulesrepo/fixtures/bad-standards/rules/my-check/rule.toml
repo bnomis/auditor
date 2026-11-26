@@ -1,0 +1,4 @@
+kind = "check"
+title = "A check"
+emits = ["my-check"]
+standards = ["nope"]

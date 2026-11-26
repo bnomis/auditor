@@ -1,0 +1,8 @@
+kind = "question"
+title = "A question"
+id = "A4"
+category = "A"
+kinds = ["x"]
+batch-size = 10
+takes-depth = true
+standards = ["my-standard"]
