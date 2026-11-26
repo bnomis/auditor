@@ -28,7 +28,7 @@ rules hold for every task:
 
 ## Task 1: Record the baseline
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation (Equivalence)
@@ -38,23 +38,24 @@ prove the move changed nothing.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `test ! -e src/auditor` succeeds, and `grep -nw 'auditor.cli' pyproject.toml` prints nothing. If either fails, stop as `blocked` and name what exists
-- [ ] `mkdir -p "$BASELINE"`
-- [ ] `python3 -I claude/skills/auditme/checks/audit.py . > "$BASELINE/sweep.jsonl"`, recording its exit status in `"$BASELINE/sweep.status"`
-- [ ] Get each listed question from `auditme.phaseb.candidates.registered_questions()`. For each, run `python3 -I claude/skills/auditme/checks/phaseb.py candidates --question <Q> . > "$BASELINE/candidates-<Q>.jsonl"`
-- [ ] `python3 -I claude/skills/auditme/checks/changed.py --all . > "$BASELINE/changed-all.txt"`, recording its exit status
+- [x] Starting-point check: `test ! -e src/auditor` succeeds, and `grep -nw 'auditor.cli' pyproject.toml` prints nothing. If either fails, stop as `blocked` and name what exists
+- [x] `mkdir -p "$BASELINE"`
+- [x] `python3 -I claude/skills/auditme/checks/audit.py . > "$BASELINE/sweep.jsonl"`, recording its exit status in `"$BASELINE/sweep.status"`
+- [x] Get each listed question from `auditme.phaseb.candidates.registered_questions()`. For each, run `python3 -I claude/skills/auditme/checks/phaseb.py candidates --question <Q> . > "$BASELINE/candidates-<Q>.jsonl"`
+- [x] `python3 -I claude/skills/auditme/checks/changed.py --all . > "$BASELINE/changed-all.txt"`, recording its exit status
 
 **Acceptance Criteria:**
 
-- [ ] `$BASELINE` holds the sweep output, one candidates file per registered question, the `changed --all` output, and their exit statuses
-- [ ] Nothing in the repository changed (`git status --porcelain` prints nothing)
+- [x] `$BASELINE` holds the sweep output, one candidates file per registered question, the `changed --all` output, and their exit statuses
+- [x] Nothing in the repository changed (`git status --porcelain` prints nothing)
 
 **Definition of Done:**
 
-- [ ] `git status --porcelain` prints nothing (this task makes no commit)
+- [x] `git status --porcelain` prints nothing (this task makes no commit)
 
 **Notes:**
 
+- `audit.py` and `phaseb.py` were run without `-I`: with `-I` the script directory is off `sys.path` and `import auditme` fails. `changed.py` runs `audit.py` the same way
 - The baseline lives outside the repository so that no generated data is committed
 
 ---
