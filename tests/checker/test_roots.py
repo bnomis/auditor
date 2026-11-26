@@ -11,7 +11,7 @@ Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
 LAYOUT = {
     'bin/tool.py': 'x = 1\n',
-    'checks/audit.py': 'x = 1\n',
+    'checks/entry.py': 'x = 1\n',
     'checks/pkg/mod.py': 'x = 1\n',
     'checks/pkg/sub/deep.py': 'x = 1\n',
     'src/lib/core.py': 'x = 1\n',
@@ -31,8 +31,8 @@ def test_declared_list_is_returned_in_order_and_replaces_defaults(project: Build
 def test_top_level_root_sweeps_only_its_own_files_named_by_stem(project: Builder) -> None:
     root = declare(project, '[tool.auditme]\nroots = [{ path = "checks", modules = "top-level" }, { path = "checks/pkg" }]\n')
     top, pkg = auditor.core.audit_roots(root)
-    assert auditor.core.all_py_files(top) == [root / 'checks/audit.py']
-    assert auditor.core.module_dotted(root / 'checks/audit.py', top) == 'audit'
+    assert auditor.core.all_py_files(top) == [root / 'checks/entry.py']
+    assert auditor.core.module_dotted(root / 'checks/entry.py', top) == 'entry'
     assert auditor.core.all_py_files(pkg) == [root / 'checks/pkg/mod.py', root / 'checks/pkg/sub/deep.py']
 
 
@@ -114,4 +114,4 @@ def test_invalid_toml_without_the_table_gives_the_defaults(project: Builder) -> 
 
 def test_corpus_py_files_spans_the_declared_roots(project: Builder) -> None:
     root = declare(project, '[tool.auditme]\nroots = [{ path = "checks", modules = "top-level" }, { path = "tests" }]\n')
-    assert auditor.core.corpus_py_files(root, root / 'tests') == [root / 'checks/audit.py', root / 'tests/test_a.py']
+    assert auditor.core.corpus_py_files(root, root / 'tests') == [root / 'checks/entry.py', root / 'tests/test_a.py']

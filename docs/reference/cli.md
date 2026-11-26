@@ -144,10 +144,10 @@ that the list itself is never committed. It is the entry of the
 Environment: `AUDITOR_FOREIGN_NAMES` (path of the list), `HOME` (the default
 list is `~/.config/auditor/foreign-names`).
 
-## `claude/skills/auditme/checks/audit.py`
+## `auditor check`
 
 ```text
-audit.py [-h] [--package PACKAGE] [--extra-root DIR] scope
+auditor check [-h] [--package PACKAGE] [--extra-root DIR] scope
 ```
 
 The checker driver. Runs every registered check over the project at `scope`
@@ -228,7 +228,7 @@ never-accepted = ["silent-broad-except", "layering-*"]
 Each entry is a rule name, or a family ending in `*` (the `*` only at the
 end). A hit of a listed rule is reported with `accepted` false and the
 marker's reason in `refused_reason`; a hit with no marker carries no
-`refused_reason`. `changed.py` names the setting in its advice for such a hit.
+`refused_reason`. `auditor changed` names the setting in its advice for such a hit.
 The key can sit beside `roots`.
 
 Each output line carries `rule`, `variant`, `path`, `line`, `evidence`,
@@ -265,15 +265,15 @@ The declaration errors, each exit `2`:
 | `first-party path <path> holds no .py file` | no `.py` file in the directory |
 | `first-party path <path> lies inside a root the sweep audits` | the entry is inside a swept root |
 
-The hooks treat any of these as a sweep that cannot run, and `phaseb.py`
+The hooks treat any of these as a sweep that cannot run, and `auditor phaseb`
 exits `2` with the same message.
 
-`phaseb.py` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path, and for a `<root>` that does not exist or is not a directory, so a mistyped root never reads as an empty listing.
+`auditor phaseb` exits `2` for a `--question` that is not a registered question, on every subcommand, before it builds a ledger path, and for a `<root>` that does not exist or is not a directory, so a mistyped root never reads as an empty listing.
 
 It also exits `2`, printing `phaseb.py: ` and the error's message to stderr, whenever a Phase B step fails: for example a `merge` for a run planned for another question, or a `merge` whose batches fail `check`.
 
-`phaseb.py plan` records the callee depth it listed at (`--depth`, default 3)
-in `plan.json`. `phaseb.py merge` exits `2`, naming both depths and writing
+`auditor phaseb plan` records the callee depth it listed at (`--depth`, default 3)
+in `plan.json`. `auditor phaseb merge` exits `2`, naming both depths and writing
 nothing to the ledger, when its own `--depth` differs from the plan's: merge
 with the plan's depth, or plan again. A `plan.json` written before the depth
 was recorded is read as depth 3.
@@ -288,16 +288,16 @@ The exit status does not reflect hits: callers read stdout.
 Environment: the checks run `ruff` and `uv` as subprocesses with the caller's
 environment, finding them through `PATH` (ruff from `$AUDITME_RUFF` when set,
 else the project's `.venv/bin/ruff`, first). `AUDITME_RUFF` is the path of an
-executable ruff; `audit.py` exits `2` when it names anything else. When `uv lock --check` fails because of a user-level
+executable ruff; `auditor check` exits `2` when it names anything else. When `uv lock --check` fails because of a user-level
 `exclude-newer` setting, it is rerun with `UV_NO_CONFIG` set.
 
-## `claude/skills/auditme/checks/changed.py`
+## `auditor changed`
 
 ```text
-changed.py [-h] [--all] [--scope] [--base BASE] [repo_root]
+auditor changed [-h] [--all] [--scope] [--base BASE] [repo_root]
 ```
 
-The entry of the `auditme-changed` and `auditme-all` hooks. Runs `audit.py`
+The entry of the `auditme-changed` and `auditme-all` hooks. Runs `auditor check`
 over the whole tree with the same interpreter (timeout 600 seconds), then
 reports every unaccepted hit in scope. It writes nothing.
 
@@ -330,7 +330,7 @@ beneath, then how to accept a hit (a `ruff`, `lockfile-drift` or `never-accepted
 | `0` | No unaccepted hit in scope; the sweep was skipped as above; or `--help` |
 | `1` | An unaccepted hit in scope; or any failure: argument error, `--base` refused, git failed, `--scope` cannot read a changed Python file, the sweep timed out, exited non-zero, printed a line that is not a JSON object, or reported a crashed check (even one outside the scope); or the audit sweep could not start, or the repository root could not be resolved |
 
-Environment: none directly; git and `audit.py` inherit the caller's.
+Environment: none directly; git and `auditor check` inherit the caller's.
 
 ## Published pre-commit hooks
 
@@ -341,8 +341,8 @@ commit that makes it.
 
 | Hook id | Stages as published | Entry | Checks | In this repository |
 |---|---|---|---|---|
-| `auditme-changed` | `[pre-commit]` | `claude/skills/auditme/checks/changed.py` | Unaccepted checker hits in the files the change touches | Same stage |
-| `auditme-all` | `[manual]` | `claude/skills/auditme/checks/changed.py --all` | Unaccepted checker hits anywhere | `[manual, pre-push]`: runs on every push |
+| `auditme-changed` | `[pre-commit]` | `auditor changed` | Unaccepted checker hits in the files the change touches | Same stage |
+| `auditme-all` | `[manual]` | `auditor changed --all` | Unaccepted checker hits anywhere | `[manual, pre-push]`: runs on every push |
 | `no-project-names` | `[pre-commit, commit-msg]` | `bin/check-foreign-names.sh` | Project names in staged files and the commit message; `uv.lock` excluded | Same stages, no `--allow` |
 
 Both audit hooks set `pass_filenames: false` and `always_run: true`: they
@@ -351,9 +351,10 @@ find their own scope and run even when no file is staged.
 at `commit-msg`; a repository used across projects pins it with its own names
 as `args: [--allow=<name>]`, and installs the `commit-msg` hook type
 (`pre-commit install --hook-type commit-msg`).
-Each hook uses `language: script`, so the entry runs from the hook
-repository with the interpreter its shebang finds (`python3` for
-`changed.py`, `bash` for `check-foreign-names.sh`).
+The audit hooks use `language: python`, so pre-commit installs this
+repository's `auditor` package into the hook's own environment and runs
+`auditor changed` from it. `no-project-names` uses `language: script`, so its
+entry runs from the hook repository with `bash`.
 
 To run the manual hook by hand:
 
@@ -382,33 +383,34 @@ Otherwise it runs the installed checker, not the project's pinned one, from
 the repository root:
 
 ```shell
-python3 -I "$HOME/.claude/skills/auditme/checks/changed.py"
+auditor changed
 ```
 
-The exception is a worktree of the auditor repository itself: when the
-installed checker links into the same git directory as the project and the
-project holds its own `claude/skills/auditme/checks/changed.py`, the hook runs
-that one instead, so a branch that changes the checker is judged by that
-branch. Any other repository's `changed.py` is never run.
+The exception is a worktree of the auditor repository itself: when the git
+directory that `bin/install-claude.sh` recorded in `~/.claude/auditor-source`
+is the project's own shared git directory and the project holds
+`src/auditor/cli.py`, the hook runs `uv run --project <root> auditor changed`
+instead, so a branch that changes the checker is judged by that branch. Any
+other repository's `src/auditor` is never run.
 
 When that exits `1` it prints `{"decision": "block", "reason": "<report>"}`,
 and Claude Code keeps the turn going with the report as the reason. Since
-`changed.py` exits `1` on a failed sweep as well as on hits, a sweep that
+`auditor changed` exits `1` on a failed sweep as well as on hits, a sweep that
 cannot run also blocks.
 
 It also blocks when the checker never ran, so a broken install cannot turn
 the audit off without a word:
 
-- when `~/.claude/skills/auditme/checks/changed.py` is missing or a dangling
-  link, it blocks without running it, naming the path; run
-  `bin/install-claude.sh` in this repository to install it again;
-- when `changed.py` exits with any status other than `0` or `1` (for example
-  `127` for no `python3`), it blocks with the status and the output.
+- when `auditor` is not on `PATH` (and the project is not a trusted worktree),
+  it blocks once, saying the auditor CLI is not installed; run
+  `bin/install-claude.sh` in this repository to install it;
+- when `auditor changed` exits with any status other than `0` or `1` (for example
+  `127` for no `uv`), it blocks with the status and the output.
 
 As with every block, it blocks at most once in a row. The hook itself always
 exits `0` and writes nothing to disk.
 
-Requires `jq`, `git` and `python3` on `PATH`. Environment: `HOME`.
+Requires `jq`, `git` and `auditor` on `PATH` (and `uv` for a trusted worktree). Environment: `HOME`.
 
 ### Registration
 

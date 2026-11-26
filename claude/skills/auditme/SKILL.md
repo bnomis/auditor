@@ -26,7 +26,7 @@ Invoke as:
 
 Two consecutive audit runs on unchanged code MUST produce the same findings. The audit is designed to converge in **one** pass. If run N+1 surfaces findings that run N did not, one of these failures has happened:
 
-1. **Script grew between runs.** A new `check_*` was added to `checks/auditme/rules/`, so historical debt that was previously invisible suddenly appears. Cure: the script-coverage backlog (see `summary.md`) must be drained into real check functions BEFORE any audit cycle starts. The script does not change during an audit. New patterns surfaced mid-audit are deferred to the next skill update, not the next audit cycle.
+1. **Script grew between runs.** A new `check_*` was added to `auditor/rules/`, so historical debt that was previously invisible suddenly appears. Cure: the script-coverage backlog (see `summary.md`) must be drained into real check functions BEFORE any audit cycle starts. The script does not change during an audit. New patterns surfaced mid-audit are deferred to the next skill update, not the next audit cycle.
 2. **Phase B was non-deterministic.** A reviewer agent applied different judgment than last round on the same files. Cure: Phase B fan-out is per-question, not per-file. One agent owns one question across all files in scope, so a single judgment threshold applies per predicate.
 3. **Category-scoped runs.** A previous run used `--category X` and missed everything outside X. Cure: the canonical audit always runs every category. Use `--category` only for re-checking a single rule family during fix verification.
 4. **Predicate drift.** A Phase B question's "should-have-caught" set quietly grew between cycles (e.g., A2 originally meant "missing `OSError`", later expanded to also mean "missing `ParserError`"). Cure: every predicate has a fixed enumeration encoded in this file. Expanding a predicate is a skill change, never a per-cycle adjustment.
@@ -75,7 +75,7 @@ done.
 Then run the shipped audit script:
 
 ```bash
-python3 ~/.claude/skills/auditme/checks/audit.py <project-root> [--package <pkg>] [--extra-root <dir>]
+auditor check <project-root> [--package <pkg>] [--extra-root <dir>]
 ```
 
 `<project-root>` is the project's top directory; `src/` is optional. `--package`
@@ -160,7 +160,7 @@ Schema:
 `related` appears only on a hit from a rule that compares two or more files:
 the other locations' repository-relative paths, sorted, never the hit's own
 path. A hit from any other rule has no `related` key. A scope filter such as
-`checks/changed.py` reports a hit when its `path` or any `related` path is in
+`auditor changed` reports a hit when its `path` or any `related` path is in
 scope.
 
 **Rules:**
@@ -171,15 +171,15 @@ scope.
 4. You may NOT filter, sample, or dismiss `accepted: false` hits. "Pre-existing", "project norm", "seems intentional" are NOT acceptable dismissals. To accept a pattern:
    - one site: inline `# auditme: accept <reason>` comment on the hit line or the line above
    - many sites of the same class: AGENTS.md table entry, then re-run the script
-5. **Do not extend the script during the audit.** If Phase B surfaces a new mechanically-detectable pattern, write it down in the review's "Script coverage notes" but do not add it to `checks/auditme/rules/` until the current task list ships and the next audit on unchanged code shows zero mechanical delta. This is the cure for the perpetual "the audit keeps finding new things" loop: the script stays still, the next run is clean, then the script grows.
+5. **Do not extend the script during the audit.** If Phase B surfaces a new mechanically-detectable pattern, write it down in the review's "Script coverage notes" but do not add it to `auditor/rules/` until the current task list ships and the next audit on unchanged code shows zero mechanical delta. This is the cure for the perpetual "the audit keeps finding new things" loop: the script stays still, the next run is clean, then the script grows.
 
 The full set of rules the script catches is documented in the checker itself -
 read the docstring of each `check_*` function for the predicate it encodes.
-`checks/audit.py` is only the entry point; the checks live in
-`checks/auditme/rules/`, one module per family of defect (`error_handling.py`,
+`auditor check` is only the entry point; the checks live in the `auditor`
+package's `rules/` directory (`src/auditor/rules/` in the auditor repository), one module per family of defect (`error_handling.py`,
 `duplication.py`, `state_and_effects.py`, `imports_and_surfaces.py`,
 `style_and_naming.py`, `project_hygiene.py`), with the shared helpers in
-`checks/auditme/core.py` and the run order in `checks/auditme/registry.py`.
+`auditor/core.py` and the run order in `auditor/registry.py`.
 The checker's own tests live in [`tests/`](tests/README.md) and run with
 `uv run --no-project --with pytest pytest ~/.claude/skills/auditme/tests`.
 
@@ -196,13 +196,13 @@ Phase B is **not** free-form reading. It is a fixed checklist applied across eve
 
 This is the cure for failure mode 2. When 24 architecture questions are split across reviewers by file, each reviewer applies a slightly different judgment threshold to its slice of the corpus, and a different threshold to a different question, multiplying variance. With per-question fan-out, one reviewer applies one threshold to one predicate, eliminating cross-question and cross-file judgment drift.
 
-**Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The listed questions are A1, A4, A11, A17, A19, T1, T2, Doc1, Doc2, Doc4 and Doc5. For a listed question, run `checks/phaseb.py` (from the skill directory, with `<root>` the project root) in this order:
+**Listed questions.** A question with a lister is judged candidate by candidate, not by sampling. The listed questions are A1, A4, A11, A17, A19, T1, T2, Doc1, Doc2, Doc4 and Doc5. For a listed question, run `auditor phaseb` (with `<root>` the project root) in this order:
 
-1. `phaseb.py plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json` (which records the `--depth` it listed at; `merge` refuses a different one). A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again. A candidate planned again that the ledger holds a verdict for carries it as `earlier` in its batch line.
-2. Spawn one reviewer per batch, each given the question's brief (`phaseb/briefs/<Q>.md`, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
-3. `phaseb.py check <dir>` exits 1 and names each batch with a problem. Send a failing batch to a fresh reviewer, up to two retries per batch. A batch still failing after that is reported in the review, never merged.
-4. `phaseb.py merge <root> --question <Q> <dir>` writes the verified results into the project's ledger.
-5. `phaseb.py report <root> --question <Q>` prints the open findings, new and carried.
+1. `auditor phaseb plan <root> --question <Q> --out <dir>` writes `batch-NN.jsonl` and `plan.json` (which records the `--depth` it listed at; `merge` refuses a different one). A candidate whose ledger verdict is current (same content hash, same brief version) is left out; `--rejudge` includes it again. A candidate planned again that the ledger holds a verdict for carries it as `earlier` in its batch line.
+2. Spawn one reviewer per batch, each given the question's brief (`briefs/<Q>.md` in the `auditor` package, named in `plan.json`) and its batch file. Each writes `result-NN.jsonl` in `<dir>`.
+3. `auditor phaseb check <dir>` exits 1 and names each batch with a problem. Send a failing batch to a fresh reviewer, up to two retries per batch. A batch still failing after that is reported in the review, never merged.
+4. `auditor phaseb merge <root> --question <Q> <dir>` writes the verified results into the project's ledger.
+5. `auditor phaseb report <root> --question <Q>` prints the open findings, new and carried.
 
 `--question` accepts each listed question; `--depth` applies to A4 only. A site a sweep rule for the same question reports, accepted or not, is not judged in Phase B, and is judged as new once the hit is fixed.
 
@@ -210,7 +210,7 @@ A listed question's findings are its flagged ledger verdicts, new or carried. A 
 
 Every other question is sampled: mark it `(sampled)` in the review. A new site found by a sampled question is coverage, not drift: it goes under "Coverage (sampled)" and is never marked "missed by" a review.
 
-**Sampled cadence.** Between whole-tree audits, each sampled reviewer is given the changed lines of each changed file since the previous review's `**Commit:**` (`checks/changed.py --scope --base <commit>` prints them, each hunk widened to its enclosing function or class) and judges only those lines. Every third audit, counted from the first audit after the Doc questions were listed, and any audit with no previous `**Commit:**`, runs it on the whole tree. The review records each sampled question's mode: "changed lines since <commit>", or full.
+**Sampled cadence.** Between whole-tree audits, each sampled reviewer is given the changed lines of each changed file since the previous review's `**Commit:**` (`auditor changed --scope --base <commit>` prints them, each hunk widened to its enclosing function or class) and judges only those lines. Every third audit, counted from the first audit after the Doc questions were listed, and any audit with no previous `**Commit:**`, runs it on the whole tree. The review records each sampled question's mode: "changed lines since <commit>", or full.
 
 **First audit after the Doc questions were listed.** It judges every Doc candidate. Its findings in unchanged code are catch-up, not regressions; this includes README findings, because Doc5's predicate now covers `README.md` as well as `docs/`. Its Convergence note names the newly listed questions.
 
@@ -244,7 +244,7 @@ For each incomplete task in `agents/tasks/audit-reviews/*.md`, verify against so
 Before writing the review file, confirm:
 
 - [ ] `requests.md`'s `## Open` section was empty at audit start (every entry shipped or rejected)
-- [ ] `checks/audit.py` was executed and its full JSONL output saved
+- [ ] `auditor check` was executed and its full JSONL output saved
 - [ ] Every `accepted: false` hit appears in the review (no sampling, no silent dismissals)
 - [ ] Phase B ran with per-question fan-out covering EVERY question in EVERY category (`--category` was NOT used unless the user explicitly asked for a partial verification)
 - [ ] Every Phase B subagent returned an explicit hit list (or "no hits") - no question silently skipped
@@ -252,7 +252,7 @@ Before writing the review file, confirm:
 - [ ] Every sampled question ran in its cadence's mode (the lines changed since the previous review, each widened to its enclosing function, or the whole tree on every third audit and on any audit with no previous `**Commit:**`), and the review records the mode
 - [ ] Every unresolved `summary.md` finding was re-verified
 - [ ] Every incomplete task file was re-verified against source
-- [ ] No new check was added to `checks/auditme/rules/` during this audit (script-coverage delta is zero)
+- [ ] No new check was added to `auditor/rules/` during this audit (script-coverage delta is zero)
 - [ ] No Phase B predicate had its enumeration expanded during this audit
 
 If any is no, finish it before writing the review.
@@ -342,7 +342,7 @@ Each question is a deterministic predicate. The reviewer reads the file end-to-e
 - **A6. Stage method dual-path.** For every method on a pipeline-stage class: does it both return a value AND mutate `self.<attr>` for the same field? Flag tuple-returning methods that also self-mutate.
 - **A7. Constructor purity.** For every `__init__`: does it perform I/O (open, mkdir, read_text, subprocess, network, expensive compute)? Does it mutate any of its arguments? Flag both.
 - **A8. Late dataclass mutation.** For every `@dataclass` instance constructed inside a function: is it mutated after construction (`x = Foo(...); x.field = ...`)? Flag late mutations - they bypass `__post_init__` and any `frozen=True` would have caught them.
-- **A9. Pure-named function side effects.** For every function whose name starts with a pure prefix (`get_`, `resolve_`, `find_`, `compute_`, `build_`, `make_`, `load_`, `parse_`, `is_`, `has_`, `validate_`, `count_`, `check_`, `allocate_`): does the body call I/O / subprocess / `datetime.now()` / network? Flag naming-vs-implementation gaps. Normalising a path (`Path.resolve`, `Path.absolute`, `Path.expanduser`, `os.path.realpath`) is not I/O; opening a file, reading its contents, testing for existence and writing are. A `load_` function that reads the file, module or directory its name or arguments say it loads is not a hit; any other I/O in it is. A function the project registers as a check is not read as pure-named by its `check_` prefix: its name is a member of the project's check registry (a tuple, list or mapping of check functions a runner calls, such as `CHECKS` in this checker's `checks/auditme/registry.py`), or it is decorated by a function that adds it to such a registry. The registration is the positive evidence; the `check_` prefix alone is not, and an unregistered `check_` function is still read as pure-named.
+- **A9. Pure-named function side effects.** For every function whose name starts with a pure prefix (`get_`, `resolve_`, `find_`, `compute_`, `build_`, `make_`, `load_`, `parse_`, `is_`, `has_`, `validate_`, `count_`, `check_`, `allocate_`): does the body call I/O / subprocess / `datetime.now()` / network? Flag naming-vs-implementation gaps. Normalising a path (`Path.resolve`, `Path.absolute`, `Path.expanduser`, `os.path.realpath`) is not I/O; opening a file, reading its contents, testing for existence and writing are. A `load_` function that reads the file, module or directory its name or arguments say it loads is not a hit; any other I/O in it is. A function the project registers as a check is not read as pure-named by its `check_` prefix: its name is a member of the project's check registry (a tuple, list or mapping of check functions a runner calls, such as `CHECKS` in this checker's `auditor/registry.py`), or it is decorated by a function that adds it to such a registry. The registration is the positive evidence; the `check_` prefix alone is not, and an unregistered `check_` function is still read as pure-named.
 - **A10. Predicate semantics.** For every predicate function (`is_X`, `has_X`, `should_X`): does the body answer exactly the question the name asks, with no hidden conjuncts? Flag conflated predicates (e.g. `side_channel_active` returning `enabled and imputation != 'median'`).
 - **A11. Exhaustion via assert_never.** For every `if/elif/else` chain over a `typing.Literal` or enum: is the unreachable branch handled with `typing.assert_never`? Flag chains that end in `raise <SomeError>(...)` instead - the type-checker cannot verify exhaustion. A two-way split on a bool computed from a `Literal` or enum value counts as a chain over that value.
 - **A12. assert misuse.** For every `assert` outside test files: is it a developer-only invariant that `python -O` may safely remove? Flag asserts used as runtime validation; those should be `if not X: raise DomainError(...)`.
@@ -418,7 +418,7 @@ Assess by reading test files - do not run the suite.
 
 <2-3 sentences. Mention script hit counts by rule and the interpretive findings count.>
 
-## Mechanical findings (from checks/audit.py)
+## Mechanical findings (from `auditor check`)
 
 Group by rule. Enumerate every `accepted: false` hit. Do NOT sample.
 
@@ -503,13 +503,12 @@ now - that is failure mode 1.
 **Script version:** <digest of the whole checker:
 
 ```bash
-find -L ~/.claude/skills/auditme/checks -name '*.py' | sort | xargs cat | shasum -a 256
+printf '%s %s\n' "$(auditor --version)" "$(git --git-dir="$(cat ~/.claude/auditor-source)" rev-parse HEAD)"
 ```
 
-A single-file hash no longer identifies it: `checks/audit.py` is only the entry
-point and the checks live in `checks/auditme/`, so hashing that one file would
-report "script unchanged" after a check was edited. The command above follows
-the symlink, needs no git, and gives the same digest wherever it is run from.>
+The version alone does not change when a check is edited, so the line adds the
+commit of the auditor repository that `bin/install-claude.sh` installed the
+tool from (recorded in `~/.claude/auditor-source`).>
 
 ## Unresolved findings
 
@@ -556,7 +555,7 @@ Adding a check is a skill change. It happens between audit cycles, with no in-fl
 Process:
 
 1. User raises a candidate predicate (or this skill is updated to add a new Phase B question).
-2. Implement the predicate as a `check_*` function in the matching `checks/auditme/rules/` module immediately, and append it to `CHECKS` in `checks/auditme/registry.py`. Append - never insert, see [`CHECKS`'s order](#3-mechanical-sweep-scripted).
+2. Implement the predicate as a `check_*` function in the matching `auditor/rules/` module immediately, and append it to `CHECKS` in `auditor/registry.py`. Append - never insert, see [`CHECKS`'s order](#3-mechanical-sweep-scripted).
 3. Add tests under [`tests/`](tests/README.md): the shape it fires on, every carve-out that must not fire, and the behaviour of an accept marker scoped to the rule. Run `uv run --no-project --with pytest pytest ~/.claude/skills/auditme/tests`.
 4. Run the script on the project. The result is the catch-up surface. Land fixes (or accept markers) for everything it returns.
 5. After fixes, run the audit normally. Convergence is restored.
@@ -567,28 +566,28 @@ The previous "queue, defer, audit, defer again" rhythm was the dominant cause of
 
 Refinements are different from extensions. An extension grows a predicate's "should-have-caught" set and is forbidden mid-audit (predicate drift, failure mode 4). A refinement narrows the set by carving out a sanctioned sub-pattern that should not fire - the predicate's enumeration in this file is updated to name the carve-out, and the script implements the skip.
 
-A refinement is a skill change too: same process as above (drain immediately, then run the audit). Each refinement is documented in the predicate's docstring inside its `checks/auditme/rules/` module, and given a test case that asserts the carve-out does not fire, so future readers see why a sub-pattern is skipped and cannot silently un-skip it.
+A refinement is a skill change too: same process as above (drain immediately, then run the audit). Each refinement is documented in the predicate's docstring inside its `auditor/rules/` module, and given a test case that asserts the carve-out does not fire, so future readers see why a sub-pattern is skipped and cannot silently un-skip it.
 
 Documented refinements:
 
-- **`except-interpolation`:** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `checks/auditme/rules/error_handling.py`.
+- **`except-interpolation`:** the predicate skips interpolation expressions of the form `type(<bound>).__name__` / `__qualname__` and `<bound>.__class__.__name__` / `__qualname__`. The class-name string is a categorical hint, not a lossy duplication of the message body. See `_is_categorical_class_name_expr` in `auditor/rules/error_handling.py`.
 - **`empty-init-while-siblings-export`:** the predicate is file-level. The accept-marker scan walks every line in the file rather than just the docstring opener, so a docstring-only `__init__.py` can be accepted by adding a comment-only `# auditme: accept <reason>` line anywhere in the file.
-- **`asymmetric-exception-translation` (2026-11-24):** a callee is a hit only when its own body (nested defs skipped) calls a `FILESYSTEM_TOUCHING_CALLS` name or a call rooted at a module imported from outside the swept package, and does not call a same-module function `translator_envelopes` lists. Pure string or arithmetic work is not a hit. See `has_something_to_translate` in `checks/auditme/rules/error_handling.py`.
-- **`legacy-typing` (2026-10-14):** the predicate skips `Set[` when it is preceded by `collections.abc.`. `collections.abc.Set` is the modern ABC, not the deprecated `typing.Set`. See the `legacy-typing` pattern in `check_text_patterns` in `checks/auditme/rules/style_and_naming.py`.
-- **`aliased-imports`, `legacy-typing`, `relative-import-nonpackage` and the `leading-underscore-*` line-pattern rules (2026-11-21):** a line is read with the text of every plain string literal blanked, so fixture source or a regex held in a string is data, not code. A docstring is still read, and code on the same line as a string still fires. See `CODE_ONLY_RULES` and `mask_string_literals` in `checks/auditme/rules/style_and_naming.py`.
-- **`literal-duplication` (2026-11-21):** in a test file (a `tests` directory, `test_*.py`, `*_test.py` or `conftest.py`) a one-member literal and a literal inside an `assert` statement or a `pytest.param(...)` call are expectations, not shared data, and are not counted. A multi-member literal in test set-up still counts, and so does any literal in source. See `is_test_file` and `test_expectation_nodes` in `checks/auditme/rules/duplication.py`.
+- **`asymmetric-exception-translation` (2026-11-24):** a callee is a hit only when its own body (nested defs skipped) calls a `FILESYSTEM_TOUCHING_CALLS` name or a call rooted at a module imported from outside the swept package, and does not call a same-module function `translator_envelopes` lists. Pure string or arithmetic work is not a hit. See `has_something_to_translate` in `auditor/rules/error_handling.py`.
+- **`legacy-typing` (2026-10-14):** the predicate skips `Set[` when it is preceded by `collections.abc.`. `collections.abc.Set` is the modern ABC, not the deprecated `typing.Set`. See the `legacy-typing` pattern in `check_text_patterns` in `auditor/rules/style_and_naming.py`.
+- **`aliased-imports`, `legacy-typing`, `relative-import-nonpackage` and the `leading-underscore-*` line-pattern rules (2026-11-21):** a line is read with the text of every plain string literal blanked, so fixture source or a regex held in a string is data, not code. A docstring is still read, and code on the same line as a string still fires. See `CODE_ONLY_RULES` and `mask_string_literals` in `auditor/rules/style_and_naming.py`.
+- **`literal-duplication` (2026-11-21):** in a test file (a `tests` directory, `test_*.py`, `*_test.py` or `conftest.py`) a one-member literal and a literal inside an `assert` statement or a `pytest.param(...)` call are expectations, not shared data, and are not counted. A multi-member literal in test set-up still counts, and so does any literal in source. See `is_test_file` and `test_expectation_nodes` in `auditor/rules/duplication.py`.
 - **`filesystem-envelope-gap` (2026-11-21):** a `try` is flagged only when one of its handlers raises with an exception (`raise X`): the rule's rationale is a wrapper that promises to translate to a project error. A handler that continues, returns or logs, and a bare `raise`, are not a gap.
 - **`filesystem-op-without-envelope` (2026-11-21):** a call by bare name to a function defined in the same module whose own body has a `try` with a handler for `OSError` (or `IOError`, `Exception`, `BaseException`, or a bare `except`) is not counted as a filesystem primitive, since the helper holds the envelope.
 - **`get-container-default-then-method-call` (2026-11-21):** a mapping produced by `tomllib.load` or `tomllib.loads` is skipped, since TOML has no null. The receiver counts when it is such a call, a call to a same-module function that returns one (and otherwise only a dict literal, such as `{}` for an absent file), a name the scope assigns from either, or a parameter of a module-level function that every same-module call passes one.
-- **`redundant-sink-caller-plus-callee` (2026-11-21):** a call inside a def nested in the caller or the helper belongs to that nested def and is not counted; a call from a function to itself is not a helper call; a helper is resolved by qualified name (a dotted callee matches only a function whose module path ends in it, a bare name matches the calling module's function, else the single project function of that name, and an ambiguous bare name matches nothing); and keyword values are compared as well as keyword names. See `resolve_helper` in `check_redundant_sink_caller_plus_callee` in `checks/auditme/rules/duplication.py`.
-- **`in-function-import` (2026-11-21):** the variant labels a module under a declared root (`[tool.auditme]`, either mode) `first-party`, as well as the importer's own package. A label only: the hit count does not change. See `declared_root_modules` in `checks/auditme/rules/imports_and_surfaces.py`.
-- **`filesystem-envelope-gap` (2026-11-01):** a bare name in a handler's type, alone or inside a tuple, that names a module-level tuple literal assigned once in the same file is read as that tuple's members, one level deep, so `except READ_ERRORS:` with `READ_ERRORS = (OSError, ValueError)` closes the gap. Another module's name, a call's result, a name assigned twice and a constant nested in another keep the name test. See `module_tuple_constants` in `checks/auditme/rules/error_handling.py`.
-- **`raises-section-drift` (2026-11-01):** a callee's declared error is not reported as omitted when every `raise` of it in the callee's own body sits under an `if` or `match` that tests a parameter with a default which the call leaves unset, as `if strict: raise ParseError(...)` called as `load('x')`. Omissions only. A guard on a parameter without a default, a module-level name, a raise outside the guard, or a call passing the argument (or `*args` / `**kwargs`) keeps the hit. A def nested directly in the subject and called by bare name also counts, one level deep, under the call's handlers; a raise inside a def, lambda or class defined in a handler does not make that handler re-raise. See `unset_optional_guard` and `nested_call_sites` in `checks/auditme/rules/error_handling.py`.
-- **`raises-section-drift` (2026-11-24):** a combined `Raises:` entry (`ParseError, FetchError: <when>`) declares each name, and a handler naming a module-level tuple of classes the package defines (`except errors.HANDLED_ERRORS:`) catches each member, in the function's own handlers and around its calls. As for `filesystem-envelope-gap`, a name assigned twice in its module, a member read more than one level deep, and a name two modules bind to different members keep the name test. See `raises_section_names`, `tuple_constants` and `expand_level` in `checks/auditme/rules/error_handling.py`.
-- **`missing-raises-section` (2026-11-01):** a raise that a handler around it catches without re-raising, by its own class or a base class in the package's class tree (a bare `except:`, `Exception` and `BaseException` catch all), does not reach the caller and does not count, as `try: raise ParseError(...) except ParseError: ...`. A handler that re-raises, one for an unrelated class, or no handler keeps the hit. A nested def counts only where it is called by bare name, under that call's handlers. See `package_class_parents`, `class_lineage` and `nested_call_sites` in `checks/auditme/rules/error_handling.py`.
-- **`passthrough-shim` (2026-11-01):** only real forwarding is flagged. Every keyword value must be a bare parameter of the wrapper, no parameter may be passed twice (`table.get(name, name)` computes), and a decorated function is skipped, since the decorator registers it for something else (a fixture, a command, a route). A `**` keyword or a computed value keeps the function out of the rule too. See `check_passthrough_shim` in `checks/auditme/rules/imports_and_surfaces.py`.
-- **`non-alphabetical-literal` (2026-11-01):** an `__all__` assignment also passes when its members are in the order ruff's RUF022 writes: SCREAMING_SNAKE names first, then CamelCase, then the rest, each group in natural order. Any other name keeps the plain `sorted()` test, and so does an `__all__` in neither order. See `ruff_dunder_all_key` in `checks/auditme/rules/style_and_naming.py` and `is_dunder_all_assignment` in `checks/auditme/core.py`.
-- **T2 candidate rule (2026-11-20):** T2's lister reads "domains that are well-defined (data shapes, config combinations)" as a function that is pure (no side effects, yields or awaits), has fully annotated parameters and a non-`None` return type, and uses only well-defined types (builtins, and the package's own data classes and config shapes), with logic a property can test. Methods taking `self` or `cls` are not candidates. See `is_t2_candidate` in `checks/auditme/phaseb/candidates.py`. The brief's threshold, not the lister, decides whether a candidate is flagged.
+- **`redundant-sink-caller-plus-callee` (2026-11-21):** a call inside a def nested in the caller or the helper belongs to that nested def and is not counted; a call from a function to itself is not a helper call; a helper is resolved by qualified name (a dotted callee matches only a function whose module path ends in it, a bare name matches the calling module's function, else the single project function of that name, and an ambiguous bare name matches nothing); and keyword values are compared as well as keyword names. See `resolve_helper` in `check_redundant_sink_caller_plus_callee` in `auditor/rules/duplication.py`.
+- **`in-function-import` (2026-11-21):** the variant labels a module under a declared root (`[tool.auditme]`, either mode) `first-party`, as well as the importer's own package. A label only: the hit count does not change. See `declared_root_modules` in `auditor/rules/imports_and_surfaces.py`.
+- **`filesystem-envelope-gap` (2026-11-01):** a bare name in a handler's type, alone or inside a tuple, that names a module-level tuple literal assigned once in the same file is read as that tuple's members, one level deep, so `except READ_ERRORS:` with `READ_ERRORS = (OSError, ValueError)` closes the gap. Another module's name, a call's result, a name assigned twice and a constant nested in another keep the name test. See `module_tuple_constants` in `auditor/rules/error_handling.py`.
+- **`raises-section-drift` (2026-11-01):** a callee's declared error is not reported as omitted when every `raise` of it in the callee's own body sits under an `if` or `match` that tests a parameter with a default which the call leaves unset, as `if strict: raise ParseError(...)` called as `load('x')`. Omissions only. A guard on a parameter without a default, a module-level name, a raise outside the guard, or a call passing the argument (or `*args` / `**kwargs`) keeps the hit. A def nested directly in the subject and called by bare name also counts, one level deep, under the call's handlers; a raise inside a def, lambda or class defined in a handler does not make that handler re-raise. See `unset_optional_guard` and `nested_call_sites` in `auditor/rules/error_handling.py`.
+- **`raises-section-drift` (2026-11-24):** a combined `Raises:` entry (`ParseError, FetchError: <when>`) declares each name, and a handler naming a module-level tuple of classes the package defines (`except errors.HANDLED_ERRORS:`) catches each member, in the function's own handlers and around its calls. As for `filesystem-envelope-gap`, a name assigned twice in its module, a member read more than one level deep, and a name two modules bind to different members keep the name test. See `raises_section_names`, `tuple_constants` and `expand_level` in `auditor/rules/error_handling.py`.
+- **`missing-raises-section` (2026-11-01):** a raise that a handler around it catches without re-raising, by its own class or a base class in the package's class tree (a bare `except:`, `Exception` and `BaseException` catch all), does not reach the caller and does not count, as `try: raise ParseError(...) except ParseError: ...`. A handler that re-raises, one for an unrelated class, or no handler keeps the hit. A nested def counts only where it is called by bare name, under that call's handlers. See `package_class_parents`, `class_lineage` and `nested_call_sites` in `auditor/rules/error_handling.py`.
+- **`passthrough-shim` (2026-11-01):** only real forwarding is flagged. Every keyword value must be a bare parameter of the wrapper, no parameter may be passed twice (`table.get(name, name)` computes), and a decorated function is skipped, since the decorator registers it for something else (a fixture, a command, a route). A `**` keyword or a computed value keeps the function out of the rule too. See `check_passthrough_shim` in `auditor/rules/imports_and_surfaces.py`.
+- **`non-alphabetical-literal` (2026-11-01):** an `__all__` assignment also passes when its members are in the order ruff's RUF022 writes: SCREAMING_SNAKE names first, then CamelCase, then the rest, each group in natural order. Any other name keeps the plain `sorted()` test, and so does an `__all__` in neither order. See `ruff_dunder_all_key` in `auditor/rules/style_and_naming.py` and `is_dunder_all_assignment` in `auditor/core.py`.
+- **T2 candidate rule (2026-11-20):** T2's lister reads "domains that are well-defined (data shapes, config combinations)" as a function that is pure (no side effects, yields or awaits), has fully annotated parameters and a non-`None` return type, and uses only well-defined types (builtins, and the package's own data classes and config shapes), with logic a property can test. Methods taking `self` or `cls` are not candidates. See `is_t2_candidate` in `auditor/phaseb/candidates.py`. The brief's threshold, not the lister, decides whether a candidate is flagged.
 - **A9 (2026-11-22):** the Phase B predicate does not read `check_` as a pure prefix for a function the project registers as a check, by membership of its check registry or a decorator that registers it. A registered check validates by reading the tree and reporting what it finds, so its name promises a check, not purity. The registration is the positive evidence; the prefix alone is not. Decided on 2026-11-21 (`agents/audit-reviews/review-1.md`, D3). A9 has no script check, so the carve-out lives only in the predicate's text.
 - **D2 (2026-10-31):** the Phase B predicate skips a declared dependency the project runs as a command (a pre-commit hook, a CI `run:` step, a `subprocess` call in its own code). Such a tool is used without being imported, and flagging it made each audit re-raise a finding the user had declined. D2 has no script check, so the carve-out lives only in the predicate's text.
 - **D2 (2026-11-02):** the Phase B predicate also skips a declared dependency a declared host tool loads as a plugin or theme, shown by an entry point in a group that host loads: `pytest11` for pytest, and `mkdocs.themes` or `mkdocs.plugins` for mkdocs when `mkdocs.yml` names the entry. The entry point is the positive evidence; a name that looks like a plugin's is not. As before, the carve-out lives only in the predicate's text.

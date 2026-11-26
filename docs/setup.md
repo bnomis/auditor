@@ -39,7 +39,7 @@ roots = [
 ```
 
 A directory that is not declared is not swept. See
-[`audit.py`](reference/cli.md#claudeskillsauditmechecksauditpy) for the
+[`auditor check`](reference/cli.md#auditor-check) for the
 `modules` values and the errors.
 
 The checker also reads files outside those passes:
@@ -72,9 +72,9 @@ choose to upgrade (see [Upgrading the checker](#upgrading-the-checker)).
 
 The Stop hook is registered once, in `~/.claude/settings.json`, and does
 nothing in a project whose `.pre-commit-config.yaml` lacks `id: auditme-changed`.
-It runs the installed checker, not the project's pinned one, so it is an early
+It runs the installed `auditor` command, not the project's pinned one, so it is an early
 warning and the pinned hook stays the authority. In a worktree of the auditor
-checkout the installed checker links into, it runs that worktree's own checker
+checkout recorded in `~/.claude/auditor-source`, it runs that worktree's own checker
 instead, so a branch that changes the checker is judged by its own version. No
 other repository's copy of the checker is ever run.
 
@@ -108,7 +108,10 @@ cd <directory>
 bin/install-claude.sh
 ```
 
-`<directory>` is wherever you keep your source. The script runs the shared
+`<directory>` is wherever you keep your source. The script first installs the
+checker as the `auditor` command (`uv tool install --editable <directory>`) and
+records this repository's git directory in `~/.claude/auditor-source`, which
+the Stop hook reads. It then runs the shared
 installer, `install-in-claude`, with `uvx` at a pinned commit, so it needs
 `uv` and SSH access to `bnomis/install-in-claude`; add `--dry-run` to see what
 it would change first. It links
@@ -126,9 +129,19 @@ installer; see its docs at <https://bnomis.github.io/agents/>.
 Check it:
 
 ```shell
+auditor --version
 ls ~/.claude/skills
 grep -n 'auditme-stop.sh' ~/.claude/settings.json
 ```
+
+Without Claude Code, install only the checker, from a release tag:
+
+```shell
+uv tool install git+https://github.com/bnomis/auditor@<tag>
+```
+
+`<tag>` is a release tag of this repository. The checker runs as `auditor check`,
+`auditor changed` and `auditor phaseb`.
 
 ## A new user
 

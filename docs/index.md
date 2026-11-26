@@ -30,7 +30,7 @@ The installer links the `/auditme` and `/auditme-project-setup` skills, the rule
 
 | Path | What it is |
 | --- | --- |
-| `claude/skills/auditme/checks/` | The checker: a standard-library-only sweep over `src/` and `bin/`. See [The audit checker](guide/checker.md). |
+| `src/auditor/` | The checker, run as `auditor`: a standard-library-only sweep over `src/` and `bin/`. See [The audit checker](guide/checker.md). |
 | `claude/skills/auditme/` | The `/auditme` skill: the sweep, then the interpretive review. See [Skills](reference/skills.md). |
 | `claude/skills/auditme-project-setup/` | The `/auditme-project-setup` skill and its templates. See [Skills](reference/skills.md). |
 | `claude/rules/auditme/` | The Python rules the checker enforces: coding standards, imports, dependencies. See [Rules](reference/rules.md). |

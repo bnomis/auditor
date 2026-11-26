@@ -16,7 +16,7 @@ flowchart LR
 
 ## The checker in a project
 
-The checker is `claude/skills/auditme/checks/`: a Python script with no dependencies outside the
+The checker is the `auditor` package (`src/auditor/`), installed as the `auditor` command: Python with no dependencies outside the
 standard library, plus `ruff` and `uv` for the hygiene checks and `git` for the commit hook's diff. A project pins it through
 `.pre-commit-hooks.yaml`:
 

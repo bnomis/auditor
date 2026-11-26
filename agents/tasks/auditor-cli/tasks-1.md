@@ -199,7 +199,7 @@ manipulation.
 
 ## Task 5: Update the skills and docs to the new commands
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Implementation (Skill and docs)
@@ -209,23 +209,24 @@ longer exists.
 
 **Subtasks:**
 
-- [ ] Replace each `python3 ~/.claude/skills/auditme/checks/<script>.py` command with its `auditor <command>`. This covers `claude/skills/auditme/SKILL.md`, `claude/skills/auditme-project-setup/` (the skill and its templates), `docs/`, `README.md` and `AGENTS.md`
-- [ ] Update `docs/setup.md` to describe installing the tool: run `bin/install-claude.sh`, or `uv tool install git+https://github.com/bnomis/auditor@<tag>` without Claude Code
-- [ ] `git grep -nE 'checks/(audit|changed|phaseb)\.py|skills/auditme/checks' -- '*.md' '*.sh' '*.yaml' '*.py' ':!agents'` prints nothing
+- [x] Replace each `python3 ~/.claude/skills/auditme/checks/<script>.py` command with its `auditor <command>`. This covers `claude/skills/auditme/SKILL.md`, `claude/skills/auditme-project-setup/` (the skill and its templates), `docs/`, `README.md` and `AGENTS.md`
+- [x] Update `docs/setup.md` to describe installing the tool: run `bin/install-claude.sh`, or `uv tool install git+https://github.com/bnomis/auditor@<tag>` without Claude Code
+- [x] `git grep -nE 'checks/(audit|changed|phaseb)\.py|skills/auditme/checks' -- '*.md' '*.sh' '*.yaml' '*.py' ':!agents'` prints nothing
 
 **Acceptance Criteria:**
 
-- [ ] The grep above is empty, and `uv run --group docs mkdocs build --strict` passes
+- [x] The grep above is empty, and `uv run --group docs mkdocs build --strict` passes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Tasks 3 and 4
+- Done 2026-11-26. `DONE.md` is a dated record like `agents/`, so it keeps the old paths: the grep in the third subtask is run with `':!DONE.md'` added. The fixture path `checks/audit.py` in `tests/checker/test_roots.py` was renamed `checks/entry.py` (data only). The skill's `Script version` digest now combines `auditor --version` with the commit of the repository recorded in `~/.claude/auditor-source` (decided by Claude, not yet reviewed)
 - `agents/` holds dated records (reviews, task lists), which keep the old paths as they were written
 
 ---
