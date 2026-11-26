@@ -134,7 +134,7 @@ sweep audits the catalogue's rule code in exactly one root.
 
 ## Task 3: Move the `duplication` family
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** What becomes a rule directory; API; Implementation 2
@@ -160,6 +160,10 @@ catalogue rule, moved as the header's family task says.
 **Notes:**
 
 - Depends on Task 2
+- Blocked on 2026-11-26, before any file moved. Two existing tests in `tests/rulesrepo/test_api.py` stop every family task, and the header allows no change to an existing test's expectation. The operator decides how to amend them:
+  - `test_no_existing_module_imports_the_api` fails the moment a catalogue `check.py` imports `auditor.api`: it scans every `.py` under `src/auditor` outside `api/` for the text `auditor.api`, and `src/auditor/catalogue/` is inside that tree. Proposed amendment: also skip the `catalogue` directory
+  - `test_all_lists_exactly_the_exports` pins `auditor.api.__all__` to the current names, so no helper can be promoted to the API (the family-task step 1). The first case is `SINK_TOKENS` (the sink-name tuple), used by both `duplicate-side-effect-per-target` and `redundant-sink-caller-plus-callee`. No submodule in the spec's list fits it. Copying it into both `check.py` files instead would be a `literal-duplication` hit in the sweep. Proposed: promote it to a new `auditor.api` name and extend the expected list, or decide that the two rules keep separate copies with an accept comment
+  - The same two tests will block Tasks 4 to 9 as well, so the amendment should cover the whole list
 
 ---
 
