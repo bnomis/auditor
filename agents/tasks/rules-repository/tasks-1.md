@@ -106,7 +106,7 @@ imports no rule code.
 
 ## Task 3: Run a rules repository's checks in the sweep
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** API (`import_entry`); Commands (`auditor check`); Implementation (Loading); Error handling (A rule's code raises)
@@ -121,23 +121,23 @@ each in rule-name order, imported through `import_entry`, with nothing put on
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_sweep.py`, checking that:
+- [x] Tests first, in `tests/rulesrepo/test_sweep.py`, checking that:
   - a fixture project swept with a fixture rules repository emits exactly the fixture's hits;
   - a rule whose `check` raises yields one `auditme-check-crash` hit naming the rule directory, and the other rules still run;
   - a rule cannot import a sibling rule;
   - `[tool.auditme] never-accepted` is validated against the loaded repository's `rule_ids()`;
   - with the variable unset, the full existing suite is unaffected
-- [ ] Write `import_entry`, using `importlib.util.spec_from_file_location` under `auditor_rules.<name>.<stem>`, with the module registered in `sys.modules`
-- [ ] In `src/auditor/sweep.py`, choose between the loaded repository and `auditor.registry` by whether `AUDITOR_RULES_PATH` is set. Report a `RulesRepoError` as `ERROR: <message>` on stderr, with exit 2 and nothing on stdout
+- [x] Write `import_entry`, using `importlib.util.spec_from_file_location` under `auditor_rules.<name>.<stem>`, with the module registered in `sys.modules`
+- [x] In `src/auditor/sweep.py`, choose between the loaded repository and `auditor.registry` by whether `AUDITOR_RULES_PATH` is set. Report a `RulesRepoError` as `ERROR: <message>` on stderr, with exit 2 and nothing on stdout
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass, and the existing suite passes unchanged
+- [x] The new tests pass, and the existing suite passes unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo tests/checker/test_driver.py tests/checker/test_settings.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo tests/checker/test_driver.py tests/checker/test_settings.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

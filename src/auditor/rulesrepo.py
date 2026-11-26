@@ -5,9 +5,11 @@ no rule code.
 """
 
 import dataclasses
+import importlib.util
 import os
 import pathlib
 import re
+import sys
 import tomllib
 import types
 import typing
@@ -37,6 +39,9 @@ CHECK_KINDS = ('check', 'project-check')
 CATEGORIES = ('A', 'D', 'Doc', 'P', 'S', 'Sec', 'T')
 DEFAULT_BATCH_SIZE = 48
 KEYS = frozenset({'batch-size', 'category', 'emits', 'id', 'kind', 'kinds', 'standards', 'takes-depth', 'title'})
+
+ENTRY_FUNCTIONS = {'check.py': 'check', 'lister.py': 'list_candidates'}
+MODULE_PREFIX = 'auditor_rules'
 
 DIRECTORY_NAME = re.compile(r'[a-z0-9]+(-[a-z0-9]+)*')
 API_TEXT = re.compile(r'(\d+)\.(\d+)')
@@ -101,6 +106,41 @@ def load(root: pathlib.Path) -> RulesRepo:
     if key not in auditor.core.INDEX_CACHE:
         auditor.core.INDEX_CACHE[key] = load_uncached(root)
     return typing.cast('RulesRepo', auditor.core.INDEX_CACHE[key])
+
+
+def import_entry(rule: Rule, filename: str) -> types.ModuleType:
+    """Import `check.py` or `lister.py` of one rule, as module `auditor_rules.<name>.<stem>`.
+
+    The module is registered in `sys.modules` before it runs and nothing is put
+    on `sys.path`, so a rule cannot import a sibling rule. A module already
+    imported from the same file is reused, so a check run once per root runs
+    its module-level code once.
+
+    Raises:
+        RulesRepoError: the file does not define the entry function its kind needs.
+    """
+    entry = ENTRY_FUNCTIONS.get(filename)
+    if entry is None:
+        raise RulesRepoError(f'rules/{rule.name}/{filename}: not an entry file: use one of {", ".join(sorted(ENTRY_FUNCTIONS))}')
+    path = rule.path / filename
+    module_name = f'{MODULE_PREFIX}.{rule.name.replace("-", "_")}.{path.stem}'
+    known = sys.modules.get(module_name)
+    if known is not None and getattr(known, '__file__', None) == str(path):
+        return known
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise RulesRepoError(f'rules/{rule.name}/{filename}: cannot be imported as a Python module: fix the file')
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        del sys.modules[module_name]
+        raise
+    if not callable(getattr(module, entry, None)):
+        del sys.modules[module_name]
+        raise RulesRepoError(f'rules/{rule.name}/{filename}: does not define {entry}(): add the function')
+    return module
 
 
 def read_toml(path: pathlib.Path, label: str) -> dict[str, object]:
@@ -239,6 +279,7 @@ __all__ = [
     'Rule',
     'RulesRepo',
     'RulesRepoError',
+    'import_entry',
     'load',
     'rules_root',
 ]

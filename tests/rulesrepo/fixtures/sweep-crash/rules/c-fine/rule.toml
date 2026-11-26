@@ -1,0 +1,3 @@
+kind = "check"
+title = "Fine"
+emits = ["fixture-hit"]

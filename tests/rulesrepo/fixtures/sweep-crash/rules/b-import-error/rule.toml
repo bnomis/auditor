@@ -1,0 +1,3 @@
+kind = "check"
+title = "Raises when imported"
+emits = ["import-error-hit"]
