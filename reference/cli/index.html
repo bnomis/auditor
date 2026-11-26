@@ -1,0 +1,1649 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The auditme checker, the pre-commit hooks and Stop hook that run it, and the /auditme-project-setup skill that adopts them in a project">
+      
+      
+      
+        <link rel="canonical" href="https://bnomis.github.io/auditor/reference/cli/">
+      
+      
+        <link rel="prev" href="../skills/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Command line and hooks - auditor</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Mona+Sans:300,300i,400,400i,700,700i%7CSource+Code+Pro:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Mona Sans";--md-code-font:"Source Code Pro"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/theme.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#command-line-and-hooks" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="auditor" class="md-header__button md-logo" aria-label="auditor" data-md-component="logo">
+      
+  <img src="../../assets/agents-mark.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            auditor
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Command line and hooks
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="auditor" class="md-nav__button md-logo" aria-label="auditor" data-md-component="logo">
+      
+  <img src="../../assets/agents-mark.svg" alt="logo">
+
+    </a>
+    auditor
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How it works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setting up
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/checker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The audit checker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command line and hooks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command line and hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bininstall-claudesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bin/install-claude.sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bininstall-hookssh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bin/install-hooks.sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bincheck-foreign-namessh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bin/check-foreign-names.sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auditor-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        auditor check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="auditor check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#declared-roots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declared roots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#first-party-libraries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First-party libraries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#never-accepted-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Never-accepted rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auditor-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        auditor rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auditor-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        auditor changed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#published-pre-commit-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Published pre-commit hooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-stop-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Stop hook
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Stop hook">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bininstall-claudesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bin/install-claude.sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bininstall-hookssh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bin/install-hooks.sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bincheck-foreign-namessh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bin/check-foreign-names.sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auditor-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        auditor check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="auditor check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#declared-roots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declared roots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#first-party-libraries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First-party libraries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#never-accepted-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Never-accepted rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auditor-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        auditor rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auditor-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        auditor changed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#published-pre-commit-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Published pre-commit hooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-stop-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Stop hook
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Stop hook">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="command-line-and-hooks">Command line and hooks<a class="headerlink" href="#command-line-and-hooks" title="Permanent link">&para;</a></h1>
+<p>Reference for the scripts in this repository and the hooks it publishes. For
+installation see <a href="../../setup/">Setup</a>; for what the checker's rules report
+see <a href="../../guide/checker/">The checker</a>.</p>
+<h2 id="bininstall-claudesh"><code>bin/install-claude.sh</code><a class="headerlink" href="#bininstall-claudesh" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>bin/install-claude.sh [--dry-run] [any other install-in-claude option]
+</code></pre></div>
+<p>Links the contents of <code>claude/</code> into <code>~/.claude/</code>, and registers the Stop
+hook, by running the shared installer
+<a href="https://github.com/bnomis/install-in-claude">install-in-claude</a> at the commit
+pinned in the script's <code>INSTALL_IN_CLAUDE_REV</code>:</p>
+<div class="highlight"><pre><span></span><code>uvx<span class="w"> </span>--from<span class="w"> </span><span class="s2">"git+ssh://git@github.com/bnomis/install-in-claude.git@</span><span class="nv">$INSTALL_IN_CLAUDE_REV</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>install-in-claude<span class="w"> </span>--source<span class="w"> </span><span class="s2">"</span><span class="nv">$REPO</span><span class="s2">/claude"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--append<span class="w"> </span><span class="s1">'hooks.Stop[auditme-stop.sh]={"hooks":[{"type":"command","command":"bash \"$HOME/.claude/hooks/auditme-stop.sh\""}]}'</span>
+</code></pre></div>
+<p>Its own arguments pass through: <code>bin/install-claude.sh --dry-run</code> prints what
+would change and changes nothing. It needs <code>uv</code>, and SSH access to
+<code>bnomis/install-in-claude</code> for the first run of a pinned commit; <code>uvx</code> caches
+it after that. The shared rules, the other skills and the status line are
+installed by the agents repository's own installer.</p>
+<p>What the installer does, in short (its README has the detail):</p>
+<ul>
+<li>Checks every option and reads <code>~/.claude/settings.json</code> first; a settings
+  file that is not a valid JSON object stops it, exit <code>1</code>, before anything is
+  linked or written.</li>
+<li>For each top-level entry of <code>claude/</code> (dotfiles skipped): a file becomes a
+  symlink in <code>~/.claude/</code>; a directory (<code>hooks/</code>, <code>rules/</code>, <code>skills/</code>) becomes a real
+  directory in <code>~/.claude/</code> whose entries are symlinks, so
+  <code>~/.claude/skills/auditme</code> links to <code>claude/skills/auditme/</code>. Links are
+  relative. An existing symlink is replaced; an existing file is renamed with
+  a <code>.orig</code> suffix (numbered when that name is taken).</li>
+<li>Prints any dangling symlinks in <code>~/.claude/</code> and its immediate
+  subdirectories, with a quoted <code>rm</code> command to remove them. It does not
+  remove them.</li>
+<li>Adds the Stop hook entry to <code>~/.claude/settings.json</code> unless a <code>Stop</code> entry
+  already names <code>auditme-stop.sh</code>. Every other key and hook is kept; the first
+  original is copied to <code>settings.json.orig</code>; the file is written atomically
+  and keeps its mode.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Exit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Installed, or nothing to do</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td><code>settings.json</code> is not valid JSON or not a JSON object, a key on the edit path is not an object, or <code>hooks.Stop</code> is not a list; nothing changed</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>A bad argument; nothing changed</td>
+</tr>
+</tbody>
+</table>
+<p>Environment: <code>HOME</code>.</p>
+<p>To upgrade the installer, set <code>INSTALL_IN_CLAUDE_REV</code> to a newer commit
+(<code>git ls-remote git@github.com:bnomis/install-in-claude.git refs/heads/main</code>,
+first field) and run <code>bin/install-claude.sh --dry-run</code> to see what it changes.</p>
+<h2 id="bininstall-hookssh"><code>bin/install-hooks.sh</code><a class="headerlink" href="#bininstall-hookssh" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>bin/install-hooks.sh [--rev &lt;commit&gt;] [--push] [--no-install] [--dry-run] [&lt;repo-path&gt;]
+</code></pre></div>
+<p>Installs the audit hooks in another git repository, or moves them to a newer
+commit of this one, by editing that repository's <code>.pre-commit-config.yaml</code>,
+then installs its git hooks. <code>&lt;repo-path&gt;</code> is any path inside the repository;
+the default is the current directory. Run it again whenever you want the
+latest checker: a second run at the same commit changes nothing.</p>
+<p>What it does to <code>.pre-commit-config.yaml</code>:</p>
+<ul>
+<li><strong>No file:</strong> writes one holding only the auditor entry.</li>
+<li><strong>No auditor entry:</strong> adds one at the end of the <code>repos:</code> list (before any
+  top-level key that follows the list), indented like the list's first
+  entry:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/bnomis/auditor</span>
+<span class="w">  </span><span class="nt">rev</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;commit&gt;</span>
+<span class="w">  </span><span class="nt">hooks</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auditme-changed</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auditme-all</span>
+</code></pre></div>
+<ul>
+<li><strong>An auditor entry</strong> (by <code>git@github.com:bnomis/auditor.git</code> or
+  <code>https://github.com/bnomis/auditor</code>, with or without <code>.git</code>): sets its
+  <code>rev:</code> to the commit, dropping any comment on that line, moves its
+  <code>repo:</code> to <code>https://github.com/bnomis/auditor</code> (which CI clones without a
+  key), and adds
+  <code>auditme-changed</code> or <code>auditme-all</code> if the entry lacks one. Every other
+  line, the entry's <code>stages:</code> and <code>args:</code> included, stays as it was.</li>
+</ul>
+<p>Then, unless <code>--no-install</code> or <code>--dry-run</code>, it runs
+<code>pre-commit install --hook-type pre-commit --hook-type pre-push</code> in the
+repository. When <code>pre-commit</code> is on <code>PATH</code> the new file is checked with
+<code>pre-commit validate-config</code> before it replaces the old one.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--rev &lt;commit&gt;</code></td>
+<td>Pin this commit (7 to 40 hex digits) instead of the current <code>main</code> of <code>bnomis/auditor</code>, read with <code>git ls-remote https://github.com/bnomis/auditor refs/heads/main</code></td>
+</tr>
+<tr>
+<td><code>--push</code></td>
+<td>When it adds <code>auditme-all</code>, give it <code>stages: [manual, pre-push]</code>, so every push sweeps the whole tree. Leave it off for a project that still has unaccepted hits (see <a href="../../setup/#an-existing-project">An existing project</a>); an <code>auditme-all</code> already in the file keeps its stages</td>
+</tr>
+<tr>
+<td><code>--no-install</code></td>
+<td>Edit the file only; do not run <code>pre-commit install</code></td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td>Print the change as a unified diff and change nothing</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Exit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Installed or updated, already at the commit, or a dry run</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Nothing changed, because: <code>main</code> of <code>bnomis/auditor</code> could not be read; <code>pre-commit</code> is needed and not installed; the file pins the audit hooks from <code>bnomis/agents</code> (move it first, see <a href="../../setup/#moving-a-project-from-agents">Moving a project from agents</a>); it has more than one auditor entry, no block-style top-level <code>repos:</code> list, or an auditor entry with no <code>hooks:</code> list; or the new file fails <code>pre-commit validate-config</code></td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>A bad argument, a <code>--rev</code> that is not a commit hash, or a path that is not in a git repository; nothing changed</td>
+</tr>
+</tbody>
+</table>
+<p>It does not add the CI step: <code>/auditme-project-setup</code> does that (see
+<a href="../../setup/#an-existing-project">An existing project</a>). The CI step needs no
+key, since the hooks clone over HTTPS from a public repository.</p>
+<h2 id="bincheck-foreign-namessh"><code>bin/check-foreign-names.sh</code><a class="headerlink" href="#bincheck-foreign-namessh" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>check-foreign-names.sh [--allow=&lt;name&gt;]... [--] &lt;file&gt;...
+</code></pre></div>
+<p>Fails when a file names a project on a list kept outside the repository, so
+that the list itself is never committed. It is the entry of the
+<code>no-project-names</code> hook and changes nothing on disk.</p>
+<ul>
+<li>The list is one name per line; blank lines and lines starting with <code>#</code> are
+  skipped.</li>
+<li>Matching is whole-word, case-insensitive and literal (<code>grep -w -i -F</code>): a
+  name inside a longer word does not match.</li>
+<li><code>--allow=&lt;name&gt;</code> removes that name from the list for this run (compared
+  case-insensitively against whole lines). Repeatable. A repository used
+  across projects passes its own name this way.</li>
+<li>Each match is printed as <code>file:line:text</code>, followed by a pointer to
+  <code>claude/rules/rule-scope.md</code> in the agents repository.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Exit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>No match; or nothing exists at the list path (a notice goes to stderr and nothing is checked); or the list is empty after comments and <code>--allow</code>; or no files given</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>At least one match, even when another file is unreadable (a message naming it goes to stderr)</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Something exists at the list path but it cannot be read as a file (a directory, or no read permission) (<code>check-foreign-names: cannot read &lt;list&gt;</code> on stderr), whatever the files; or no match, but a file could not be read (a message naming it goes to stderr)</td>
+</tr>
+</tbody>
+</table>
+<p>Environment: <code>AUDITOR_FOREIGN_NAMES</code> (path of the list), <code>HOME</code> (the default
+list is <code>~/.config/auditor/foreign-names</code>).</p>
+<h2 id="auditor-check"><code>auditor check</code><a class="headerlink" href="#auditor-check" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>auditor check [-h] [--package PACKAGE] [--extra-root DIR] scope
+</code></pre></div>
+<p>The checker driver. Runs every registered check over the project at <code>scope</code>
+and prints one JSON object per hit on stdout. It reads the tree and writes
+nothing.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scope</code></td>
+<td>Project root.</td>
+</tr>
+<tr>
+<td><code>--package PACKAGE</code></td>
+<td>Audit only <code>src/PACKAGE</code>, which must be a directory name directly under <code>src/</code> (a path or <code>..</code> exits 2). Drops the extra roots and the loose-module check. For re-checking one package; a normal audit passes neither option.</td>
+</tr>
+<tr>
+<td><code>--extra-root DIR</code></td>
+<td>Audit <code>DIR</code> (relative to <code>scope</code>) as its own pass, as a <code>package</code> root. Repeatable. Replaces the default extra root, <code>bin/</code>, and replaces any roots declared in <code>[tool.auditme]</code> for that run; each named directory must exist and resolve inside <code>scope</code> (one outside exits 2).</td>
+</tr>
+</tbody>
+</table>
+<p>Without options it audits every package under <code>src/</code>, each in its own pass,
+then <code>bin/</code> when it exists and holds <code>.py</code> files. A <code>.py</code> file directly in
+<code>src/</code> is reported as <code>src-loose-module</code>. A project with neither, such as one
+with no Python, still gets the project-level checks, once: the lockfile
+(<code>lockfile-drift</code>), the ruff pin (<code>ruff-version-drift</code>) and
+<code>spec-api-signature-drift</code> over the project's Markdown.</p>
+<h3 id="declared-roots">Declared roots<a class="headerlink" href="#declared-roots" title="Permanent link">&para;</a></h3>
+<p>A project whose Python is not under <code>src/&lt;package&gt;/</code> and <code>bin/</code> declares its
+roots in <code>pyproject.toml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.auditme]</span>
+<span class="n">roots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">path</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"tools/mypkg"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">path</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"tools"</span><span class="p">,</span><span class="w"> </span><span class="n">modules</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"top-level"</span><span class="w"> </span><span class="p">},</span>
+<span class="p">]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td>Required. A directory relative to <code>scope</code> that holds at least one <code>.py</code> file.</td>
+</tr>
+<tr>
+<td><code>modules</code></td>
+<td><code>"package"</code> (the default) or <code>"top-level"</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>package</code> root is swept recursively and its modules are named after the root
+(<code>tools/mypkg/core.py</code> is <code>mypkg.core</code>). A <code>top-level</code> root is a directory on
+<code>sys.path</code>: only the <code>.py</code> files directly in it are swept, each named by its
+stem, and its subdirectories are left to their own roots, so a package inside
+it is declared as a <code>package</code> root of its own.</p>
+<p>The declared list replaces the default roots, in the order given: a project
+that also has <code>src/</code> packages lists them. With no <code>[tool.auditme]</code> table, or
+no <code>pyproject.toml</code>, the defaults apply. <code>--extra-root</code> replaces the declared
+list for one run. A declared root that resolves outside the project is an invalid declaration. No two <code>package</code> roots may nest, and no <code>top-level</code> root may
+sit inside a <code>package</code> root. The hooks and the Phase B listers read the same
+list.</p>
+<h3 id="first-party-libraries">First-party libraries<a class="headerlink" href="#first-party-libraries" title="Permanent link">&para;</a></h3>
+<p><code>raises-section-drift</code> follows a call into a first-party library only when
+the project lists the library's package directory:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.auditme]</span>
+<span class="n">first-party</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"../lib/src/lib"</span><span class="p">]</span>
+</code></pre></div>
+<p>Each entry is a directory named as its import name (<code>../lib/src/lib</code> for
+<code>import lib</code>), relative to the project. It may lie outside the project. The
+rule reads its <code>Raises:</code> sections and error classes, so an error the library
+declares counts as a domain error, but never sweeps it: no hit is reported on
+its files. A listed directory must exist wherever the sweep runs, CI
+included, or the sweep stops with the errors below. Nothing is inferred from
+<code>[tool.uv.sources]</code> or the environment.</p>
+<h3 id="never-accepted-rules">Never-accepted rules<a class="headerlink" href="#never-accepted-rules" title="Permanent link">&para;</a></h3>
+<p><code>never-accepted</code> lists rules whose accept markers a project refuses:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[tool.auditme]</span>
+<span class="n">never-accepted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"silent-broad-except"</span><span class="p">,</span><span class="w"> </span><span class="s2">"layering-*"</span><span class="p">]</span>
+</code></pre></div>
+<p>Each entry is a rule name, or a family ending in <code>*</code> (the <code>*</code> only at the
+end). A hit of a listed rule is reported with <code>accepted</code> false and the
+marker's reason in <code>refused_reason</code>; a hit with no marker carries no
+<code>refused_reason</code>. <code>auditor changed</code> names the setting in its advice for such a hit.
+The key can sit beside <code>roots</code>.</p>
+<p>Each output line carries <code>rule</code>, <code>variant</code>, <code>path</code>, <code>line</code>, <code>evidence</code>,
+<code>accepted</code> and <code>accepted_reason</code>; a hit from a rule that compares several
+files also carries <code>related</code>, the other files involved. Identical hits are
+printed once. A check that raises is reported as an <code>auditme-check-crash</code>
+hit, and the sweep continues.</p>
+<table>
+<thead>
+<tr>
+<th>Exit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Sweep completed, whatever it found; also when there is no root to audit (a notice goes to stderr and only the project-level checks run)</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td><code>scope</code> is not a directory; <code>--package</code> is not a plain directory name, or its directory does not exist or is a file; a named <code>--extra-root</code> is outside <code>scope</code> or is not a directory; an argument error (argparse's usage message on stderr); <code>AUDITME_RUFF</code> is set to something that is not an executable file (<code>ERROR: AUDITME_RUFF=&lt;value&gt; is not an executable file</code>); or an invalid <code>[tool.auditme]</code> declaration, printed as <code>ERROR: &lt;message&gt;</code> on stderr with nothing on stdout (see below)</td>
+</tr>
+</tbody>
+</table>
+<p>The declaration errors, each exit <code>2</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pyproject.toml: not valid TOML (&lt;parse error&gt;)</code></td>
+<td><code>pyproject.toml</code> is not valid TOML and mentions <code>[tool.auditme</code></td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: must be a table</code></td>
+<td><code>[tool.auditme]</code> is not a table</td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: unknown key '&lt;key&gt;'</code></td>
+<td>a key other than <code>roots</code>, <code>first-party</code> or <code>never-accepted</code></td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: never-accepted must be a list of strings</code></td>
+<td><code>never-accepted</code> is not a list of strings</td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: never-accepted '&lt;pattern&gt;' may use * only at the end</code></td>
+<td>a <code>*</code> anywhere but the last character</td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: never-accepted '&lt;pattern&gt;' matches no rule id</code></td>
+<td>a name or family that matches no rule</td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: roots must be a list of tables</code></td>
+<td><code>roots</code> is not a list of tables</td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: unknown key '&lt;key&gt;' in a roots entry</code></td>
+<td>an entry has a key other than <code>path</code> or <code>modules</code></td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: a roots entry has no path</code></td>
+<td>an entry lacks <code>path</code></td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: modules must be 'package' or 'top-level', not '&lt;value&gt;'</code></td>
+<td>an invalid <code>modules</code></td>
+</tr>
+<tr>
+<td><code>declared root &lt;path&gt; not found</code></td>
+<td>the directory does not exist</td>
+</tr>
+<tr>
+<td><code>declared root &lt;path&gt; holds no .py file</code></td>
+<td>no <code>.py</code> file (for <code>top-level</code>, none directly in it)</td>
+</tr>
+<tr>
+<td><code>declared roots &lt;a&gt; and &lt;b&gt; overlap</code></td>
+<td>two roots would sweep a file twice</td>
+</tr>
+<tr>
+<td><code>declared root &lt;path&gt; is outside the project</code></td>
+<td>the path resolves outside <code>scope</code>, as an absolute path or <code>..</code> does</td>
+</tr>
+<tr>
+<td><code>pyproject.toml [tool.auditme]: first-party must be a list of strings</code></td>
+<td><code>first-party</code> is not a list of non-empty strings</td>
+</tr>
+<tr>
+<td><code>first-party path &lt;path&gt; not found</code></td>
+<td>the entry does not exist or is not a directory</td>
+</tr>
+<tr>
+<td><code>first-party path &lt;path&gt; holds no .py file</code></td>
+<td>no <code>.py</code> file in the directory</td>
+</tr>
+<tr>
+<td><code>first-party path &lt;path&gt; lies inside a root the sweep audits</code></td>
+<td>the entry is inside a swept root</td>
+</tr>
+</tbody>
+</table>
+<p>The hooks treat any of these as a sweep that cannot run, and <code>auditor phaseb</code>
+exits <code>2</code> with the same message.</p>
+<p><code>auditor phaseb</code> exits <code>2</code> for a <code>--question</code> that is not a registered question, on every subcommand, before it builds a ledger path, and for a <code>&lt;root&gt;</code> that does not exist or is not a directory, so a mistyped root never reads as an empty listing.</p>
+<p>It also exits <code>2</code>, printing <code>phaseb.py:</code> and the error's message to stderr, whenever a Phase B step fails: for example a <code>merge</code> for a run planned for another question, or a <code>merge</code> whose batches fail <code>check</code>.</p>
+<p><code>auditor phaseb plan</code> records the callee depth it listed at (<code>--depth</code>, default 3)
+in <code>plan.json</code>. <code>auditor phaseb merge</code> exits <code>2</code>, naming both depths and writing
+nothing to the ledger, when its own <code>--depth</code> differs from the plan's: merge
+with the plan's depth, or plan again. A <code>plan.json</code> written before the depth
+was recorded is read as depth 3.</p>
+<p><code>--depth</code> is accepted by <code>candidates</code>, <code>plan</code>, <code>merge</code> and <code>report</code>, only for
+the questions that follow callees (A4, T1 and T2), and must be at least 1.
+For any other question, or a value below 1, the command exits <code>2</code> with a
+usage error.</p>
+<p>The exit status does not reflect hits: callers read stdout.</p>
+<p>Environment: the checks run <code>ruff</code> and <code>uv</code> as subprocesses with the caller's
+environment, finding them through <code>PATH</code> (ruff from <code>$AUDITME_RUFF</code> when set,
+else the project's <code>.venv/bin/ruff</code>, first). <code>AUDITME_RUFF</code> is the path of an
+executable ruff; <code>auditor check</code> exits <code>2</code> when it names anything else. When <code>uv lock --check</code> fails because of a user-level
+<code>exclude-newer</code> setting, it is rerun with <code>UV_NO_CONFIG</code> set.</p>
+<h2 id="auditor-rules"><code>auditor rules</code><a class="headerlink" href="#auditor-rules" title="Permanent link">&para;</a></h2>
+<p>Reports on the rules repository that <code>AUDITOR_RULES_PATH</code> names. Every command
+prints <code>ERROR: ...</code> and exits non-zero when the variable is unset or the
+repository is invalid.</p>
+<div class="highlight"><pre><span></span><code>auditor rules list [--kind {check,project-check,question,standard}]
+auditor rules check
+auditor rules test [pytest args]
+auditor rules standards
+auditor rules questions [--category {A,D,Doc,P,S,Sec,T}]
+auditor rules identity [--expect &lt;json-file&gt;]
+auditor rules pending
+auditor rules init &lt;dest&gt; [--pack P ...]
+auditor rules apply &lt;dest&gt;
+auditor rules packs
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+<th>Exit status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>list</code></td>
+<td>One line per rule: name, kind, what it emits or its id, title</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>check</code></td>
+<td>Imports every entry file; reports imports outside the helper API package</td>
+<td>non-zero on a bad import</td>
+</tr>
+<tr>
+<td><code>test</code></td>
+<td>Runs pytest over <code>rules/*/tests</code> with the <code>auditor.testing</code> plugin; extra arguments go to pytest</td>
+<td>pytest's</td>
+</tr>
+<tr>
+<td><code>standards</code></td>
+<td>Prints every standard rule's <code>rule.md</code>, in name order</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>questions</code></td>
+<td>Prints the Phase B checklist: id, title and <code>rule.md</code> of each question</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>identity</code></td>
+<td>Prints the runner and rules identity as JSON; the audit skill records it in each review</td>
+<td>with <code>--expect</code>, 1 when it differs from the file</td>
+</tr>
+<tr>
+<td><code>pending</code></td>
+<td>Lists the open items (the <code>##</code> headings) of the rules repository's <code>TODO.md</code></td>
+<td>1 when an item is open</td>
+</tr>
+<tr>
+<td><code>init &lt;dest&gt;</code></td>
+<td>Writes <code>&lt;dest&gt;/selection.txt</code>: every rule of the catalogue, grouped by pack; the rules of each <code>--pack</code> named start uncommented, and with no <code>--pack</code> every pack does. Needs no rules repository</td>
+<td>2 on an error, with <code>&lt;dest&gt;</code> unchanged</td>
+</tr>
+<tr>
+<td><code>apply &lt;dest&gt;</code></td>
+<td>Copies the rules left uncommented in <code>&lt;dest&gt;/selection.txt</code>, with their tests, into <code>&lt;dest&gt;/rules</code>, writes the repository files, runs <code>git init</code> unless <code>&lt;dest&gt;</code> is already in a work tree, then runs <code>check</code> on the result. Needs no rules repository</td>
+<td>2 on an error, with <code>&lt;dest&gt;</code> unchanged</td>
+</tr>
+<tr>
+<td><code>packs</code></td>
+<td>One line per pack: name, rule count, description. Needs no rules repository</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p><code>auditor check</code> and <code>auditor phaseb</code> load the same repository and run its
+rules in rule-name order.</p>
+<h2 id="auditor-changed"><code>auditor changed</code><a class="headerlink" href="#auditor-changed" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>auditor changed [-h] [--all] [--scope] [--base BASE] [repo_root]
+</code></pre></div>
+<p>The entry of the <code>auditme-changed</code> and <code>auditme-all</code> hooks. Runs <code>auditor check</code>
+over the whole tree with the same interpreter (timeout 600 seconds), then
+reports every unaccepted hit in scope. It writes nothing.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_root</code></td>
+<td>Repository root. Default: <code>git rev-parse --show-toplevel</code> of the working directory.</td>
+</tr>
+<tr>
+<td><code>--all</code></td>
+<td>Report every unaccepted hit, not only those in changed files.</td>
+</tr>
+<tr>
+<td><code>--scope</code></td>
+<td>Run no sweep. Print one JSON line per changed <code>.py</code> or <code>.sh</code> file, <code>{"path": ..., "ranges": [[start, end], ...]}</code>: the lines changed since the merge base of <code>BASE</code> and <code>HEAD</code> (index and working tree included), each Python hunk widened to its enclosing function, else its enclosing class; shell hunks are kept as they are. A deleted file is not listed. Exit <code>0</code>; with no diff base, a message on stderr and exit <code>0</code>.</td>
+</tr>
+<tr>
+<td><code>--base BASE</code></td>
+<td>Diff base. Default: the first of <code>@{upstream}</code>, <code>origin/main</code>, <code>main</code> that resolves. A value starting with <code>-</code> is refused, whatever spelling of the option gave it (an abbreviation such as <code>--bas=</code>, or a repeat), and git is told where options end before it is passed the range.</td>
+</tr>
+</tbody>
+</table>
+<p>Without <code>--all</code>, the scope is the files changed in <code>BASE...HEAD</code> plus those
+changed in the index or working tree against <code>HEAD</code>, deletions excluded. A
+hit is in scope when its <code>path</code> or any of its <code>related</code> paths is in scope, so
+a cross-file hit on an untouched file fails when its peer changes.</p>
+<p>Without <code>--all</code>, the sweep is skipped (exit <code>0</code>, with a message) when:</p>
+<ul>
+<li>no diff base resolves; or</li>
+<li>no changed file is reportable: a <code>.py</code> file, a <code>uv.lock</code>, or a <code>.md</code> file
+  outside hidden directories and outside <code>.git</code>, <code>.venv</code>, <code>node_modules</code>,
+  <code>__pycache__</code>, <code>audit-reviews</code> and <code>tasks</code>.</li>
+</ul>
+<p>Each reported hit prints as <code>path:line  rule</code> with its variant indented
+beneath, then how to accept a hit (a <code>ruff</code>, <code>lockfile-drift</code> or <code>never-accepted</code> hit gets its own advice instead, as no accept marker applies to any of them) and how to skip the hook once
+(<code>SKIP=auditme-changed git commit</code>, or <code>SKIP=auditme-all git push</code> with
+<code>--all</code>). All output goes to stdout, except argparse's usage errors and the no-diff-base message of <code>--scope</code>, which go to stderr.</p>
+<table>
+<thead>
+<tr>
+<th>Exit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>No unaccepted hit in scope; the sweep was skipped as above; or <code>--help</code></td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>An unaccepted hit in scope; or any failure: argument error, <code>--base</code> refused, git failed, <code>--scope</code> cannot read a changed Python file, the sweep timed out, exited non-zero, printed a line that is not a JSON object, or reported a crashed check (even one outside the scope); or the audit sweep could not start, or the repository root could not be resolved</td>
+</tr>
+</tbody>
+</table>
+<p>Environment: none directly; git and <code>auditor check</code> inherit the caller's.</p>
+<h2 id="published-pre-commit-hooks">Published pre-commit hooks<a class="headerlink" href="#published-pre-commit-hooks" title="Permanent link">&para;</a></h2>
+<p><code>.pre-commit-hooks.yaml</code> publishes these hooks for other repositories to pin
+by <code>rev</code>. This repository runs the same entries from its own tree as <code>repo:
+local</code> hooks in <code>.pre-commit-config.yaml</code>, so a checker change applies in the
+commit that makes it.</p>
+<table>
+<thead>
+<tr>
+<th>Hook id</th>
+<th>Stages as published</th>
+<th>Entry</th>
+<th>Checks</th>
+<th>In this repository</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>auditme-changed</code></td>
+<td><code>[pre-commit]</code></td>
+<td><code>auditor changed</code></td>
+<td>Unaccepted checker hits in the files the change touches</td>
+<td>Same stage</td>
+</tr>
+<tr>
+<td><code>auditme-all</code></td>
+<td><code>[manual]</code></td>
+<td><code>auditor changed --all</code></td>
+<td>Unaccepted checker hits anywhere</td>
+<td><code>[manual, pre-push]</code>: runs on every push</td>
+</tr>
+<tr>
+<td><code>no-project-names</code></td>
+<td><code>[pre-commit, commit-msg]</code></td>
+<td><code>bin/check-foreign-names.sh</code></td>
+<td>Project names in staged files and the commit message; <code>uv.lock</code> excluded</td>
+<td>Same stages, no <code>--allow</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both audit hooks set <code>pass_filenames: false</code> and <code>always_run: true</code>: they
+find their own scope and run even when no file is staged.
+<code>no-project-names</code> receives the staged file names, or the commit message file
+at <code>commit-msg</code>; a repository used across projects pins it with its own names
+as <code>args: [--allow=&lt;name&gt;]</code>, and installs the <code>commit-msg</code> hook type
+(<code>pre-commit install --hook-type commit-msg</code>).
+The audit hooks use <code>language: python</code>, so pre-commit installs this
+repository's <code>auditor</code> package into the hook's own environment and runs
+<code>auditor changed</code> from it. <code>no-project-names</code> uses <code>language: script</code>, so its
+entry runs from the hook repository with <code>bash</code>.</p>
+<p>To run the manual hook by hand:</p>
+<div class="highlight"><pre><span></span><code>pre-commit<span class="w"> </span>run<span class="w"> </span>auditme-all<span class="w"> </span>--hook-stage<span class="w"> </span>manual<span class="w"> </span>--all-files
+</code></pre></div>
+<p>This repository's config also runs <code>ruff-check</code>, <code>ruff-format</code> and
+<code>shellcheck</code>; those come from their own repositories and are not published
+here.</p>
+<h2 id="the-stop-hook">The Stop hook<a class="headerlink" href="#the-stop-hook" title="Permanent link">&para;</a></h2>
+<p><code>claude/hooks/auditme-stop.sh</code> is a Claude Code Stop hook: Claude Code runs it
+when Claude is about to end a turn, with the event JSON on stdin.</p>
+<p>It does nothing (exit <code>0</code>, no output) when:</p>
+<ul>
+<li>the payload's <code>stop_hook_active</code> is <code>true</code>, meaning the turn is already
+  continuing because of an earlier block, so it blocks at most once in a row;</li>
+<li>the working directory is not in a git repository;</li>
+<li>the project is not opted in: its root <code>.pre-commit-config.yaml</code> does not
+  contain the text <code>id: auditme-changed</code>.</li>
+</ul>
+<p>Otherwise it runs the installed checker, not the project's pinned one, from
+the repository root:</p>
+<div class="highlight"><pre><span></span><code>auditor<span class="w"> </span>changed
+</code></pre></div>
+<p>The exception is a worktree of the auditor repository itself: when the git
+directory that <code>bin/install-claude.sh</code> recorded in <code>~/.claude/auditor-source</code>
+is the project's own shared git directory and the project holds
+<code>src/auditor/cli.py</code>, the hook runs <code>uv run --project &lt;root&gt; auditor changed</code>
+instead, so a branch that changes the checker is judged by that branch. Any
+other repository's <code>src/auditor</code> is never run.</p>
+<p>When that exits <code>1</code> it prints <code>{"decision": "block", "reason": "&lt;report&gt;"}</code>,
+and Claude Code keeps the turn going with the report as the reason. Since
+<code>auditor changed</code> exits <code>1</code> on a failed sweep as well as on hits, a sweep that
+cannot run also blocks.</p>
+<p>It also blocks when the checker never ran, so a broken install cannot turn
+the audit off without a word:</p>
+<ul>
+<li>when <code>auditor</code> is not on <code>PATH</code> (and the project is not a trusted worktree),
+  it blocks once, saying the auditor CLI is not installed; run
+  <code>bin/install-claude.sh</code> in this repository to install it;</li>
+<li>when <code>auditor changed</code> exits with any status other than <code>0</code> or <code>1</code> (for example
+  <code>127</code> for no <code>uv</code>), it blocks with the status and the output.</li>
+</ul>
+<p>As with every block, it blocks at most once in a row. The hook itself always
+exits <code>0</code> and writes nothing to disk.</p>
+<p>Requires <code>jq</code>, <code>git</code> and <code>auditor</code> on <code>PATH</code> (and <code>uv</code> for a trusted worktree). Environment: <code>HOME</code>.</p>
+<h3 id="registration">Registration<a class="headerlink" href="#registration" title="Permanent link">&para;</a></h3>
+<p><code>bin/install-claude.sh</code> adds it once to <code>~/.claude/settings.json</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"hooks"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"Stop"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"hooks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"command"</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bash \"$HOME/.claude/hooks/auditme-stop.sh\""</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>It is global, but acts only in opted-in projects. Check it with
+<code>grep -n 'auditme-stop.sh' ~/.claude/settings.json</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>
