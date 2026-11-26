@@ -18,7 +18,7 @@ as `blocked` for the operator, naming the case.
 
 ## Task 1: Propose the pack membership for review
 
-**Status:** in-progress
+**Status:** blocked
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Packs
@@ -28,20 +28,20 @@ the proposal as a review page.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `test ! -e src/auditor/catalogue/packs.toml` succeeds, and `grep -rnwE 'rulesinit|RulesInitError' src/auditor` prints nothing. Otherwise stop as `blocked`
-- [ ] For each rule directory in `src/auditor/catalogue/rules/`, recommend one of the spec's proposed packs, with a one-line reason. State the rule the recommendations follow: a rule goes to the pack of the topic its `rule.md` names first, and a standard goes with the checks that enforce it
-- [ ] Write `agents/reviews/rules-init-packs.md`, as the shared `reviews.md` rule describes: one item per rule, giving its kind, title and recommended pack, and an empty Answers section
-- [ ] Publish the interactive page:
+- [x] Starting-point check: `test ! -e src/auditor/catalogue/packs.toml` succeeds, and `grep -rnwE 'rulesinit|RulesInitError' src/auditor` prints nothing. Otherwise stop as `blocked`
+- [x] For each rule directory in `src/auditor/catalogue/rules/`, recommend one of the spec's proposed packs, with a one-line reason. State the rule the recommendations follow: a rule goes to the pack of the topic its `rule.md` names first, and a standard goes with the checks that enforce it
+- [x] Write `agents/reviews/rules-init-packs.md`, as the shared `reviews.md` rule describes: one item per rule, giving its kind, title and recommended pack, and an empty Answers section
+- [x] Publish the interactive page:
   - each item has the spec's packs as options, its recommendation preselected by the accept-all button, and a comment box;
   - answers save to the artifact's database.
 
   Put `**Review page:** <URL>` in the document's header
-- [ ] Commit the review document, then stop the list as `blocked`, waiting for review
+- [x] Commit the review document, then stop the list as `blocked`, waiting for review
 - [ ] Once every item has an answer, an operator session reads the page's answers and copies each into the document's Answers section, with the date. It commits that, and only then restarts the list
 
 **Acceptance Criteria:**
 
-- [ ] Every catalogue rule is an item with a recommendation, and the page's URL is in the document's header
+- [x] Every catalogue rule is an item with a recommendation, and the page's URL is in the document's header
 
 **Definition of Done:**
 
@@ -51,6 +51,7 @@ the proposal as a review page.
 **Notes:**
 
 - Depends on `agents/tasks/default-rule-catalogue/tasks-1.md` being finished
+- 2026-11-26: the review page was published by the operator session running the order (the queue's session had no tool for it): https://claude.ai/artifact/6XsrbE2Q8V3zZepiYdDpgZ. Blocked, waiting for every item to have an answer; the last subtask's hand-back then restarts the list
 
 ---
 

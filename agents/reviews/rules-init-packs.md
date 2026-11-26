@@ -3,8 +3,7 @@
 **Spec:** `agents/specs/rules-init/spec.md`
 **Task list:** `agents/tasks/rules-init/tasks-1.md`, Task 1
 **Created:** 2026-11-26
-**Review page:** not published - the session that wrote this document had no
-tool for publishing an interactive page (see Automatic checks)
+**Review page:** https://claude.ai/artifact/6XsrbE2Q8V3zZepiYdDpgZ
 
 ## What is being reviewed and how
 
@@ -29,10 +28,8 @@ Where a rule names two topics, its first-named one wins.
   recommendation names a rule directory: pass (checked when this table was
   generated).
 - Every recommended pack is one the spec lists: pass.
-- Interactive page published: FAIL. No page-publishing tool was available to
-  the session, so this document is the only review surface. An operator
-  session must publish the page (or accept answering in this document), then
-  put its URL in the header.
+- Interactive page published: pass. The queue's session had no tool for it,
+  so the operator session running the order published it on 2026-11-26.
 
 ## Items
 
