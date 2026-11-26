@@ -45,8 +45,8 @@ the proposal as a review page.
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/catalogue -q -p no:cacheprovider` passes (the quick form for a task that stops for review)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/catalogue -q -p no:cacheprovider` passes (the quick form for a task that stops for review)
 
 **Notes:**
 
@@ -58,7 +58,7 @@ the proposal as a review page.
 
 ## Task 2: Write `packs.toml` from the answers
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Packs; Tests (the pack membership test moved here from the catalogue spec)
@@ -68,18 +68,18 @@ membership, and a test keeps every rule in exactly one pack.
 
 **Subtasks:**
 
-- [ ] Read the answers from the Answers section of `agents/reviews/rules-init-packs.md`. If that section is empty, or missing an item, stop as `blocked`, naming the missing items. Never read the page
-- [ ] Write `packs.toml`, giving each pack a `description` and its `rules` in name order. A pack the answers leave empty is left out
-- [ ] Add to `tests/catalogue/test_catalogue.py`: every rule directory is in exactly one pack, and every listed name is a rule directory
+- [x] Read the answers from the Answers section of `agents/reviews/rules-init-packs.md`. If that section is empty, or missing an item, stop as `blocked`, naming the missing items. Never read the page
+- [x] Write `packs.toml`, giving each pack a `description` and its `rules` in name order. A pack the answers leave empty is left out
+- [x] Add to `tests/catalogue/test_catalogue.py`: every rule directory is in exactly one pack, and every listed name is a rule directory
 
 **Acceptance Criteria:**
 
-- [ ] The new test passes, and the membership matches the Answers section exactly
+- [x] The new test passes, and the membership matches the Answers section exactly
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 

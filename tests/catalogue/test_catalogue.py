@@ -4,6 +4,7 @@ import ast
 import itertools
 import json
 import pathlib
+import tomllib
 import typing
 
 import auditor.rulescli
@@ -188,3 +189,18 @@ def test_rule_ids_matches_the_rule_tables_in_the_checker_guide() -> None:
 
 def test_rule_ids_includes_the_never_accepted_rules() -> None:
     assert {'ruff', 'lockfile-drift'} <= RULE_IDS
+
+
+def pack_rules() -> dict[str, list[str]]:
+    packs = tomllib.loads((CATALOGUE / 'packs.toml').read_text(encoding='utf-8'))['packs']
+    return {name: list(pack['rules']) for name, pack in packs.items()}
+
+
+def test_every_rule_directory_is_in_exactly_one_pack() -> None:
+    directories = {path.name for path in (CATALOGUE / 'rules').iterdir() if path.is_dir()}
+    listed = [name for rules in pack_rules().values() for name in rules]
+    assert sorted(listed) == sorted(directories), (
+        f'in no pack: {sorted(directories - set(listed))}; '
+        f'not a rule directory: {sorted(set(listed) - directories)}; '
+        f'in several packs: {sorted(name for name in set(listed) if listed.count(name) > 1)}'
+    )
