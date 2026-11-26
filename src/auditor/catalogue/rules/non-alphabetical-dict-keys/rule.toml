@@ -1,0 +1,3 @@
+kind = "check"
+title = "A module-level dict whose string keys are not in sorted order"
+emits = ["non-alphabetical-dict-keys"]

@@ -1,0 +1,3 @@
+kind = "check"
+title = "A module-level string collection not in sorted order"
+emits = ["non-alphabetical-literal"]

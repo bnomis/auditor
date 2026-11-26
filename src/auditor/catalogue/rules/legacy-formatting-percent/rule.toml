@@ -1,0 +1,3 @@
+kind = "check"
+title = "C-printf formatting in a Python string"
+emits = ["legacy-formatting-percent"]

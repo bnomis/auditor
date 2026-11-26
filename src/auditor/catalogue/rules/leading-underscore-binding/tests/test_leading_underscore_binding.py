@@ -11,13 +11,13 @@ import typing
 
 import pytest
 
-import auditor.rules.style_and_naming
+import auditor.testing
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
 
-BINDING = auditor.rules.style_and_naming.check_leading_underscore_binding
-TEXT_PATTERNS = auditor.rules.style_and_naming.check_text_patterns
+BINDING = auditor.testing.load_check(__file__)
+TEXT_PATTERNS = auditor.testing.load_check(__file__, 'text-patterns')
 
 
 def found(hits: list[dict[str, typing.Any]]) -> list[tuple[int, str]]:
