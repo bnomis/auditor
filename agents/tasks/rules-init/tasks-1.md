@@ -203,3 +203,37 @@ show how to create a rules repository, and the spec is closed.
 - Depends on Task 4
 
 ---
+
+## Task 6: Restore the `project` fixture the catalogue tests use
+
+**Status:** todo
+**Priority:** high
+**Complexity:** small
+**Spec Reference:** Tests
+
+**Technical Goal:** `uv run pytest tests/catalogue -q -p no:cacheprovider`
+passes. Two tests in `tests/catalogue/test_catalogue.py`
+(`test_the_sweep_reads_each_catalogue_rule_file_once_by_its_path`,
+`test_exactly_the_cross_file_rules_emit_related`) error at setup with
+`fixture 'project' not found`. No `def project` exists under `tests/`; the
+fixture was probably removed with commit fb059b8 ("Task 12: remove the
+built-in rules"), before this list began.
+
+**Subtasks:**
+
+- [ ] Find where the `project` fixture was defined before fb059b8 (`git show fb059b8 -- tests/conftest.py`), and restore or replace it
+- [ ] Run `uv run pytest tests/catalogue -q -p no:cacheprovider`
+
+**Acceptance Criteria:**
+
+- [ ] The catalogue tests pass with no setup errors
+
+**Definition of Done:**
+
+- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
+
+**Notes:**
+
+- Found while running Task 1's Definition of Done on 2026-11-26; out of scope for Task 1, which only publishes a review
+
+---
