@@ -169,7 +169,7 @@ It then runs `git init` when needed, makes no commit, and runs
 
 ## Task 5: Prove a full init equals the catalogue, document it and close
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Tests; Module location (the setup skill); Implementation (pointing a project at the repository)
@@ -180,25 +180,25 @@ show how to create a rules repository, and the spec is closed.
 
 **Subtasks:**
 
-- [ ] Write `tests/rulesinit/test_full_init.py`:
+- [x] Write `tests/rulesinit/test_full_init.py`:
   - `init` with no pack, then `apply`, into `tmp_path`;
   - a sweep of a fixture project with `AUDITOR_RULES_PATH` set to the result gives the same hits as with `src/auditor/catalogue`
-- [ ] Write `tests/rulesinit/test_wheel.py`: `uv build --wheel` into `tmp_path`, and the wheel lists `auditor/catalogue/packs.toml` and every rule directory
-- [ ] In `claude/skills/auditme-project-setup/SKILL.md`, when `AUDITOR_RULES_PATH` is unset, offer the steps of `auditor rules init <dir>`, editing `selection.txt`, `auditor rules apply <dir>`, and the `.envrc` line. The skill gives these as steps for the user and never edits `.envrc`
-- [ ] Add a "Create a rules repository" section to `docs/setup.md`, and add `init`, `apply` and `packs` to `docs/reference/cli.md`
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-init/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
+- [x] Write `tests/rulesinit/test_wheel.py`: `uv build --wheel` into `tmp_path`, and the wheel lists `auditor/catalogue/packs.toml` and every rule directory
+- [x] In `claude/skills/auditme-project-setup/SKILL.md`, when `AUDITOR_RULES_PATH` is unset, offer the steps of `auditor rules init <dir>`, editing `selection.txt`, `auditor rules apply <dir>`, and the `.envrc` line. The skill gives these as steps for the user and never edits `.envrc`
+- [x] Add a "Create a rules repository" section to `docs/setup.md`, and add `init`, `apply` and `packs` to `docs/reference/cli.md`
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-init/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 
-- [ ] Both new tests pass, and the docs build
+- [x] Both new tests pass, and the docs build
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 

@@ -52,6 +52,20 @@ hooks cannot be pinned without a revision.
 The auditor repository is public and the hooks clone it over HTTPS, so
 neither a developer machine nor CI needs a key or secret to run them.
 
+## No rules repository yet
+
+The checker loads its rules from the repository `AUDITOR_RULES_PATH` names. When
+`[ -n "${AUDITOR_RULES_PATH:-}" ]` is false, tell the user, before `new` or
+`adopt`, the steps to create one (never edit `.envrc` yourself; the user does):
+
+1. In a terminal, run `auditor rules packs` and choose the packs.
+2. Run `auditor rules init <dir> --pack <pack>` (repeat `--pack`; none selects
+   every pack). It writes `<dir>/selection.txt`.
+3. Edit `<dir>/selection.txt`: comment out each rule you do not want.
+4. Run `auditor rules apply <dir>`. It copies the rules and checks them.
+5. Add `export AUDITOR_RULES_PATH=<dir>` to the project's `.envrc`, then run
+   `direnv allow`.
+
 ## `new`
 
 For an empty or freshly initialised repository. If the target already holds
