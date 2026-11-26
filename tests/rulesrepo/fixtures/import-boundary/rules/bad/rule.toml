@@ -1,0 +1,3 @@
+kind = "check"
+title = "Imports the core"
+emits = ["bad"]

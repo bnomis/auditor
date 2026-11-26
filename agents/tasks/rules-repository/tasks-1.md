@@ -183,7 +183,7 @@ The plan, check, merge and ledger code does not change.
 
 ## Task 5: Add the `auditor rules` report commands
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Commands (`list`, `check`, `standards`, `questions`, `pending`); Implementation (Import boundary); Tests (`rules pending`)
@@ -194,19 +194,19 @@ where `<x>` is not `api`.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_rulescli.py`, one per command over the fixtures. Cover:
+- [x] Tests first, in `tests/rulesrepo/test_rulescli.py`, one per command over the fixtures. Cover:
   - the import-boundary failure;
   - the `pending` cases: no `TODO.md`, a `TODO.md` with no `## ` heading, a heading inside a fenced block, and two open items
-- [ ] Write `src/auditor/rulescli.py` and register `rules` in `src/auditor/cli.py`
+- [x] Write `src/auditor/rulescli.py` and register `rules` in `src/auditor/cli.py`
 
 **Acceptance Criteria:**
 
-- [ ] Every command's output and exit status match the spec. `pending` exits 1 and lists headings only when an item is open
+- [x] Every command's output and exit status match the spec. `pending` exits 1 and lists headings only when an item is open
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_rulescli.py tests/checker/test_cli.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_rulescli.py tests/checker/test_cli.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
