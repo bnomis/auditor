@@ -62,7 +62,7 @@ prove the move changed nothing.
 
 ## Task 2: Move the checker into the `auditor` package
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** large
 **Spec Reference:** Module location; API; Error handling (Unknown command); Implementation (Package, Imports, Briefs; This repository's own hooks)
@@ -113,6 +113,12 @@ manipulation.
 - Depends on Task 1
 - Key files: `pyproject.toml`, `src/auditor/core.py`, `tests/checker/conftest.py`
 - The move, the dispatcher and the local hook entries are one commit, because no smaller step leaves the hooks able to run
+- **Blocked 2026-11-26.** The move is made in the working tree (uncommitted), and `uv run auditor check .` exits 0 as the baseline records. Two things stop the commit, and both are the work of Tasks 3 and 4, so the operator must choose how to order them:
+  - These tests fail because they exercise the published manifest and the Stop hook at the old script path: `tests/checker/test_hooks_manifest.py` (four tests: manifest entries, executable entry script, `try-repo`) and `tests/test_stop_hook.py` (`test_real_checker_blocks_on_an_unaccepted_hit`, `test_real_checker_is_silent_with_no_hit`). Fixing them means rewriting the manifest and the hook, which Tasks 3 and 4 own.
+  - `tests/checker` now sits under the `tests` root, so the `paired-sibling-helpers` rule reports `read_manifest` in `tests/checker/test_hooks_manifest.py` and `tests/test_published_hooks.py` as an unaccepted hit (it did not when they were in separate roots), and the `auditme-changed` pre-commit hook fails the commit. Task 3 rewrites both files.
+  - Options: fold Tasks 3 and 4 into Task 2's commit, or relax Task 2's Definition of Done to exclude these tests and this hit.
+- **Decision 2026-11-26 (decided by Claude, not yet reviewed):** fold Tasks 3 and 4 into Task 2's commit. Relaxing the Definition of Done cannot give a commit: the `auditme-changed` hook still fails on the `read_manifest` hit, and `--no-verify` is never used. Folding keeps every commit passing its hooks and tests, as the note on the move already requires. So Task 2 also does every subtask of Task 3 and Task 4, meets their acceptance criteria and runs their Definition of Done commands, in the same commit; then set Tasks 3 and 4 to `done`, ticking their subtasks, with a note that Task 2's commit did them. The decision covers only Tasks 3 and 4
+- Message texts (`audit.py: no package under src/...`, `changed.py: ...`) were kept as they were, because existing tests assert them. The changed-files runner now starts the sweep through `changed.SWEEP_COMMAND`, which the stub-sweep tests set in place of the former `AUDIT_SCRIPT`
 
 ---
 
@@ -145,6 +151,7 @@ manipulation.
 **Notes:**
 
 - Depends on Task 2
+- Folded into Task 2's commit by the decision of 2026-11-26 recorded in Task 2's notes (decided by Claude, not yet reviewed)
 
 ---
 
@@ -185,6 +192,7 @@ manipulation.
 **Notes:**
 
 - Depends on Task 2
+- Folded into Task 2's commit by the decision of 2026-11-26 recorded in Task 2's notes (decided by Claude, not yet reviewed)
 
 ---
 
