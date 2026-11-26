@@ -25,7 +25,7 @@ jobs:
       - run: uv sync
       # The checker runs `ruff` from PATH: use the project's locked one.
       - run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-      - run: uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider
+      - run: uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider
       # The commit-time checks, over the whole tree.
       - run: pre-commit run --all-files
 

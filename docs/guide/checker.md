@@ -1,7 +1,7 @@
 # The audit checker
 
 ```shell
-uv run --no-project python claude/skills/auditme/checks/audit.py .
+auditor check .
 ```
 
 The checker is the mechanical half of the `auditme` skill: a static sweep,
@@ -17,7 +17,7 @@ path of a ruff outside the project's `.venv`, for example one a CI job
 installs elsewhere:
 
 ```shell
-AUDITME_RUFF=/opt/tools/ruff-0.17.4/bin/ruff uv run python claude/skills/auditme/checks/audit.py .
+AUDITME_RUFF=/opt/tools/ruff-0.17.4/bin/ruff auditor check .
 ```
 
 A value that is not an executable file stops the sweep with exit `2`.
@@ -49,10 +49,10 @@ No other directory is swept.
 
 ## Running it
 
-### `audit.py`: the full report
+### `auditor check`: the full report
 
 ```shell
-uv run --no-project python claude/skills/auditme/checks/audit.py <project-root> [--package <pkg>] [--extra-root <dir> ...]
+auditor check <project-root> [--package <pkg>] [--extra-root <dir> ...]
 ```
 
 | Flag | Effect |
@@ -60,21 +60,21 @@ uv run --no-project python claude/skills/auditme/checks/audit.py <project-root> 
 | `--package <pkg>` | Audit only `src/<pkg>/`. Drops the extra roots and the `src-loose-module` report too. For re-checking one package while verifying a fix; a normal audit passes neither flag. |
 | `--extra-root <dir>` | Audit `<dir>` (relative to the root) as its own pass. Repeatable. Replaces the default set (`bin/`). A named root that does not exist is an error, not an empty pass. |
 
-`audit.py` prints every hit, accepted or not, and exits 0 whatever it finds.
+`auditor check` prints every hit, accepted or not, and exits 0 whatever it finds.
 It exits 2 on a usage error from argparse (an unknown option or a missing value); when the root is not a directory; when `--package` is not a plain
 directory name; when a named extra root is outside the root or is not a
 directory; when the `--package` directory is missing or is a file; or when `[tool.auditme]`
 in `pyproject.toml` is invalid. A project with no package and no extra root prints a note on stderr
 and exits 0.
 
-### `changed.py`: the gate
+### `auditor changed`: the gate
 
 ```shell
-uv run --no-project python claude/skills/auditme/checks/changed.py           # changed files only
-uv run --no-project python claude/skills/auditme/checks/changed.py --all     # every file
+auditor changed           # changed files only
+auditor changed --all     # every file
 ```
 
-`changed.py [--all] [--base <ref>] [<repo-root>]` runs `audit.py` over the
+`auditor changed [--all] [--base <ref>] [<repo-root>]` runs `auditor check` over the
 whole tree, so cross-file rules see every file, then keeps the unaccepted hits
 in scope. It exits 1 when any remain, or on any failure: an argument error, a
 `--base` that is a flag, git that cannot run, a diff or `rev-parse` that fails,
@@ -96,7 +96,7 @@ To see which lines changed rather than which hits remain, `--scope` runs no
 sweep and prints one JSON line per changed `.py` or `.sh` file:
 
 ```shell
-uv run --no-project python claude/skills/auditme/checks/changed.py --scope --base <commit>
+auditor changed --scope --base <commit>
 ```
 
 Each line is `{"path": ..., "ranges": [[start, end], ...]}`. A Python range is
@@ -115,7 +115,7 @@ To let one commit or push through, `SKIP=auditme-changed git commit` or
 
 ## Reading the output
 
-`audit.py` prints one JSON object per line, keys sorted:
+`auditor check` prints one JSON object per line, keys sorted:
 
 ```text
 {"accepted": false, "accepted_reason": null, "evidence": "except Exception:", "line": 9, "path": "src/pkg/core.py", "rule": "silent-broad-except", "variant": "no logger and no raise in body"}
@@ -137,7 +137,7 @@ To let one commit or push through, `SKIP=auditme-changed git commit` or
 Identical hits are printed once, so a hit that several passes would each
 report appears once.
 
-`changed.py` prints only unaccepted hits in scope, sorted by path and line, as
+`auditor changed` prints only unaccepted hits in scope, sorted by path and line, as
 `<path>:<line>  <rule>` with the variant indented beneath, then how to fix or
 skip:
 
@@ -235,7 +235,7 @@ belief that the pattern is intentional.
 
 Each rule's predicate, and every carve-out that keeps it from firing, is in
 the docstring of its `check_*` function under
-`claude/skills/auditme/checks/auditme/rules/`; the hits `audit.py` emits itself
+`src/auditor/rules/`; the hits `auditor check` emits itself
 (see Driver below) have no such docstring. Rules marked *gated* fire only
 when the project's `AGENTS.md` declares the standard they enforce.
 
@@ -245,13 +245,13 @@ by a check" in the agents repository's rules reference
 
 ### Driver
 
-Emitted by `checks/audit.py` itself, not by a registered check.
+Emitted by `auditor check` itself, not by a registered check.
 
 | Rule id | Reports |
 |---|---|
 | `src-loose-module` | A `.py` file directly in `src/`, outside any package |
 | `unreadable-file` | A file a check could not read (gone, denied or not UTF-8); `path` names it and `evidence` is always `cannot read <name>`, without the reason. The check skips it and reports its other hits. |
-| `auditme-check-crash` | A check raised; `variant` names it and `evidence` the exception. `changed.py` fails on it. |
+| `auditme-check-crash` | A check raised; `variant` names it and `evidence` the exception. `auditor changed` fails on it. |
 
 ### `duplication.py`
 

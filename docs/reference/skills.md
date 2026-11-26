@@ -27,7 +27,7 @@ file path, a spec slug, or the docs. `--category` (`standards`,
 `documentation`) is a debugging aid; a normal audit runs every category.
 
 - **Runs:** the scripted sweep
-  `python3 ~/.claude/skills/auditme/checks/audit.py <project-root>`, then a
+  `auditor check <project-root>`, then a
   fixed checklist (a listed question runs one reviewer per batch of its
   candidates; a sampled question runs on the lines changed since the previous
   review, each widened to its enclosing function, and on the whole tree every third audit and on any audit with no previous

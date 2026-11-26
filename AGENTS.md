@@ -23,7 +23,7 @@ and installs its git hooks (`docs/reference/cli.md`).
 From the repository root:
 
 ```shell
-uv run pytest claude/skills/auditme/tests claude/skills/auditme-project-setup/tests tests -q -p no:cacheprovider
+uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider
 ```
 
 ## No project names

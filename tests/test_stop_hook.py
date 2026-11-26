@@ -1,26 +1,42 @@
-"""Tests for claude/hooks/auditme-stop.sh, run against a temporary HOME."""
+"""Tests for claude/hooks/auditme-stop.sh, run against a temporary HOME and a PATH of stubs."""
 
 import json
 import os
 import pathlib
 import shutil
 import subprocess
+import sys
 
 import pytest
 
 HOOK = pathlib.Path(__file__).resolve().parent.parent / 'claude' / 'hooks' / 'auditme-stop.sh'
 REPORT = 'src/a.py:3  some-rule\n'
+OWN_REPORT = 'src/auditor/core.py:9  own-rule\n'
+MISSING = "The auditor CLI is not installed: run 'uv tool install <source>' (see docs/setup.md)."
+BASH = shutil.which('bash')
+TOOLS = ('cat', 'git', 'grep', 'jq')
 
 pytestmark = pytest.mark.skipif(shutil.which('jq') is None, reason='jq not installed')
 
 
-def make_home(tmp_path: pathlib.Path, exit_code: int) -> pathlib.Path:
-    home = tmp_path / 'home'
-    checks = home / '.claude' / 'skills' / 'auditme' / 'checks'
+def write_stub(path: pathlib.Path, report: str, exit_code: int, record: pathlib.Path | None = None) -> None:
+    """An executable that prints `report` and exits `exit_code`, noting its arguments in `record`."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    note = f'printf "%s\\n" "$*" > {record}\n' if record else ''
+    path.write_text(f'#!/bin/sh\n{note}printf "%b" {report!r}\nexit {exit_code}\n')
+    path.chmod(0o755)
+
+
+def make_tools(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A PATH directory holding only what the hook needs, so no installed `auditor` is on it."""
+    tools = tmp_path / 'tools'
     # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
-    checks.mkdir(parents=True)
-    (checks / 'changed.py').write_text(f"import sys\nprint({REPORT!r}, end='')\nsys.exit({exit_code})\n")
-    return home
+    tools.mkdir()
+    for name in TOOLS:
+        found = shutil.which(name)
+        assert found
+        (tools / name).symlink_to(found)
+    return tools
 
 
 def make_repo(tmp_path: pathlib.Path, opted_in: bool) -> pathlib.Path:
@@ -33,77 +49,79 @@ def make_repo(tmp_path: pathlib.Path, opted_in: bool) -> pathlib.Path:
     return repo
 
 
-def run(home: pathlib.Path, cwd: pathlib.Path, payload: dict[str, object]) -> subprocess.CompletedProcess[str]:
+def run(tmp_path: pathlib.Path, cwd: pathlib.Path, payload: dict[str, object], path: str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ['bash', str(HOOK)],
+        [str(BASH), str(HOOK)],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
         cwd=cwd,
-        env={'HOME': str(home), 'PATH': os.environ['PATH']},
+        env={'HOME': str(tmp_path / 'home'), 'PATH': path or str(tmp_path / 'tools')},
         check=False,
     )
 
 
+def with_auditor(tmp_path: pathlib.Path, exit_code: int) -> None:
+    make_tools(tmp_path)
+    write_stub(tmp_path / 'tools' / 'auditor', REPORT, exit_code)
+
+
 def test_blocks_with_runner_text(tmp_path: pathlib.Path) -> None:
-    result = run(make_home(tmp_path, 1), make_repo(tmp_path, True), {})
+    with_auditor(tmp_path, 1)
+    result = run(tmp_path, make_repo(tmp_path, True), {})
     assert result.returncode == 0
     decision = json.loads(result.stdout)
     assert decision['decision'] == 'block'
     assert decision['reason'] == REPORT.rstrip('\n')
 
 
+def test_runs_auditor_changed_from_path(tmp_path: pathlib.Path) -> None:
+    make_tools(tmp_path)
+    record = tmp_path / 'argv.txt'
+    write_stub(tmp_path / 'tools' / 'auditor', REPORT, 0, record)
+    result = run(tmp_path, make_repo(tmp_path, True), {})
+    assert (result.returncode, result.stdout) == (0, '')
+    assert record.read_text() == 'changed\n'
+
+
 def test_passes_when_stop_hook_active(tmp_path: pathlib.Path) -> None:
-    result = run(make_home(tmp_path, 1), make_repo(tmp_path, True), {'stop_hook_active': True})
+    with_auditor(tmp_path, 1)
+    result = run(tmp_path, make_repo(tmp_path, True), {'stop_hook_active': True})
     assert (result.returncode, result.stdout) == (0, '')
 
 
 def test_silent_when_not_opted_in(tmp_path: pathlib.Path) -> None:
-    result = run(make_home(tmp_path, 1), make_repo(tmp_path, False), {})
+    with_auditor(tmp_path, 1)
+    result = run(tmp_path, make_repo(tmp_path, False), {})
     assert (result.returncode, result.stdout) == (0, '')
 
 
 def test_silent_outside_a_repository(tmp_path: pathlib.Path) -> None:
+    with_auditor(tmp_path, 1)
     outside = tmp_path / 'plain'
     outside.mkdir()
-    result = run(make_home(tmp_path, 1), outside, {})
+    result = run(tmp_path, outside, {})
     assert (result.returncode, result.stdout) == (0, '')
 
 
 def test_silent_when_runner_passes(tmp_path: pathlib.Path) -> None:
-    result = run(make_home(tmp_path, 0), make_repo(tmp_path, True), {})
+    with_auditor(tmp_path, 0)
+    result = run(tmp_path, make_repo(tmp_path, True), {})
     assert (result.returncode, result.stdout) == (0, '')
 
 
-def checker_path(home: pathlib.Path) -> pathlib.Path:
-    return home / '.claude' / 'skills' / 'auditme' / 'checks' / 'changed.py'
-
-
-def assert_missing_checker_block(result: subprocess.CompletedProcess[str], home: pathlib.Path) -> None:
+def test_blocks_when_auditor_is_not_on_path(tmp_path: pathlib.Path) -> None:
+    make_tools(tmp_path)
+    result = run(tmp_path, make_repo(tmp_path, True), {})
     assert result.returncode == 0
     decision = json.loads(result.stdout)
     assert decision['decision'] == 'block'
-    assert str(checker_path(home)) in decision['reason']
-    assert 'bin/install-claude.sh' in decision['reason']
-
-
-def test_blocks_when_checker_missing(tmp_path: pathlib.Path) -> None:
-    home = tmp_path / 'home'
-    home.mkdir()
-    result = run(home, make_repo(tmp_path, True), {})
-    assert_missing_checker_block(result, home)
-
-
-def test_blocks_when_checker_link_dangles(tmp_path: pathlib.Path) -> None:
-    home = tmp_path / 'home'
-    checker_path(home).parent.mkdir(parents=True)
-    checker_path(home).symlink_to(tmp_path / 'gone' / 'changed.py')
-    result = run(home, make_repo(tmp_path, True), {})
-    assert_missing_checker_block(result, home)
+    assert decision['reason'] == MISSING
 
 
 def test_blocks_when_checker_cannot_run(tmp_path: pathlib.Path) -> None:
-    result = run(make_home(tmp_path, 2), make_repo(tmp_path, True), {})
+    with_auditor(tmp_path, 2)
+    result = run(tmp_path, make_repo(tmp_path, True), {})
     assert result.returncode == 0
     decision = json.loads(result.stdout)
     assert decision['decision'] == 'block'
@@ -111,65 +129,80 @@ def test_blocks_when_checker_cannot_run(tmp_path: pathlib.Path) -> None:
     assert REPORT.rstrip('\n') in decision['reason']
 
 
-def test_missing_checker_passes_when_stop_hook_active(tmp_path: pathlib.Path) -> None:
-    home = tmp_path / 'home'
-    home.mkdir()
-    result = run(home, make_repo(tmp_path, True), {'stop_hook_active': True})
+def test_missing_auditor_passes_when_stop_hook_active(tmp_path: pathlib.Path) -> None:
+    make_tools(tmp_path)
+    result = run(tmp_path, make_repo(tmp_path, True), {'stop_hook_active': True})
     assert (result.returncode, result.stdout) == (0, '')
 
 
-OWN_REPORT = 'claude/skills/auditme/checks/auditme/core.py:9  own-rule\n'
-
-
-def write_checker(path: pathlib.Path, report: str, exit_code: int) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"import sys\nprint({report!r}, end='')\nsys.exit({exit_code})\n")
-
-
-def own_checker(repo: pathlib.Path) -> pathlib.Path:
-    return repo / 'claude' / 'skills' / 'auditme' / 'checks' / 'changed.py'
-
-
-def git(repo: pathlib.Path, *args: str) -> None:
-    subprocess.run(
-        ['git', '-C', str(repo), '-c', 'core.hooksPath=/dev/null', '-c', 'user.name=t', '-c', 'user.email=t@t', *args], check=True, capture_output=True
+def git(repo: pathlib.Path, *args: str) -> str:
+    result = subprocess.run(
+        ['git', '-C', str(repo), '-c', 'core.hooksPath=/dev/null', '-c', 'user.name=t', '-c', 'user.email=t@t', *args],
+        check=True,
+        capture_output=True,
+        text=True,
     )
+    return result.stdout
 
 
-def test_other_repository_checker_is_never_run(tmp_path: pathlib.Path) -> None:
+def make_source_repo(tmp_path: pathlib.Path) -> pathlib.Path:
+    """An opted-in repository holding src/auditor/cli.py, recorded as the installed tool's source."""
     repo = make_repo(tmp_path, True)
-    write_checker(own_checker(repo), OWN_REPORT, 1)
-    result = run(make_home(tmp_path, 0), repo, {})
-    assert (result.returncode, result.stdout) == (0, '')
-
-
-def test_worktree_of_installed_repository_runs_its_own_checker(tmp_path: pathlib.Path) -> None:
-    repo = make_repo(tmp_path, True)
-    write_checker(own_checker(repo), REPORT, 0)
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
+    (repo / 'src' / 'auditor').mkdir(parents=True)
+    (repo / 'src' / 'auditor' / 'cli.py').write_text('')
     git(repo, 'add', '-A')
     git(repo, 'commit', '-q', '-m', 'init')
-    home = tmp_path / 'home'
-    checker_path(home).parent.mkdir(parents=True)
-    checker_path(home).symlink_to(own_checker(repo))
+    record_source(tmp_path, repo)
+    return repo
+
+
+def record_source(tmp_path: pathlib.Path, repo: pathlib.Path) -> None:
+    claude = tmp_path / 'home' / '.claude'
+    claude.mkdir(parents=True, exist_ok=True)
+    (claude / 'auditor-source').write_text(git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir').strip() + '\n')
+
+
+def test_worktree_of_the_source_repository_runs_its_own_code(tmp_path: pathlib.Path) -> None:
+    make_tools(tmp_path)
+    record = tmp_path / 'argv.txt'
+    write_stub(tmp_path / 'tools' / 'uv', OWN_REPORT, 1, record)
+    write_stub(tmp_path / 'tools' / 'auditor', REPORT, 0)
+    repo = make_source_repo(tmp_path)
     worktree = tmp_path / 'worktree'
     git(repo, 'worktree', 'add', '-q', str(worktree))
-    write_checker(own_checker(worktree), OWN_REPORT, 1)
-    decision = json.loads(run(home, worktree, {}).stdout)
+    decision = json.loads(run(tmp_path, worktree, {}).stdout)
     assert decision['decision'] == 'block'
     assert decision['reason'] == OWN_REPORT.rstrip('\n')
+    assert record.read_text() == f'run --project {worktree.resolve()} auditor changed\n'
 
 
-CHECKER = HOOK.parent.parent / 'skills' / 'auditme' / 'checks' / 'changed.py'
-FUTURE_IMPORT = 'from __future__ import annotations\n'
-
-
-def make_real_home(tmp_path: pathlib.Path) -> pathlib.Path:
-    """A HOME whose installed checker is a link to this repository's real changed.py."""
-    home = tmp_path / 'home'
+def test_another_repository_with_src_auditor_never_runs_its_own_code(tmp_path: pathlib.Path) -> None:
+    make_tools(tmp_path)
+    record = tmp_path / 'argv.txt'
+    write_stub(tmp_path / 'tools' / 'uv', OWN_REPORT, 1, record)
+    write_stub(tmp_path / 'tools' / 'auditor', REPORT, 0)
+    source = tmp_path / 'source'
+    source.mkdir()
     # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
-    checker_path(home).parent.mkdir(parents=True)
-    checker_path(home).symlink_to(CHECKER)
-    return home
+    subprocess.run(['git', 'init', '-q', str(source)], check=True)
+    record_source(tmp_path, source)
+    other = make_source_repo_without_record(tmp_path)
+    result = run(tmp_path, other, {})
+    assert (result.returncode, result.stdout) == (0, '')
+    assert not record.exists()
+
+
+def make_source_repo_without_record(tmp_path: pathlib.Path) -> pathlib.Path:
+    repo = make_repo(tmp_path, True)
+    # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose
+    (repo / 'src' / 'auditor').mkdir(parents=True)
+    (repo / 'src' / 'auditor' / 'cli.py').write_text('')
+    return repo
+
+
+FUTURE_IMPORT = 'from __future__ import annotations\n'
+REAL_PATH = os.pathsep.join([str(pathlib.Path(sys.executable).parent), os.environ['PATH']])
 
 
 def make_real_repo(tmp_path: pathlib.Path, new_source: str) -> pathlib.Path:
@@ -191,7 +224,7 @@ def make_real_repo(tmp_path: pathlib.Path, new_source: str) -> pathlib.Path:
 
 
 def test_real_checker_blocks_on_an_unaccepted_hit(tmp_path: pathlib.Path) -> None:
-    result = run(make_real_home(tmp_path), make_real_repo(tmp_path, FUTURE_IMPORT), {})
+    result = run(tmp_path, make_real_repo(tmp_path, FUTURE_IMPORT), {}, REAL_PATH)
     assert result.returncode == 0
     decision = json.loads(result.stdout)
     assert decision['decision'] == 'block'
@@ -199,5 +232,5 @@ def test_real_checker_blocks_on_an_unaccepted_hit(tmp_path: pathlib.Path) -> Non
 
 
 def test_real_checker_is_silent_with_no_hit(tmp_path: pathlib.Path) -> None:
-    result = run(make_real_home(tmp_path), make_real_repo(tmp_path, 'value = 1\n'), {})
+    result = run(tmp_path, make_real_repo(tmp_path, 'value = 1\n'), {}, REAL_PATH)
     assert (result.returncode, result.stdout) == (0, '')

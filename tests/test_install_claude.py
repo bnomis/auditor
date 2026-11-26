@@ -18,17 +18,45 @@ WRAPPER = REPO / 'bin' / 'install-claude.sh'
 STOP_HOOK = 'hooks.Stop[auditme-stop.sh]={"hooks":[{"type":"command","command":"bash \\"$HOME/.claude/hooks/auditme-stop.sh\\""}]}'
 
 
-def run_with_stub_uvx(tmp_path: pathlib.Path, *args: str) -> list[str]:
-    """Run the wrapper with a uvx that records its arguments instead of running."""
+def write_recorder(path: pathlib.Path, record: pathlib.Path, label: str) -> None:
+    """An executable that appends its label and arguments, as one JSON line, to `record`."""
+    path.write_text(f'#!/usr/bin/env python3\nimport json, sys\nopen({str(record)!r}, "a").write(json.dumps([{label!r}, *sys.argv[1:]]) + "\\n")\n')
+    path.chmod(0o755)
+
+
+def run_with_stubs(tmp_path: pathlib.Path, *args: str) -> list[list[str]]:
+    """Run the wrapper with uv and uvx stubs that record their calls, and HOME in tmp_path."""
     stub_dir = tmp_path / 'bin'
     stub_dir.mkdir()
-    record = tmp_path / 'argv.json'
-    stub = stub_dir / 'uvx'
-    stub.write_text(f'#!/usr/bin/env python3\nimport json, sys\nopen({str(record)!r}, "w").write(json.dumps(sys.argv[1:]))\n')
-    stub.chmod(0o755)
-    env = {**os.environ, 'PATH': f'{stub_dir}{os.pathsep}{os.environ["PATH"]}'}
+    record = tmp_path / 'calls.jsonl'
+    write_recorder(stub_dir / 'uvx', record, 'uvx')
+    write_recorder(stub_dir / 'uv', record, 'uv')
+    env = {**os.environ, 'HOME': str(tmp_path / 'home'), 'PATH': f'{stub_dir}{os.pathsep}{os.environ["PATH"]}'}
     subprocess.run(['bash', str(WRAPPER), *args], check=True, env=env)
-    return json.loads(record.read_text())
+    return [json.loads(line) for line in record.read_text().splitlines()]
+
+
+def run_with_stub_uvx(tmp_path: pathlib.Path, *args: str) -> list[str]:
+    """The arguments the wrapper passed to uvx."""
+    calls = run_with_stubs(tmp_path, *args)
+    return next(call[1:] for call in calls if call[0] == 'uvx')
+
+
+def test_the_wrapper_installs_the_tool_before_the_installer(tmp_path):
+    calls = run_with_stubs(tmp_path)
+    assert [call[0] for call in calls] == ['uv', 'uvx']
+    assert calls[0] == ['uv', 'tool', 'install', '--editable', str(REPO)]
+
+
+def test_the_wrapper_records_the_source_git_directory(tmp_path):
+    run_with_stubs(tmp_path)
+    expected = subprocess.run(
+        ['git', '-C', str(REPO), 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert (tmp_path / 'home' / '.claude' / 'auditor-source').read_text() == expected
 
 
 def test_the_wrapper_passes_the_pinned_installer_and_this_repository(tmp_path):

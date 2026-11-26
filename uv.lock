@@ -9,8 +9,8 @@ exclude-newer-span = "P14D"
 
 [[package]]
 name = "auditor"
-version = "0.1.0"
-source = { virtual = "." }
+version = "0.2.0"
+source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
