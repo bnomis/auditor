@@ -128,6 +128,7 @@ sweep audits the catalogue's rule code in exactly one root.
 
 - Depends on Task 1
 - Blocked on the last subtask, checked on 2026-11-26. `[tool.auditme] roots` cannot exclude a subdirectory: `declared_roots` in `src/auditor/core.py` rejects a root nested inside a `package` root as an overlap, and a `top-level` root finds no `check.py` in a subdirectory. A probe rule directory (`probe-rule/check.py`) was already swept by path, under the `src/auditor` root alone, so no root is skipped today; the spec asks for the exclusion form regardless. The operator decides: allow an `exclude` key in a roots entry, or accept the `src/auditor` root as the one root for the rule files
+- **Decision 2026-11-26 (decided by Claude, not yet reviewed):** accept the `src/auditor` root as the one root for the catalogue's rule files, with no `[tool.auditme] roots` entry for `src/auditor/catalogue/rules`. Spec step 9's requirement is that every rule file is audited in exactly one root, and the probe shows it already is; an `exclude` key would change the checker's root handling for no gain. In place of the declaration, add a test to `tests/catalogue/test_catalogue.py` that puts a probe `check.py` and `lister.py` under a catalogue rule directory in a fixture copy and checks that the sweep reads each exactly once, naming it by its file path, so that a later change to root handling cannot skip the rule code silently. Record this and the reason in the task's commit message, delete the probe, and tick the step 9 subtask. The decision covers only spec step 9
 
 ---
 
