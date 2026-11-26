@@ -286,7 +286,7 @@ the `auditor.testing` plugin, which is the generic helpers of
 
 ## Task 8: Add the standards SessionStart hook
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Standards hook; Tests
@@ -298,22 +298,22 @@ SessionStart hook.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/test_standards_hook.py`, covering:
+- [x] Tests first, in `tests/test_standards_hook.py`, covering:
   - a valid fixture repository prints its standards;
   - an unset variable prints the `ERROR:` line;
   - a project that has not opted in prints nothing;
   - every case exits 0
-- [ ] Write the hook, reusing the Stop hook's opt-in test
-- [ ] Add a `hooks.SessionStart[auditme-standards.sh]` append to `bin/install-claude.sh`, and extend `tests/test_install_claude.py`
+- [x] Write the hook, reusing the Stop hook's opt-in test
+- [x] Add a `hooks.SessionStart[auditme-standards.sh]` append to `bin/install-claude.sh`, and extend `tests/test_install_claude.py`
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass
+- [x] The new tests pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_standards_hook.py tests/test_install_claude.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_standards_hook.py tests/test_install_claude.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

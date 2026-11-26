@@ -39,6 +39,7 @@ def make_tools(tmp_path: pathlib.Path) -> pathlib.Path:
     return tools
 
 
+# auditme: accept[paired-sibling-helpers] each hook's test file stays self-contained, as the tests directory has no shared module
 def make_repo(tmp_path: pathlib.Path, opted_in: bool) -> pathlib.Path:
     repo = tmp_path / 'repo'
     # auditme: accept[build-name-has-side-effect] a fixture builder: making the files is its purpose

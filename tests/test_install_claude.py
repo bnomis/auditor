@@ -16,6 +16,7 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parent.parent
 WRAPPER = REPO / 'bin' / 'install-claude.sh'
 STOP_HOOK = 'hooks.Stop[auditme-stop.sh]={"hooks":[{"type":"command","command":"bash \\"$HOME/.claude/hooks/auditme-stop.sh\\""}]}'
+START_HOOK = 'hooks.SessionStart[auditme-standards.sh]={"hooks":[{"type":"command","command":"bash \\"$HOME/.claude/hooks/auditme-standards.sh\\""}]}'
 
 
 def write_recorder(path: pathlib.Path, record: pathlib.Path, label: str) -> None:
@@ -63,13 +64,19 @@ def test_the_wrapper_passes_the_pinned_installer_and_this_repository(tmp_path):
     argv = run_with_stub_uvx(tmp_path)
     assert argv[0] == '--from'
     assert re.fullmatch(r'git\+ssh://git@github\.com/bnomis/install-in-claude\.git@[0-9a-f]{40}', argv[1])
-    assert argv[2:] == ['install-in-claude', '--source', str(REPO / 'claude'), '--append', STOP_HOOK]
+    assert argv[2:] == ['install-in-claude', '--source', str(REPO / 'claude'), '--append', STOP_HOOK, '--append', START_HOOK]
 
 
 def test_the_stop_hook_value_is_the_registered_command(tmp_path):
     argv = run_with_stub_uvx(tmp_path)
     value = json.loads(argv[argv.index('--append') + 1].split('=', 1)[1])
     assert value == {'hooks': [{'type': 'command', 'command': 'bash "$HOME/.claude/hooks/auditme-stop.sh"'}]}
+
+
+def test_the_session_start_hook_value_is_the_registered_command(tmp_path):
+    argv = run_with_stub_uvx(tmp_path)
+    value = json.loads(argv[argv.index(START_HOOK)].split('=', 1)[1])
+    assert value == {'hooks': [{'type': 'command', 'command': 'bash "$HOME/.claude/hooks/auditme-standards.sh"'}]}
 
 
 def test_extra_arguments_pass_through(tmp_path):
