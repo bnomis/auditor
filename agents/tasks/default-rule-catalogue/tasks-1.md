@@ -174,7 +174,7 @@ catalogue rule, moved as the header's family task says.
 
 ## Task 4: Move the `style_and_naming` family
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** What becomes a rule directory (table-driven checks); API; Implementation 2
@@ -202,6 +202,7 @@ that lists every id it emits.
 **Notes:**
 
 - Depends on Task 3
+- Blocked on 2026-11-26, before any file moved. One helper has no `auditor.api` submodule in the spec's list: `leading_underscore_names` in `src/auditor/rules/style_and_naming.py`, which returns the `_foo` Store-names in an unpacking target. Both `underscore-unpack-target-read` and `underscore-forloop-target-read` use it, so it must be promoted (family-task step 1; copying it into both `check.py` files would be a `paired-sibling-helpers` hit). It is a target-shape helper, not a source reader, a call resolver or an `if` chain. The operator decides: put it in `auditor.api.flow` (the nearest, since `if_chain` is also an AST-shape helper), or name another submodule. No other helper in the module is shared, so nothing else blocks Task 4
 
 ---
 
