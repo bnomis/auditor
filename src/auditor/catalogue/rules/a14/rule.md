@@ -1,0 +1,1 @@
+**A14. Repeated computation per request.** For every helper function whose value is a property of the project state (HEAD SHA, primary metric, resolved config): is it called more than twice in a single request flow? Flag candidates for memoisation / single-resolution.

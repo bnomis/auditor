@@ -1,0 +1,5 @@
+kind = "question"
+title = "Wrong logger level for broad-except"
+id = "A19"
+category = "A"
+kinds = ["handler"]

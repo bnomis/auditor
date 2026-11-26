@@ -1,0 +1,3 @@
+kind = "check"
+title = "A broad except handler that logs below exception level"
+emits = ["broad-except-wrong-level"]

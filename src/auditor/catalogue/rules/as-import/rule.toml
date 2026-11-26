@@ -1,0 +1,4 @@
+kind = "check"
+title = "An import with an `as` alias, where the project bans it"
+emits = ["as-import"]
+standards = ["std-no-as-imports"]

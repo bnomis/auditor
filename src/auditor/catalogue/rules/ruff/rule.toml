@@ -1,0 +1,3 @@
+kind = "check"
+title = "Lint and format findings from ruff"
+emits = ["ruff"]

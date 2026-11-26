@@ -1,0 +1,4 @@
+kind = "question"
+id = "A14"
+category = "A"
+title = "Repeated computation per request"

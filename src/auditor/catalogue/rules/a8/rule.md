@@ -1,0 +1,1 @@
+**A8. Late dataclass mutation.** For every `@dataclass` instance constructed inside a function: is it mutated after construction (`x = Foo(...); x.field = ...`)? Flag late mutations - they bypass `__post_init__` and any `frozen=True` would have caught them.

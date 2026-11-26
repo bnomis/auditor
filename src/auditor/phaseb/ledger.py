@@ -14,15 +14,13 @@ import pathlib
 import tempfile
 import typing
 
-import auditor.phaseb.errors
+import auditor.api.base
 from auditor.phaseb.candidates import (
     Verdict,
 )  # auditme: accept[from-import] the package init imports this module while `auditor.phaseb` is not yet bound on `auditme`, so a qualified path fails at import
 
 if typing.TYPE_CHECKING:
-    from auditor.phaseb.candidates import (
-        Candidate,
-    )  # auditme: accept[from-import] same import cycle as the runtime import above
+    from auditor.api.candidates import Candidate  # auditme: accept[from-import] same import cycle as the runtime import above
 
 REQUIRED = tuple(field.name for field in dataclasses.fields(Verdict) if field.default is dataclasses.MISSING)
 
@@ -38,22 +36,22 @@ class MergeResult:
 
 def parse_verdict(record: object, where: str) -> Verdict:
     if not isinstance(record, dict):
-        raise auditor.phaseb.errors.PhaseBError(f'{where}: a verdict must be a JSON object')
+        raise auditor.api.base.PhaseBError(f'{where}: a verdict must be a JSON object')
     missing = [name for name in REQUIRED if name not in record]
     if missing:
-        raise auditor.phaseb.errors.PhaseBError(f'{where}: verdict is missing {", ".join(missing)}')
+        raise auditor.api.base.PhaseBError(f'{where}: verdict is missing {", ".join(missing)}')
     findings = record['findings']
     if not isinstance(findings, dict) or not all(isinstance(names, list) for names in findings.values()):
-        raise auditor.phaseb.errors.PhaseBError(f'{where}: findings must map each kind to a list')
+        raise auditor.api.base.PhaseBError(f'{where}: findings must map each kind to a list')
     if not isinstance(record['brief_version'], int) or isinstance(record['brief_version'], bool):
-        raise auditor.phaseb.errors.PhaseBError(f'{where}: brief_version must be an integer')
+        raise auditor.api.base.PhaseBError(f'{where}: brief_version must be an integer')
     dismissed = record.get('dismissed')
     if dismissed is not None and not isinstance(dismissed, str):
-        raise auditor.phaseb.errors.PhaseBError(f'{where}: dismissed must be a string or null')
+        raise auditor.api.base.PhaseBError(f'{where}: dismissed must be a string or null')
     try:
         return Verdict(**{field.name: record[field.name] for field in dataclasses.fields(Verdict) if field.name in record})
     except TypeError as error:
-        raise auditor.phaseb.errors.PhaseBError(f'{where}: not a valid verdict') from error
+        raise auditor.api.base.PhaseBError(f'{where}: not a valid verdict') from error
 
 
 def read_ledger(path: pathlib.Path) -> dict[str, Verdict]:
@@ -67,7 +65,7 @@ def read_ledger(path: pathlib.Path) -> dict[str, Verdict]:
     try:
         text = path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot read ledger {path}') from error
+        raise auditor.api.base.PhaseBError(f'cannot read ledger {path}') from error
     verdicts: dict[str, Verdict] = {}
     for number, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
@@ -76,7 +74,7 @@ def read_ledger(path: pathlib.Path) -> dict[str, Verdict]:
         try:
             record = json.loads(line)
         except json.JSONDecodeError as error:
-            raise auditor.phaseb.errors.PhaseBError(f'{where}: not valid JSON') from error
+            raise auditor.api.base.PhaseBError(f'{where}: not valid JSON') from error
         verdict = parse_verdict(record, where)
         verdicts[verdict.id] = verdict
     return verdicts
@@ -91,7 +89,7 @@ def discard_temporary(temporary: str) -> None:
     try:
         pathlib.Path(temporary).unlink(missing_ok=True)
     except OSError as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot remove temporary file {temporary}') from error
+        raise auditor.api.base.PhaseBError(f'cannot remove temporary file {temporary}') from error
 
 
 def write_ledger(path: pathlib.Path, verdicts: dict[str, Verdict]) -> None:
@@ -110,7 +108,7 @@ def write_ledger(path: pathlib.Path, verdicts: dict[str, Verdict]) -> None:
         os.replace(temporary, path)
         temporary = None
     except OSError as error:
-        raise auditor.phaseb.errors.PhaseBError(f'cannot write ledger {path}') from error
+        raise auditor.api.base.PhaseBError(f'cannot write ledger {path}') from error
     finally:
         if temporary is not None:
             discard_temporary(temporary)
@@ -154,7 +152,7 @@ def dismiss_verdict(ledger_path: pathlib.Path, candidate_id: str, reason: str, t
     """
     current = read_ledger(ledger_path)
     if candidate_id not in current:
-        raise auditor.phaseb.errors.PhaseBError(f'ledger {ledger_path} holds no verdict for {candidate_id!r}')
+        raise auditor.api.base.PhaseBError(f'ledger {ledger_path} holds no verdict for {candidate_id!r}')
     stamp = today or datetime.date.today().isoformat()
     dismissed = dataclasses.replace(current[candidate_id], dismissed=f'{stamp}: {reason}')
     write_ledger(ledger_path, {**current, candidate_id: dismissed})

@@ -1,0 +1,1 @@
+- **T1. Test coverage of branchy logic.** Every function with `if`/`try`/`except`/state transitions has at least one test case.

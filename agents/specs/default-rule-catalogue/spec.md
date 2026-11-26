@@ -1,7 +1,7 @@
 # Default rule catalogue
 
 **Version:** 1.0
-**Status:** approved
+**Status:** implemented
 **Date:** 2026-11-25
 
 Moves every rule the runner has today into the format of the

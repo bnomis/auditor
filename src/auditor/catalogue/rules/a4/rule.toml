@@ -1,0 +1,6 @@
+kind = "question"
+title = "Docstring `Raises` accuracy"
+id = "A4"
+category = "A"
+kinds = ["missing", "extra"]
+takes-depth = true

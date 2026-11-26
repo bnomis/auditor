@@ -1,0 +1,3 @@
+kind = "check"
+title = "A function named as pure that mutates its argument"
+emits = ["parameter-mutation-in-pure-function"]

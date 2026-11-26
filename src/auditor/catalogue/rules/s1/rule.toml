@@ -1,0 +1,4 @@
+kind = "question"
+id = "S1"
+category = "S"
+title = "Type annotations on every signature"

@@ -1,0 +1,4 @@
+kind = "question"
+id = "S3"
+category = "S"
+title = "TYPE_CHECKING block placement"

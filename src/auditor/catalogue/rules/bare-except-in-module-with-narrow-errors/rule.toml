@@ -1,0 +1,3 @@
+kind = "check"
+title = "A module that mixes broad excepts with narrow error tuples"
+emits = ["bare-except-in-module-with-narrow-errors"]

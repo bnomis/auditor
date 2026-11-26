@@ -1,0 +1,3 @@
+kind = "check"
+title = "A module-level function that only forwards to another call"
+emits = ["passthrough-shim"]

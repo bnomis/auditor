@@ -1,0 +1,1 @@
+- **T2. Property-based tests.** Domains that are well-defined (data shapes, config combinations) have hypothesis tests.

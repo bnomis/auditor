@@ -8,6 +8,7 @@ checker's module-level state around every test.
 import contextlib
 import io
 import json
+import pathlib
 import subprocess
 import textwrap
 import typing
@@ -15,10 +16,11 @@ import typing
 import pytest
 
 import auditor.core
+import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
     import collections.abc
-    import pathlib
+    import types
 
 # auditme: accept[non-alphabetical-literal] `-c` flag and value pairs, in order
 GIT_ENV_ARGS = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test']
@@ -26,6 +28,39 @@ GIT_ENV_ARGS = ['-c', 'user.email=test@example.com', '-c', 'user.name=Test']
 
 def git(repo: pathlib.Path, *args: str) -> None:
     subprocess.run(['git', *GIT_ENV_ARGS, *args], cwd=repo, check=True, capture_output=True)
+
+
+def load_entry_module(test_file: str, filename: str, rule: str | None = None) -> types.ModuleType:
+    """Return the `check.py` or `lister.py` module of the rule directory that owns a test file.
+
+    A rule's tests sit in `<repo>/rules/<rule-dir>/tests/`, and the rule
+    directory name has hyphens, so a test cannot import the entry file by name.
+    Pass `__file__`. Pass `rule` to load a sibling rule's module instead.
+    """
+    tests_dir = pathlib.Path(test_file).resolve().parent
+    rule_dir = tests_dir.parent
+    repo = auditor.rulesrepo.load(rule_dir.parent.parent)
+    wanted = rule or rule_dir.name
+    return auditor.rulesrepo.import_entry(next(entry for entry in repo.rules if entry.name == wanted), filename)
+
+
+def load_check_module(test_file: str, rule: str | None = None) -> types.ModuleType:
+    """Return the `check.py` module of the rule directory that owns a test file, or of the sibling rule `rule`."""
+    return load_entry_module(test_file, 'check.py', rule)
+
+
+def load_lister(test_file: str, rule: str | None = None) -> types.ModuleType:
+    """Return the `lister.py` module of the question directory that owns a test file, or of the sibling question `rule`.
+
+    A test that patches a name in the module calls this inside the test, so the
+    patch reaches the module the registry runs.
+    """
+    return load_entry_module(test_file, 'lister.py', rule)
+
+
+def load_check(test_file: str, rule: str | None = None) -> collections.abc.Callable[[pathlib.Path, pathlib.Path], None]:
+    """Return the `check` function of the rule directory that owns a test file, or of the sibling rule `rule`."""
+    return load_check_module(test_file, rule).check
 
 
 @pytest.fixture(autouse=True)

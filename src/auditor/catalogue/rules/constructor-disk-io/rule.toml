@@ -1,0 +1,3 @@
+kind = "check"
+title = "Disk I/O inside a constructor"
+emits = ["constructor-disk-io"]

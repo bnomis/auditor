@@ -1,0 +1,3 @@
+kind = "check"
+title = "A mutable module-level container read from another module"
+emits = ["mutable-module-level-exported"]

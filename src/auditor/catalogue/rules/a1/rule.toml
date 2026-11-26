@@ -1,0 +1,5 @@
+kind = "question"
+title = "External call envelope"
+id = "A1"
+category = "A"
+kinds = ["call"]

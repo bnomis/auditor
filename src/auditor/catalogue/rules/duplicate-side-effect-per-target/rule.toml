@@ -1,0 +1,3 @@
+kind = "check"
+title = "Two methods of a class sink to the same attribute target"
+emits = ["duplicate-side-effect-per-target"]

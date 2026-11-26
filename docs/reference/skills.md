@@ -32,8 +32,8 @@ file path, a spec slug, or the docs. `--category` (`standards`,
   candidates; a sampled question runs on the lines changed since the previous
   review, each widened to its enclosing function, and on the whole tree every third audit and on any audit with no previous
   `**Commit:**`), then a spec review and re-verification of earlier findings.
-- **Refuses to start** while `claude/skills/auditme/requests.md` has open
-  checker change requests.
+- **Refuses to start** while `auditor rules pending` reports open
+  change requests in the rules repository's `TODO.md`.
 - **Writes:** `agents/audit-reviews/review-N.md`,
   `agents/audit-reviews/summary.md`, `agents/audit-reviews/index.md`, the Phase B
   ledger (`agents/audit-reviews/ledger/<question>.jsonl`), and

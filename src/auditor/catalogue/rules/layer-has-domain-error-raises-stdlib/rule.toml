@@ -1,0 +1,3 @@
+kind = "check"
+title = "A stdlib raise in a package that defines a domain error"
+emits = ["layer-has-domain-error-raises-stdlib"]

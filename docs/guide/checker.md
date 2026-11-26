@@ -305,7 +305,7 @@ Emitted by `auditor check` itself, not by a registered check.
 | `as-import` | `import X as Y` or `from M import X as Y` (*gated*) |
 | `from-import` | `from X import Y` outside an `__init__.py` |
 
-### `project_hygiene.py`
+### Project hygiene
 
 | Rule id | Reports |
 |---|---|

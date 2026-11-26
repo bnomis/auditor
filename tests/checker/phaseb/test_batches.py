@@ -11,7 +11,7 @@ import auditor.phaseb.batches
 import auditor.phaseb.candidates
 
 
-def candidate_names(plan: list[list[auditor.phaseb.candidates.Candidate]]) -> list[list[str]]:
+def candidate_names(plan: list[list[auditor.api.candidates.Candidate]]) -> list[list[str]]:
     return [[candidate.id.split('::')[1] for candidate in batch] for batch in plan]
 
 
@@ -78,7 +78,7 @@ def test_plan_json_and_batch_files(tmp_path: pathlib.Path) -> None:
     assert document['question'] == 'Q1'
     assert document['brief'] == 'briefs/Q1.md'
     assert document['brief_version'] == 3
-    assert document['depth'] == auditor.phaseb.candidates.DEFAULT_DEPTH
+    assert document['depth'] == auditor.api.candidates.DEFAULT_DEPTH
     assert document['batches'] == [
         ['src/pkg/mod.py::a', 'src/pkg/mod.py::b'],
         ['src/pkg/mod.py::c'],

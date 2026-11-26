@@ -1,0 +1,3 @@
+kind = "check"
+title = "A build or compute function that reads the clock or runs a process"
+emits = ["build-name-has-side-effect"]

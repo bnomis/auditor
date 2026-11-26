@@ -11,6 +11,7 @@ zero unaccepted hits.
 
 import collections.abc
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -18,12 +19,27 @@ import sys
 import pytest
 
 import auditor.core
-import auditor.registry
+import auditor.rulesrepo
 import auditor.sweep
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
 AUDITOR = pathlib.Path(sys.executable).parent / 'auditor'
+
+
+def use_checks(
+    monkeypatch: pytest.MonkeyPatch,
+    checks: tuple[collections.abc.Callable[[pathlib.Path, pathlib.Path], None], ...],
+    project_checks: tuple[collections.abc.Callable[[pathlib.Path, pathlib.Path], None], ...] = (),
+) -> None:
+    """Make the sweep run these checks, not the rules repository's, with the repository's rule ids."""
+    rule_ids = auditor.sweep.make_plan().rule_ids
+    plan = auditor.sweep.Plan(
+        project_checks=tuple((check.__name__, check) for check in project_checks),
+        checks=tuple((check.__name__, check) for check in checks),
+        rule_ids=rule_ids,
+    )
+    monkeypatch.setattr(auditor.sweep, 'make_plan', lambda: plan)
 
 
 def test_every_package_under_src_is_discovered(project: Builder) -> None:
@@ -116,8 +132,7 @@ def test_a_project_with_no_root_runs_only_the_project_level_checks_once(
         calls.append('project')
         auditor.core.emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (per_root_check,))
-    monkeypatch.setattr(auditor.registry, 'PROJECT_CHECKS', (project_level_check,))
+    use_checks(monkeypatch, (per_root_check,), (project_level_check,))
     root = project({'docs/index.md': '# Notes\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -134,8 +149,7 @@ def test_a_crashing_project_level_check_with_no_root_is_reported(
     def exploding_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         raise RuntimeError('predicate is broken')
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', ())
-    monkeypatch.setattr(auditor.registry, 'PROJECT_CHECKS', (exploding_check,))
+    use_checks(monkeypatch, (), (exploding_check,))
     root = project({'docs/index.md': '# Notes\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -146,8 +160,13 @@ def test_a_crashing_project_level_check_with_no_root_is_reported(
 
 def test_the_project_level_checks_are_not_per_root_checks() -> None:
     """A per-root pass would repeat a check that reads only the project."""
-    assert {check.__name__ for check in auditor.registry.PROJECT_CHECKS} == {'check_lockfile', 'check_ruff_version', 'check_spec_api_signature_drift'}
-    assert not set(auditor.registry.PROJECT_CHECKS) & set(auditor.registry.CHECKS)
+    plan = auditor.sweep.make_plan()
+    assert {label for label, _ in plan.project_checks} == {
+        'rules/lockfile-drift/check.py',
+        'rules/ruff-version-drift/check.py',
+        'rules/spec-api-signature-drift/check.py',
+    }
+    assert not {label for label, _ in plan.project_checks} & {label for label, _ in plan.checks}
 
 
 def test_with_three_roots_each_project_level_check_runs_once(
@@ -162,8 +181,7 @@ def test_with_three_roots_each_project_level_check_runs_once(
     def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         calls.append('project')
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (per_root_check,))
-    monkeypatch.setattr(auditor.registry, 'PROJECT_CHECKS', (project_level_check,))
+    use_checks(monkeypatch, (per_root_check,), (project_level_check,))
     root = project({'src/a/m.py': 'x = 1\n', 'src/b/m.py': 'x = 1\n', 'src/c/m.py': 'x = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -289,7 +307,7 @@ def test_a_crashing_check_is_reported_and_the_sweep_continues(
     def working_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         auditor.core.emit(rule='probe', variant='v', path='src/probe/mod.py', line=1, evidence='x', accepted=False, accepted_reason=None)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (exploding_check, working_check))
+    use_checks(monkeypatch, (exploding_check, working_check))
     root = project({'src/probe/mod.py': 'x = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -311,7 +329,7 @@ def test_a_project_level_hit_is_reported_once_per_project_not_once_per_package(
     def project_level_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         auditor.core.emit(rule='lockfile-drift', variant='stale', path='uv.lock', line=None, evidence='x', accepted=False, accepted_reason=None)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (project_level_check,))
+    use_checks(monkeypatch, (project_level_check,))
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -331,7 +349,7 @@ def test_each_package_is_audited_in_its_own_pass(
     def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         seen.append(src_root.name)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (recording_check,))
+    use_checks(monkeypatch, (recording_check,))
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -350,7 +368,7 @@ def test_the_package_flag_restricts_the_sweep_to_one_package(
     def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         seen.append(src_root.name)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (recording_check,))
+    use_checks(monkeypatch, (recording_check,))
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--package', 'probe'])
 
@@ -370,7 +388,7 @@ def test_the_default_sweep_covers_the_script_root_after_the_packages(
     def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         seen.append(src_root.name)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (recording_check,))
+    use_checks(monkeypatch, (recording_check,))
     root = project({'src/probe/mod.py': 'x = 1\n', 'src/tests/test_mod.py': 'y = 1\n', 'bin/report.py': 'z = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -389,7 +407,7 @@ def test_the_extra_root_flag_replaces_the_default_script_root(
     def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         seen.append(src_root.name)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (recording_check,))
+    use_checks(monkeypatch, (recording_check,))
     root = project({'src/probe/mod.py': 'x = 1\n', 'bin/report.py': 'y = 1\n', 'scripts/tidy.py': 'z = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--extra-root', 'scripts'])
 
@@ -443,7 +461,7 @@ def test_the_package_flag_drops_the_script_root_too(
     def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         seen.append(src_root.name)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (recording_check,))
+    use_checks(monkeypatch, (recording_check,))
     root = project({'src/probe/mod.py': 'x = 1\n', 'bin/report.py': 'y = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--package', 'probe'])
 
@@ -491,7 +509,10 @@ def test_the_shipped_entry_point_emits_parseable_jsonl(project: Builder) -> None
         capture_output=True,
         text=True,
         cwd=str(root),
-        env={'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin'},
+        env={
+            'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin',
+            auditor.rulesrepo.RULES_PATH_VARIABLE: os.environ[auditor.rulesrepo.RULES_PATH_VARIABLE],
+        },
     )
     assert result.returncode == 0, result.stderr
     records = [json.loads(line) for line in result.stdout.splitlines()]
@@ -527,7 +548,7 @@ def test_a_declared_list_is_swept_and_src_is_not(
     def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         seen.append(src_root.name)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (recording_check,))
+    use_checks(monkeypatch, (recording_check,))
     root = project({'pyproject.toml': DECLARED, 'tools/run.py': 'x = 1\n', 'src/probe/mod.py': 'y = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -571,7 +592,7 @@ def test_a_missing_first_party_entry_exits_2_before_any_hit_is_printed(
     def hitting_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         auditor.core.emit(rule='probe', variant='v', path='x.py', line=1, evidence='e', accepted=False, accepted_reason=None)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (hitting_check,))
+    use_checks(monkeypatch, (hitting_check,))
     root = project({'pyproject.toml': '[tool.auditme]\nfirst-party = ["../lib/src/lib"]\n', 'src/probe/mod.py': 'x = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -591,7 +612,7 @@ def test_the_extra_root_flag_overrides_the_declaration(
     def recording_check(scope: pathlib.Path, src_root: pathlib.Path) -> None:
         seen.append(src_root.name)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (recording_check,))
+    use_checks(monkeypatch, (recording_check,))
     root = project({'pyproject.toml': DECLARED, 'tools/run.py': 'x = 1\n', 'scripts/tidy.py': 'y = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root), '--extra-root', 'scripts'])
 
@@ -609,7 +630,7 @@ def test_a_top_level_root_names_its_files_by_path(
         for path in auditor.core.all_py_files(src_root):
             auditor.core.emit(rule='probe', variant='v', path=path.relative_to(scope).as_posix(), line=1, evidence='e', accepted=False, accepted_reason=None)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (hitting_check,))
+    use_checks(monkeypatch, (hitting_check,))
     root = project({'pyproject.toml': DECLARED, 'tools/run.py': 'x = 1\n', 'tools/sub/m.py': 'y = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -646,7 +667,7 @@ def test_a_file_removed_between_listing_and_reading_is_an_unreadable_hit(
             if auditor.core.read_and_parse(path) is not None:
                 auditor.core.emit(rule='probe', variant='v', path=path.name, line=1, evidence='x', accepted=False, accepted_reason=None)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (reading_check,))
+    use_checks(monkeypatch, (reading_check,))
     root = project({'src/probe/a_gone.py': 'x = 1\n', 'src/probe/gone.py': 'x = 1\n', 'src/probe/ok.py': 'y = 1\n'})
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
@@ -671,7 +692,7 @@ def test_a_file_with_bad_bytes_is_an_unreadable_hit(
         for path in auditor.core.all_py_files(src_root):
             auditor.core.read_and_parse(path)
 
-    monkeypatch.setattr(auditor.registry, 'CHECKS', (reading_check,))
+    use_checks(monkeypatch, (reading_check,))
     monkeypatch.setattr(sys, 'argv', ['audit.py', str(root)])
 
     assert auditor.sweep.main() == 0

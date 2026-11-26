@@ -1,0 +1,3 @@
+kind = "check"
+title = "A public entry point that touches the filesystem outside any try"
+emits = ["filesystem-op-without-envelope"]

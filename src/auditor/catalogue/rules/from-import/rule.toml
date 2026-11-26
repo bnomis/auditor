@@ -1,0 +1,3 @@
+kind = "check"
+title = "A from-import outside an __init__.py"
+emits = ["from-import"]

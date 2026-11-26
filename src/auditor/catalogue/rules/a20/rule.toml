@@ -1,0 +1,4 @@
+kind = "question"
+id = "A20"
+category = "A"
+title = "Mutable module-level singleton"

@@ -11,6 +11,9 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-26.04
+    # The runner holds no rules: it loads this repository's catalogue.
+    env:
+      AUDITOR_RULES_PATH: src/auditor/catalogue
     steps:
       - uses: actions/checkout@v7.0.1
         with:

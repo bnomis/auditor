@@ -1,0 +1,1 @@
+**A3. Domain-error layering.** For every `raise` statement: is the raised type the package's domain `*Error` (or a `*Error` from a strictly lower layer)? Flag stdlib `FileNotFoundError`/`KeyError`/`RuntimeError`/`TypeError`/`ValueError` raised in a package that defines its own `*Error` class.

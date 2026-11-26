@@ -1,0 +1,3 @@
+kind = "check"
+title = "A source line that matches a text pattern"
+emits = ["aliased-imports", "future-annotations", "leading-underscore-attribute-access", "leading-underscore-const-lower", "leading-underscore-const-upper", "leading-underscore-def-class", "leading-underscore-self", "legacy-formatting-format", "legacy-typing", "relative-import-nonpackage", "stdlib-logging", "wildcard-imports"]

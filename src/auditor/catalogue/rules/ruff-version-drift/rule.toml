@@ -1,0 +1,3 @@
+kind = "project-check"
+title = "The audit ruff differs from the pre-commit pin"
+emits = ["ruff-version-drift"]

@@ -1,0 +1,4 @@
+kind = "question"
+id = "A23"
+category = "A"
+title = "Discarded multi-return"

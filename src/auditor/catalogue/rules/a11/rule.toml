@@ -1,0 +1,5 @@
+kind = "question"
+title = "Exhaustion via assert_never"
+id = "A11"
+category = "A"
+kinds = ["unexhausted"]

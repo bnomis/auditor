@@ -1,0 +1,3 @@
+kind = "check"
+title = "A helper whose every caller translates its exceptions"
+emits = ["asymmetric-exception-translation"]

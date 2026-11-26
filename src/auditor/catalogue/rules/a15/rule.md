@@ -1,0 +1,1 @@
+**A15. Duplicate constructor / serialisation logic.** For every class whose constructor is called from 2+ sites with substantially the same field set: is the construction factored into one helper? Flag duplicated assembly that would silently drift on field addition.

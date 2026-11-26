@@ -1,0 +1,4 @@
+kind = "question"
+id = "A25"
+category = "A"
+title = "Shallow immutable wrapper"

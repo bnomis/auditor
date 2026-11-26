@@ -1,0 +1,3 @@
+kind = "check"
+title = "A numbered Phase or Section reference in a docstring or comment"
+emits = ["phase-section-doc-reference"]

@@ -1,0 +1,4 @@
+kind = "question"
+id = "A13"
+category = "A"
+title = "Same value to multiple structural slots"

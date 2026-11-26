@@ -29,7 +29,7 @@ import sys
 import typing
 
 import auditor.core
-import auditor.rules.project_hygiene
+import auditor.hygiene
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -217,7 +217,7 @@ def reportable(path: str) -> bool:
         return True
     if pure.suffix == '.md':
         dirs = pure.parts[:-1]
-        return not (auditor.rules.project_hygiene.SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs))
+        return not (auditor.hygiene.SPEC_SKIP_PARTS & set(dirs) or any(part.startswith('.') for part in dirs))
     return False
 
 

@@ -1,0 +1,3 @@
+kind = "check"
+title = "A translating envelope whose except tuple omits an error its call raises"
+emits = ["translator-envelope-gap"]

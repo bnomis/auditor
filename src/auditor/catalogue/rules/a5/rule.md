@@ -1,0 +1,1 @@
+**A5. Two sources of truth.** For every state value that has both a config field and a method parameter (or two attributes that should always agree): is the precedence rule documented and enforced? Flag silent precedence (whichever path wins by coincidence of execution order).

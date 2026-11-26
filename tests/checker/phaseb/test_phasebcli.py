@@ -292,6 +292,7 @@ def plan_in_process(monkeypatch: pytest.MonkeyPatch, root: pathlib.Path, out: pa
     """Run `phaseb.py plan` in this process for a question registered with a batch size of 1."""
     lister, brief, _ = auditor.phaseb.candidates.REGISTRY['A4']
     monkeypatch.setitem(auditor.phaseb.candidates.REGISTRY, 'A4', (lister, brief, 1))
+    monkeypatch.setattr(auditor.phaseb.candidates, 'use_rules_repository', lambda: None)  # keep the patched registration
     monkeypatch.setattr(sys, 'argv', ['phaseb.py', 'plan', str(root), '--question', 'A4', '--out', str(out), *extra])
     assert auditor.phasebcli.main() == 0
     return json.loads((out / 'plan.json').read_text(encoding='utf-8'))['batches']

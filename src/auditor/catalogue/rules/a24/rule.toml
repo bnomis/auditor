@@ -1,0 +1,4 @@
+kind = "question"
+id = "A24"
+category = "A"
+title = "Identity of subprocess / shell-out calls"

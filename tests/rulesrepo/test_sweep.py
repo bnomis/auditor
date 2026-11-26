@@ -120,9 +120,7 @@ def test_an_invalid_repository_is_an_error_with_nothing_on_stdout(
     assert err.startswith('ERROR: auditor-rules.toml: file not found')
 
 
-def test_an_empty_variable_is_an_error_not_the_builtin_registry(
-    scope: pathlib.Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_an_empty_variable_is_an_error(scope: pathlib.Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(auditor.rulesrepo.RULES_PATH_VARIABLE, '')
     code = auditor.sweep.main([str(scope)])
     captured = capsys.readouterr()
@@ -131,10 +129,11 @@ def test_an_empty_variable_is_an_error_not_the_builtin_registry(
     assert captured.err.startswith(f'ERROR: {auditor.rulesrepo.RULES_PATH_VARIABLE} is not set')
 
 
-def test_an_unset_variable_runs_the_builtin_registry(scope: pathlib.Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unset_variable_is_an_error(scope: pathlib.Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
     code, hits, err = sweep(scope, capsys, monkeypatch, None)
-    assert code == 0, err
-    assert not any(hit['rule'].startswith('fixture-') for hit in hits)
+    assert code == 2
+    assert hits == []
+    assert err.startswith(f'ERROR: {auditor.rulesrepo.RULES_PATH_VARIABLE} is not set')
 
 
 def test_a_missing_entry_function_is_an_error(tmp_path: pathlib.Path) -> None:

@@ -306,8 +306,34 @@ export AUDITOR_RULES_PATH=/absolute/path/to/your/rules-repository
 
 Then run `direnv allow` and check it with `auditor rules list`. The repository
 is trusted code: the runner imports and runs it (see
-[How it works](concepts.md#rules-repositories-and-trust)). Until the variable
-is set, the built-in rules run.
+[How it works](concepts.md#rules-repositories-and-trust)). The runner holds no
+rules of its own: while the variable is unset, every command exits 2 with
+`ERROR: AUDITOR_RULES_PATH is not set`.
+
+### Upgrading a project that pins the hooks
+
+Releases before 0.3.0 ran built-in rules when the variable was unset. From
+0.3.0 the same rules ship as the default catalogue, `src/auditor/catalogue`,
+and a project must name a rules repository. To keep the previous behaviour:
+
+1. Create a rules repository: `auditor rules init <dir>` (see
+   [the CLI reference](reference/cli.md)). To start from the default rules,
+   copy `src/auditor/catalogue` from this repository into it.
+2. Add the variable to the project's `.envrc`, then run `direnv allow`:
+
+   ```shell
+   export AUDITOR_RULES_PATH=/absolute/path/to/your/rules-repository
+   ```
+
+3. Set it in CI, in the job that runs the audit hooks:
+
+   ```yaml
+   env:
+     AUDITOR_RULES_PATH: ${{ github.workspace }}/rules-repository
+   ```
+
+   The CI job must have the rules repository checked out at that path.
+4. Check it: `auditor rules list` exits 0 and lists the rules.
 
 ## Troubleshooting
 

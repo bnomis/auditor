@@ -1,0 +1,4 @@
+kind = "check"
+title = "A leading-underscore loop target read inside the loop"
+emits = ["underscore-forloop-target-read"]
+standards = ["std-no-leading-underscores"]

@@ -1,0 +1,3 @@
+kind = "check"
+title = "A function named as a query that does I/O"
+emits = ["pure-name-has-side-effect"]

@@ -5,7 +5,7 @@ hooks that projects pin to run it, the `no-project-names` pre-commit hook
 (published here, independent of the checker), the Claude Code Stop hook that
 runs it before a turn ends, and the `/auditme-project-setup` skill that adopts the
 hooks in a project, with the Python rules the checker enforces
-(`claude/rules/auditme/`). `bin/install-claude.sh` links the skills, the rules
+(`src/auditor/catalogue/rules/std-*/`). `bin/install-claude.sh` links the skills
 and the Stop hook into `~/.claude/`; the other shared rules and skills come
 from the agents repository (`bnomis/agents`). The setup guide, from a new machine to a project
 with working guards, is [docs/setup.md](docs/setup.md); the docs site is
