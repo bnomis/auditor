@@ -233,7 +233,7 @@ longer exists.
 
 ## Task 6: Prove equivalence and close the spec
 
-**Status:** in-progress
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation (Equivalence); Tests
@@ -244,21 +244,21 @@ spec is closed.
 **Subtasks:**
 
 - [x] `uv run auditor check . > "$BASELINE/sweep-after.jsonl"`, then compare it with `$BASELINE/sweep.jsonl`. Ignore paths that the move changed. To do so, map each path in the old file through the moves of Task 2 before comparing. Any other difference stops the task as `blocked`, naming the hit
-- [ ] Do the same for each `auditor phaseb candidates --question <Q> .` and for `auditor changed --all .`, including the exit statuses
-- [ ] Set `version = "0.2.0"` in `pyproject.toml` (the bump is made at the list's last task, against `main`, so that the order's lists merge cleanly)
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/auditor-cli/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
+- [x] Do the same for each `auditor phaseb candidates --question <Q> .` and for `auditor changed --all .`, including the exit statuses
+- [x] Set `version = "0.2.0"` in `pyproject.toml` (the bump is made at the list's last task, against `main`, so that the order's lists merge cleanly)
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/auditor-cli/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 
-- [ ] Every comparison matches after the path mapping
+- [x] Every comparison matches after the path mapping
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 

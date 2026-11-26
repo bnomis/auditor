@@ -1,7 +1,7 @@
 # Auditor CLI
 
 **Version:** 1.0
-**Status:** approved
+**Status:** implemented
 **Date:** 2026-11-25
 
 Turns the auditme checker from scripts run by path
