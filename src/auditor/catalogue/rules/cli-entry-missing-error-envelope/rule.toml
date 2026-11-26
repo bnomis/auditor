@@ -1,0 +1,3 @@
+kind = "check"
+title = "A CLI entry point with no error envelope beside siblings that have one"
+emits = ["cli-entry-missing-error-envelope"]

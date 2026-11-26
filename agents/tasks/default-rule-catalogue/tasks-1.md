@@ -283,7 +283,7 @@ a catalogue rule.
 
 ## Task 7: Move the first half of the `error_handling` family
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** large
 **Spec Reference:** What becomes a rule directory; API (`auditor.api.errors`); Implementation 2
@@ -294,22 +294,26 @@ including the middle one.
 
 **Subtasks:**
 
-- [ ] Move each check as a family task (see the header). `class_lineage`, `package_class_parents`, `is_broad_handler`, `raises_section_names`, `translator_envelopes` and `callable_short_name` go to `auditor.api.errors` or `auditor.api.calls`, as the spec lists them
+- [x] Move each check as a family task (see the header). `class_lineage`, `package_class_parents`, `is_broad_handler`, `raises_section_names`, `translator_envelopes` and `callable_short_name` go to `auditor.api.errors` or `auditor.api.calls`, as the spec lists them
 
 **Acceptance Criteria:**
 
-- [ ] As Task 3, and the A1, A4 and A19 candidates match the baseline
+- [x] As Task 3, and the A1, A4 and A19 candidates match the baseline
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
-- [ ] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 6
 - Split in two because the module is the largest family
+- Done on 2026-11-26. The module holds twenty checks, so the first half is the first ten in `CHECKS` order: `silent-broad-except` to `inconsistent-error-translation`. They moved to `src/auditor/catalogue/rules/`, one directory per rule id, with their tests; Task 8 moves the other ten
+- The shared handler helpers (`is_broad_handler`, `translator_envelopes`, `callable_short_name`, `package_class_parents`, `class_lineage`, `raises_section_names` and the filesystem-call sets) live in the runner module `src/auditor/errorsites.py`, so the listers and the checks not yet moved read them without a check function; `auditor.api.errors` publishes them. The A19 lister builds its `silent-broad-except` and `broad-except-wrong-level` hit capture from two site finders in that module
+- The tests of those helpers stay in `tests/checker/test_error_handling.py`, pointed at `auditor.api.errors`. The sibling-errors test that counts `all_py_files` calls patches `auditor.api` instead of `auditor.core`, because the rule reads the file list through the API; its expectation is unchanged
+- The A1, A4 and A19 candidates have the baseline's ids
 
 ---
 

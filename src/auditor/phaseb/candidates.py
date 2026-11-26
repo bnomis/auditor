@@ -14,10 +14,10 @@ import tomllib
 import typing
 
 import auditor.core
+import auditor.errorsites
 import auditor.phaseb.docrefs
 import auditor.phaseb.errors
 import auditor.phaseb.testmap
-import auditor.rules.error_handling
 import auditor.rules.project_hygiene
 import auditor.rulesrepo
 
@@ -394,7 +394,7 @@ def root_candidates(scope: pathlib.Path, src_root: pathlib.Path, depth: int) -> 
     found: list[Candidate] = []
     for site in sites:
         doc = ast.get_docstring(site.node) or ''
-        if 'Raises:' not in doc or is_stub(site.node) or not auditor.rules.error_handling.raises_section_names(doc):
+        if 'Raises:' not in doc or is_stub(site.node) or not auditor.errorsites.raises_section_names(doc):
             continue
         callees = reach(site)
         unresolved = [

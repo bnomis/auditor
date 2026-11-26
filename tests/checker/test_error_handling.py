@@ -13,6 +13,7 @@ import hypothesis
 import hypothesis.strategies
 import pytest
 
+import auditor.api.errors
 import auditor.core
 import auditor.rules.error_handling
 
@@ -20,16 +21,6 @@ Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
 
 CATCHING_HANDLERS = ['except Exception:', 'except probe.errors.ParseError:', 'except probe.errors.ProbeError:', 'except:']
-SILENT_BROAD = auditor.rules.error_handling.check_silent_broad_except
-INTERPOLATION = auditor.rules.error_handling.check_except_interpolation
-WRONG_LEVEL = auditor.rules.error_handling.check_broad_except_wrong_level
-MIXED_RAISE = auditor.rules.error_handling.check_mixed_raise_types
-ASYMMETRIC = auditor.rules.error_handling.check_asymmetric_exception_translation
-SIBLING_ERRORS = auditor.rules.error_handling.check_sibling_error_no_common_base
-CLI_ENVELOPE = auditor.rules.error_handling.check_cli_entry_missing_error_envelope
-TRY_WITH = auditor.rules.error_handling.check_try_wrapping_with_too_broad
-STDLIB_RAISE = auditor.rules.error_handling.check_layer_has_domain_error_but_raises_stdlib
-INCONSISTENT = auditor.rules.error_handling.check_inconsistent_error_translation
 FS_ENVELOPE_GAP = auditor.rules.error_handling.check_filesystem_envelope_gap
 FS_NO_ENVELOPE = auditor.rules.error_handling.check_filesystem_op_without_envelope
 GRACEFUL = auditor.rules.error_handling.check_logger_exception_graceful_degradation
@@ -39,593 +30,6 @@ RAISES_DRIFT = auditor.rules.error_handling.check_raises_section_drift
 MIXED_EXCEPT = auditor.rules.error_handling.check_bare_except_in_module_with_narrow_errors
 FAILURE_AS_ABSENCE = auditor.rules.error_handling.check_failure_as_absence
 TRANSLATOR_GAP = auditor.rules.error_handling.check_translator_envelope_gap
-
-
-# --------------------------------------------------------------------------
-# check_silent_broad_except
-# --------------------------------------------------------------------------
-
-
-def test_a_broad_except_that_neither_logs_nor_raises_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except Exception:
-                    pass
-            """
-        }
-    )
-    hits = run_check(SILENT_BROAD, root)
-    assert [(hit['rule'], hit['line']) for hit in hits] == [('silent-broad-except', 7)]
-
-
-def test_a_broad_except_that_logs_is_not_silent(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import loguru
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except Exception:
-                    loguru.logger.exception('failed')
-            """
-        }
-    )
-    assert run_check(SILENT_BROAD, root) == []
-
-
-def test_a_narrow_except_is_out_of_scope(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except OSError:
-                    pass
-            """
-        }
-    )
-    assert run_check(SILENT_BROAD, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_except_interpolation
-# --------------------------------------------------------------------------
-
-
-def test_interpolating_the_caught_exception_into_a_message_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except ValueError as exc:
-                    raise probe.core.ProbeError(f'could not run: {exc}') from exc
-            """
-        }
-    )
-    hits = run_check(INTERPOLATION, root)
-    assert [(hit['rule'], hit['variant']) for hit in hits] == [('except-interpolation', 'f-string interpolates caught exception')]
-
-
-def test_passing_the_exception_as_a_logger_positional_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import loguru
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except ValueError as exc:
-                    loguru.logger.error(exc)
-            """
-        }
-    )
-    hits = run_check(INTERPOLATION, root)
-    assert [hit['variant'] for hit in hits] == ['logger positional arg is caught exception']
-
-
-def test_the_class_name_of_the_exception_is_a_categorical_hint(project: Builder, run_check: Runner) -> None:
-    """Documented refinement: `type(exc).__name__` exposes the class
-    string, not a lossy copy of the message body."""
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except ValueError as exc:
-                    raise probe.core.ProbeError(f'could not run: {type(exc).__name__}') from exc
-            """
-        }
-    )
-    assert run_check(INTERPOLATION, root) == []
-
-
-def test_the_dunder_class_qualname_form_is_also_categorical(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except ValueError as exc:
-                    raise probe.core.ProbeError(f'could not run: {exc.__class__.__qualname__}') from exc
-            """
-        }
-    )
-    assert run_check(INTERPOLATION, root) == []
-
-
-def test_an_unbound_handler_has_nothing_to_interpolate(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except ValueError:
-                    raise probe.core.ProbeError('could not run')
-            """
-        }
-    )
-    assert run_check(INTERPOLATION, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_broad_except_wrong_level
-# --------------------------------------------------------------------------
-
-
-def test_a_broad_except_logging_at_warning_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import loguru
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except Exception:
-                    loguru.logger.warning('failed')
-            """
-        }
-    )
-    hits = run_check(WRONG_LEVEL, root)
-    assert [hit['rule'] for hit in hits] == ['broad-except-wrong-level']
-
-
-def test_a_broad_except_logging_at_exception_is_correct(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import loguru
-            import probe.core
-
-
-            def run() -> None:
-                try:
-                    probe.core.risky()
-                except Exception:
-                    loguru.logger.exception('failed')
-            """
-        }
-    )
-    assert run_check(WRONG_LEVEL, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_mixed_raise_types
-# --------------------------------------------------------------------------
-
-
-def test_a_function_mixing_stdlib_and_project_errors_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.errors
-
-
-            def check(value: int) -> int:
-                if value < 0:
-                    raise ValueError('negative')
-                if value > 10:
-                    raise probe.errors.ProbeError('too large')
-                return value
-            """
-        }
-    )
-    hits = run_check(MIXED_RAISE, root)
-    assert [hit['rule'] for hit in hits] == ['mixed-raise-types']
-    assert "['ValueError']" in hits[0]['variant']
-
-
-def test_a_function_raising_only_project_errors_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.errors
-
-
-            def check(value: int) -> int:
-                if value < 0:
-                    raise probe.errors.RangeError('negative')
-                if value > 10:
-                    raise probe.errors.ProbeError('too large')
-                return value
-            """
-        }
-    )
-    assert run_check(MIXED_RAISE, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_asymmetric_exception_translation
-# --------------------------------------------------------------------------
-
-
-ASYMMETRIC_HELPER = 'import pathlib\n\n\ndef setup_experiment(name: str) -> int:\n    return len(pathlib.Path(name).read_text())\n'
-
-WRAPPED_CALLER = """
-import probe.errors
-import probe.helper
-
-
-def {name}(label: str) -> int:
-    try:
-        return probe.helper.setup_experiment(label)
-    except Exception as exc:
-        raise probe.errors.ProbeError('setup failed') from exc
-"""
-
-
-def test_a_helper_every_caller_wraps_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/helper.py': ASYMMETRIC_HELPER,
-            'src/probe/a.py': WRAPPED_CALLER.format(name='run_a'),
-            'src/probe/b.py': WRAPPED_CALLER.format(name='run_b'),
-        }
-    )
-    hits = run_check(ASYMMETRIC, root)
-    assert [(hit['rule'], hit['path']) for hit in hits] == [('asymmetric-exception-translation', 'src/probe/helper.py')]
-    assert 'all 2 callers wrap it' in hits[0]['variant']
-    assert hits[0]['related'] == ['src/probe/a.py', 'src/probe/b.py']
-
-
-def test_one_unwrapped_caller_makes_the_contract_symmetric_enough(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/helper.py': ASYMMETRIC_HELPER,
-            'src/probe/a.py': WRAPPED_CALLER.format(name='run_a'),
-            'src/probe/b.py': 'import probe.helper\n\n\ndef run_b(label: str) -> int:\n    return probe.helper.setup_experiment(label)\n',
-        }
-    )
-    assert run_check(ASYMMETRIC, root) == []
-
-
-def test_a_helper_of_pure_string_work_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/helper.py': 'def setup_experiment(name: str) -> int:\n    return len(name)\n',
-            'src/probe/a.py': WRAPPED_CALLER.format(name='run_a'),
-            'src/probe/b.py': WRAPPED_CALLER.format(name='run_b'),
-        }
-    )
-    assert run_check(ASYMMETRIC, root) == []
-
-
-def test_a_helper_that_translates_through_a_same_module_function_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/helper.py': """
-            import pathlib
-
-            import probe.errors
-
-
-            def read_guarded(name: str) -> str:
-                try:
-                    return pathlib.Path(name).read_text()
-                except OSError as exc:
-                    raise probe.errors.ProbeError('read failed') from exc
-
-
-            def setup_experiment(name: str) -> int:
-                return len(read_guarded(name))
-            """,
-            'src/probe/a.py': WRAPPED_CALLER.format(name='run_a'),
-            'src/probe/b.py': WRAPPED_CALLER.format(name='run_b'),
-        }
-    )
-    assert run_check(ASYMMETRIC, root) == []
-
-
-def test_a_helper_that_holds_its_own_envelope_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/helper.py': """
-            import probe.errors
-
-
-            def setup_experiment(name: str) -> int:
-                try:
-                    return len(name)
-                except Exception as exc:
-                    raise probe.errors.ProbeError('setup failed') from exc
-            """,
-            'src/probe/a.py': WRAPPED_CALLER.format(name='run_a'),
-            'src/probe/b.py': WRAPPED_CALLER.format(name='run_b'),
-        }
-    )
-    assert run_check(ASYMMETRIC, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_sibling_error_no_common_base
-# --------------------------------------------------------------------------
-
-
-def test_two_error_classes_with_no_shared_parent_are_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project({'src/probe/errors.py': 'class AlphaError(Exception):\n    pass\n\n\nclass BetaError(Exception):\n    pass\n'})
-    hits = run_check(SIBLING_ERRORS, root)
-    assert [hit['rule'] for hit in hits] == ['sibling-errors-no-common-base']
-    assert 'AlphaError' in hits[0]['evidence']
-
-
-def test_attribute_call_and_subscript_bases_are_read_without_error(project: Builder, run_check: Runner) -> None:
-    source = 'import lib\n\n\nclass AlphaError(lib.Base):\n    pass\n\n\nclass BetaError(make_base()):\n    pass\n\n\nclass GammaError(bases[0]):\n    pass\n'
-    root = project({'src/probe/errors.py': source})
-    hits = run_check(SIBLING_ERRORS, root)
-    assert [hit['rule'] for hit in hits] == ['sibling-errors-no-common-base']
-    assert 'AlphaError' in hits[0]['evidence']
-
-
-def test_a_real_hierarchy_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project({'src/probe/errors.py': 'class ProbeError(Exception):\n    pass\n\n\nclass AlphaError(ProbeError):\n    pass\n'})
-    assert run_check(SIBLING_ERRORS, root) == []
-
-
-def test_a_module_that_is_not_errors_py_is_out_of_scope(project: Builder, run_check: Runner) -> None:
-    root = project({'src/probe/mod.py': 'class AlphaError(Exception):\n    pass\n\n\nclass BetaError(Exception):\n    pass\n'})
-    assert run_check(SIBLING_ERRORS, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_cli_entry_missing_error_envelope
-# --------------------------------------------------------------------------
-
-
-def test_a_cli_entry_without_an_envelope_beside_one_with_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/cli/train.py': """
-            import probe.core
-            import probe.errors
-
-
-            def run_train(label: str) -> int:
-                try:
-                    probe.core.train(label)
-                except probe.errors.ProbeError:
-                    return 1
-                return 0
-            """,
-            'src/probe/cli/evaluate.py': """
-            import probe.core
-
-
-            def run_evaluate(label: str) -> int:
-                probe.core.evaluate(label)
-                return 0
-            """,
-        }
-    )
-    hits = run_check(CLI_ENVELOPE, root)
-    assert [(hit['rule'], hit['path']) for hit in hits] == [('cli-entry-missing-error-envelope', 'src/probe/cli/evaluate.py')]
-
-
-def test_no_sibling_wraps_means_the_project_has_no_such_convention(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/cli/evaluate.py': 'import probe.core\n\n\ndef run_evaluate(label: str) -> int:\n    probe.core.evaluate(label)\n    return 0\n',
-        }
-    )
-    assert run_check(CLI_ENVELOPE, root) == []
-
-
-def test_a_project_with_no_cli_package_is_not_checked(project: Builder, run_check: Runner) -> None:
-    root = project({'src/probe/mod.py': 'def run_train(label: str) -> int:\n    return 0\n'})
-    assert run_check(CLI_ENVELOPE, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_try_wrapping_with_too_broad
-# --------------------------------------------------------------------------
-
-
-def test_a_handler_that_re_runs_the_wrapped_work_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import probe.core
-            import probe.errors
-
-
-            def run_batch(config: dict) -> None:
-                try:
-                    with probe.core.open_batch_run(config):
-                        probe.core.run_pipeline(config)
-                except probe.errors.RegistryError:
-                    probe.core.run_pipeline(config)
-            """
-        }
-    )
-    hits = run_check(TRY_WITH, root)
-    assert [hit['rule'] for hit in hits] == ['try-wrapping-with-block-too-broad']
-    assert 'run_pipeline' in hits[0]['variant']
-
-
-def test_a_handler_that_only_reports_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-            import loguru
-            import probe.core
-            import probe.errors
-
-
-            def run_batch(config: dict) -> None:
-                try:
-                    with probe.core.open_batch_run(config):
-                        probe.core.run_pipeline(config)
-                except probe.errors.RegistryError:
-                    loguru.logger.exception('startup failed')
-            """
-        }
-    )
-    assert run_check(TRY_WITH, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_layer_has_domain_error_but_raises_stdlib
-# --------------------------------------------------------------------------
-
-
-DOMAIN_ERRORS = 'class DataError(Exception):\n    pass\n'
-NEWLY_READ_STDLIB_RAISES = ['FileNotFoundError', 'TypeError']
-
-
-def test_raising_stdlib_where_the_package_has_a_domain_error_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/data/errors.py': DOMAIN_ERRORS,
-            'src/probe/data/loader.py': "def load(value: int) -> int:\n    if value < 0:\n        raise ValueError('negative')\n    return value\n",
-        }
-    )
-    hits = run_check(STDLIB_RAISE, root)
-    assert [(hit['rule'], hit['line']) for hit in hits] == [('layer-has-domain-error-raises-stdlib', 3)]
-
-
-@pytest.mark.parametrize('exception', NEWLY_READ_STDLIB_RAISES)
-def test_raising_type_or_file_not_found_error_is_a_hit(project: Builder, run_check: Runner, exception: str) -> None:
-    root = project(
-        {
-            'src/probe/data/errors.py': DOMAIN_ERRORS,
-            'src/probe/data/loader.py': f"def load(value: int) -> int:\n    if value < 0:\n        raise {exception}('negative')\n    return value\n",
-        }
-    )
-    hits = run_check(STDLIB_RAISE, root)
-    assert [(hit['rule'], hit['line']) for hit in hits] == [('layer-has-domain-error-raises-stdlib', 3)]
-
-
-@pytest.mark.parametrize('exception', NEWLY_READ_STDLIB_RAISES)
-def test_type_or_file_not_found_error_inside_a_handler_is_not_a_hit(project: Builder, run_check: Runner, exception: str) -> None:
-    root = project(
-        {
-            'src/probe/data/errors.py': DOMAIN_ERRORS,
-            'src/probe/data/loader.py': f"def load(path: str) -> str:\n    try:\n        return open(path).read()\n    except OSError:\n        raise {exception}('bad')\n",
-        }
-    )
-    assert run_check(STDLIB_RAISE, root) == []
-
-
-def test_a_re_raise_inside_a_handler_is_the_narrowing_pattern(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/data/errors.py': DOMAIN_ERRORS,
-            'src/probe/data/loader.py': """
-            import probe.core
-
-
-            def load(value: int) -> int:
-                try:
-                    return probe.core.parse(value)
-                except TypeError:
-                    raise ValueError('bad value')
-            """,
-        }
-    )
-    assert run_check(STDLIB_RAISE, root) == []
-
-
-def test_a_package_with_no_errors_module_is_not_checked(project: Builder, run_check: Runner) -> None:
-    root = project({'src/probe/data/loader.py': "def load(value: int) -> int:\n    raise ValueError('negative')\n"})
-    assert run_check(STDLIB_RAISE, root) == []
-
-
-# --------------------------------------------------------------------------
-# check_inconsistent_error_translation
-# --------------------------------------------------------------------------
-
-
-TRANSLATING_CALLER = """
-import probe.errors
-import probe.helper
-
-
-def {name}(label: str) -> int:
-    try:
-        return probe.helper.load(label)
-    except LoadError:
-        raise probe.errors.{target}('load failed')
-"""
-
-
-def test_a_domain_error_translated_two_ways_is_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/helper.py': "def load(label: str) -> int:\n    raise LoadError('nope')\n",
-            'src/probe/a.py': TRANSLATING_CALLER.format(name='run_a', target='AlphaError'),
-            'src/probe/b.py': TRANSLATING_CALLER.format(name='run_b', target='BetaError'),
-        }
-    )
-    hits = run_check(INCONSISTENT, root)
-    assert [(hit['rule'], hit['path']) for hit in hits] == [('inconsistent-error-translation', 'src/probe/helper.py')]
-    assert "['AlphaError', 'BetaError']" in hits[0]['variant']
-
-
-def test_a_domain_error_translated_consistently_is_not_a_hit(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/helper.py': "def load(label: str) -> int:\n    raise LoadError('nope')\n",
-            'src/probe/a.py': TRANSLATING_CALLER.format(name='run_a', target='AlphaError'),
-            'src/probe/b.py': TRANSLATING_CALLER.format(name='run_b', target='AlphaError'),
-        }
-    )
-    assert run_check(INCONSISTENT, root) == []
 
 
 # --------------------------------------------------------------------------
@@ -2326,30 +1730,30 @@ def parse_modules(*sources: str) -> list[ast.Module]:
 
 def test_package_class_parents_strips_module_prefix_from_bases() -> None:
     trees = parse_modules('class A(Base): pass\nclass B(mod.Base): pass\n')
-    parents = auditor.rules.error_handling.package_class_parents(trees)
+    parents = auditor.api.errors.package_class_parents(trees)
     assert parents['A'] == {'Base'}
     assert parents['B'] == {'Base'}
 
 
 def test_package_class_parents_pools_modules() -> None:
     trees = parse_modules('class A(Base): pass\n', 'class B(A): pass\n')
-    parents = auditor.rules.error_handling.package_class_parents(trees)
+    parents = auditor.api.errors.package_class_parents(trees)
     assert set(parents) >= {'A', 'B'}
     assert parents['B'] == {'A'}
 
 
 def test_class_lineage_is_transitive() -> None:
     parents = {'C': {'B'}, 'B': {'A'}, 'A': set()}
-    assert auditor.rules.error_handling.class_lineage('C', parents) == {'A', 'B', 'C'}
+    assert auditor.api.errors.class_lineage('C', parents) == {'A', 'B', 'C'}
 
 
 def test_class_lineage_terminates_on_a_cycle() -> None:
     parents = {'A': {'B'}, 'B': {'A'}}
-    assert auditor.rules.error_handling.class_lineage('A', parents) == {'A', 'B'}
+    assert auditor.api.errors.class_lineage('A', parents) == {'A', 'B'}
 
 
 def test_class_lineage_of_an_unknown_name_is_itself() -> None:
-    assert auditor.rules.error_handling.class_lineage('Nope', {}) == {'Nope'}
+    assert auditor.api.errors.class_lineage('Nope', {}) == {'Nope'}
 
 
 # --- raises-section-drift: Class.method() calls -----------------------------
@@ -2610,30 +2014,30 @@ def handler(clause: str) -> ast.ExceptHandler:
     ['except', 'except Exception', 'except BaseException', 'except (ValueError, Exception)', 'except (BaseException, OSError)'],
 )
 def test_is_broad_handler_true(clause: str) -> None:
-    assert auditor.rules.error_handling.is_broad_handler(handler(clause))
+    assert auditor.api.errors.is_broad_handler(handler(clause))
 
 
 @pytest.mark.parametrize('clause', ['except ValueError', 'except (ValueError, OSError)'])
 def test_is_broad_handler_false(clause: str) -> None:
-    assert not auditor.rules.error_handling.is_broad_handler(handler(clause))
+    assert not auditor.api.errors.is_broad_handler(handler(clause))
 
 
 def test_callable_short_name_reduces_each_invocation_form_to_its_bare_name() -> None:
     for source in ('translate', 'translate()', "translate('x')", 'errors.translate', "errors.translate('x')"):
         node = ast.parse(source, mode='eval').body
-        assert auditor.rules.error_handling.callable_short_name(node) == 'translate'
-    assert auditor.rules.error_handling.callable_short_name(ast.parse('fns[0]', mode='eval').body) is None
+        assert auditor.api.errors.callable_short_name(node) == 'translate'
+    assert auditor.api.errors.callable_short_name(ast.parse('fns[0]', mode='eval').body) is None
 
 
 def test_raises_section_names_reads_each_entry_and_stops_at_the_section_end() -> None:
     doc = 'Summary.\n\nRaises:\n    ParseError: bad input.\n        Continuation line.\n    - store.WriteError: disk full.\n\nReturns:\n    LaterError is not an entry.\n'
-    assert auditor.rules.error_handling.raises_section_names(doc) == {'ParseError', 'WriteError'}
-    assert auditor.rules.error_handling.raises_section_names('No section here.') == set()
+    assert auditor.api.errors.raises_section_names(doc) == {'ParseError', 'WriteError'}
+    assert auditor.api.errors.raises_section_names('No section here.') == set()
 
 
 def test_raises_section_names_reads_every_name_of_a_combined_entry() -> None:
     doc = 'Summary.\n\nRaises:\n    ParseError, store.WriteError: bad input or a full disk.\n    - FetchError ,LoadError: none.\n'
-    assert auditor.rules.error_handling.raises_section_names(doc) == {'FetchError', 'LoadError', 'ParseError', 'WriteError'}
+    assert auditor.api.errors.raises_section_names(doc) == {'FetchError', 'LoadError', 'ParseError', 'WriteError'}
 
 
 def test_translator_envelopes_map_a_translating_function_to_what_it_catches(project: Builder) -> None:
@@ -2655,27 +2059,12 @@ def test_translator_envelopes_map_a_translating_function_to_what_it_catches(proj
             ),
         }
     )
-    envelopes = auditor.rules.error_handling.translator_envelopes(root / 'src')
+    envelopes = auditor.api.errors.translator_envelopes(root / 'src')
     assert envelopes == {'translate': frozenset({'OSError'})}
 
 
 IDENTIFIER = hypothesis.strategies.from_regex(r'[A-Za-z_][A-Za-z0-9_]{0,8}', fullmatch=True)
 SPACES = hypothesis.strategies.text(alphabet=' \t', max_size=3)
-
-
-@hypothesis.settings(max_examples=20, deadline=10000)
-@hypothesis.given(
-    bound=IDENTIFIER,
-    pad=SPACES,
-    attr=hypothesis.strategies.sampled_from(['__name__', '__qualname__']),
-    suffix=hypothesis.strategies.text(min_size=1, max_size=5),
-)
-def test_categorical_class_name_expr_accepts_the_class_name_forms_only(bound: str, pad: str, attr: str, suffix: str) -> None:
-    check = auditor.rules.error_handling.is_categorical_class_name_expr
-    forms = [f'type({pad}{bound}{pad}).{attr}', f'{bound}.__class__.{attr}']
-    for form in forms:
-        assert check(f'{pad}{form}{pad}', bound)
-        assert not check(form + suffix.strip() + 'x', bound)
 
 
 @hypothesis.settings(max_examples=20, deadline=10000)
@@ -2687,7 +2076,7 @@ def test_categorical_class_name_expr_accepts_the_class_name_forms_only(bound: st
 def test_raises_section_names_round_trips_a_generated_section(names: list[str], bullet: str, dotted: bool) -> None:
     body = [f'    {bullet}{"pkg.mod." if dotted else ""}{name}: raised when {name} applies\n        deeper OtherError line' for name in names]
     doc = 'Summary.\n\nRaises:\n' + '\n'.join(body) + '\n'
-    found = auditor.rules.error_handling.raises_section_names(doc)
+    found = auditor.api.errors.raises_section_names(doc)
     assert found == set(names)
     assert all(name.endswith('Error') for name in found)
 
@@ -2700,7 +2089,7 @@ def test_raises_section_names_round_trips_a_generated_section(names: list[str], 
     name=hypothesis.strategies.sampled_from('abcdefg'),
 )
 def test_class_lineage_is_the_transitive_closure_and_terminates_on_cycles(graph: dict[str, set[str]], name: str) -> None:
-    lineage = auditor.rules.error_handling.class_lineage(name, graph)
+    lineage = auditor.api.errors.class_lineage(name, graph)
     assert name in lineage
     assert all(parent in lineage for member in lineage for parent in graph.get(member, ()))
     expected = {name}
@@ -2713,25 +2102,6 @@ def test_class_lineage_is_the_transitive_closure_and_terminates_on_cycles(graph:
                     expected.add(parent)
                     grew = True
     assert lineage == expected
-
-
-def test_sibling_error_check_walks_the_root_once_however_many_errors_files_it_holds(
-    project: Builder, run_check: Runner, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    errors = 'class AlphaError(Exception):\n    pass\n\n\nclass BetaError(Exception):\n    pass\n'
-    root = project({'src/probe/errors.py': errors, 'src/probe/sub/errors.py': errors})
-    auditor.core.clear_source_cache()
-    calls: list[pathlib.Path] = []
-    real = auditor.core.all_py_files
-
-    def counting(src_root: pathlib.Path) -> list[pathlib.Path]:
-        calls.append(src_root)
-        return real(src_root)
-
-    monkeypatch.setattr(auditor.core, 'all_py_files', counting)
-    hits = run_check(SIBLING_ERRORS, root)
-    assert len(hits) == 2
-    assert len(calls) == 1
 
 
 # --- raises-section-drift: first-party libraries outside the project --------

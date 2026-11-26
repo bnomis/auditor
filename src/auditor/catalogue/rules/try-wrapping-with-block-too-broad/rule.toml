@@ -1,0 +1,3 @@
+kind = "check"
+title = "A handler that re-runs the work of the with block it wraps"
+emits = ["try-wrapping-with-block-too-broad"]

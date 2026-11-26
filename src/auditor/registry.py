@@ -31,16 +31,6 @@ def catalogue_check(rule: auditor.rulesrepo.Rule) -> collections.abc.Callable[[p
 
 BUILTIN_CHECKS = (
     auditor.rules.project_hygiene.check_ruff,
-    auditor.rules.error_handling.check_silent_broad_except,
-    auditor.rules.error_handling.check_broad_except_wrong_level,
-    auditor.rules.error_handling.check_except_interpolation,
-    auditor.rules.error_handling.check_mixed_raise_types,
-    auditor.rules.error_handling.check_asymmetric_exception_translation,
-    auditor.rules.error_handling.check_sibling_error_no_common_base,
-    auditor.rules.error_handling.check_cli_entry_missing_error_envelope,
-    auditor.rules.error_handling.check_try_wrapping_with_too_broad,
-    auditor.rules.error_handling.check_layer_has_domain_error_but_raises_stdlib,
-    auditor.rules.error_handling.check_inconsistent_error_translation,
     auditor.rules.error_handling.check_filesystem_envelope_gap,
     auditor.rules.error_handling.check_filesystem_op_without_envelope,
     auditor.rules.error_handling.check_logger_exception_graceful_degradation,

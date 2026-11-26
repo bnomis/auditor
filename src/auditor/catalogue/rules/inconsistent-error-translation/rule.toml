@@ -1,0 +1,3 @@
+kind = "check"
+title = "One domain error translated to different classes by different callers"
+emits = ["inconsistent-error-translation"]

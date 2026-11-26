@@ -1,0 +1,3 @@
+kind = "check"
+title = "Error classes in one errors module with no shared parent"
+emits = ["sibling-errors-no-common-base"]

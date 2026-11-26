@@ -13,7 +13,6 @@ import auditor.core
 import auditor.phaseb
 import auditor.phaseb.architecture
 import auditor.phaseb.candidates
-import auditor.rules.error_handling
 
 Project = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
@@ -43,13 +42,13 @@ def raise_boom(scope: pathlib.Path, src_root: pathlib.Path) -> None:
 
 def test_capture_hits_returns_rule_path_line_triples(project: Project) -> None:
     root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': SILENT})
-    hits = auditor.phaseb.architecture.capture_hits(root, [auditor.rules.error_handling.check_silent_broad_except])
+    hits = auditor.phaseb.architecture.capture_hits(root, [auditor.phaseb.architecture.silent_broad_except_hits])
     assert hits == {('silent-broad-except', 'src/pkg/mod.py', 4)}
 
 
 def test_capture_hits_includes_accepted_hits(project: Project) -> None:
     root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': ACCEPTED})
-    hits = auditor.phaseb.architecture.capture_hits(root, [auditor.rules.error_handling.check_silent_broad_except])
+    hits = auditor.phaseb.architecture.capture_hits(root, [auditor.phaseb.architecture.silent_broad_except_hits])
     assert hits == {('silent-broad-except', 'src/pkg/mod.py', 4)}
 
 
@@ -57,7 +56,7 @@ def test_capture_hits_restores_emitted_and_prints_nothing(project: Project, caps
     root = project({'src/pkg/__init__.py': '', 'src/pkg/mod.py': SILENT})
     auditor.core.EMITTED.clear()
     auditor.core.EMITTED.add('earlier')
-    auditor.phaseb.architecture.capture_hits(root, [auditor.rules.error_handling.check_silent_broad_except])
+    auditor.phaseb.architecture.capture_hits(root, [auditor.phaseb.architecture.silent_broad_except_hits])
     assert {'earlier'} == auditor.core.EMITTED
     assert capsys.readouterr().out == ''
     auditor.core.EMITTED.clear()

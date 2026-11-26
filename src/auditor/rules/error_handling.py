@@ -8,935 +8,13 @@ import re
 import typing
 
 import auditor.core
+import auditor.errorsites
 
 if typing.TYPE_CHECKING:
     import pathlib
 
-BARE_HANDLER_MARK = '*bare*'
-ERRORS_MODULE_NAMES = frozenset({'__init__.py', 'errors.py'})
 # A chain of one empty step: the error is raised in the function itself.
 RAISED_HERE: tuple[str, ...] = ('',)
-
-
-def is_broad_handler(handler: ast.ExceptHandler) -> bool:
-    """True for a bare `except:` and for `Exception` or `BaseException`,
-    alone or inside a tuple."""
-    exc = handler.type
-    if exc is None:
-        return True
-    if isinstance(exc, ast.Name):
-        names = [exc.id]
-    elif isinstance(exc, ast.Tuple):
-        names = [e.id for e in exc.elts if isinstance(e, ast.Name)]
-    else:
-        return False
-    return any(n in BROAD_HANDLER_NAMES for n in names)
-
-
-def check_silent_broad_except(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag a broad `except` handler that neither logs nor raises.
-
-    Signal: a handler for a bare `except:`, `Exception` or `BaseException`
-    (alone or in a tuple) whose body holds no `logger.`, `loguru.logger.` or
-    `logging.` text and no `raise` statement anywhere inside it. Carve-outs:
-    a handler naming only narrower exceptions; a file that does not parse.
-    """
-    for path in auditor.core.all_py_files(src_root):
-        rel = auditor.core.relpath(path, scope)
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ExceptHandler):
-                continue
-            if not is_broad_handler(node):
-                continue
-            body_src = '\n'.join(ast.unparse(c) for c in node.body) if hasattr(ast, 'unparse') else ''
-            has_log = bool(re.search(r'\blogger\.|loguru\.logger\.|logging\.', body_src))
-            has_raise = any(isinstance(c, ast.Raise) for c in ast.walk(node))
-            if has_log or has_raise:
-                continue
-            accept = auditor.core.accept_reason(lines, node.lineno, rule='silent-broad-except')
-            auditor.core.emit(
-                rule='silent-broad-except',
-                variant='no logger and no raise in body',
-                path=rel,
-                line=node.lineno,
-                evidence=lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else '',
-                accepted=bool(accept),
-                accepted_reason=accept,
-            )
-
-
-def stmt_end_by_lineno(tree: ast.AST) -> dict[int, int]:
-    """Map each source line to the max end_lineno of any statement enclosing it."""
-    mapping: dict[int, int] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.stmt) and hasattr(node, 'lineno') and hasattr(node, 'end_lineno'):
-            for ln in range(node.lineno, node.end_lineno + 1):
-                if mapping.get(ln, 0) < node.end_lineno:
-                    mapping[ln] = node.end_lineno
-    return mapping
-
-
-def is_categorical_class_name_expr(expr_src: str, bound: str) -> bool:
-    """Return True when expr_src is a categorical class-name access on the
-    bound exception name (e.g. ``type(exc).__name__`` or
-    ``exc.__class__.__qualname__``). These patterns expose only the
-    exception class string, not the lossy ``str(exc)`` message body, and
-    do not duplicate the chained traceback that ``raise ... from exc``
-    or ``logger.exception`` already preserve.
-    """
-    SAFE_ATTRS = ('__name__', '__qualname__')
-    bound_re = re.escape(bound)
-    patterns = [rf'^type\(\s*{bound_re}\s*\)\.{attr}$' for attr in SAFE_ATTRS]
-    patterns += [rf'^{bound_re}\.__class__\.{attr}$' for attr in SAFE_ATTRS]
-    return any(re.match(p, expr_src.strip()) for p in patterns)
-
-
-def check_except_interpolation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag f-string or logger-positional interpolation of a caught
-    exception variable inside an ``except ... as <bound>:`` block.
-    Rationale: ``raise X from exc`` and ``logger.exception(...)`` already
-    preserve the chained traceback at full fidelity; embedding
-    ``str(exc)`` (or its f-string equivalent) into a new message
-    produces a truncated copy that drifts from the original.
-
-    Exception: ``type(<bound>).__name__`` / ``__qualname__``
-    and ``<bound>.__class__.__name__`` / ``__qualname__`` access only
-    the exception class name string. The class name is a categorical
-    hint, not a lossy duplication of the message body, so these
-    patterns are skipped without emitting a hit. See
-    ``is_categorical_class_name_expr``.
-    """
-    for path in auditor.core.all_py_files(src_root):
-        rel = auditor.core.relpath(path, scope)
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        stmt_end = stmt_end_by_lineno(tree)
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ExceptHandler) or not node.name:
-                continue
-            bound = node.name
-            seen_linenos: set[tuple[int, str]] = set()
-            for inner in ast.walk(node):
-                if isinstance(inner, ast.JoinedStr):
-                    flagged = False
-                    for v in inner.values:
-                        if flagged:
-                            break
-                        if isinstance(v, ast.FormattedValue):
-                            expr_src = ast.unparse(v.value) if hasattr(ast, 'unparse') else ''
-                            if not re.search(rf'\b{re.escape(bound)}\b', expr_src):
-                                continue
-                            if is_categorical_class_name_expr(expr_src, bound):
-                                continue
-                            key = (inner.lineno, 'fstring')
-                            if key in seen_linenos:
-                                flagged = True
-                                break
-                            seen_linenos.add(key)
-                            end_ln = stmt_end.get(inner.lineno)
-                            accept = auditor.core.accept_reason(lines, inner.lineno, end_ln, rule='except-interpolation')
-                            auditor.core.emit(
-                                rule='except-interpolation',
-                                variant='f-string interpolates caught exception',
-                                path=rel,
-                                line=inner.lineno,
-                                evidence=(lines[inner.lineno - 1].strip()[:200] if inner.lineno <= len(lines) else ''),
-                                accepted=bool(accept),
-                                accepted_reason=accept,
-                            )
-                            flagged = True
-                            break
-                if isinstance(inner, ast.Call):
-                    func_src = ast.unparse(inner.func) if hasattr(ast, 'unparse') else ''
-                    if re.search(r'logger\.(warning|error|exception)$', func_src):
-                        for arg in inner.args:
-                            arg_src = ast.unparse(arg) if hasattr(ast, 'unparse') else ''
-                            if re.fullmatch(rf'\s*{re.escape(bound)}\s*', arg_src):
-                                key = (inner.lineno, 'logger-arg')
-                                if key in seen_linenos:
-                                    continue
-                                seen_linenos.add(key)
-                                end_ln = stmt_end.get(inner.lineno)
-                                accept = auditor.core.accept_reason(lines, inner.lineno, end_ln, rule='except-interpolation')
-                                auditor.core.emit(
-                                    rule='except-interpolation',
-                                    variant='logger positional arg is caught exception',
-                                    path=rel,
-                                    line=inner.lineno,
-                                    evidence=(lines[inner.lineno - 1].strip()[:200] if inner.lineno <= len(lines) else ''),
-                                    accepted=bool(accept),
-                                    accepted_reason=accept,
-                                )
-
-
-def check_broad_except_wrong_level(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag `except (Exception|BaseException):` blocks whose body calls
-    logger.warning / logger.error / logger.debug / logger.info instead of
-    logger.exception. Distinct from check_silent_broad_except, which only
-    catches blocks with NO logger call at all.
-
-    A broad handler that logs and returns a default is caught here at
-    `warning` and by `logger-exception-graceful-degradation` at `exception`.
-    SKILL.md's "Conflicts with no winner" rules on it: remove or narrow the
-    handler rather than change its level."""
-    for path in auditor.core.all_py_files(src_root):
-        rel = auditor.core.relpath(path, scope)
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ExceptHandler):
-                continue
-            if not is_broad_handler(node):
-                continue
-            body_src = '\n'.join(ast.unparse(c) for c in node.body) if hasattr(ast, 'unparse') else ''
-            wrong_level = re.search(r'\b(logger|loguru\.logger|logging)\.(warning|error|info|debug)\(', body_src)
-            if not wrong_level:
-                continue
-            accept = auditor.core.accept_reason(lines, node.lineno, rule='broad-except-wrong-level')
-            auditor.core.emit(
-                rule='broad-except-wrong-level',
-                variant='broad except logs at warning/error/info/debug instead of exception',
-                path=rel,
-                line=node.lineno,
-                evidence=lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else '',
-                accepted=bool(accept),
-                accepted_reason=accept,
-            )
-
-
-def check_mixed_raise_types(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag methods/functions that raise two or more different exception
-    types where the types do not share a clear inheritance relationship.
-    A common architecture smell: half the invariants raise PipelineError,
-    half raise stdlib RuntimeError - callers cannot establish a clean
-    catch envelope."""
-    for path in auditor.core.all_py_files(src_root):
-        rel = auditor.core.relpath(path, scope)
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            raised_types: dict[str, list[int]] = collections.defaultdict(list)
-            for inner in ast.walk(node):
-                if isinstance(inner, ast.Raise) and isinstance(inner.exc, ast.Call):
-                    fn = inner.exc.func
-                    if isinstance(fn, ast.Name):
-                        raised_types[fn.id].append(inner.lineno)
-                    elif isinstance(fn, ast.Attribute):
-                        raised_types[ast.unparse(fn).split('.')[-1]].append(inner.lineno)
-            if len(raised_types) < 2:
-                continue
-            # exclude common cases where the mix is intentional: re-raise of
-            # input-validation distinct from internal invariants is signalled
-            # by error suffix matching: ConfigError + InputEnvelopeError is one
-            # cluster; RuntimeError + PipelineError is a real mix
-            STDLIB_EXCS = {'RuntimeError', 'ValueError', 'TypeError', 'KeyError', 'IndexError', 'AttributeError'}
-            project_excs = {n for n in raised_types if n.endswith('Error') and n not in STDLIB_EXCS}
-            if not project_excs:
-                continue
-            mixed_with_stdlib = STDLIB_EXCS & raised_types.keys()
-            if not mixed_with_stdlib:
-                continue
-            # Emit ONE finding per function, listing every raise site
-            sample_line = sorted(min(v) for v in raised_types.values())[0]
-            accept = auditor.core.accept_reason(lines, sample_line, rule='mixed-raise-types')
-            evidence = f'{node.name}: raises {sorted(raised_types.keys())}'
-            auditor.core.emit(
-                rule='mixed-raise-types',
-                variant=f'{node.name} mixes stdlib ({sorted(mixed_with_stdlib)}) with project errors ({sorted(project_excs)})',
-                path=rel,
-                line=node.lineno,
-                evidence=evidence,
-                accepted=bool(accept),
-                accepted_reason=accept,
-            )
-
-
-def raising_call_roots(tree: ast.Module, package_root_name: str) -> frozenset[str]:
-    """Names bound by an import of a module from outside the swept package."""
-    roots: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name.partition('.')[0] != package_root_name:
-                    roots.add(alias.asname or alias.name.partition('.')[0])
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module and node.module.partition('.')[0] != package_root_name:
-            roots.update(alias.asname or alias.name for alias in node.names)
-    return frozenset(roots)
-
-
-def has_something_to_translate(
-    node: ast.FunctionDef | ast.AsyncFunctionDef,
-    external_roots: frozenset[str],
-    module_functions: frozenset[str],
-    envelopes: collections.abc.Mapping[str, frozenset[str]],
-) -> bool:
-    """True when the function's own body can raise what callers translate.
-
-    That is a call to a filesystem-touching name, a subprocess call, or a call
-    rooted at a module imported from outside the package. A body that calls a
-    same-module translating function translates through it and gives False.
-    """
-    raises = False
-    for stmt in node.body:
-        for sub in (stmt, *auditor.core.walk_within_scope(stmt)):
-            if not isinstance(sub, ast.Call):
-                continue
-            func = sub.func
-            short = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
-            if isinstance(func, ast.Name) and short in module_functions and short in envelopes:
-                return False
-            root = func
-            while isinstance(root, (ast.Attribute, ast.Call, ast.Subscript)):
-                root = root.func if isinstance(root, ast.Call) else root.value
-            if short in FILESYSTEM_TOUCHING_CALLS or (isinstance(root, ast.Name) and root.id in external_roots):
-                raises = True
-    return raises
-
-
-def check_asymmetric_exception_translation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Detect functions F such that:
-      - F is a module-level (or public-looking) function that itself does
-        NOT have a try/except around its body translating third-party
-        exceptions to a project error class.
-      - Every known call site of F is inside a `try: ... except <ProjectError>: ...`
-        block that catches a third-party exception class and translates.
-      - There are 2+ call sites with this shape.
-
-    The asymmetric contract is a smell: a new caller that doesn't wrap F
-    will leak the third-party exception. Mechanical signal the finding.
-
-    F must also have something to translate: its own body (nested defs
-    skipped) calls a filesystem-touching name or a module imported from outside
-    the package, and does not call a same-module translating function.
-    """
-    # First pass: enumerate every module-level function and whether its body
-    # contains a top-level try/except handler.
-    function_index: dict[str, tuple[str, int, bool]] = {}
-    translatable: set[str] = set()
-    envelopes = translator_envelopes(src_root)
-    # function_index key is full dotted path (e.g. 'pkg.registry.runs.setup_experiment')
-    package_root_name = src_root.name
-
-    for path in auditor.core.all_py_files(src_root):
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        rel = auditor.core.relpath(path, scope)
-        rel_parts = path.relative_to(src_root).parts
-        if rel_parts[-1] == '__init__.py':
-            mod = package_root_name + '.' + '.'.join(rel_parts[:-1]) if len(rel_parts) > 1 else package_root_name
-        else:
-            mod = package_root_name + '.' + '.'.join(rel_parts)[:-3]
-        external_roots = raising_call_roots(tree, package_root_name)
-        module_functions = frozenset(n.name for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)))
-        for node in tree.body:
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            if has_something_to_translate(node, external_roots, module_functions, envelopes):
-                translatable.add(f'{mod}.{node.name}')
-            # Check if function's OWN body has a try/except that catches anything
-            has_own_try = any(isinstance(child, ast.Try) for child in node.body)
-            function_index[f'{mod}.{node.name}'] = (rel, node.lineno, has_own_try)
-
-    # Second pass: for every call to a known function, check the surrounding
-    # context. If every call site in the project is inside a `try: ...
-    # except <something>:` block AND the function itself has no try, flag.
-    call_sites: dict[str, list[tuple[str, int, bool]]] = collections.defaultdict(list)
-    # key: callee full dotted path; value: list of (caller_path, lineno, is_wrapped)
-
-    for path in auditor.core.all_py_files(src_root):
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        rel = auditor.core.relpath(path, scope)
-        # Track which nodes are inside a try block
-        try_descendants: set[int] = set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Try):
-                # Does this try have a handler that looks like it translates to
-                # a ProjectError (a class name ending in 'Error' defined in this
-                # package)? We only care about try blocks whose handlers raise
-                # something that ends in 'Error'.
-                translates = False
-                for handler in node.handlers:
-                    # Inspect handler body for `raise <Something>Error(...)`
-                    for sub in ast.walk(handler):
-                        if isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call):
-                            raised = ast.unparse(sub.exc.func)
-                            # name ends in 'Error' or similar
-                            tail = raised.rsplit('.', 1)[-1]
-                            if tail.endswith('Error'):
-                                translates = True
-                                break
-                    if translates:
-                        break
-                if translates:
-                    for child in node.body:
-                        for sub in ast.walk(child):
-                            if hasattr(sub, 'lineno'):
-                                try_descendants.add(id(sub))
-        # Now walk every Call node and check its callee
-        # We need to resolve callee to a full dotted path. Use ast.unparse.
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            callee_src = ast.unparse(node.func)
-            # Look up in function_index: match any entry whose suffix == callee_src
-            # or whose full dotted path == callee_src
-            callee_candidates = []
-            if callee_src in function_index:
-                callee_candidates.append(callee_src)
-            else:
-                # match `short_name` against entries where dotted path ends in `.short_name`
-                for full in function_index:
-                    if full.endswith('.' + callee_src):
-                        callee_candidates.append(full)
-            for callee in callee_candidates:
-                is_wrapped = id(node) in try_descendants
-                call_sites[callee].append((rel, node.lineno, is_wrapped))
-
-    # Third pass: emit findings
-    for callee, sites in call_sites.items():
-        if len(sites) < 2:
-            continue
-        callee_path, callee_line, callee_has_try = function_index[callee]
-        if callee_has_try or callee not in translatable:
-            continue
-        if not all(is_wrapped for (_, _, is_wrapped) in sites):
-            continue
-        # Every call site is wrapped; the function itself has no try.
-        accept = auditor.core.accept_reason(auditor.core.source_lines(scope / callee_path), callee_line, rule='asymmetric-exception-translation')
-        sites_summary = '; '.join(f'{p}:{n}' for (p, n, _) in sites[:5])
-        auditor.core.emit(
-            related=[p for (p, _, _) in sites],
-            rule='asymmetric-exception-translation',
-            variant=f'{callee} has no own try/except; all {len(sites)} callers wrap it',
-            path=callee_path,
-            line=callee_line,
-            evidence=f'called (wrapped) from: {sites_summary}',
-            accepted=bool(accept),
-            accepted_reason=accept,
-        )
-
-
-def check_sibling_error_no_common_base(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Detect project error classes that sit side-by-side in a `*/errors.py`
-    module but have different base classes (one subclasses ProjectError,
-    another subclasses stdlib Exception). The mismatch is a smell:
-    existing `except ProjectError` catch sites will miss the sibling.
-
-    Signal:
-      - A file named `errors.py` defines >= 2 classes whose names end in
-        `Error`.
-      - At least one of the classes subclasses a project-local error base
-        (any name ending in 'Error' that is not stdlib Exception).
-      - At least one of the classes subclasses stdlib `Exception`
-        (or has no explicit base).
-      - The two groups are not related by inheritance within the file.
-
-    A common mistake is defining `SignatureError(Exception)` next to
-    `RegistryError(Exception)` without making them share a hierarchy.
-    Call sites that catch `RegistryError` never catch `SignatureError`.
-    """
-    for path in auditor.core.all_py_files(src_root):
-        if path.name != 'errors.py':
-            continue
-        rel = auditor.core.relpath(path, scope)
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        error_classes: list[tuple[str, int, list[str]]] = []
-        for node in tree.body:
-            if not isinstance(node, ast.ClassDef):
-                continue
-            if not node.name.endswith('Error'):
-                continue
-            base_names = [ast.unparse(base) for base in node.bases]
-            error_classes.append((node.name, node.lineno, base_names))
-        if len(error_classes) < 2:
-            continue
-        # Partition into "rooted at stdlib Exception" vs "rooted at a
-        # project Error parent"
-        rooted_at_stdlib: list[tuple[str, int, list[str]]] = []
-        rooted_at_project: list[tuple[str, int, list[str]]] = []
-        for name, lineno, bases in error_classes:
-            if not bases or any(b.split('.')[-1] == 'Exception' for b in bases):
-                rooted_at_stdlib.append((name, lineno, bases))
-            elif any(b.split('.')[-1].endswith('Error') for b in bases):
-                # If the base is one of the other classes defined in this file,
-                # that's a real hierarchy; otherwise it's a new root
-                sibling_names = {n for n, _, _ in error_classes}
-                if any(b.split('.')[-1] in sibling_names for b in bases):
-                    rooted_at_project.append((name, lineno, bases))
-                else:
-                    rooted_at_stdlib.append((name, lineno, bases))
-            else:
-                rooted_at_stdlib.append((name, lineno, bases))
-        if len(rooted_at_stdlib) < 2:
-            continue
-        # One finding per errors.py that holds two or more error classes with
-        # no shared parent in the file.
-        sibling_names = {name for name, _, _ in rooted_at_stdlib}
-        if len(sibling_names) < 2:
-            continue
-        first_name, first_line, _ = rooted_at_stdlib[0]
-        accept = auditor.core.accept_reason(lines, first_line, rule='sibling-errors-no-common-base')
-        auditor.core.emit(
-            rule='sibling-errors-no-common-base',
-            variant=f'{len(sibling_names)} Error classes co-defined with no shared parent: {sorted(sibling_names)}',
-            path=rel,
-            line=first_line,
-            evidence=f'classes: {", ".join(sorted(sibling_names))}',
-            accepted=bool(accept),
-            accepted_reason=accept,
-        )
-
-
-def check_cli_entry_missing_error_envelope(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag CLI entry-point functions (top-level functions in `cli/*.py`
-    whose name starts with `run_`) that have no top-level try/except.
-
-    The rule: if at least one sibling CLI entry in the project does have
-    a top-level try/except catching a project error class, flag every
-    CLI entry that does not. CLI entries are the error envelope for
-    user-facing errors; an unenveloped entry will surface untranslated
-    third-party exceptions.
-    """
-    cli_dir = src_root / 'cli'
-    if not cli_dir.is_dir():
-        return
-    # First pass: enumerate all CLI run_* entries and whether they wrap
-    # something in a top-level try/except.
-    entries: list[tuple[str, int, str, bool]] = []  # (path, lineno, fname, has_outer_try)
-    for path in sorted(cli_dir.rglob('*.py')):
-        if path.name == '__init__.py':
-            continue
-        rel = auditor.core.relpath(path, scope)
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in tree.body:
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            if not node.name.startswith('run_'):
-                continue
-            # Only consider true CLI dispatch entries. Heuristics to
-            # exclude helper functions in cli/*.py:
-            #   - return annotation is `int` (CLI commands return an
-            #     exit code)
-            #   - OR has a parameter annotated with a name ending in
-            #     `.App` / `.Cmd` / any cappa dispatcher root (the
-            #     dispatcher-aware second argument)
-            returns_int = False
-            if node.returns is not None:
-                if ast.unparse(node.returns).strip() == 'int':
-                    returns_int = True
-            # params whose annotation string contains a capitalised cappa
-            # command class (the `parent: 'pkg.cli.app.App'` style)
-            has_cappa_param = False
-            for arg in node.args.args:
-                if arg.annotation is None:
-                    continue
-                ann_src = ast.unparse(arg.annotation)
-                if re.search(r"\.[A-Z]\w+['\"]?$", ann_src.strip('\'"')):
-                    has_cappa_param = True
-                    break
-            if not (returns_int or has_cappa_param):
-                continue
-            # Is there any Try in the function body? (Any depth.) The
-            # rule is: CLI entry must have at least one try/except
-            # somewhere to be considered "enveloped".
-            has_try = any(isinstance(sub, ast.Try) for sub in ast.walk(node))
-            entries.append((rel, node.lineno, node.name, has_try))
-    if not entries:
-        return
-    # If at least one entry has a try/except, any entry without one is flagged.
-    any_has_try = any(has_try for (_, _, _, has_try) in entries)
-    if not any_has_try:
-        return
-    for rel, lineno, fname, has_try in entries:
-        if has_try:
-            continue
-        full = scope / rel
-        lines = auditor.core.source_lines(full)
-        accept = auditor.core.accept_reason(lines, lineno, rule='cli-entry-missing-error-envelope')
-        auditor.core.emit(
-            rule='cli-entry-missing-error-envelope',
-            variant=f'{fname} has no top-level try/except',
-            path=rel,
-            line=lineno,
-            evidence=f'def {fname}(...): (no try/except; siblings do wrap)',
-            accepted=bool(accept),
-            accepted_reason=accept,
-        )
-
-
-def check_try_wrapping_with_too_broad(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag `try: with X(): body...` patterns where the except handler
-    re-invokes work that was inside the `with` body, assuming the
-    exception came from `__enter__`.
-
-    Signal:
-      - An `ast.Try` node whose body starts with an `ast.With` block.
-      - The `with` body contains one or more call statements.
-      - The `except` handler body itself contains at least one call
-        whose callee name matches a callee inside the `with` body.
-      - The handler's intent (per comments/log messages) is startup
-        failure - but the catch will also fire for any exception raised
-        inside the `with` body.
-
-    The `run_batch` double-run: `try: with open_batch_run(): run_pipeline_and_finalise(...)`
-    catches `RegistryError`, and the handler calls `run_pipeline_and_finalise(...)`
-    again. If `RegistryError` escapes from the `with` body (not startup),
-    the pipeline runs twice.
-    """
-    for path in auditor.core.all_py_files(src_root):
-        rel = auditor.core.relpath(path, scope)
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Try):
-                continue
-            if not node.body:
-                continue
-            # First statement is a `with`
-            first = node.body[0]
-            if not isinstance(first, ast.With):
-                continue
-            # Collect call names in the with-body
-            with_body_callees: set[str] = set()
-            for stmt in first.body:
-                for sub in ast.walk(stmt):
-                    if isinstance(sub, ast.Call):
-                        callee = ast.unparse(sub.func)
-                        short = callee.rsplit('.', 1)[-1]
-                        with_body_callees.add(short)
-            if not with_body_callees:
-                continue
-            # Collect call names in each handler's body
-            for handler in node.handlers:
-                handler_callees: set[str] = set()
-                for stmt in handler.body:
-                    for sub in ast.walk(stmt):
-                        if isinstance(sub, ast.Call):
-                            callee = ast.unparse(sub.func)
-                            short = callee.rsplit('.', 1)[-1]
-                            handler_callees.add(short)
-                # Overlap of non-trivial callees
-                overlap = {
-                    c
-                    for c in with_body_callees & handler_callees
-                    # Skip logger/print/etc. noise
-                    if c not in {'warning', 'info', 'error', 'exception', 'debug', 'print', 'format', 'str', 'repr', 'len'}
-                    # Skip class / exception constructors (CamelCase) -
-                    # they are error construction, not "work".
-                    and not (c[:1].isupper() if c else True)
-                }
-                if not overlap:
-                    continue
-                accept = auditor.core.accept_reason(lines, handler.lineno, rule='try-wrapping-with-block-too-broad')
-                auditor.core.emit(
-                    rule='try-wrapping-with-block-too-broad',
-                    variant=f'except handler re-invokes {sorted(overlap)!r} from the wrapped `with` body',
-                    path=rel,
-                    line=handler.lineno,
-                    evidence=(lines[handler.lineno - 1].strip()[:200] if handler.lineno <= len(lines) else ''),
-                    accepted=bool(accept),
-                    accepted_reason=accept,
-                )
-
-
-def check_layer_has_domain_error_but_raises_stdlib(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag modules that raise stdlib exceptions (FileNotFoundError, KeyError,
-    RuntimeError, TypeError, ValueError) for domain errors when a sibling `errors.py` in
-    the same package defines a domain-error class.
-
-    Signal:
-      - Package P contains an `errors.py` defining at least one `*Error`
-        class.
-      - Another module M in the same package P raises a stdlib exception
-        (FileNotFoundError, KeyError, RuntimeError, TypeError, ValueError) at module-level
-        or function scope.
-      - The stdlib raise is NOT inside an `except` block (which is the
-        re-raise-with-narrower-type pattern and is fine).
-
-    Scope rationale: the "widen to any module that imports a
-    domain `*Error` lazily" variant was tried and discarded because it
-    over-fired on `config/structures.py.__post_init__` validation raises,
-    which AGENTS.md's "Error type policy by layer" permits (`config` has
-    no own `*Error` class and only lazily imports `PipelineError` for a
-    narrow cross-stage violation). The narrower same-package predicate is
-    the stable form.
-    """
-    STDLIB_EXCS = {'FileNotFoundError', 'KeyError', 'RuntimeError', 'TypeError', 'ValueError'}
-    # First pass: find every package with a domain error class
-    package_has_domain_error: set[tuple[str, ...]] = set()
-    for path in auditor.core.all_py_files(src_root):
-        if path.name != 'errors.py':
-            continue
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in tree.body:
-            if isinstance(node, ast.ClassDef) and node.name.endswith('Error'):
-                pkg = path.relative_to(src_root).parts[:-1]
-                package_has_domain_error.add(pkg)
-                break
-
-    if not package_has_domain_error:
-        return
-
-    # Second pass: walk every module raising stdlib errors
-    for path in auditor.core.all_py_files(src_root):
-        if path.name in ERRORS_MODULE_NAMES:
-            continue
-        pkg = path.relative_to(src_root).parts[:-1]
-        if pkg not in package_has_domain_error:
-            continue
-        rel = auditor.core.relpath(path, scope)
-        lines = auditor.core.source_lines(path)
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        # Track which Raise nodes are inside an except block
-        except_bodies: set[int] = set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ExceptHandler):
-                for child in ast.walk(node):
-                    if hasattr(child, 'lineno'):
-                        except_bodies.add(child.lineno)
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Raise):
-                continue
-            if node.lineno in except_bodies:
-                continue
-            exc_call = node.exc
-            exc_name = None
-            if isinstance(exc_call, ast.Call):
-                if isinstance(exc_call.func, ast.Name):
-                    exc_name = exc_call.func.id
-            elif isinstance(exc_call, ast.Name):
-                exc_name = exc_call.id
-            if exc_name not in STDLIB_EXCS:
-                continue
-            accept = auditor.core.accept_reason(lines, node.lineno, rule='layer-has-domain-error-raises-stdlib')
-            auditor.core.emit(
-                rule='layer-has-domain-error-raises-stdlib',
-                variant=f'{pkg[-1] if pkg else "(root)"} package defines *Error classes but this module raises {exc_name}',
-                path=rel,
-                line=node.lineno,
-                evidence=(lines[node.lineno - 1].strip()[:200] if node.lineno <= len(lines) else ''),
-                accepted=bool(accept),
-                accepted_reason=accept,
-            )
-
-
-def check_inconsistent_error_translation(scope: pathlib.Path, src_root: pathlib.Path) -> None:
-    """Flag helper functions F that raise a domain error E, where two or
-    more distinct callers of F translate E to different project-error
-    classes. Divergent translation is a semantic bug: the same
-    underlying failure surfaces as different error types to different
-    consumers.
-
-    Signal:
-      - Function F at path P has at least one `raise <E>(...)` where E
-        ends in `Error` (a project domain error).
-      - Two or more functions elsewhere call F, each wrapping the call
-        in a `try: ... except <E>: raise <T_i>(...)` where the raised
-        translation target classes T_i differ across callers.
-    """
-    package_root_name = src_root.name
-
-    # Pass 1: for each module-level function, enumerate the *Error classes
-    # it raises directly (i.e. not via re-raise of a caught exception).
-    function_raises: dict[str, set[str]] = collections.defaultdict(set)
-    function_path_line: dict[str, tuple[str, int]] = {}
-    for path in auditor.core.all_py_files(src_root):
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        rel = auditor.core.relpath(path, scope)
-        rel_parts = path.relative_to(src_root).parts
-        if rel_parts[-1] == '__init__.py':
-            continue
-        mod = package_root_name + '.' + '.'.join(rel_parts)[:-3]
-        for node in tree.body:
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            key = f'{mod}.{node.name}'
-            function_path_line[key] = (rel, node.lineno)
-            for inner in ast.walk(node):
-                if not isinstance(inner, ast.Raise) or inner.exc is None:
-                    continue
-                target = inner.exc.func if isinstance(inner.exc, ast.Call) else inner.exc
-                if isinstance(target, (ast.Name, ast.Attribute)):
-                    src = ast.unparse(target)
-                    tail = src.rsplit('.', 1)[-1]
-                    if tail.endswith('Error'):
-                        function_raises[key].add(tail)
-
-    if not function_raises:
-        return
-
-    # Short-name lookup
-    short_to_full: dict[str, set[str]] = collections.defaultdict(set)
-    for key in function_raises:
-        short = key.rsplit('.', 1)[-1]
-        short_to_full[short].add(key)
-
-    # Pass 2: for every call site of a function in function_raises, find
-    # the enclosing try/except and the translation target if any.
-    translations: dict[str, dict[str, set[str]]] = collections.defaultdict(lambda: collections.defaultdict(set))
-    # translations[callee_full][caught_error] = set of translated target classes
-    for path in auditor.core.all_py_files(src_root):
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Try):
-                continue
-            # find calls inside the try body to known functions
-            for body_stmt in node.body:
-                for sub in ast.walk(body_stmt):
-                    if not isinstance(sub, ast.Call):
-                        continue
-                    callee = ast.unparse(sub.func)
-                    short = callee.rsplit('.', 1)[-1]
-                    for full in short_to_full.get(short, set()):
-                        caught_classes: set[str] = set()
-                        for h in node.handlers:
-                            if h.type is None:
-                                continue
-                            type_src = ast.unparse(h.type)
-                            for caught in re.findall(r'[A-Za-z_][A-Za-z_0-9]*', type_src):
-                                if caught.endswith('Error'):
-                                    caught_classes.add(caught)
-                        # For each caught class that the callee actually raises,
-                        # record the translation target(s)
-                        for caught in caught_classes:
-                            if caught not in function_raises.get(full, set()):
-                                continue
-                            for h in node.handlers:
-                                if h.type is None:
-                                    continue
-                                h_src = ast.unparse(h.type)
-                                if caught not in h_src:
-                                    continue
-                                for handler_stmt in h.body:
-                                    for raisesub in ast.walk(handler_stmt):
-                                        if not isinstance(raisesub, ast.Raise):
-                                            continue
-                                        if raisesub.exc is None:
-                                            continue
-                                        tgt = raisesub.exc.func if isinstance(raisesub.exc, ast.Call) else raisesub.exc
-                                        if not isinstance(tgt, (ast.Name, ast.Attribute)):
-                                            continue
-                                        tgt_src = ast.unparse(tgt)
-                                        tgt_tail = tgt_src.rsplit('.', 1)[-1]
-                                        if tgt_tail.endswith('Error'):
-                                            translations[full][caught].add(tgt_tail)
-
-    # Pass 3: emit findings for callees whose domain error is translated
-    # to 2+ distinct targets across the codebase.
-    for callee_full, err_map in translations.items():
-        for caught, targets in err_map.items():
-            if len(targets) < 2:
-                continue
-            if callee_full not in function_path_line:
-                continue
-            rel, lineno = function_path_line[callee_full]
-            full_path = scope / rel
-            lines = auditor.core.source_lines(full_path)
-            accept = auditor.core.accept_reason(lines, lineno, rule='inconsistent-error-translation')
-            auditor.core.emit(
-                rule='inconsistent-error-translation',
-                variant=f'{callee_full} raises {caught}; callers translate to {sorted(targets)}',
-                path=rel,
-                line=lineno,
-                evidence=f'{caught} -> {sorted(targets)}',
-                accepted=bool(accept),
-                accepted_reason=accept,
-            )
-
-
-# Callees that indicate the wrapped try-block touches local filesystem
-# cache / does writing I/O. Catching only library-specific exceptions
-# (MlflowException, BotoException, etc.) without also catching OSError
-# leaks disk failures to callers.
-THIRD_PARTY_FILESYSTEM_CALLS = frozenset(
-    {
-        # Third-party helpers that cache to disk / upload / download
-        'download',
-        'download_artifacts',
-        'download_file',
-        'from_pretrained',
-        'log_artifact',
-        'log_artifacts',
-        'log_model',
-        'push_to_hub',
-        'save_model',
-        'save_pretrained',
-        'snapshot_download',
-        'upload_artifacts',
-        'upload_file',
-    }
-)
-# `replace`, `rename`, `copy`, `remove` are intentionally omitted -
-# `str.replace`, `dataclasses.replace`, `list.copy`, `dict.copy`,
-# `list.remove` are overwhelmingly common; the false-positive rate
-# on their bare names dominates.
-STDLIB_FILESYSTEM_CALLS = frozenset(
-    {
-        # Pathlib / open / stdlib filesystem primitives used directly.
-        'copytree',
-        'makedirs',
-        'mkdir',
-        'read_bytes',
-        'read_text',
-        'rmdir',
-        'rmtree',
-        'symlink_to',
-        'touch',
-        'unlink',
-        'write_bytes',
-        'write_text',
-    }
-)
-LIBRARY_READ_CALLS = frozenset(
-    {
-        # Common library read entry points that open the file under the hood
-        'from_csv',
-        'from_json',
-        'read_csv',
-        'read_excel',
-        'read_feather',
-        'read_hdf',
-        'read_json',
-        'read_parquet',
-        'read_pickle',
-        'read_sql',
-        'read_sql_query',
-        'read_sql_table',
-        'read_table',
-    }
-)
-FILESYSTEM_TOUCHING_CALLS = THIRD_PARTY_FILESYSTEM_CALLS | STDLIB_FILESYSTEM_CALLS | LIBRARY_READ_CALLS
 
 
 def module_tuple_constants(tree: ast.Module) -> dict[str, list[ast.expr]]:
@@ -958,35 +36,6 @@ def module_tuple_constants(tree: ast.Module) -> dict[str, list[ast.expr]]:
                 if isinstance(value, ast.Tuple):
                     tuples[target.id] = list(value.elts)
     return {name: members for name, members in tuples.items() if counts[name] == 1}
-
-
-def package_class_parents(trees: collections.abc.Iterable[ast.Module]) -> dict[str, set[str]]:
-    """Map each top-level class in the given modules to the names of its bases.
-
-    A base written `mod.Base` is recorded as `Base`, so the table follows the
-    package's own class tree by bare name. Modules are pooled: a class and its
-    base may live in different ones. A class with no base maps to an empty set,
-    so the keys are exactly the package's top-level class names."""
-    parents: dict[str, set[str]] = collections.defaultdict(set)
-    for tree in trees:
-        for node in tree.body:
-            if isinstance(node, ast.ClassDef):
-                parents[node.name].update(ast.unparse(base).rsplit('.', 1)[-1] for base in node.bases if isinstance(base, (ast.Name, ast.Attribute)))
-    return dict(parents)
-
-
-def class_lineage(name: str, parents: collections.abc.Mapping[str, set[str]]) -> set[str]:
-    """The name and every ancestor of it, transitively, in `parents`.
-
-    A cycle terminates, and a name `parents` does not know is its own lineage."""
-    seen = {name}
-    stack = [name]
-    while stack:
-        for parent in parents.get(stack.pop(), ()):
-            if parent not in seen:
-                seen.add(parent)
-                stack.append(parent)
-    return seen
 
 
 def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -> None:
@@ -1035,7 +84,7 @@ def check_filesystem_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                         short = sub.func.id
                     elif isinstance(sub.func, ast.Attribute):
                         short = sub.func.attr
-                    if short in FILESYSTEM_TOUCHING_CALLS:
+                    if short in auditor.errorsites.FILESYSTEM_TOUCHING_CALLS:
                         touched_fs = True
                         break
                 if touched_fs:
@@ -1203,7 +252,7 @@ def check_filesystem_op_without_envelope(scope: pathlib.Path, src_root: pathlib.
                     package_exports[pkg].add(alias.asname or alias.name)
 
     for path in auditor.core.all_py_files(src_root):
-        if path.name in ERRORS_MODULE_NAMES:
+        if path.name in auditor.errorsites.ERRORS_MODULE_NAMES:
             continue
         pkg = path.relative_to(src_root).parts[:-1]
         if pkg not in package_has_domain_error:
@@ -1369,38 +418,6 @@ def check_logger_exception_graceful_degradation(
             )
 
 
-def raises_section_names(doc: str) -> set[str]:
-    """Return the class name of every entry in a Google-style `Raises:` section.
-
-    An entry is a line at the section's first indent, optionally bulleted,
-    naming a `*Error`, or several comma-separated (`ParseError, FetchError:`);
-    deeper lines continue the entry before them, and the first line back at
-    the header's indent ends the section.
-    """
-    entry_re = re.compile(r'\s*(?:[-*]\s+)?([A-Za-z_][\w.]*Error(?:\s*,\s*[A-Za-z_][\w.]*Error)*)\b')
-    lines = doc.splitlines()
-    names: set[str] = set()
-    for start, header in enumerate(lines):
-        if header.strip() != 'Raises:':
-            continue
-        header_indent = len(header) - len(header.lstrip())
-        entry_indent = None
-        for line in lines[start + 1 :]:
-            if not line.strip():
-                continue
-            indent = len(line) - len(line.lstrip())
-            if indent <= header_indent:
-                break
-            if entry_indent is None:
-                entry_indent = indent
-            if indent != entry_indent:
-                continue
-            match = entry_re.match(line)
-            if match:
-                names.update(name.strip().rsplit('.', 1)[-1] for name in match.group(1).split(','))
-    return names
-
-
 def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path) -> None:
     """Flag functions whose docstring declares `Raises: <X>` (or a
     sphinx-style `:raises X:` or a plain 'Raises X' sentence) where the
@@ -1432,7 +449,7 @@ def check_docstring_raises_mismatch(scope: pathlib.Path, src_root: pathlib.Path)
             doc = ast.get_docstring(node)
             if not doc:
                 continue
-            declared = {m.rsplit('.', 1)[-1] for m in docstring_class_re.findall(doc)} | raises_section_names(doc)
+            declared = {m.rsplit('.', 1)[-1] for m in docstring_class_re.findall(doc)} | auditor.errorsites.raises_section_names(doc)
             if not declared:
                 continue
             # Collect actual raised classes (excluding re-raises of bound vars)
@@ -1559,7 +576,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
         if tree is None:
             continue
         parsed.append((path, lines, tree))
-    parents = package_class_parents(tree for _, _, tree in parsed)
+    parents = auditor.errorsites.package_class_parents(tree for _, _, tree in parsed)
     for path, lines, tree in parsed:
         if path.name == '__init__.py' or path.name == 'errors.py':
             continue
@@ -1593,7 +610,7 @@ def check_missing_raises_section(scope: pathlib.Path, src_root: pathlib.Path) ->
                     continue
                 if name in STDLIB_ERRORS:
                     continue  # stdlib raises are covered by the layer-stdlib check
-                lineage = class_lineage(name, parents)
+                lineage = auditor.errorsites.class_lineage(name, parents)
                 if any(level_catches(level, lineage) for level in levels):
                     continue
                 found_project_raise = True
@@ -1653,7 +670,7 @@ def check_bare_except_in_module_with_narrow_errors(scope: pathlib.Path, src_root
             if any(n.endswith('_ERRORS') or n.endswith('_EXCEPTIONS') for n in names):
                 narrow_errors_tuple_seen = True
                 continue
-            if any(n in BROAD_HANDLER_NAMES for n in names):
+            if any(n in auditor.errorsites.BROAD_HANDLER_NAMES for n in names):
                 bare_handlers.append(node)
         if not (narrow_errors_tuple_seen and bare_handlers):
             continue
@@ -2070,82 +1087,6 @@ OSERROR_SATISFIERS = frozenset(
 TEXT_DECODING_CALLS = frozenset({'read_text'})
 
 
-def handler_catches(handler: ast.ExceptHandler) -> set[str]:
-    """Every identifier named in this handler's except tuple.
-
-    Dotted forms contribute both halves (`json.JSONDecodeError` gives `json`
-    and `JSONDecodeError`), which is harmless: only the exception names are
-    ever looked up. A bare `except:` gives the `*bare*` sentinel.
-    """
-    if handler.type is None:
-        return {BARE_HANDLER_MARK}
-    return set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', ast.unparse(handler.type)))
-
-
-def handler_translates(handler: ast.ExceptHandler) -> bool:
-    """True when this handler raises something whose name ends in `Error`.
-
-    The same signal `check_asymmetric_exception_translation` uses. It is what
-    separates an error-translating wrapper from a decorator that happens to
-    contain a `try` for an unrelated reason, such as an optional-import probe.
-    """
-    for sub in ast.walk(handler):
-        if not isinstance(sub, ast.Raise) or sub.exc is None:
-            continue
-        target = sub.exc.func if isinstance(sub.exc, ast.Call) else sub.exc
-        if not isinstance(target, (ast.Name, ast.Attribute)):
-            continue
-        if ast.unparse(target).rsplit('.', 1)[-1].endswith('Error'):
-            return True
-    return False
-
-
-def translator_envelopes(src_root: pathlib.Path) -> dict[str, frozenset[str]]:
-    """Map every error-translating function's name to what its handlers catch.
-
-    Indexed by short name rather than by dotted path, because the decorator is
-    written as the name it was bound to at the use site and that binding is not
-    always an import the checker can follow - one project's store reads the
-    contextmanager back out of `sys.modules` to dodge a circular import, and a
-    dotted-path index would resolve nothing there.
-
-    Two definitions sharing a short name contribute a union, so a wide envelope
-    elsewhere in the package can only ever silence a hit, never invent one.
-    """
-    envelopes: dict[str, set[str]] = collections.defaultdict(set)
-    for path in auditor.core.all_py_files(src_root):
-        tree = auditor.core.read_and_parse(path)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            caught: set[str] = set()
-            for sub in ast.walk(node):
-                if not isinstance(sub, ast.Try):
-                    continue
-                for handler in sub.handlers:
-                    if handler_translates(handler):
-                        caught |= handler_catches(handler)
-            if caught:
-                envelopes[node.name] |= caught
-    return {name: frozenset(caught) for name, caught in envelopes.items()}
-
-
-def callable_short_name(expr: ast.expr) -> str | None:
-    """The bare name a decorator or `with` item invokes.
-
-    `@translate('...')`, `@errors.translate` and `@translate` all give
-    `translate`.
-    """
-    node = expr.func if isinstance(expr, ast.Call) else expr
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    return None
-
-
 def guarded_body_nodes(node: ast.FunctionDef | ast.AsyncFunctionDef) -> collections.abc.Iterable[ast.AST]:
     """Every node in the function's own body - not its signature or decorators.
 
@@ -2183,7 +1124,7 @@ def a2_branches_for_call(node: ast.Call) -> list[tuple[str, frozenset[str]]]:
             branches.append(('gzip.BadGzipFile', frozenset({'BadGzipFile'})))
     if short in TEXT_DECODING_CALLS:
         branches.append(('UnicodeDecodeError', frozenset({'UnicodeDecodeError'})))
-    if short in FILESYSTEM_TOUCHING_CALLS:
+    if short in auditor.errorsites.FILESYSTEM_TOUCHING_CALLS:
         branches.append(('OSError', OSERROR_SATISFIERS))
     return branches
 
@@ -2206,7 +1147,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     Signal:
       - Function F is decorated with, or contains a `with` block entering, a
         function defined in this package whose own `except` handler raises a
-        `*Error` (see `handler_translates`). That handler's tuple is F's
+        `*Error` (see `auditor.errorsites.handler_translates`). That handler's tuple is F's
         envelope.
       - F's body calls something that triggers a branch of A2's locked set:
         `json.load*` needs `json.JSONDecodeError`; `pd.read_*` needs
@@ -2226,7 +1167,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
     One finding per function, at its earliest triggering call, so a function
     parsing several columns is one item of work rather than several.
     """
-    envelopes = translator_envelopes(src_root)
+    envelopes = auditor.errorsites.translator_envelopes(src_root)
     if not envelopes:
         return
     for path in auditor.core.all_py_files(src_root):
@@ -2241,7 +1182,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             caught: set[str] = set()
             sources: list[str] = []
             for decorator in func.decorator_list:
-                short = callable_short_name(decorator)
+                short = auditor.errorsites.callable_short_name(decorator)
                 if short in envelopes:
                     caught |= envelopes[short]
                     sources.append(f'@{short}')
@@ -2261,7 +1202,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 block_caught: set[str] = set()
                 block_names: list[str] = []
                 for item in sub.items:
-                    short = callable_short_name(item.context_expr)
+                    short = auditor.errorsites.callable_short_name(item.context_expr)
                     if short in envelopes:
                         block_caught |= envelopes[short]
                         block_names.append(short)
@@ -2299,7 +1240,7 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
             auditor.core.emit(
                 rule='translator-envelope-gap',
                 variant=(
-                    f'{func.name} calls `{callee}` under {", ".join(site_sources)}, whose except tuple {sorted(site_caught - {BARE_HANDLER_MARK})!r} omits {missing!r}'
+                    f'{func.name} calls `{callee}` under {", ".join(site_sources)}, whose except tuple {sorted(site_caught - {auditor.errorsites.BARE_HANDLER_MARK})!r} omits {missing!r}'
                 ),
                 path=rel,
                 line=lineno,
@@ -2307,10 +1248,6 @@ def check_translator_envelope_gap(scope: pathlib.Path, src_root: pathlib.Path) -
                 accepted=bool(accept),
                 accepted_reason=accept,
             )
-
-
-# Handlers that catch every domain error, whatever its name.
-BROAD_HANDLER_NAMES = frozenset({'BaseException', 'Exception'})
 
 
 def handler_passes_on(handler: ast.ExceptHandler) -> bool:
@@ -2335,7 +1272,7 @@ def handler_types(handler: ast.ExceptHandler) -> frozenset[str] | None:
     for node in types:
         if isinstance(node, (ast.Name, ast.Attribute)):
             names.add(ast.unparse(node).rsplit('.', 1)[-1])
-    if names & BROAD_HANDLER_NAMES:
+    if names & auditor.errorsites.BROAD_HANDLER_NAMES:
         return None
     return frozenset(names)
 
@@ -2510,7 +1447,7 @@ def unset_optional_guard(
             return True
         if isinstance(node, ast.Raise):
             name = raised_name(node)
-            if name and error in class_lineage(name, parents):
+            if name and error in auditor.errorsites.class_lineage(name, parents):
                 found = True
                 if not guarded:
                     return False
@@ -2531,7 +1468,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
 
     Signal:
       - A function or method whose docstring has a Google-style `Raises:`
-        section (`raises_section_names`).
+        section (`auditor.errorsites.raises_section_names`).
       - What reaches its caller: every domain error its body raises, plus every
         domain error a same-package callee's own `Raises:` section declares,
         minus each that an enclosing `except` catches without re-raising.
@@ -2612,7 +1549,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                 continue
             modules.setdefault(auditor.core.module_dotted(path, library), (path, tree, auditor.core.source_lines(path)))
 
-    parents = package_class_parents(tree for _, tree, _ in modules.values())
+    parents = auditor.errorsites.package_class_parents(tree for _, tree, _ in modules.values())
     package_classes = set(parents)
     constants = tuple_constants(tree for _, tree, _ in modules.values())
     declared_by: dict[str, set[str]] = {}
@@ -2628,7 +1565,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
                         functions.append((module, f'{module}.{node.name}.{member.name}', node.name, member))
     node_of: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
     for module, qualname, _, node in functions:
-        declared_by[qualname] = raises_section_names(ast.get_docstring(node) or '')
+        declared_by[qualname] = auditor.errorsites.raises_section_names(ast.get_docstring(node) or '')
         node_of[qualname] = node
         path_of[qualname] = modules[module][0]
 
@@ -2637,7 +1574,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
     aliases = auditor.core.reexport_aliases(bindings_of, known)
 
     def ancestors(name: str) -> set[str]:
-        return class_lineage(name, parents) - {name}
+        return auditor.errorsites.class_lineage(name, parents) - {name}
 
     def is_domain(name: str) -> bool:
         return name in package_classes and name not in STDLIB_ERRORS
@@ -2708,7 +1645,7 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
         doc = ast.get_docstring(node) or ''
         if module not in swept or 'Raises:' not in doc:
             continue
-        declared = {name for name in raises_section_names(doc) if is_domain(name)}
+        declared = {name for name in auditor.errorsites.raises_section_names(doc) if is_domain(name)}
         path, tree, lines = modules[module]
         imported = bindings_of[module]
 
@@ -2767,31 +1704,14 @@ def check_raises_section_drift(scope: pathlib.Path, src_root: pathlib.Path) -> N
 
 
 __all__ = [
-    'FILESYSTEM_TOUCHING_CALLS',
-    'callable_short_name',
-    'check_asymmetric_exception_translation',
     'check_bare_except_in_module_with_narrow_errors',
-    'check_broad_except_wrong_level',
-    'check_cli_entry_missing_error_envelope',
     'check_docstring_raises_mismatch',
-    'check_except_interpolation',
     'check_failure_as_absence',
     'check_filesystem_envelope_gap',
     'check_filesystem_op_without_envelope',
     'check_get_container_default_then_method_call',
-    'check_inconsistent_error_translation',
-    'check_layer_has_domain_error_but_raises_stdlib',
     'check_logger_exception_graceful_degradation',
     'check_missing_raises_section',
-    'check_mixed_raise_types',
     'check_raises_section_drift',
-    'check_sibling_error_no_common_base',
-    'check_silent_broad_except',
     'check_translator_envelope_gap',
-    'check_try_wrapping_with_too_broad',
-    'class_lineage',
-    'is_broad_handler',
-    'package_class_parents',
-    'raises_section_names',
-    'translator_envelopes',
 ]

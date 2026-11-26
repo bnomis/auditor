@@ -19,6 +19,7 @@ import tomllib
 
 import auditor.core
 import auditor.dispatch
+import auditor.errorsites
 import auditor.phaseb.errors
 import auditor.rules.error_handling
 import auditor.surface
@@ -341,9 +342,35 @@ def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
 A19_BRIEF = candidates.DOC_BRIEFS / 'A19.md'
 A19_RULES = ('broad-except-wrong-level', 'logger-exception-graceful-degradation', 'silent-broad-except')
+
+
+def broad_except_hits(
+    scope: pathlib.Path, src_root: pathlib.Path, rule: str, finder: collections.abc.Callable[[ast.AST], collections.abc.Iterable[ast.ExceptHandler]]
+) -> None:
+    """Emit each site the finder reports under the rule id, as the rule does, for `capture_hits`."""
+    for path in auditor.core.all_py_files(src_root):
+        tree = auditor.core.read_and_parse(path)
+        if tree is None:
+            continue
+        for node in finder(tree):
+            auditor.core.emit(
+                rule=rule, variant='', path=auditor.core.relpath(path, scope), line=node.lineno, evidence='', accepted=False, accepted_reason=None
+            )
+
+
+def silent_broad_except_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """The `silent-broad-except` sites, for `capture_hits`."""
+    broad_except_hits(scope, src_root, 'silent-broad-except', auditor.errorsites.silent_broad_except_sites)
+
+
+def wrong_level_broad_except_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """The `broad-except-wrong-level` sites, for `capture_hits`."""
+    broad_except_hits(scope, src_root, 'broad-except-wrong-level', auditor.errorsites.wrong_level_broad_except_sites)
+
+
 A19_CHECKS = (
-    auditor.rules.error_handling.check_silent_broad_except,
-    auditor.rules.error_handling.check_broad_except_wrong_level,
+    silent_broad_except_hits,
+    wrong_level_broad_except_hits,
     auditor.rules.error_handling.check_logger_exception_graceful_degradation,
 )
 LOGGER_NAMES = frozenset({'LOGGER', '_logger', 'log', 'logger', 'logging', 'loguru.logger'})
@@ -420,7 +447,7 @@ def list_a19_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
             for handler in node.handlers:
                 log_calls = log_calls_of(handler)
                 logs_exception = any(call.startswith('exception: ') for call in log_calls)
-                if not (auditor.rules.error_handling.is_broad_handler(handler) or logs_exception):
+                if not (auditor.errorsites.is_broad_handler(handler) or logs_exception):
                     continue
                 number = counter.next(f'{qualname}::except')
                 anchors = handler_anchor_lines(handler, function)
@@ -537,7 +564,7 @@ def is_external_call(call: ast.Call, imports: dict[str, str]) -> bool:
     short = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
     if short is None:
         return False
-    if short in auditor.rules.error_handling.FILESYSTEM_TOUCHING_CALLS or (isinstance(func, ast.Name) and short == 'open'):
+    if short in auditor.errorsites.FILESYSTEM_TOUCHING_CALLS or (isinstance(func, ast.Name) and short == 'open'):
         return True
     if isinstance(func, ast.Attribute) and short in A1_WRITE_METHODS:
         return True
@@ -568,8 +595,8 @@ def package_domain_errors(files: list[ParsedSource]) -> dict[str, list[str]]:
         by_package[file.module.partition('.')[0]].append(file)
     errors: dict[str, list[str]] = {}
     for package, members in by_package.items():
-        parents = auditor.rules.error_handling.package_class_parents(member.tree for member in members)
-        names = sorted(name for name in parents if name.endswith('Error') and reaches_exception(auditor.rules.error_handling.class_lineage(name, parents)))
+        parents = auditor.errorsites.package_class_parents(member.tree for member in members)
+        names = sorted(name for name in parents if name.endswith('Error') and reaches_exception(auditor.errorsites.class_lineage(name, parents)))
         if names:
             errors[package] = names
     return errors
@@ -599,10 +626,10 @@ def envelope_names(function: FunctionNode | None, catches: dict[str, frozenset[s
     """The translating decorators and `with` contextmanagers on a function, in source order, without repeats."""
     if function is None:
         return []
-    names: list[str] = [auditor.rules.error_handling.callable_short_name(decorator) or '' for decorator in function.decorator_list]
+    names: list[str] = [auditor.errorsites.callable_short_name(decorator) or '' for decorator in function.decorator_list]
     for node in ast.walk(function):
         if isinstance(node, (ast.With, ast.AsyncWith)):
-            names.extend(auditor.rules.error_handling.callable_short_name(item.context_expr) or '' for item in node.items)
+            names.extend(auditor.errorsites.callable_short_name(item.context_expr) or '' for item in node.items)
     return list(dict.fromkeys(name for name in names if name in catches))
 
 
@@ -651,7 +678,7 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     catches: dict[str, frozenset[str]] = {}
     roots, _ = auditor.core.cached_roots(scope)
     for src_root in roots:
-        for name, caught in auditor.rules.error_handling.translator_envelopes(src_root).items():
+        for name, caught in auditor.errorsites.translator_envelopes(src_root).items():
             catches[name] = catches.get(name, frozenset()) | caught
     envelope_sources: dict[str, list[str]] = collections.defaultdict(list)
     for file in files:
