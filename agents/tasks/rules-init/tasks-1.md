@@ -89,7 +89,7 @@ membership, and a test keeps every rule in exactly one pack.
 
 ## Task 3: Write the selection file
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** API (`write_selection`, `auditor rules init`, `auditor rules packs`); Implementation (The selection file, `init`); Error handling
@@ -101,21 +101,21 @@ title. `auditor rules packs` lists the packs.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesinit/test_init.py`:
+- [x] Tests first, in `tests/rulesinit/test_init.py`:
   - with one pack, only its rules are uncommented;
   - with no pack, every rule is uncommented;
   - an unknown pack fails with the spec's message;
   - a `<dest>` that holds `rules/` or `auditor-rules.toml` is refused, and nothing is written
-- [ ] Write `RulesInitError`, `write_selection` and the `init` and `packs` commands in `src/auditor/rulesinit.py` and `src/auditor/rulescli.py`
+- [x] Write `RulesInitError`, `write_selection` and the `init` and `packs` commands in `src/auditor/rulesinit.py` and `src/auditor/rulescli.py`
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass. `init` never prompts, and prints the next command to run
+- [x] The new tests pass. `init` never prompts, and prints the next command to run
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesinit/test_init.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesinit/test_init.py -q -p no:cacheprovider` passes
 
 **Notes:**
 

@@ -7,9 +7,12 @@
     auditor rules questions [--category C]
     auditor rules identity [--expect FILE]
     auditor rules pending
+    auditor rules init <dest> [--pack P ...]
+    auditor rules packs
 
-A `RulesRepoError` goes to stderr as `ERROR: <message>`, with exit status 2
-and nothing on stdout.
+A `RulesRepoError` or `RulesInitError` goes to stderr as `ERROR: <message>`,
+with exit status 2 and nothing on stdout. `init` and `packs` read the
+catalogue, so they need no rules repository.
 """
 
 import argparse
@@ -22,6 +25,7 @@ import sys
 import typing
 
 import auditor.core
+import auditor.rulesinit
 import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
@@ -161,6 +165,19 @@ def run_pending(repo: auditor.rulesrepo.RulesRepo, args: argparse.Namespace) -> 
     return 1 if headings else 0
 
 
+def run_init(args: argparse.Namespace) -> int:
+    path = auditor.rulesinit.write_selection(pathlib.Path(args.dest), args.pack)
+    print(path)
+    print(f'Edit that file, then run: auditor rules apply {args.dest}')
+    return 0
+
+
+def run_packs() -> int:
+    for name, pack in sorted(auditor.rulesinit.read_packs().items()):
+        print(f'{name}\t{len(pack["rules"])}\t{pack["description"]}')
+    return 0
+
+
 COMMANDS: dict[str, collections.abc.Callable[[auditor.rulesrepo.RulesRepo, argparse.Namespace], int]] = {
     'check': run_check,
     'identity': run_identity,
@@ -228,6 +245,24 @@ def build_parser() -> argparse.ArgumentParser:
         'pending',
         help='list the open items of TODO.md; exit 1 when there is one',
     )
+    init = commands.add_parser(
+        'init',
+        help='write <dest>/selection.txt, the editable list of catalogue rules',
+    )
+    init.add_argument(
+        'dest',
+        help='the directory of the new rules repository',
+    )
+    init.add_argument(
+        '--pack',
+        action='append',
+        default=[],
+        help='a pack whose rules start uncommented (repeatable; default: every pack)',
+    )
+    commands.add_parser(
+        'packs',
+        help='one line per pack: name, rule count, description',
+    )
     return parser
 
 
@@ -239,8 +274,12 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
     else:
         args = build_parser().parse_args(arguments)
     try:
+        if args.command == 'init':
+            return run_init(args)
+        if args.command == 'packs':
+            return run_packs()
         repo = auditor.rulesrepo.load(auditor.rulesrepo.rules_root())
-    except auditor.rulesrepo.RulesRepoError as error:
+    except (auditor.rulesrepo.RulesRepoError, auditor.rulesinit.RulesInitError) as error:
         # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
         print(f'ERROR: {auditor.core.describe_error(error)}', file=sys.stderr)
         return 2
