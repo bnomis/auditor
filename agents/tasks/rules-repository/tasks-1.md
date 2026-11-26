@@ -147,7 +147,7 @@ each in rule-name order, imported through `import_entry`, with nothing put on
 
 ## Task 4: Run a rules repository's Phase B questions
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Repository format (question keys); Implementation (Phase B)
@@ -159,21 +159,21 @@ The plan, check, merge and ledger code does not change.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_phaseb.py`. A fixture question with a lister, run through `auditor phaseb candidates` and `plan`, must give:
+- [x] Tests first, in `tests/rulesrepo/test_phaseb.py`. A fixture question with a lister, run through `auditor phaseb candidates` and `plan`, must give:
   - its candidates;
   - its brief version;
   - its batch size;
   - the depth only when `takes-depth` is true
-- [ ] In `src/auditor/phaseb/candidates.py`, build the registry from the loaded repository when the variable is set, and keep today's registrations when it is unset
+- [x] In `src/auditor/phaseb/candidates.py`, build the registry from the loaded repository when the variable is set, and keep today's registrations when it is unset
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass, and `tests/checker/phaseb` passes unchanged
+- [x] The new tests pass, and `tests/checker/phaseb` passes unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_phaseb.py tests/checker/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_phaseb.py tests/checker/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 

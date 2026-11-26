@@ -1,0 +1,7 @@
+kind = "question"
+title = "A question that follows callees"
+id = "Q1"
+category = "A"
+kinds = ["missing", "extra"]
+batch-size = 7
+takes-depth = true

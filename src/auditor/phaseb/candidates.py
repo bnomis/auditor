@@ -7,6 +7,7 @@ import dataclasses
 import hashlib
 import importlib.resources
 import json
+import os
 import pathlib
 import re
 import tomllib
@@ -18,6 +19,7 @@ import auditor.phaseb.errors
 import auditor.phaseb.testmap
 import auditor.rules.error_handling
 import auditor.rules.project_hygiene
+import auditor.rulesrepo
 
 
 @dataclasses.dataclass(frozen=True)
@@ -120,6 +122,53 @@ def register_question(
         return lister
 
     return decorate
+
+
+def repository_lister(rule: auditor.rulesrepo.Rule) -> Lister:
+    """A lister that imports the rule's `lister.py` when it first runs, so an import error is raised where the candidates are asked for."""
+
+    def lister(scope: pathlib.Path) -> list[Candidate]:
+        return list(auditor.rulesrepo.import_entry(rule, 'lister.py').list_candidates(scope))
+
+    return lister
+
+
+def repository_depth_lister(rule: auditor.rulesrepo.Rule) -> Lister:
+    """Like `repository_lister`, for a question whose `rule.toml` sets `takes-depth`: the depth is handed on."""
+
+    def lister(scope: pathlib.Path, depth: int | None = None) -> list[Candidate]:
+        return list(auditor.rulesrepo.import_entry(rule, 'lister.py').list_candidates(scope, DEFAULT_DEPTH if depth is None else depth))
+
+    return lister
+
+
+def use_rules_repository() -> None:
+    """When `$AUDITOR_RULES_PATH` is set, replace the registrations with the repository's questions that have a lister.
+
+    `kinds`, `batch-size` and `takes-depth` come from `rule.toml` and the brief
+    is the rule's `brief.md`. Unset, the built-in registrations stay.
+
+    Raises:
+        RulesRepoError: the variable is set but empty, or the repository is invalid.
+        PhaseBError: a question registers no kinds or names a kind twice.
+    """
+    if auditor.rulesrepo.RULES_PATH_VARIABLE not in os.environ:
+        return
+    repo = auditor.rulesrepo.load(auditor.rulesrepo.rules_root())
+    REGISTRY.clear()
+    KINDS.clear()
+    TAKES_DEPTH.clear()
+    for rule in repo.rules:
+        if rule.kind != 'question' or not (rule.path / 'lister.py').is_file():
+            continue
+        takes_depth = bool(rule.meta.get('takes-depth', False))
+        register_question(
+            str(rule.meta['id']),
+            rule.path / 'brief.md',
+            tuple(str(kind) for kind in typing.cast('list[str]', rule.meta['kinds'])),
+            batch_size=int(typing.cast('int', rule.meta.get('batch-size', DEFAULT_BATCH_SIZE))),
+            takes_depth=takes_depth,
+        )(repository_depth_lister(rule) if takes_depth else repository_lister(rule))
 
 
 def registered(question: str) -> tuple[Lister, pathlib.Path, int]:
