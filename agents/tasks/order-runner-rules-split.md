@@ -55,4 +55,4 @@ steps are the operator's own:
 | 1 | `auditor-cli/tasks-1.md` | - | - | merged d5579cb |
 | 2 | `rules-repository/tasks-1.md` | 1 | - | merged 887ccd2 |
 | 3 | `default-rule-catalogue/tasks-1.md` | 2 | - | merged 15c7de3 |
-| 4 | `rules-init/tasks-1.md` | 3 | Task 1: answer the pack-membership review page, then an operator session copies the answers into `agents/reviews/rules-init-packs.md` | running |
+| 4 | `rules-init/tasks-1.md` | 3 | Task 1: answer the pack-membership review page, then an operator session copies the answers into `agents/reviews/rules-init-packs.md` | merged 161f184 |
