@@ -1,4 +1,12 @@
-"""The check registry: every check, in the order the sweep runs them."""
+"""The check registry: every check, in the order the sweep runs them.
+
+Transitional: the built-in checks not yet moved, followed by every rule already
+in `auditor/catalogue/`, loaded through `auditor.rulesrepo.import_entry`. The
+catalogue's rules come in name order after the built-ins.
+"""
+
+import pathlib
+import typing
 
 import auditor.rules.duplication
 import auditor.rules.error_handling
@@ -6,8 +14,26 @@ import auditor.rules.imports_and_surfaces
 import auditor.rules.project_hygiene
 import auditor.rules.state_and_effects
 import auditor.rules.style_and_naming
+import auditor.rulesrepo
 
-CHECKS = (
+if typing.TYPE_CHECKING:
+    import collections.abc
+
+CATALOGUE_ROOT = pathlib.Path(__file__).resolve().parent / 'catalogue'
+CATALOGUE = auditor.rulesrepo.load(CATALOGUE_ROOT)
+
+
+def catalogue_check(rule: auditor.rulesrepo.Rule) -> collections.abc.Callable[[pathlib.Path, pathlib.Path], None]:
+    """A check that imports the rule's `check.py` when it first runs, named by the rule directory."""
+
+    def run(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+        auditor.rulesrepo.import_entry(rule, 'check.py').check(scope, src_root)
+
+    run.__name__ = rule.name
+    return run
+
+
+BUILTIN_CHECKS = (
     auditor.rules.project_hygiene.check_ruff,
     auditor.rules.style_and_naming.check_text_patterns,
     auditor.rules.style_and_naming.check_percent_formatting,
@@ -76,20 +102,30 @@ CHECKS = (
     auditor.rules.state_and_effects.check_discarded_tuple_return,
 )
 
+CHECKS = (
+    *BUILTIN_CHECKS,
+    *(catalogue_check(rule) for rule in CATALOGUE.rules if rule.kind == 'check'),
+)
+
 # The checks that read only the project, never the root they are handed. The
 # driver runs these once, before the per-root passes, whether or not the
 # project has a root, so a project with no Python still has its lockfile and
 # ruff pin checked. None is in CHECKS: a per-root pass would repeat it.
-PROJECT_CHECKS = (
+BUILTIN_PROJECT_CHECKS = (
     auditor.rules.project_hygiene.check_lockfile,
     auditor.rules.project_hygiene.check_ruff_version,
     auditor.rules.project_hygiene.check_spec_api_signature_drift,
 )
 
+PROJECT_CHECKS = (
+    *BUILTIN_PROJECT_CHECKS,
+    *(catalogue_check(rule) for rule in CATALOGUE.rules if rule.kind == 'project-check'),
+)
+
 # Every rule id the checker can emit, `ruff` and `lockfile-drift` included.
 # `[tool.auditme] never-accepted` validates its names against this set; a test
 # keeps it equal to the source's emitted ids and the rule tables in the guide.
-RULE_IDS = frozenset(
+BUILTIN_RULE_IDS = frozenset(
     {
         'aliased-imports',
         'annotated-all-assignment',
@@ -175,3 +211,5 @@ RULE_IDS = frozenset(
         'wildcard-imports',
     }
 )
+
+RULE_IDS = BUILTIN_RULE_IDS | CATALOGUE.rule_ids()

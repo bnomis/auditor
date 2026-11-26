@@ -90,7 +90,7 @@ Task 13 can prove equivalence.
 
 ## Task 2: Create the catalogue and the transitional registry
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Module location; Implementation 2 (the registry keeps running), 9 (sweep coverage)
@@ -101,10 +101,10 @@ sweep audits the catalogue's rule code in exactly one root.
 
 **Subtasks:**
 
-- [ ] Write `src/auditor/catalogue/auditor-rules.toml` with `api = "1.0"`, and an empty `rules/`
-- [ ] Make `CHECKS`, `PROJECT_CHECKS` and `RULE_IDS` in `src/auditor/registry.py` include the catalogue's rules, in the existing order followed by the catalogue's in name order
-- [ ] In `tests/checker/test_registry.py`, make the "defined in a rules module" and "exercised by a test module" tests also accept a catalogue rule directory and its `tests/`. This is the change to registry tests that the header allows
-- [ ] Write `tests/catalogue/test_catalogue.py`: `auditor rules check` passes over the catalogue, and every `standards` entry names a `standard` rule
+- [x] Write `src/auditor/catalogue/auditor-rules.toml` with `api = "1.0"`, and an empty `rules/`
+- [x] Make `CHECKS`, `PROJECT_CHECKS` and `RULE_IDS` in `src/auditor/registry.py` include the catalogue's rules, in the existing order followed by the catalogue's in name order
+- [x] In `tests/checker/test_registry.py`, make the "defined in a rules module" and "exercised by a test module" tests also accept a catalogue rule directory and its `tests/`. This is the change to registry tests that the header allows
+- [x] Write `tests/catalogue/test_catalogue.py`: `auditor rules check` passes over the catalogue, and every `standards` entry names a `standard` rule
 - [ ] Spec step 9:
   - put one probe rule directory in the catalogue;
   - run the sweep, and see how it names `check.py`;
@@ -127,6 +127,7 @@ sweep audits the catalogue's rule code in exactly one root.
 **Notes:**
 
 - Depends on Task 1
+- Blocked on the last subtask, checked on 2026-11-26. `[tool.auditme] roots` cannot exclude a subdirectory: `declared_roots` in `src/auditor/core.py` rejects a root nested inside a `package` root as an overlap, and a `top-level` root finds no `check.py` in a subdirectory. A probe rule directory (`probe-rule/check.py`) was already swept by path, under the `src/auditor` root alone, so no root is skipped today; the spec asks for the exclusion form regardless. The operator decides: allow an `exclude` key in a roots entry, or accept the `src/auditor` root as the one root for the rule files
 
 ---
 

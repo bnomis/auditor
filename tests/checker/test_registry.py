@@ -35,9 +35,12 @@ TESTS_DIR = pathlib.Path(__file__).resolve().parent
 ORDER_BASELINE = TESTS_DIR / 'registry-order.txt'
 
 
+CATALOGUE_RULES = TESTS_DIR.parents[1] / 'src' / 'auditor' / 'catalogue' / 'rules'
+
+
 def defined_check_names() -> set[str]:
-    """Every `check_*` function each rules module defines itself."""
-    names: set[str] = set()
+    """Every `check_*` function each rules module defines itself, and every catalogue rule directory with a `check.py`."""
+    names: set[str] = {path.parent.name for path in CATALOGUE_RULES.glob('*/check.py')}
     for module in RULE_MODULES:
         for name, value in vars(module).items():
             if name.startswith('check_') and inspect.isfunction(value) and value.__module__ == module.__name__:
@@ -93,6 +96,7 @@ def test_every_registered_check_is_exercised_by_a_test_module() -> None:
             continue
         text = path.read_text(encoding='utf-8')
         referenced.update(name for name in names if name in text)
+    referenced.update(path.parent.parent.name for path in CATALOGUE_RULES.glob('*/tests/test_*.py'))
     missing = set(names) - referenced
     assert not missing, f'no test module exercises: {sorted(missing)}'
 
