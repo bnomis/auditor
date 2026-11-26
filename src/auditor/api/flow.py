@@ -58,7 +58,7 @@ MUTABLE_VALUE_SHAPES: collections.abc.Mapping[type[ast.expr], tuple[str, str]] =
 # The builtin constructors that build the same three mutable containers. A call
 # to one states its type in the assignment as a literal does, so it is the same
 # finding; any other call (`get_defaults()`) states none and stays out. Ruled on
-# 2026-10-31 on an audit's request; see `requests.md`.
+# 2026-10-31 on an audit's request; see `rule.md` of `mutable-module-level-exported`.
 MUTABLE_CONSTRUCTORS: collections.abc.Mapping[str, tuple[str, str]] = types.MappingProxyType(
     {
         'dict': ('dict constructor call', 'types.MappingProxyType(...)'),

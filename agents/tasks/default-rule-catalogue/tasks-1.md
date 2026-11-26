@@ -435,7 +435,7 @@ section of the three prose standards files is a `standard` rule.
 
 ## Task 11: Retire `requests.md`
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Implementation 5
@@ -445,22 +445,22 @@ one rejected entry moves into its rule, and nothing refers to `requests.md`.
 
 **Subtasks:**
 
-- [ ] Starting-point check: the `## Open` section of `claude/skills/auditme/requests.md` holds no entry. If it holds one, stop as `blocked` and name it, because `requests.md` requires it to be shipped or rejected first
-- [ ] Move each `## Rejected` entry word for word under `## Rejected widenings` in the named rule's `rule.md` (today, `mutable-module-level-exported`)
-- [ ] In `SKILL.md`:
+- [x] Starting-point check: the `## Open` section of `claude/skills/auditme/requests.md` holds no entry. If it holds one, stop as `blocked` and name it, because `requests.md` requires it to be shipped or rejected first
+- [x] Move each `## Rejected` entry word for word under `## Rejected widenings` in the named rule's `rule.md` (today, `mutable-module-level-exported`)
+- [x] In `SKILL.md`:
   - move the file's prose on why requests block into step 3, beside `auditor rules pending`;
   - change the completion-gate line to "`auditor rules pending` exited 0 at audit start";
   - remove the built-in-path wording that `agents/tasks/rules-repository/tasks-1.md` Task 9 left
-- [ ] Rewrite every other reference, in `SKILL.md`, `docs/reference/skills.md` and the comments and docstrings of the moved rule code and tests. Then delete the file
+- [x] Rewrite every other reference, in `SKILL.md`, `docs/reference/skills.md` and the comments and docstrings of the moved rule code and tests. Then delete the file
 
 **Acceptance Criteria:**
 
-- [ ] `git grep -n 'requests\.md' -- '*.md' '*.py' '*.sh' ':!agents'` prints nothing
+- [x] `git grep -n 'requests\.md' -- '*.md' '*.py' '*.sh' ':!agents'` prints nothing
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
 
 **Notes:**
 

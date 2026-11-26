@@ -370,7 +370,7 @@ Done: 2026-11-20 - specs `agents/specs/listed-phase-b-documentation-questions/sp
 ## `raises-section-drift` misses errors reached through a section-less wrapper or a `Class.method()` call
 
 Found on 2026-11-20 in a review of this file: the open request in
-`claude/skills/auditme/requests.md`, raised the same day by an audit whose
+the skill's retired change-request file, raised the same day by an audit whose
 Phase B A4 found by hand `Raises:` omissions the rule exists to catch, is
 recorded in no `TODO.md` item. While it is open the next audit cannot start
 (`claude/skills/auditme/SKILL.md`, the mechanical sweep's check that the
@@ -389,7 +389,7 @@ shared resolver once Task 1 of `agents/tasks/repeatable-phase-b/tasks-1.md`
 has moved it into `core.py`; the section-less wrapper gap is separate work.
 The request entry stays the detailed record; this item tracks the work.
 
-Spec: `agents/specs/raises-section-resolution/spec.md`; tasks: `agents/tasks/raises-section-resolution/tasks-1.md`, after `agents/tasks/repeatable-phase-b/tasks-1.md`, in the run order `agents/tasks/order-raises-resolution-and-listed-phase-b.md`. Stays open after the list ships, until the catch-up run in each project with the shared hooks is done and the `requests.md` entry is deleted.
+Spec: `agents/specs/raises-section-resolution/spec.md`; tasks: `agents/tasks/raises-section-resolution/tasks-1.md`, after `agents/tasks/repeatable-phase-b/tasks-1.md`, in the run order `agents/tasks/order-raises-resolution-and-listed-phase-b.md`. Stays open after the list ships, until the catch-up run in each project with the shared hooks is done and the the retired change-request file entry is deleted.
 
 Note, 2026-11-20: the code shipped the same day in `f1a24f4` (row 2 of the
 run order), so the rule no longer dates from 2026-11-01: it follows a callee
@@ -397,10 +397,10 @@ with no `Raises:` section up to three calls deep and resolves
 `<ClassName>.<method>(...)`, and it moved the A4 brief to version 2. What
 remains is outside this repository: the catch-up run in each project with
 the shared hooks, then deleting the entry under `## Open` in
-`claude/skills/auditme/requests.md`, which is still there. The next audit
+the skill's retired change-request file, which is still there. The next audit
 cannot start until it is gone.
 
-Done: 2026-11-21 - code in `f1a24f4` (spec `agents/specs/raises-section-resolution/spec.md`, task list `agents/tasks/raises-section-resolution/tasks-1.md`); the catch-up landed on 2026-11-21 in every project with the shared hooks - `Raises:` entries where the error reaches the caller, scoped accept markers with a reason where it cannot, and each project's pin moved to `8d97d96` - and the `requests.md` entry was deleted.
+Done: 2026-11-21 - code in `f1a24f4` (spec `agents/specs/raises-section-resolution/spec.md`, task list `agents/tasks/raises-section-resolution/tasks-1.md`); the catch-up landed on 2026-11-21 in every project with the shared hooks - `Raises:` entries where the error reaches the caller, scoped accept markers with a reason where it cannot, and each project's pin moved to `8d97d96` - and the the retired change-request file entry was deleted.
 
 ## `phaseb.py check` rejects the result of every listed question but A4
 
@@ -636,7 +636,7 @@ Done: 2026-11-21 - the marker removed from `.pre-commit-config.yaml`; `audit.py 
 ## Ship or reject the three open checker requests
 
 Found on 2026-11-21 in a review of this file. `dfc34b2` filed three entries
-under `## Open` in `claude/skills/auditme/requests.md`, each raised by an
+under `## Open` in the skill's retired change-request file, each raised by an
 audit the same day: "A user guide's parameter list is checked by nothing",
 "Listed briefs leave thresholds open that reviewers settle differently" and
 "D2 has no carve-out for type-stub packages and notebook kernels".
@@ -652,7 +652,7 @@ goes through a spec first; the other two change brief and predicate text,
 each with a brief version bump where a brief changes. Do this before the
 backlog below, so the backlog's catch-up includes any new check's hits.
 
-Done: 2026-11-21 - all three shipped as `agents/reviews/checker-requests-2026-11-21.md` decided (every recommendation accepted): the T1 (version 2), A4 (4), Doc4 (4) and Doc5 (4) briefs' Thresholds; the T1 lister's `test_files` counting package re-exports (`checks/auditme/phaseb/testmap.py`, amendment 1.3 of `agents/specs/listed-phase-b-test-questions/spec.md`); D2's carve-out in `claude/skills/auditme/SKILL.md`; `requests.md`'s `## Open` emptied.
+Done: 2026-11-21 - all three shipped as `agents/reviews/checker-requests-2026-11-21.md` decided (every recommendation accepted): the T1 (version 2), A4 (4), Doc4 (4) and Doc5 (4) briefs' Thresholds; the T1 lister's `test_files` counting package re-exports (`checks/auditme/phaseb/testmap.py`, amendment 1.3 of `agents/specs/listed-phase-b-test-questions/spec.md`); D2's carve-out in `claude/skills/auditme/SKILL.md`; the retired change-request file's `## Open` emptied.
 
 ## Fix or accept this repository's audit backlog
 
@@ -745,7 +745,7 @@ Done: 2026-11-21 - `ACCEPT_COMMENT_RE` in `claude/skills/auditme/checks/auditme/
 
 Found on 2026-11-21 by this repository's first full audit
 (`agents/audit-reviews/review-1.md`) and filed as an open request in
-`claude/skills/auditme/requests.md` ("The Phase B test index reads tests only
+the skill's retired change-request file ("The Phase B test index reads tests only
 from `src/tests/` and `tests/`"), which holds the full finding.
 
 Cause: `TEST_TREES` in `claude/skills/auditme/checks/auditme/phaseb/testmap.py`
@@ -765,7 +765,7 @@ Done: 2026-11-22 - amendment 1.5 of agents/specs/listed-phase-b-test-questions/s
 ## A9 reads a registered check's `check_` name as a purity promise
 
 Found on 2026-11-21 by `agents/audit-reviews/review-1.md` (decision D3) and
-filed as an open request in `claude/skills/auditme/requests.md` ("A9 should
+filed as an open request in the skill's retired change-request file ("A9 should
 not read a registered check's `check_` name as a purity promise"), which holds
 the full finding.
 
@@ -778,12 +778,12 @@ project's registry or a registering decorator) is not read as pure-named; the
 narrowing names the registration as its positive evidence. Shipping it deletes
 the request entry.
 
-Done: 2026-11-22 - A9's predicate in `claude/skills/auditme/SKILL.md` no longer reads `check_` as pure for a registered check, listed under Documented refinements; the request entry is removed from `claude/skills/auditme/requests.md`.
+Done: 2026-11-22 - A9's predicate in `claude/skills/auditme/SKILL.md` no longer reads `check_` as pure for a registered check, listed under Documented refinements; the request entry is removed from the skill's retired change-request file.
 
 ## Settle the thresholds review-1's reviewers left open
 
 Found on 2026-11-21 by `agents/audit-reviews/review-1.md` (decision D1) and
-filed as an open request in `claude/skills/auditme/requests.md` ("Settle the
+filed as an open request in the skill's retired change-request file ("Settle the
 thresholds review-1's reviewers left open"), which lists each threshold for
 the A1, A4, T1, Doc4 and Doc5 briefs.
 
@@ -795,12 +795,12 @@ Fix direction: settle each threshold in its brief under
 version and the expectation in `claude/skills/auditme/tests/phaseb/test_briefs.py`. Shipping it
 deletes the request entry.
 
-Done: 2026-11-22 - agents/reviews/brief-thresholds-2026-11-22.md (answered 2026-11-22); briefs A1 3, A4 5, T1 4, Doc4 5 and Doc5 5 under `claude/skills/auditme/phaseb/briefs/`; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from `claude/skills/auditme/requests.md`.
+Done: 2026-11-22 - agents/reviews/brief-thresholds-2026-11-22.md (answered 2026-11-22); briefs A1 3, A4 5, T1 4, Doc4 5 and Doc5 5 under `claude/skills/auditme/phaseb/briefs/`; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from the skill's retired change-request file.
 
 ## Settle the thresholds review-2's reviewers left open
 
 Found on 2026-11-22 by `agents/audit-reviews/review-2.md` (decision D1) and
-filed as an open request in `claude/skills/auditme/requests.md` ("Settle the
+filed as an open request in the skill's retired change-request file ("Settle the
 thresholds review-2's reviewers left open"), which lists each threshold for
 the A1, A4, A17, Doc4 and Doc5 briefs.
 
@@ -815,13 +815,13 @@ expectation in `claude/skills/auditme/tests/phaseb/test_briefs.py`. The A1
 emitted-hit case goes with review-2's D2. Shipping it deletes the request
 entry; review-3 cannot start until it is shipped or rejected.
 
-Done: 2026-11-22 - agents/reviews/brief-thresholds-2-2026-11-22.md (answered 2026-11-22); briefs A1 4, A4 6, A17 2, Doc4 6 and Doc5 6 under `claude/skills/auditme/phaseb/briefs/`; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from `claude/skills/auditme/requests.md`.
+Done: 2026-11-22 - agents/reviews/brief-thresholds-2-2026-11-22.md (answered 2026-11-22); briefs A1 4, A4 6, A17 2, Doc4 6 and Doc5 6 under `claude/skills/auditme/phaseb/briefs/`; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from the skill's retired change-request file.
 
 ## The `ruff format` half of the `ruff` rule never reports a file
 
 Found on 2026-11-22 by `agents/audit-reviews/review-3.md` (its Checker
 request section), reproduced the same day on a scratch project, and filed in
-`claude/skills/auditme/requests.md` ("The `ruff format` half of the `ruff`
+the skill's retired change-request file ("The `ruff format` half of the `ruff`
 rule never reports a file"), which holds the full finding.
 
 Cause: `check_ruff` in `claude/skills/auditme/checks/auditme/rules/project_hygiene.py`
@@ -834,12 +834,12 @@ and `line` from it, and test against output captured from the pinned ruff.
 Shipping it deletes the request entry; the first sweep after it reports any
 unformatted file as catch-up.
 
-Done: 2026-11-22 - `check_ruff` in `claude/skills/auditme/checks/auditme/rules/project_hygiene.py` reads `ruff format --check --output-format=json`, as it reads `ruff check`; tests in `claude/skills/auditme/tests/test_project_hygiene.py` against the real ruff and against output captured from the pinned ruff 0.17.4; `docs/guide/checker.md`; the request entry removed from `claude/skills/auditme/requests.md`. The sweep of this repository reported no unformatted file.
+Done: 2026-11-22 - `check_ruff` in `claude/skills/auditme/checks/auditme/rules/project_hygiene.py` reads `ruff format --check --output-format=json`, as it reads `ruff check`; tests in `claude/skills/auditme/tests/test_project_hygiene.py` against the real ruff and against output captured from the pinned ruff 0.17.4; `docs/guide/checker.md`; the request entry removed from the skill's retired change-request file. The sweep of this repository reported no unformatted file.
 
 ## Settle the thresholds review-3's reviewers left open
 
 Found on 2026-11-22 by `agents/audit-reviews/review-3.md` (decision D1) and
-filed as an open request in `claude/skills/auditme/requests.md` ("Settle the
+filed as an open request in the skill's retired change-request file ("Settle the
 thresholds review-3's reviewers left open"), which lists each threshold for
 the A1, T2, Doc4 and Doc5 briefs.
 
@@ -854,12 +854,12 @@ bumping that brief's version and the expectation in
 `claude/skills/auditme/tests/phaseb/test_briefs.py`. Shipping it deletes the
 request entry.
 
-Done: 2026-11-22 - agents/reviews/brief-thresholds-3-2026-11-22.md (answered 2026-11-22): G1 gives every brief a default verdict for an unsettled case (every brief up one version), and the A1, T2, Doc4 and Doc5 briefs settle review-3's cases; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from `claude/skills/auditme/requests.md`.
+Done: 2026-11-22 - agents/reviews/brief-thresholds-3-2026-11-22.md (answered 2026-11-22): G1 gives every brief a default verdict for an unsettled case (every brief up one version), and the A1, T2, Doc4 and Doc5 briefs settle review-3's cases; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py`; the request entry removed from the skill's retired change-request file.
 
 ## Keep a dismissal across a re-judge while the code is unchanged
 
 Found on 2026-11-22 by `agents/audit-reviews/review-4.md` (decision D2) and
-filed in `claude/skills/auditme/requests.md` ("Keep a dismissal across a brief
+filed in the skill's retired change-request file ("Keep a dismissal across a brief
 bump while the code is unchanged"), which holds the full finding:
 `core.py::cached_source` (A1) was dismissed on the pages of review-2, review-3
 and review-4 for the same reason.
@@ -876,13 +876,13 @@ changed hash still drops it. Test both cases, and have `report` say a carried
 dismissal was made under an earlier brief version. Shipping it deletes the
 request entry.
 
-Done: 2026-11-22 - `merge_verdicts` in `claude/skills/auditme/checks/auditme/phaseb/ledger.py` keeps a dismissal while the candidate's hash is unchanged (and still when its findings are unchanged); test in `claude/skills/auditme/tests/phaseb/test_ledger.py`; amendment 1.6 of `agents/specs/repeatable-phase-b/spec.md`; the request entry removed from `claude/skills/auditme/requests.md`. `report` still leaves dismissed candidates out, as its test requires, so it does not name a carried dismissal's brief version: the ledger keeps no brief version per dismissal, only the date in its text.
+Done: 2026-11-22 - `merge_verdicts` in `claude/skills/auditme/checks/auditme/phaseb/ledger.py` keeps a dismissal while the candidate's hash is unchanged (and still when its findings are unchanged); test in `claude/skills/auditme/tests/phaseb/test_ledger.py`; amendment 1.6 of `agents/specs/repeatable-phase-b/spec.md`; the request entry removed from the skill's retired change-request file. `report` still leaves dismissed candidates out, as its test requires, so it does not name a carried dismissal's brief version: the ledger keeps no brief version per dismissal, only the date in its text.
 
 ## Settle the brief cases reviewers left open
 
 Found on 2026-11-23 by an audit on one project, run after the 2026-11-22
 brief settlements, and filed as an open request in
-`claude/skills/auditme/requests.md` ("Settle the brief cases reviewers left
+the skill's retired change-request file ("Settle the brief cases reviewers left
 open (filed 2026-11-23)"), which lists each case for the Doc4, Doc5, T1, A17
 and A19 briefs.
 
@@ -901,7 +901,7 @@ either have the brief read the marker as the user's decision or have the
 lister leave such a site out, as it does for a sweep hit. Shipping it deletes
 the request entry.
 
-Done: 2026-11-23 - agents/reviews/brief-thresholds-4-2026-11-23.md (answered 2026-11-23, every recommendation taken): briefs Doc4 9, Doc5 9, T1 7 and A17 5 settle the cases; `carries_a19_marker` in `claude/skills/auditme/checks/auditme/phaseb/architecture.py` leaves a handler carrying an A19 accept marker out of the A19 list; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py` and `test_architecture_candidates.py`; amendments 1.6 of the documentation-questions spec, 1.7 of the architecture-questions spec and 1.8 of the test-questions spec; the request entry removed from `claude/skills/auditme/requests.md`.
+Done: 2026-11-23 - agents/reviews/brief-thresholds-4-2026-11-23.md (answered 2026-11-23, every recommendation taken): briefs Doc4 9, Doc5 9, T1 7 and A17 5 settle the cases; `carries_a19_marker` in `claude/skills/auditme/checks/auditme/phaseb/architecture.py` leaves a handler carrying an A19 accept marker out of the A19 list; tests in `claude/skills/auditme/tests/phaseb/test_briefs.py` and `test_architecture_candidates.py`; amendments 1.6 of the documentation-questions spec, 1.7 of the architecture-questions spec and 1.8 of the test-questions spec; the request entry removed from the skill's retired change-request file.
 
 ## A project with no audit root has its `.venv` swept
 
@@ -972,7 +972,7 @@ Done: 2026-11-24 - amendment 1.3 of agents/specs/raises-section-resolution/spec.
 
 ## The sweep misses seven patterns one project's audits found by hand
 
-Found on 2026-11-24 in `claude/skills/auditme/requests.md`, whose open entry
+Found on 2026-11-24 in the skill's retired change-request file, whose open entry
 "Close the sweep gaps one project's audits carried as script candidates"
 (filed on 2026-11-24, commit `9cd95f6`) has no `TODO.md` item. One project's
 audits carried the patterns as script-coverage candidates across two cycles;
@@ -992,9 +992,9 @@ lists every gap with its cause:
 - The A17 lister reads only an `__init__.py`'s `__all__`.
 
 `agents/audit-reviews/summary.md` makes the next audit cycle wait until
-`requests.md` is empty, so this item blocks it.
+the retired change-request file is empty, so this item blocks it.
 
-Fix direction: ship or reject each gap as `requests.md` describes, running
+Fix direction: ship or reject each gap as the retired change-request file describes, running
 the sweep on a real project and landing fixes or accept markers for what each
 change exposes, then delete the entry. The A23 rule is new and the
 `assert-never-missing` change adds an inference path (the `Literal`
@@ -1004,6 +1004,6 @@ Spec: `agents/specs/sweep-coverage-gaps/spec.md` (approved 2026-11-24: `agents/r
 
 Note 2026-11-24: the checker work shipped; the item waits on the operator's
 runs of the sweep on the projects that use the hooks and on the deletion of
-the `requests.md` entry.
+the the retired change-request file entry.
 
-Done: 2026-11-25 - checker work in agents/specs/sweep-coverage-gaps/spec.md and agents/tasks/sweep-coverage-gaps/tasks-1.md; the projects of the workspace that raised the request moved their pin to `133ca2c`, ran the sweep, fixed or accepted each new hit and noted the rule change in its audit summary (2026-11-24 to 2026-11-25); the `requests.md` entry deleted.
+Done: 2026-11-25 - checker work in agents/specs/sweep-coverage-gaps/spec.md and agents/tasks/sweep-coverage-gaps/tasks-1.md; the projects of the workspace that raised the request moved their pin to `133ca2c`, ran the sweep, fixed or accepted each new hit and noted the rule change in its audit summary (2026-11-24 to 2026-11-25); the the retired change-request file entry deleted.

@@ -69,27 +69,18 @@ Run these in parallel:
   that changed>`, and the review is not counted as a convergence measurement,
   because new findings may come from new rules rather than from the code.
 
-**Precondition: no open change requests, with `AUDITOR_RULES_PATH` set.** Run
-`auditor rules pending`. It lists each open item of the rules repository's
-`TODO.md` and exits 1 when there is one; the audit does not start while it
-does. Ship each item (see Change requests below) or reject it, then run the
-command again. The rest of this step is the precondition for the built-in
-path, when `AUDITOR_RULES_PATH` is unset.
-
-**Precondition: no open change requests, built-in path.** Before running, read
-[`requests.md`](requests.md), beside this file. If its `## Open` section has any
-entry, the audit is not allowed to start. Either:
-
-1. Ship it - implement the check, run the sweep, land fixes or accept markers for the catch-up surface it exposes, delete the entry, and note the change in the affected projects' `summary.md`; or
-2. Reject it explicitly - delete the entry and record the reason under `## Rejected`, so a later audit does not raise it a third time.
+**Precondition: no open change requests.** Run `auditor rules pending`. It
+lists each open item of the rules repository's `TODO.md` and exits 1 when there
+is one; the audit does not start while it does. Ship each item (see Change
+requests below) or reject it, then run the command again.
 
 This precondition is the cure for failure mode 1. Without it, every audit cycle
 ships another "next time we'll add this check" and convergence is impossible.
 
-Requests live in the skill rather than in a project's `summary.md` because the
-work is in the skill: a new check benefits every project, and burying it in the
-notes of the one that noticed hides it from the repository where it would be
-done.
+Requests live in the rules repository rather than in a project's `summary.md`
+because the work is in the rules: a new check benefits every project, and
+burying it in the notes of the one that noticed hides it from the repository
+where it would be done.
 
 Then run the shipped audit script:
 
@@ -260,7 +251,7 @@ For each incomplete task in `agents/tasks/audit-reviews/*.md`, verify against so
 
 Before writing the review file, confirm:
 
-- [ ] `requests.md`'s `## Open` section was empty at audit start (every entry shipped or rejected)
+- [ ] `auditor rules pending` exited 0 at audit start
 - [ ] `auditor check` was executed and its full JSONL output saved
 - [ ] Every `accepted: false` hit appears in the review (no sampling, no silent dismissals)
 - [ ] Phase B ran with per-question fan-out covering EVERY question in EVERY category (`--category` was NOT used unless the user explicitly asked for a partial verification)
@@ -438,10 +429,6 @@ now - that is failure mode 1.
 
 ## Change requests
 
-This section applies only when `AUDITOR_RULES_PATH` is set. With it unset, the
-built-in path keeps using [`requests.md`](requests.md) until the rule
-catalogue replaces it.
-
 A pattern an audit finds that the sweep should check is a change request on
 the rules repository. An audit never changes a rule while it runs (failure
 mode 1).
@@ -514,9 +501,8 @@ Patterns that have appeared across multiple reviews even when individual instanc
 
 Only what a reader needs to interpret the next convergence note: which checks
 were added, removed or refined, and the resulting expected delta. Open requests
-do not belong here - they live in the skill's own
-[`requests.md`](requests.md), because the work is there rather than in this
-project.
+do not belong here - they live in the rules repository's `TODO.md`, because the
+work is there rather than in this project.
 
 - (none since review-N)
 ```

@@ -50,8 +50,8 @@ a def never called contributes nothing. A raise inside a def, lambda or
 class defined in a handler does not make that handler re-raise.
 
 Extension (2026-11-20): both resolution gaps in the request "`raises-section-drift`
-should follow pass-through callees and `Class.method()` calls" in
-`claude/skills/auditme/requests.md` are closed. A `<ClassName>.<method>(...)`
+should follow pass-through callees and `Class.method()` calls" (a past change
+request) are closed. A `<ClassName>.<method>(...)`
 call resolves like a call on `self`, and a callee with no `Raises:` section
 is followed into its own raises and callees up to `SECTIONLESS_DEPTH`
 calls deep, with the chain named in the hit's variant. Omission hits grow;

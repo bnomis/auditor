@@ -99,7 +99,7 @@ def test_an_annotated_mutable_global_is_a_hit(project: Builder, run_check: Runne
 
 def test_a_global_built_by_a_call_is_not_a_hit(project: Builder, run_check: Runner) -> None:
     """A `Call` value's type is not knowable from the assignment; see the
-    rejected request in the skill's `requests.md`."""
+    rejected widening in the rule's `rule.md`."""
     root = project(
         {
             'src/probe/settings.py': 'import probe.factory\n\nDEFAULTS = probe.factory.build()\n',

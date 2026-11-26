@@ -37,3 +37,22 @@ while still handing every caller a live `list`.
 
 Private (non-read) mutable globals are NOT flagged - that is a
 different rule.
+
+## Rejected widenings
+
+### `mutable-module-level-exported` should handle `Call` values
+
+- **Raised:** by an audit, and carried through the two after it
+- **Reason:** the check would miss `DEFAULTS = get_defaults()` if that were
+  mutable, because the value is a `Call` rather than a dict literal. Nothing is
+  currently hidden by this - `DEFAULTS` is a `MappingProxyType` - so the check
+  would gain complexity to catch a case that does not exist. Revisit only if a
+  real mutable `Call`-valued export appears.
+- **Still rejected after the 2026-08-17 widening.** That change added the
+  comprehension forms (`{k: f(k) for ...}`), which are not the same case: a
+  comprehension's type is written in the assignment, a call's is not.
+- **Still rejected after the 2026-09-01 shallow-wrapper check.**
+  `mutable-members-in-immutable-wrapper` reads the *members* of a wrapped
+  literal, and stops at the same line for the same reason: a member written
+  `build()` states no type either. That check narrows the gap rather than
+  reopening this one.
