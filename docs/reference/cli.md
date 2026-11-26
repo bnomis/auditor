@@ -291,6 +291,35 @@ else the project's `.venv/bin/ruff`, first). `AUDITME_RUFF` is the path of an
 executable ruff; `auditor check` exits `2` when it names anything else. When `uv lock --check` fails because of a user-level
 `exclude-newer` setting, it is rerun with `UV_NO_CONFIG` set.
 
+## `auditor rules`
+
+Reports on the rules repository that `AUDITOR_RULES_PATH` names. Every command
+prints `ERROR: ...` and exits non-zero when the variable is unset or the
+repository is invalid.
+
+```text
+auditor rules list [--kind {check,project-check,question,standard}]
+auditor rules check
+auditor rules test [pytest args]
+auditor rules standards
+auditor rules questions [--category {A,D,Doc,P,S,Sec,T}]
+auditor rules identity [--expect <json-file>]
+auditor rules pending
+```
+
+| Command | What it does | Exit status |
+|---|---|---|
+| `list` | One line per rule: name, kind, what it emits or its id, title | 0 |
+| `check` | Imports every entry file; reports imports outside the helper API package | non-zero on a bad import |
+| `test` | Runs pytest over `rules/*/tests` with the `auditor.testing` plugin; extra arguments go to pytest | pytest's |
+| `standards` | Prints every standard rule's `rule.md`, in name order | 0 |
+| `questions` | Prints the Phase B checklist: id, title and `rule.md` of each question | 0 |
+| `identity` | Prints the runner and rules identity as JSON; the audit skill records it in each review | with `--expect`, 1 when it differs from the file |
+| `pending` | Lists the open items (the `## ` headings) of the rules repository's `TODO.md` | 1 when an item is open |
+
+`auditor check` and `auditor phaseb` load the same repository and run its
+rules in rule-name order.
+
 ## `auditor changed`
 
 ```text

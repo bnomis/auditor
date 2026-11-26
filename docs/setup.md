@@ -294,6 +294,21 @@ file.
 A new rule can report hits in code that passed before. Fix or accept them in
 the same commit as the upgrade, so `main` never carries a failing gate.
 
+## Pointing the runner at a rules repository
+
+The runner loads its checks from the rules repository that `AUDITOR_RULES_PATH`
+names. Set it per project with [direnv](https://direnv.net/), in the project's
+`.envrc`:
+
+```shell
+export AUDITOR_RULES_PATH=/absolute/path/to/your/rules-repository
+```
+
+Then run `direnv allow` and check it with `auditor rules list`. The repository
+is trusted code: the runner imports and runs it (see
+[How it works](concepts.md#rules-repositories-and-trust)). Until the variable
+is set, the built-in rules run.
+
 ## Troubleshooting
 
 **The hook cannot clone this repository.** Run

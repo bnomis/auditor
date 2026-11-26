@@ -324,7 +324,7 @@ SessionStart hook.
 
 ## Task 9: Record identity in reviews, document it and close the spec
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Recording identity; Trust; Change requests; Settings
@@ -334,34 +334,34 @@ docs describe rules repositories, and the spec is closed.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/SKILL.md`:
+- [x] In `claude/skills/auditme/SKILL.md`:
   - the review template's `**Script version:**` line becomes `**Auditor identity:**`, holding `auditor rules identity` as JSON;
   - the skill refuses to start an audit while `rules_dirty` is true;
   - when the identity differs from the previous review's, the review writes `Rules changed since review N: <fields>` and does not count as a convergence measurement
-- [ ] Add the Change requests procedure to `SKILL.md`, as a rule that applies only when `AUDITOR_RULES_PATH` is set:
+- [x] Add the Change requests procedure to `SKILL.md`, as a rule that applies only when `AUDITOR_RULES_PATH` is set:
   - filing with `todo-add` in `$AUDITOR_RULES_PATH/TODO.md`;
   - the `auditor rules pending` precondition;
   - rejection, to `DONE.md` and to `## Rejected widenings` in the rule's `rule.md`;
   - runner requests, which go to the auditor repository's `TODO.md`.
 
   The built-in path keeps `requests.md` until the catalogue list retires it
-- [ ] In the docs:
+- [x] In the docs:
   - `docs/concepts.md`: the trust paragraph and what a rules repository is;
   - `docs/reference/cli.md`: every `auditor rules` command;
   - `docs/setup.md`: setting `AUDITOR_RULES_PATH` with direnv
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-repository/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-repository/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 
-- [ ] `uv run --group docs mkdocs build --strict` passes, and the skill text names `auditor rules identity` and `auditor rules pending`
+- [x] `uv run --group docs mkdocs build --strict` passes, and the skill text names `auditor rules identity` and `auditor rules pending`
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 

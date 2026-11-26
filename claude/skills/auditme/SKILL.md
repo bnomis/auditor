@@ -57,7 +57,26 @@ Run these in parallel:
 
 ### 3. Mechanical sweep (scripted)
 
-**Precondition: no open change requests.** Before running, read
+**Rules repository identity.** When `AUDITOR_RULES_PATH` is set, run
+`auditor rules identity` first and record its JSON as the review's
+`**Auditor identity:**` line.
+
+- If `rules_dirty` is true, the audit does not start: the rules repository has
+  uncommitted changes, and a dirty tree is not a fixed version. Ask the user to
+  commit or discard them.
+- Compare the identity with the previous review's. When any field differs, the
+  review's convergence note reads `Rules changed since review N: <the fields
+  that changed>`, and the review is not counted as a convergence measurement,
+  because new findings may come from new rules rather than from the code.
+
+**Precondition: no open change requests, with `AUDITOR_RULES_PATH` set.** Run
+`auditor rules pending`. It lists each open item of the rules repository's
+`TODO.md` and exits 1 when there is one; the audit does not start while it
+does. Ship each item (see Change requests below) or reject it, then run the
+command again. The rest of this step is the precondition for the built-in
+path, when `AUDITOR_RULES_PATH` is unset.
+
+**Precondition: no open change requests, built-in path.** Before running, read
 [`requests.md`](requests.md), beside this file. If its `## Open` section has any
 entry, the audit is not allowed to start. Either:
 
@@ -411,8 +430,10 @@ Assess by reading test files - do not run the suite.
 **Date:** YYYY-MM-DD
 **Scope:** <"full" or specific modules/specs>
 **Commit:** <the audited `HEAD`>
+**Auditor identity:** <the output of `auditor rules identity`, as JSON; only when `AUDITOR_RULES_PATH` is set>
 **Script output:** /tmp/audit-<project>.jsonl (N hits, M accepted, K unaccepted)
 **Convergence note:** <"clean - script unchanged since review-(N-1)" OR "script extended since review-(N-1) by these checks: [list]; expect mechanical delta">
+**Rules changed:** <only when the identity differs from review-(N-1)'s: `Rules changed since review N-1: <fields>`. Such a review is not a convergence measurement>
 
 ## Summary
 
@@ -485,11 +506,39 @@ Prioritised by severity.
 
 Phase B has no script-coverage notes section in this template by design. The previous mechanism (note candidate predicates per audit) created a perpetual queue. New predicates are added by editing this skill between cycles, not by leaving notes for future audits.
 
-If during this audit you genuinely identified a missing predicate, add it to
-[`requests.md`](requests.md)'s `## Open` section after the review is written,
-and tell the user. Do not add it to the review, and do not change the checker
+If during this audit you genuinely identified a missing predicate, file it
+after the review is written, as the Change requests section below says, and
+tell the user. Do not add it to the review, and do not change the checker
 now - that is failure mode 1.
 ```
+
+## Change requests
+
+This section applies only when `AUDITOR_RULES_PATH` is set. With it unset, the
+built-in path keeps using [`requests.md`](requests.md) until the rule
+catalogue replaces it.
+
+A pattern an audit finds that the sweep should check is a change request on
+the rules repository. An audit never changes a rule while it runs (failure
+mode 1).
+
+- **Filing.** After the review is written, file each new request with the
+  `todo-add` skill in `$AUDITOR_RULES_PATH/TODO.md`: dated, checked against the
+  code, and merged into an existing item when the two share a cause. Before
+  filing, search `$AUDITOR_RULES_PATH/DONE.md` and the relevant rule's
+  `rule.md` so an idea already rejected is not raised again.
+- **The precondition.** Step 3 runs `auditor rules pending` before the sweep.
+  The audit does not start while it exits 1: a rules repository's `TODO.md`
+  holds only rule work, so every open item blocks.
+- **Shipping.** Implement the rule, run the sweep on a real project, land fixes
+  or accept markers for what it newly finds, then move the item to `DONE.md`
+  with its `Done:` line.
+- **Rejecting.** Move the item to `DONE.md` with
+  `Done: rejected on <date> - <reason>`. When it concerns one rule, also add
+  the reason under a `## Rejected widenings` heading in that rule's `rule.md`.
+- **Runner requests.** A request whose fix is in the runner or the skill, not
+  in a rule, goes in the auditor repository's own `TODO.md`. It does not block
+  audits.
 
 ## Summary template
 
@@ -500,13 +549,13 @@ now - that is failure mode 1.
 **Last review:** review-N
 **Total reviews conducted:** N
 **Last script run hit count:** K (J accepted)
-**Script version:** <digest of the whole checker:
+**Auditor identity:** <the output of `auditor rules identity`, as JSON, when `AUDITOR_RULES_PATH` is set; otherwise the digest of the whole checker:
 
 ```bash
 printf '%s %s\n' "$(auditor --version)" "$(git --git-dir="$(cat ~/.claude/auditor-source)" rev-parse HEAD)"
 ```
 
-The version alone does not change when a check is edited, so the line adds the
+The version alone does not change when a check is edited, so the digest adds the
 commit of the auditor repository that `bin/install-claude.sh` installed the
 tool from (recorded in `~/.claude/auditor-source`).>
 
