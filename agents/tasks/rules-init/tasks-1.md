@@ -18,7 +18,7 @@ as `blocked` for the operator, naming the case.
 
 ## Task 1: Propose the pack membership for review
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Packs
