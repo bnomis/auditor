@@ -4,6 +4,9 @@ description = "The auditme audit checker, its pre-commit hooks and the /auditme-
 version = "0.2.0"
 requires-python = ">=3.14.7,<3.15"
 
+[project.optional-dependencies]
+test = ["pytest>=9.2.0"]
+
 [project.scripts]
 auditor = "auditor.cli:main"
 
@@ -74,6 +77,9 @@ ignore = ["E501", "E722", 'ICN001', 'SIM108', 'SIM102', 'S110', 'S112', 'S311']
 "src/auditor/changed.py" = ["S603", "S607"]
 # S603/S607 subprocess: the rules identity asks `git` from PATH for the commit and the dirty flag.
 "src/auditor/rulesrepo.py" = ["S603", "S607"]
+
+# S603/S607 subprocess: the `git` test helper runs `git` from PATH to build throwaway repositories.
+"src/auditor/testing.py" = ["S603", "S607"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

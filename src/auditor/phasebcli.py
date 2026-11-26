@@ -97,6 +97,7 @@ def add_depth(parser: argparse.ArgumentParser) -> None:
     )
 
 
+# auditme: accept[duplicate-call-sequence] both parsers are argparse builders that add subcommands and arguments
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='Phase B driver for listed audit questions.',

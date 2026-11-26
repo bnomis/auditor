@@ -16,3 +16,6 @@ def isolate_state() -> collections.abc.Iterator[None]:
     yield
     for name in [name for name in sys.modules if name.startswith(auditor.rulesrepo.MODULE_PREFIX)]:
         del sys.modules[name]
+
+
+collect_ignore_glob = ['fixtures/*']

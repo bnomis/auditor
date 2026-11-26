@@ -2,6 +2,7 @@
 
     auditor rules list [--kind K]
     auditor rules check
+    auditor rules test [pytest args]
     auditor rules standards
     auditor rules questions [--category C]
     auditor rules identity [--expect FILE]
@@ -95,6 +96,16 @@ def run_check(repo: auditor.rulesrepo.RulesRepo, args: argparse.Namespace) -> in
     return 1 if problems else 0
 
 
+def run_test(repo: auditor.rulesrepo.RulesRepo, args: argparse.Namespace) -> int:
+    try:
+        import pytest
+    except ImportError:
+        print('ERROR: pytest is not installed: install the extra auditor[test]', file=sys.stderr)
+        return 2
+    paths = sorted(str(path) for path in repo.root.glob('rules/*/tests') if path.is_dir())
+    return int(pytest.main(['-p', 'auditor.testing', f'--confcutdir={repo.root}', '--import-mode=importlib', *args.pytest_args, *paths]))
+
+
 def run_standards(repo: auditor.rulesrepo.RulesRepo, args: argparse.Namespace) -> int:
     del args
     print('\n\n'.join(read_prose(rule) for rule in repo.rules if rule.kind == 'standard'))
@@ -157,6 +168,7 @@ COMMANDS: dict[str, collections.abc.Callable[[auditor.rulesrepo.RulesRepo, argpa
     'pending': run_pending,
     'questions': run_questions,
     'standards': run_standards,
+    'test': run_test,
 }
 
 
@@ -203,6 +215,15 @@ def build_parser() -> argparse.ArgumentParser:
         '--expect',
         help='a JSON file holding an earlier identity; exit 1 when it differs',
     )
+    testing = commands.add_parser(
+        'test',
+        help='run pytest over rules/*/tests with the auditor.testing plugin',
+    )
+    testing.add_argument(
+        'pytest_args',
+        nargs='*',
+        help='arguments passed to pytest (put them after --)',
+    )
     commands.add_parser(
         'pending',
         help='list the open items of TODO.md; exit 1 when there is one',
@@ -212,7 +233,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: collections.abc.Sequence[str] | None = None) -> int:
     """Run one `rules` command; 2 for an invalid or missing rules repository."""
-    args = build_parser().parse_args(argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments[:1] == ['test']:
+        args = argparse.Namespace(command='test', pytest_args=arguments[1:])
+    else:
+        args = build_parser().parse_args(arguments)
     try:
         repo = auditor.rulesrepo.load(auditor.rulesrepo.rules_root())
     except auditor.rulesrepo.RulesRepoError as error:

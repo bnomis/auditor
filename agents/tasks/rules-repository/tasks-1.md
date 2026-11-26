@@ -261,21 +261,21 @@ the `auditor.testing` plugin, which is the generic helpers of
 
 **Subtasks:**
 
-- [ ] Move the generic fixtures and helpers (`git`, `project`, `run_check`, `clean_emitted` and the settings-restoring fixtures) into `src/auditor/testing.py`, as a pytest plugin. `tests/checker/conftest.py` loads the plugin and keeps only what is specific to this suite
-- [ ] Add `[project.optional-dependencies] test = ["pytest>=9.2.0"]` and run `uv lock`
-- [ ] Tests first, in `tests/rulesrepo/test_rules_test.py`:
+- [x] Move the generic fixtures and helpers (`git`, `project`, `run_check`, `clean_emitted` and the settings-restoring fixtures) into `src/auditor/testing.py`, as a pytest plugin. `tests/checker/conftest.py` loads the plugin and keeps only what is specific to this suite
+- [x] Add `[project.optional-dependencies] test = ["pytest>=9.2.0"]` and run `uv lock`
+- [x] Tests first, in `tests/rulesrepo/test_rules_test.py`:
   - a fixture rule's own test passes through `auditor rules test`;
   - without pytest installed, the command exits 2 and names `auditor[test]`
-- [ ] Add `test` to `src/auditor/rulescli.py`
+- [x] Add `test` to `src/auditor/rulescli.py`
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass, and every existing test passes with the moved fixtures
+- [x] The new tests pass, and every existing test passes with the moved fixtures
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests -q -p no:cacheprovider` passes, because this task moves fixtures that every checker test uses
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests -q -p no:cacheprovider` passes, because this task moves fixtures that every checker test uses
 
 **Notes:**
 
