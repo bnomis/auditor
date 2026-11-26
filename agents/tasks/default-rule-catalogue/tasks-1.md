@@ -58,7 +58,7 @@ repository.
 
 ## Task 1: Record the baseline
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation 1
@@ -69,18 +69,18 @@ Task 13 can prove equivalence.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `test ! -e src/auditor/catalogue` succeeds, and `AUDITOR_RULES_PATH` is unset in this run (`[ -z "${AUDITOR_RULES_PATH:-}" ]`). Otherwise stop as `blocked`
-- [ ] Add a test-only `AUDITOR_DUMP_FIXTURES=<dir>` to `tests/checker/conftest.py`, which writes each `run_check` result to `<dir>/<test id>.jsonl`. Run the full suite with it set to `$BASELINE/fixtures`
-- [ ] `uv run auditor check . > "$BASELINE/sweep.jsonl"`, and for each registered question `uv run auditor phaseb candidates --question <Q> . > "$BASELINE/candidates-<Q>.jsonl"`
+- [x] Starting-point check: `test ! -e src/auditor/catalogue` succeeds, and `AUDITOR_RULES_PATH` is unset in this run (`[ -z "${AUDITOR_RULES_PATH:-}" ]`). Otherwise stop as `blocked`
+- [x] Add a test-only `AUDITOR_DUMP_FIXTURES=<dir>` to `tests/checker/conftest.py`, which writes each `run_check` result to `<dir>/<test id>.jsonl`. Run the full suite with it set to `$BASELINE/fixtures`
+- [x] `uv run auditor check . > "$BASELINE/sweep.jsonl"`, and for each registered question `uv run auditor phaseb candidates --question <Q> . > "$BASELINE/candidates-<Q>.jsonl"`
 
 **Acceptance Criteria:**
 
-- [ ] `$BASELINE/fixtures` holds one file per `run_check` call, and the sweep and candidates files exist
+- [x] `$BASELINE/fixtures` holds one file per `run_check` call, and the sweep and candidates files exist
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/checker -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/checker -q -p no:cacheprovider` passes
 
 **Notes:**
 
