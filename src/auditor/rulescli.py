@@ -8,6 +8,7 @@
     auditor rules identity [--expect FILE]
     auditor rules pending
     auditor rules init <dest> [--pack P ...]
+    auditor rules apply <dest>
     auditor rules packs
 
 A `RulesRepoError` or `RulesInitError` goes to stderr as `ERROR: <message>`,
@@ -172,6 +173,13 @@ def run_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_apply(args: argparse.Namespace) -> int:
+    dest = pathlib.Path(args.dest)
+    copied = auditor.rulesinit.apply_selection(dest)
+    print(f'Copied {len(copied)} rules into {dest / "rules"}')
+    return run_check(auditor.rulesrepo.load(dest), args)
+
+
 def run_packs() -> int:
     for name, pack in sorted(auditor.rulesinit.read_packs().items()):
         print(f'{name}\t{len(pack["rules"])}\t{pack["description"]}')
@@ -259,6 +267,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help='a pack whose rules start uncommented (repeatable; default: every pack)',
     )
+    apply = commands.add_parser(
+        'apply',
+        help='copy the rules <dest>/selection.txt lists into <dest> and check the result',
+    )
+    apply.add_argument(
+        'dest',
+        help='the directory holding selection.txt',
+    )
     commands.add_parser(
         'packs',
         help='one line per pack: name, rule count, description',
@@ -276,6 +292,8 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
     try:
         if args.command == 'init':
             return run_init(args)
+        if args.command == 'apply':
+            return run_apply(args)
         if args.command == 'packs':
             return run_packs()
         repo = auditor.rulesrepo.load(auditor.rulesrepo.rules_root())

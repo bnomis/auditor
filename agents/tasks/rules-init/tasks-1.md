@@ -125,7 +125,7 @@ title. `auditor rules packs` lists the packs.
 
 ## Task 4: Apply the selection
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** API (`apply_selection`, `auditor rules apply`); Implementation (`apply`); Error handling; Tests
@@ -143,23 +143,23 @@ It then runs `git init` when needed, makes no commit, and runs
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesinit/test_apply.py`:
+- [x] Tests first, in `tests/rulesinit/test_apply.py`:
   - exactly the uncommented names are copied, tests included;
   - the result passes `auditor rules check` and `auditor rules pending` (exit 0);
   - a misspelt name names the line;
   - a selected rule whose standard is not selected is refused;
   - a `<dest>/rules` that already exists is refused;
   - after each error, `<dest>` is byte-identical
-- [ ] Write `apply_selection` and the `apply` command. The `TODO.md` and `DONE.md` headers are copied from this repository's own two files' opening paragraphs
+- [x] Write `apply_selection` and the `apply` command. The `TODO.md` and `DONE.md` headers are copied from this repository's own two files' opening paragraphs
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass
+- [x] The new tests pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesinit -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesinit -q -p no:cacheprovider` passes
 
 **Notes:**
 
