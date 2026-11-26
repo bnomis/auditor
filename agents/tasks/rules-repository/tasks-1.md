@@ -250,7 +250,7 @@ With `--expect <file>`, it exits 1 on any difference.
 
 ## Task 7: Run a rules repository's own tests
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Commands (`test`); External dependencies (pytest)
