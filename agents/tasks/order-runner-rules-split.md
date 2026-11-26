@@ -48,7 +48,7 @@ steps are the operator's own:
 | test pass line | `all selected test directories passed` |
 | test fail pattern | `FAILED` |
 | always wait for | |
-| progress page | |
+| progress page | https://claude.ai/artifact/NEd6KenABq7YmK1gQHvWKi |
 
 | # | Task list | Waits for | Stops for you | Status |
 |---|---|---|---|---|
