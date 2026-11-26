@@ -18,14 +18,12 @@ import auditor.rules.error_handling
 import auditor.rules.imports_and_surfaces
 import auditor.rules.project_hygiene
 import auditor.rules.state_and_effects
-import auditor.rules.style_and_naming
 
 RULE_MODULES = (
     auditor.rules.error_handling,
     auditor.rules.imports_and_surfaces,
     auditor.rules.project_hygiene,
     auditor.rules.state_and_effects,
-    auditor.rules.style_and_naming,
 )
 
 TESTS_DIR = pathlib.Path(__file__).resolve().parent

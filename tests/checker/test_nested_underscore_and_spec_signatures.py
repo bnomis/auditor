@@ -1,8 +1,6 @@
-"""Tests for the two checks shipped from an audit's requests (2026-09-01).
+"""Tests for the spec-signature check shipped from an audit's request (2026-09-01).
 
-Both close a scope gap rather than adding a new predicate: the first supplies
-the nested half of a rule whose regex form sees module-level definitions only,
-the second asks a question about specs that nothing asked before.
+It asks a question about specs that nothing asked before.
 """
 
 import collections.abc
@@ -10,197 +8,15 @@ import pathlib
 import typing
 
 import auditor.rules.project_hygiene
-import auditor.rules.style_and_naming
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
 
-NESTED_UNDERSCORE = auditor.rules.style_and_naming.check_leading_underscore_nested_def_class
 SPEC_SIGNATURE = auditor.rules.project_hygiene.check_spec_api_signature_drift
 
 
 def rows(hits: list[dict[str, typing.Any]], rule: str) -> list[dict[str, typing.Any]]:
     return [hit for hit in hits if hit['rule'] == rule]
-
-
-# --------------------------------------------------------------------------
-# check_leading_underscore_nested_def_class - the shape it fires on
-# --------------------------------------------------------------------------
-
-
-def test_a_def_nested_in_a_function_fires(project: Builder, run_check: Runner) -> None:
-    """The instances that prompted this all have exactly this shape: a conftest
-    fixture returning a leading-underscore local factory."""
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def make_item():
-            def _build(value):
-                return value
-            return _build
-        """
-        }
-    )
-    hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
-    assert len(hits) == 1
-    assert hits[0]['line'] == 2
-    assert hits[0]['path'] == 'src/probe/mod.py'
-    assert '_build' in hits[0]['variant']
-
-
-def test_a_class_nested_in_a_function_fires(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def build_double():
-            class _Tracking:
-                pass
-            return _Tracking
-        """
-        }
-    )
-    hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
-    assert len(hits) == 1
-    assert 'class _Tracking' in hits[0]['variant']
-
-
-def test_an_async_def_and_a_doubly_nested_def_both_fire(project: Builder, run_check: Runner) -> None:
-    """The walk descends to any depth, so a helper inside a helper is found."""
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def outer():
-            async def _collect():
-                return []
-            def _middle():
-                def _inner():
-                    return 1
-                return _inner
-            return _collect, _middle
-        """
-        }
-    )
-    hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
-    assert sorted(hit['line'] for hit in hits) == [2, 4, 5]
-
-
-# --------------------------------------------------------------------------
-# check_leading_underscore_nested_def_class - carve-outs that must not fire
-# --------------------------------------------------------------------------
-
-
-def test_a_module_level_def_does_not_fire_here(project: Builder, run_check: Runner) -> None:
-    """The regex form in check_text_patterns owns the module-level case.
-    Firing here too would double-report every one of them."""
-    root = project({'src/probe/mod.py': 'def _helper():\n    return 1\n'})
-    assert rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class') == []
-
-
-def test_a_method_does_not_fire(project: Builder, run_check: Runner) -> None:
-    """A private method is a different naming question, answered by
-    `leading-underscore-self` and by the project's own surface rules."""
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def build():
-            class _Holder:
-                def _private(self):
-                    return 1
-            return _Holder
-        """
-        }
-    )
-    hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
-    # The nested class fires; the method inside it does not.
-    assert [hit['line'] for hit in hits] == [2]
-    assert 'class _Holder' in hits[0]['variant']
-
-
-def test_a_dunder_does_not_fire(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def build():
-            class _Holder:
-                pass
-            def __init_hook__():
-                return 1
-            return _Holder, __init_hook__
-        """
-        }
-    )
-    hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
-    # The single-underscore class fires; the dunder def does not.
-    assert [hit['line'] for hit in hits] == [2]
-
-
-def test_a_name_shadowing_an_outer_binding_does_not_fire(project: Builder, run_check: Runner) -> None:
-    """A nested `_foo` where `_foo` also exists at module scope is a
-    deliberate local override; renaming it would break the shadowing."""
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def _shared():
-            return 'module'
-
-        def build():
-            def _shared():
-                return 'local'
-            return _shared()
-        """
-        }
-    )
-    hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
-    assert [hit['line'] for hit in hits] == []
-
-
-def test_a_clean_nested_helper_does_not_fire(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def make_item():
-            def build(value):
-                return value
-            return build
-        """
-        }
-    )
-    assert rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class') == []
-
-
-def test_a_scoped_accept_marker_accepts_the_nested_form(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def make_item():
-            # auditme: accept[leading-underscore-def-class] deliberate, see the note above
-            def _build(value):
-                return value
-            return _build
-        """
-        }
-    )
-    hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
-    assert len(hits) == 1
-    assert hits[0]['accepted'] is True
-    assert 'deliberate' in hits[0]['accepted_reason']
-
-
-def test_a_marker_scoped_to_another_rule_does_not_accept_it(project: Builder, run_check: Runner) -> None:
-    root = project(
-        {
-            'src/probe/mod.py': """
-        def make_item():
-            # auditme: accept[literal-duplication] answers a different question
-            def _build(value):
-                return value
-            return _build
-        """
-        }
-    )
-    hits = rows(run_check(NESTED_UNDERSCORE, root), 'leading-underscore-def-class')
-    assert len(hits) == 1
-    assert hits[0]['accepted'] is False
 
 
 # --------------------------------------------------------------------------

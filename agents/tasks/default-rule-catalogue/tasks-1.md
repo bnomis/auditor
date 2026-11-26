@@ -174,7 +174,7 @@ catalogue rule, moved as the header's family task says.
 
 ## Task 4: Move the `style_and_naming` family
 
-**Status:** in-progress
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** What becomes a rule directory (table-driven checks); API; Implementation 2
@@ -185,19 +185,19 @@ that lists every id it emits.
 
 **Subtasks:**
 
-- [ ] Move each check as a family task (see the header)
-- [ ] The checks that emit several ids from a table (`check_text_patterns`, the bare-annotation checks and `check_typing_deprecated_alias`) each list every id in `emits`
-- [ ] Delete the module once it is empty
+- [x] Move each check as a family task (see the header)
+- [x] The checks that emit several ids from a table (`check_text_patterns`, the bare-annotation checks and `check_typing_deprecated_alias`) each list every id in `emits`
+- [x] Delete the module once it is empty
 
 **Acceptance Criteria:**
 
-- [ ] As Task 3
+- [x] As Task 3
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
-- [ ] `uv run pytest tests/checker/test_registry.py tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] `uv run pytest tests/checker/test_registry.py tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 

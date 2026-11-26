@@ -12,7 +12,6 @@ import auditor.rules.error_handling
 import auditor.rules.imports_and_surfaces
 import auditor.rules.project_hygiene
 import auditor.rules.state_and_effects
-import auditor.rules.style_and_naming
 import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
@@ -78,7 +77,6 @@ BUILTIN_CHECKS = (
     auditor.rules.error_handling.check_translator_envelope_gap,
     auditor.rules.imports_and_surfaces.check_as_import,
     auditor.rules.state_and_effects.check_mutable_members_in_immutable_wrapper,
-    auditor.rules.style_and_naming.check_leading_underscore_nested_def_class,
     auditor.rules.imports_and_surfaces.check_from_import,
     auditor.rules.error_handling.check_raises_section_drift,
     auditor.rules.state_and_effects.check_discarded_tuple_return,
