@@ -90,7 +90,7 @@ Task 13 can prove equivalence.
 
 ## Task 2: Create the catalogue and the transitional registry
 
-**Status:** in-progress
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Module location; Implementation 2 (the registry keeps running), 9 (sweep coverage)
@@ -105,7 +105,7 @@ sweep audits the catalogue's rule code in exactly one root.
 - [x] Make `CHECKS`, `PROJECT_CHECKS` and `RULE_IDS` in `src/auditor/registry.py` include the catalogue's rules, in the existing order followed by the catalogue's in name order
 - [x] In `tests/checker/test_registry.py`, make the "defined in a rules module" and "exercised by a test module" tests also accept a catalogue rule directory and its `tests/`. This is the change to registry tests that the header allows
 - [x] Write `tests/catalogue/test_catalogue.py`: `auditor rules check` passes over the catalogue, and every `standards` entry names a `standard` rule
-- [ ] Spec step 9:
+- [x] Spec step 9:
   - put one probe rule directory in the catalogue;
   - run the sweep, and see how it names `check.py`;
   - declare `src/auditor/catalogue/rules` in `[tool.auditme] roots` in the form that names each file, and exclude it from the `src/auditor` root;
@@ -116,13 +116,13 @@ sweep audits the catalogue's rule code in exactly one root.
 
 **Acceptance Criteria:**
 
-- [ ] With the empty catalogue, the suite passes and the sweep gives the baseline's hits
+- [x] With the empty catalogue, the suite passes and the sweep gives the baseline's hits
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/checker/test_registry.py tests/catalogue -q -p no:cacheprovider` passes
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/checker/test_registry.py tests/catalogue -q -p no:cacheprovider` passes
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
