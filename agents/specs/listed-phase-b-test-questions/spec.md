@@ -4,6 +4,7 @@
 **Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/A2jYW6bvHGhR3JxqhppKuW (amendment 1.5)
+**Paths moved:** the runner-rules split (2026-11-26) moved the files this spec names from `claude/skills/auditme/checks/`; their current homes are in `agents/specs/index.md`.
 
 Puts the auditme Phase B test questions T1 and T2 on the listed path of
 [Repeatable Phase B](../repeatable-phase-b/spec.md). A lister finds each

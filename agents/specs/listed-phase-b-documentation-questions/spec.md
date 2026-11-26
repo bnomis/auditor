@@ -3,6 +3,7 @@
 **Version:** 1.6
 **Status:** implemented
 **Date:** 2026-11-20
+**Paths moved:** the runner-rules split (2026-11-26) moved the files this spec names from `claude/skills/auditme/checks/`; their current homes are in `agents/specs/index.md`.
 
 Puts the auditme Phase B questions Doc4 (specs match implementation), Doc5
 (user docs match implementation), Doc1 (`AGENTS.md` project structure

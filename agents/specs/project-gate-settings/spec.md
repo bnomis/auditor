@@ -3,6 +3,7 @@
 **Version:** 1.0
 **Status:** implemented
 **Date:** 2026-11-23
+**Paths moved:** the runner-rules split (2026-11-26) moved the files this spec names from `claude/skills/auditme/checks/`; their current homes are in `agents/specs/index.md`.
 
 Two settings that let a project run the published `auditme-all` hook as its
 only push gate, without a wrapper script of its own:

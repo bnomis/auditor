@@ -4,6 +4,7 @@
 **Status:** implemented
 **Date:** 2026-10-31
 **Review page (1.11):** https://claude.ai/artifact/XQ1bgLekKX9gPJJt9QGDFX
+**Paths moved:** the runner-rules split (2026-11-26) moved the files this spec names from `claude/skills/auditme/checks/`; their current homes are in `agents/specs/index.md`.
 
 Every project that uses these rules and skills should get the same mechanical
 guards by default: the auditme sweep on every commit, the whole-tree sweep in

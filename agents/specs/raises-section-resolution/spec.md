@@ -3,6 +3,7 @@
 **Version:** 1.3
 **Status:** implemented
 **Date:** 2026-11-20
+**Paths moved:** the runner-rules split (2026-11-26) moved the files this spec names from `claude/skills/auditme/checks/`; their current homes are in `agents/specs/index.md`.
 
 Widens the auditme rule `raises-section-drift` so it sees the domain errors
 that reach a caller through a same-package function with no `Raises:`

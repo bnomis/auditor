@@ -3,6 +3,7 @@
 **Version:** 1.7
 **Status:** implemented
 **Date:** 2026-11-20
+**Paths moved:** the runner-rules split (2026-11-26) moved the files this spec names from `claude/skills/auditme/checks/`; their current homes are in `agents/specs/index.md`.
 
 Puts the auditme Phase B questions A11 (exhaustion via `assert_never`), A19
 (logger level in broad excepts), A1 (external call envelope) and A17

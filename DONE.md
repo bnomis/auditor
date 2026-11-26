@@ -1007,3 +1007,42 @@ runs of the sweep on the projects that use the hooks and on the deletion of
 the the retired change-request file entry.
 
 Done: 2026-11-25 - checker work in agents/specs/sweep-coverage-gaps/spec.md and agents/tasks/sweep-coverage-gaps/tasks-1.md; the projects of the workspace that raised the request moved their pin to `133ca2c`, ran the sweep, fixed or accepted each new hit and noted the rule change in its audit summary (2026-11-24 to 2026-11-25); the the retired change-request file entry deleted.
+
+## Implemented specs and the spec index still name the old `claude/skills/auditme/checks/` paths
+
+Found on 2026-11-26, after the runner-rules split order merged, by
+`grep -rn 'claude/skills/auditme/checks' agents/specs`. These still point at
+files under `claude/skills/auditme/checks/`, which no longer holds any
+tracked file:
+
+- `agents/specs/index.md`, in its Path column;
+- the implemented specs `auditme-false-positives`, `listed-phase-b-test-questions`,
+  `listed-phase-b-architecture-questions`,
+  `listed-phase-b-documentation-questions`, `project-gate-settings`,
+  `project-setup`, `raises-section-resolution` and `repeatable-phase-b`,
+  each `agents/specs/<name>/spec.md`.
+
+`agents/specs/auditor-cli/spec.md` names the old paths on purpose, to
+describe the move, and stays as it is.
+
+Cause: `9cc3b8d` ("move the checker into the auditor package", Task 2 of
+`agents/tasks/auditor-cli/tasks-1.md`) and the later catalogue tasks moved
+the files but updated only code, tests and user docs, not older specs.
+`claude/skills/auditme/checks/audit.py` became `src/auditor/sweep.py`,
+`checks/phaseb.py` became `src/auditor/phasebcli.py`, and `changed.py`,
+`core.py` and `phaseb/` moved under `src/auditor/`. `registry.py` was
+removed, and the rule modules under `checks/auditme/rules/` became rule
+directories under `src/auditor/catalogue/rules/`. Some `phaseb/` modules
+moved again later: `src/auditor/phaseb/` now holds only `batches.py`,
+`candidates.py` and `ledger.py`.
+
+Fix direction: in `agents/specs/index.md`, point each Path at the file's
+current home. Find each one with
+`git log --follow --name-status -- <old path>`, or name the rule directory in
+`src/auditor/catalogue/rules/`. In each implemented spec, leave the body as
+its record and add one line under the header: "Paths moved by the
+runner-rules split (2026-11-26): see `agents/specs/index.md`". It does not
+need a spec. The leftover untracked `__pycache__` directories under
+`claude/skills/auditme/checks/` can be deleted at the same time.
+
+Done: 2026-11-26 - `agents/specs/index.md` names each file's current home; each implemented spec carries a `**Paths moved:**` header line pointing there; the leftover `__pycache__` directories are deleted.

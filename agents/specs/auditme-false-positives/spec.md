@@ -3,6 +3,7 @@
 **Version:** 1.1
 **Status:** implemented
 **Date:** 2026-11-01
+**Paths moved:** the runner-rules split (2026-11-26) moved the files this spec names from `claude/skills/auditme/checks/`; their current homes are in `agents/specs/index.md`.
 
 Narrows five predicates of the auditme checker that report hits the code does
 not have. Each change is a refinement in the sense of `SKILL.md`, "Refining a

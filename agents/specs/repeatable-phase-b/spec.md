@@ -4,6 +4,7 @@
 **Status:** implemented
 **Date:** 2026-11-20
 **Review page:** https://claude.ai/artifact/2L2gApX1M8DNzL5ivQF3D7
+**Paths moved:** the runner-rules split (2026-11-26) moved the files this spec names from `claude/skills/auditme/checks/`; their current homes are in `agents/specs/index.md`.
 
 Makes an auditme Phase B question give the same answer twice on unchanged
 code. A program lists every site the question applies to; reviewer agents
