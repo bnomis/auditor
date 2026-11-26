@@ -64,16 +64,15 @@ ignore = ["E501", "E722", 'ICN001', 'SIM108', 'SIM102', 'S110', 'S112', 'S311']
 "tests/checker/*" = ["S101", "S603", "S607"]
 "claude/skills/auditme-project-setup/tests/*" = ["S101"]
 # A catalogue rule's own tests use bare asserts like every other test.
-"src/auditor/catalogue/rules/*/tests/*" = ["S101"]
+"src/auditor/catalogue/rules/*/tests/*" = ["S101", "S603", "S607"]
 # The root-level tests run shipped scripts (the Stop hook, the installer) as
 # subprocesses from PATH; that is the behaviour under test.
 "tests/*" = ["S101", "S603", "S607"]
 # S603/S607 subprocess: the hygiene checks run `ruff` and `uv` from PATH, the
 # same tools the user runs, against the audited project.
-"src/auditor/rules/project_hygiene.py" = [
-    "S603",
-    "S607",
-]
+"src/auditor/catalogue/rules/ruff/check.py" = ["S603", "S607"]
+"src/auditor/catalogue/rules/lockfile-drift/check.py" = ["S603", "S607"]
+"src/auditor/catalogue/rules/ruff-version-drift/check.py" = ["S603", "S607"]
 # S603/S607 subprocess: the changed-files runner runs `git` from PATH and the
 # sibling sweep with the running interpreter; both are its whole job.
 "src/auditor/changed.py" = ["S603", "S607"]

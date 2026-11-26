@@ -1,4 +1,4 @@
-"""Tests for the spec-signature check shipped from an audit's request (2026-09-01).
+"""Tests for the `spec-api-signature-drift` rule, shipped from an audit's request (2026-09-01).
 
 It asks a question about specs that nothing asked before.
 """
@@ -7,14 +7,15 @@ import collections.abc
 import pathlib
 import typing
 
-import auditor.rules.project_hygiene
+import auditor.testing
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
 
-SPEC_SIGNATURE = auditor.rules.project_hygiene.check_spec_api_signature_drift
+SPEC_SIGNATURE = auditor.testing.load_check(__file__)
 
 
+# auditme: accept[paired-sibling-helpers] a test helper kept inside its own rule directory, which must not import another
 def rows(hits: list[dict[str, typing.Any]], rule: str) -> list[dict[str, typing.Any]]:
     return [hit for hit in hits if hit['rule'] == rule]
 

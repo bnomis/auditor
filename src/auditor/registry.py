@@ -8,7 +8,6 @@ catalogue's rules come in name order after the built-ins.
 import pathlib
 import typing
 
-import auditor.rules.project_hygiene
 import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
@@ -28,10 +27,7 @@ def catalogue_check(rule: auditor.rulesrepo.Rule) -> collections.abc.Callable[[p
     return run
 
 
-BUILTIN_CHECKS = (
-    auditor.rules.project_hygiene.check_ruff,
-    auditor.rules.project_hygiene.check_phase_section_doc_reference,
-)
+BUILTIN_CHECKS = ()
 
 CHECKS = (
     *BUILTIN_CHECKS,
@@ -42,11 +38,7 @@ CHECKS = (
 # driver runs these once, before the per-root passes, whether or not the
 # project has a root, so a project with no Python still has its lockfile and
 # ruff pin checked. None is in CHECKS: a per-root pass would repeat it.
-BUILTIN_PROJECT_CHECKS = (
-    auditor.rules.project_hygiene.check_lockfile,
-    auditor.rules.project_hygiene.check_ruff_version,
-    auditor.rules.project_hygiene.check_spec_api_signature_drift,
-)
+BUILTIN_PROJECT_CHECKS = ()
 
 PROJECT_CHECKS = (
     *BUILTIN_PROJECT_CHECKS,
@@ -79,7 +71,6 @@ BUILTIN_RULE_IDS = frozenset(
         'inconsistent-error-translation',
         'layer-has-domain-error-raises-stdlib',
         'leading-underscore-def-class',
-        'lockfile-drift',
         'logger-exception-graceful-degradation',
         'missing-raises-section',
         'mixed-raise-types',
@@ -87,16 +78,12 @@ BUILTIN_RULE_IDS = frozenset(
         'mutable-module-level-exported',
         'mutable-store-without-copy',
         'parameter-mutation-in-pure-function',
-        'phase-section-doc-reference',
         'pure-name-has-side-effect',
         'raises-section-drift',
         'return-shadows-instance-attr',
-        'ruff',
-        'ruff-version-drift',
         'sibling-errors-no-common-base',
         'silent-broad-except',
         'silent-self-mutation',
-        'spec-api-signature-drift',
         'src-loose-module',
         'subprocess-without-memoisation',
         'translator-envelope-gap',

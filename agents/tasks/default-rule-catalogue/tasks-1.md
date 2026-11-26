@@ -353,7 +353,7 @@ rules, and the module is deleted.
 
 ## Task 9: Move the `project_hygiene` family
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** What becomes a rule directory (`PROJECT_CHECKS`); API (`auditor.api.docs`); Implementation 2
@@ -365,22 +365,26 @@ because `AUDITME_RUFF` is a runner setting.
 
 **Subtasks:**
 
-- [ ] Move each check as a family task (see the header). `spec_markdown_files` goes to `auditor.api.docs`, and the ruff-command lookup goes to `auditor.api.project`
-- [ ] Delete the module once it is empty
+- [x] Move each check as a family task (see the header). `spec_markdown_files` goes to `auditor.api.docs`, and the ruff-command lookup goes to `auditor.api.project`
+- [x] Delete the module once it is empty
 
 **Acceptance Criteria:**
 
-- [ ] As Task 3, and the Doc1, Doc2, Doc4 and Doc5 candidates match the baseline
+- [x] As Task 3, and the Doc1, Doc2, Doc4 and Doc5 candidates match the baseline
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
-- [ ] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 8
+- Done on 2026-11-26. The five checks moved to `src/auditor/catalogue/rules/`, one directory per rule id: `ruff` (a `check`), and `lockfile-drift`, `ruff-version-drift` and `spec-api-signature-drift` (the three `project-check` rules), and `phase-section-doc-reference` (a `check`). `src/auditor/rules/project_hygiene.py` is deleted, and `src/auditor/rules/` holds no module now
+- The two helpers other code reads live in the runner module `src/auditor/hygiene.py`: `ruff_executable` (`AUDITME_RUFF` is a runner setting) and `spec_markdown_files` with `SPEC_SKIP_PARTS`, `DEF_LINE_RE` and `CLASS_LINE_RE`, which the Doc4 and Doc5 listers, the `docrefs` sections and `changed.py` read without a check. `auditor.api.project` publishes `ruff_executable`, and the new `auditor.api.docs` publishes the spec-file helpers
+- Tests moved into each rule directory unchanged, bar the constant that names the check. The `ruff_hook_pin` property test sits with `ruff-version-drift`, which owns that helper, and one `ruff-version-drift` test that calls the `ruff` check loads it as a sibling. The helper tests (spec-file discovery, ruff lookup) stay in `tests/checker/test_project_hygiene.py`, pointed at `auditor.api`. The sibling-registry test and `test_the_project_level_checks_are_not_per_root_checks` name the checks by rule directory now, because a catalogue check's `__name__` is its directory name; `registry-order.txt` is empty
+- Against the baseline, the sweep gains accepted hits only and loses the unaccepted `tests/checker/conftest.py` hits; the Doc1, Doc2 and Doc5 candidates have the baseline's ids, and Doc4 differs only where the spec sections name a source file that moved
 
 ---
 

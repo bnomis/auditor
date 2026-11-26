@@ -265,6 +265,7 @@ def test_mask_string_literals_keeps_shape_only_blanks_and_is_idempotent(lines: l
     assert CHECK_MODULE.mask_string_literals(masked, parse_or_none(masked)) == masked
 
 
+# auditme: accept[paired-sibling-helpers] a test helper kept inside its own rule directory, which must not import another
 def rows(hits: list[dict[str, typing.Any]], rule: str) -> list[dict[str, typing.Any]]:
     return [hit for hit in hits if hit['rule'] == rule]
 

@@ -2,5 +2,3 @@
 # See test_registry.test_registered_order_is_preserved. Appending a new check
 # does not require touching this file; removing or moving one does.
 
-check_ruff
-check_phase_section_doc_reference

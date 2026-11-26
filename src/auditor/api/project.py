@@ -3,9 +3,11 @@
 import typing
 
 import auditor.core
+import auditor.hygiene
 
 accepted_lazy_imports = auditor.core.accepted_lazy_imports  # auditme: accept[reexport-in-non-init] the API publishes the core helper under this name
 cached_per_run = auditor.core.cached_per_run  # auditme: accept[reexport-in-non-init] the API publishes the core helper under this name
+ruff_executable = auditor.hygiene.ruff_executable  # auditme: accept[reexport-in-non-init] the API publishes the runner helper under this name
 
 
 def declared_root_modules() -> frozenset[str]:
@@ -30,4 +32,4 @@ def declared_root_modules() -> frozenset[str]:
     return declared
 
 
-__all__ = ['accepted_lazy_imports', 'cached_per_run', 'declared_root_modules']
+__all__ = ['accepted_lazy_imports', 'cached_per_run', 'declared_root_modules', 'ruff_executable']

@@ -10,6 +10,12 @@ from auditor.api.calls import (  # auditme: accept[migration-shim-consumer] the 
     empty_init_sites,
     migration_shim_sites,
 )
+from auditor.api.docs import (  # auditme: accept[migration-shim-consumer] the API's home for the runner's document helpers
+    CLASS_LINE_RE,
+    DEF_LINE_RE,
+    SPEC_SKIP_PARTS,
+    spec_markdown_files,
+)
 from auditor.api.errors import (  # auditme: accept[migration-shim-consumer] the API's home for the runner's error-handling helpers
     BARE_HANDLER_MARK,
     BROAD_HANDLER_NAMES,
@@ -57,6 +63,7 @@ from auditor.api.project import (  # auditme: accept[migration-shim-consumer] th
     accepted_lazy_imports,
     cached_per_run,
     declared_root_modules,
+    ruff_executable,
 )
 from auditor.core import (
     accept_reason,
@@ -93,6 +100,8 @@ __all__ = [
     'BARE_GENERIC_NAMES',
     'BARE_HANDLER_MARK',
     'BROAD_HANDLER_NAMES',
+    'CLASS_LINE_RE',
+    'DEF_LINE_RE',
     'ERRORS_MODULE_NAMES',
     'FILESYSTEM_TOUCHING_CALLS',
     'LOADER_CALLS',
@@ -100,6 +109,7 @@ __all__ = [
     'MUTABLE_VALUE_SHAPES',
     'SIDE_EFFECT_CALL_NAMES',
     'SINK_TOKENS',
+    'SPEC_SKIP_PARTS',
     'STDLIB_ERRORS',
     'Candidate',
     'HandlerLevel',
@@ -154,8 +164,10 @@ __all__ = [
     'reexport_aliases',
     'relpath',
     'resolve_call',
+    'ruff_executable',
     'silent_broad_except_sites',
     'source_lines',
+    'spec_markdown_files',
     'translator_envelopes',
     'translator_gap_sites',
     'tuple_constants',

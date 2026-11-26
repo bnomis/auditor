@@ -15,10 +15,10 @@ import typing
 
 import auditor.core
 import auditor.errorsites
+import auditor.hygiene
 import auditor.phaseb.docrefs
 import auditor.phaseb.errors
 import auditor.phaseb.testmap
-import auditor.rules.project_hygiene
 import auditor.rulesrepo
 
 
@@ -521,7 +521,7 @@ def list_doc4_candidates(scope: pathlib.Path) -> list[Candidate]:
     """
     specs = [
         path
-        for path in auditor.rules.project_hygiene.spec_markdown_files(scope)
+        for path in auditor.hygiene.spec_markdown_files(scope)
         if path.relative_to(scope).as_posix().startswith('agents/specs/') and IMPLEMENTED_RE.search(read_text(path))
     ]
     return doc_candidates('Doc4', scope, specs)
@@ -537,9 +537,7 @@ def list_doc5_candidates(scope: pathlib.Path) -> list[Candidate]:
         RootsError: `[tool.auditme]` in `pyproject.toml` declares an invalid root.
     """
     documents = [
-        path
-        for path in auditor.rules.project_hygiene.spec_markdown_files(scope)
-        if (rel := path.relative_to(scope).as_posix()).startswith('docs/') or rel == 'README.md'
+        path for path in auditor.hygiene.spec_markdown_files(scope) if (rel := path.relative_to(scope).as_posix()).startswith('docs/') or rel == 'README.md'
     ]
     return doc_candidates('Doc5', scope, documents)
 

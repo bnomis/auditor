@@ -8,8 +8,8 @@ import re
 import subprocess
 
 import auditor.core
+import auditor.hygiene
 import auditor.phaseb.errors
-import auditor.rules.project_hygiene
 
 # Changed only by a skill change with a brief version bump.
 PATH_EXTENSIONS = ('.json', '.lock', '.md', '.py', '.sh', '.toml', '.txt', '.yaml', '.yml')
@@ -69,10 +69,10 @@ def backticked_tokens(lines: list[str], start: int, end: int) -> list[tuple[int,
 
 def api_fence_name(line: str) -> str | None:
     """Return the name a `def` or `class` line defines, else None."""
-    match = auditor.rules.project_hygiene.DEF_LINE_RE.match(line)
+    match = auditor.hygiene.DEF_LINE_RE.match(line)
     if match:
         return match.group(1)
-    if auditor.rules.project_hygiene.CLASS_LINE_RE.match(line):
+    if auditor.hygiene.CLASS_LINE_RE.match(line):
         return re.split(r'[(:]', line.strip().split(None, 1)[1])[0].strip()
     return None
 

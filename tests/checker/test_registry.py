@@ -14,9 +14,6 @@ import itertools
 import pathlib
 
 import auditor.registry
-import auditor.rules.project_hygiene
-
-RULE_MODULES = (auditor.rules.project_hygiene,)
 
 TESTS_DIR = pathlib.Path(__file__).resolve().parent
 
@@ -27,13 +24,8 @@ CATALOGUE_RULES = TESTS_DIR.parents[1] / 'src' / 'auditor' / 'catalogue' / 'rule
 
 
 def defined_check_names() -> set[str]:
-    """Every `check_*` function each rules module defines itself, and every catalogue rule directory with a `check.py`."""
-    names: set[str] = {path.parent.name for path in CATALOGUE_RULES.glob('*/check.py')}
-    for module in RULE_MODULES:
-        for name, value in vars(module).items():
-            if name.startswith('check_') and inspect.isfunction(value) and value.__module__ == module.__name__:
-                names.add(name)
-    return names
+    """Every catalogue rule directory with a `check.py`."""
+    return {path.parent.name for path in CATALOGUE_RULES.glob('*/check.py')}
 
 
 def registered_check_names() -> list[str]:
@@ -59,8 +51,8 @@ def test_no_check_is_registered_twice() -> None:
 
 def test_the_spec_signature_check_runs_once_per_sweep_not_once_per_root() -> None:
     """It reads the specs and the whole corpus, never the root it is handed, so a per-root pass would repeat it."""
-    assert auditor.rules.project_hygiene.check_spec_api_signature_drift in auditor.registry.PROJECT_CHECKS
-    assert auditor.rules.project_hygiene.check_spec_api_signature_drift not in auditor.registry.CHECKS
+    assert 'spec-api-signature-drift' in [check.__name__ for check in auditor.registry.PROJECT_CHECKS]
+    assert 'spec-api-signature-drift' not in [check.__name__ for check in auditor.registry.CHECKS]
 
 
 def test_every_check_takes_a_scope_and_a_source_root() -> None:
