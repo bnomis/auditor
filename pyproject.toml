@@ -72,6 +72,8 @@ ignore = ["E501", "E722", 'ICN001', 'SIM108', 'SIM102', 'S110', 'S112', 'S311']
 # S603/S607 subprocess: the changed-files runner runs `git` from PATH and the
 # sibling sweep with the running interpreter; both are its whole job.
 "src/auditor/changed.py" = ["S603", "S607"]
+# S603/S607 subprocess: the rules identity asks `git` from PATH for the commit and the dirty flag.
+"src/auditor/rulesrepo.py" = ["S603", "S607"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

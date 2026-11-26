@@ -4,6 +4,7 @@
     auditor rules check
     auditor rules standards
     auditor rules questions [--category C]
+    auditor rules identity [--expect FILE]
     auditor rules pending
 
 A `RulesRepoError` goes to stderr as `ERROR: <message>`, with exit status 2
@@ -12,6 +13,9 @@ and nothing on stdout.
 
 import argparse
 import ast
+import dataclasses
+import json
+import pathlib
 import re
 import sys
 import typing
@@ -21,7 +25,6 @@ import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
     import collections.abc
-    import pathlib
 
 PENDING_HEADING = re.compile(r'##\s+\S')
 FENCE = re.compile(r'\s*(```|~~~)')
@@ -104,6 +107,26 @@ def run_questions(repo: auditor.rulesrepo.RulesRepo, args: argparse.Namespace) -
     return 0
 
 
+def run_identity(repo: auditor.rulesrepo.RulesRepo, args: argparse.Namespace) -> int:
+    current = dataclasses.asdict(auditor.rulesrepo.identity(repo))
+    print(json.dumps(current, indent=2))
+    if args.expect is None:
+        return 0
+    try:
+        expected = json.loads(pathlib.Path(args.expect).read_text(encoding='utf-8'))
+    except (OSError, ValueError) as error:
+        # auditme: accept[except-interpolation] the message carries the described error once
+        print(f'ERROR: --expect {args.expect}: cannot read it as JSON: {auditor.core.describe_error(error)}', file=sys.stderr)
+        return 2
+    if not isinstance(expected, dict):
+        print(f'ERROR: --expect {args.expect}: not a JSON object', file=sys.stderr)
+        return 2
+    differing = [key for key in sorted(current.keys() | expected.keys()) if current.get(key) != expected.get(key)]
+    for key in differing:
+        print(f'differs: {key}: expected {expected.get(key)!r}, found {current.get(key)!r}')
+    return 1 if differing else 0
+
+
 def pending_headings(text: str) -> list[str]:
     """Return each `## ` heading of `text` outside a fenced code block."""
     headings: list[str] = []
@@ -129,6 +152,7 @@ def run_pending(repo: auditor.rulesrepo.RulesRepo, args: argparse.Namespace) -> 
 
 COMMANDS: dict[str, collections.abc.Callable[[auditor.rulesrepo.RulesRepo, argparse.Namespace], int]] = {
     'check': run_check,
+    'identity': run_identity,
     'list': run_list,
     'pending': run_pending,
     'questions': run_questions,
@@ -170,6 +194,14 @@ def build_parser() -> argparse.ArgumentParser:
         '--category',
         choices=auditor.rulesrepo.CATEGORIES,
         help='print only questions of this category',
+    )
+    identity = commands.add_parser(
+        'identity',
+        help='print the runner and rules identity as JSON',
+    )
+    identity.add_argument(
+        '--expect',
+        help='a JSON file holding an earlier identity; exit 1 when it differs',
     )
     commands.add_parser(
         'pending',

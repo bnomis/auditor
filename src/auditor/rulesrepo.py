@@ -5,10 +5,13 @@ no rule code.
 """
 
 import dataclasses
+import hashlib
+import importlib.metadata
 import importlib.util
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import tomllib
 import types
@@ -283,3 +286,54 @@ __all__ = [
     'load',
     'rules_root',
 ]
+
+
+@dataclasses.dataclass(frozen=True)
+class Identity:
+    """What shaped an audit's results."""
+
+    runner: str
+    api: str
+    rules_path: str
+    rules_commit: str | None  # None when the repository is not a git work tree
+    rules_dirty: bool
+    rules_digest: str  # sha256 over every tracked file under rules/, in path order
+
+
+def run_git(root: pathlib.Path, *args: str) -> str | None:
+    """Return git's stdout in `root`, or None when git fails or is missing."""
+    try:
+        result = subprocess.run(['git', *args], cwd=root, capture_output=True, text=True, check=False)
+    except OSError:
+        return None
+    return result.stdout if result.returncode == 0 else None
+
+
+def rule_file_paths(root: pathlib.Path, in_work_tree: bool) -> list[str]:
+    """Return the tracked files under `rules/` (every file but caches outside a work tree), sorted."""
+    if in_work_tree:
+        listed = run_git(root, 'ls-files', '-z', '--', 'rules')
+        return sorted(path for path in (listed or '').split('\0') if path)
+    rules_dir = root / 'rules'
+    found = (path for path in rules_dir.rglob('*') if path.is_file() and '__pycache__' not in path.parts) if rules_dir.is_dir() else ()
+    return sorted(path.relative_to(root).as_posix() for path in found)
+
+
+def identity(repo: RulesRepo) -> Identity:
+    """Return the identity of the runner and the rules repository it loaded."""
+    root = repo.root
+    commit = run_git(root, 'rev-parse', 'HEAD')
+    status = run_git(root, 'status', '--porcelain', '--', '.') if commit is not None else None
+    digest = hashlib.sha256()
+    for relative in rule_file_paths(root, commit is not None):
+        path = root / relative
+        if path.is_file():
+            digest.update(relative.encode('utf-8') + b'\0' + path.read_bytes() + b'\0')
+    return Identity(
+        runner=importlib.metadata.version('auditor'),
+        api=f'{repo.api[0]}.{repo.api[1]}',
+        rules_path=str(root),
+        rules_commit=commit.strip() if commit is not None else None,
+        rules_dirty=bool(status and status.strip()),
+        rules_digest=digest.hexdigest(),
+    )

@@ -216,7 +216,7 @@ where `<x>` is not `api`.
 
 ## Task 6: Report the rules identity
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** API (`Identity`, `identity`); Commands (`identity`); Tests
@@ -227,20 +227,20 @@ With `--expect <file>`, it exits 1 on any difference.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_identity.py`, over a fixture rules repository that the test makes into a git repository:
+- [x] Tests first, in `tests/rulesrepo/test_identity.py`, over a fixture rules repository that the test makes into a git repository:
   - `--expect` exits 0 on the same identity, and exits 1 after a commit;
   - `rules_dirty` is true after an uncommitted edit;
   - `rules_commit` is null outside a work tree
-- [ ] Write `identity` and the command. The digest is sha256 over the tracked files under `rules/`, in path order
+- [x] Write `identity` and the command. The digest is sha256 over the tracked files under `rules/`, in path order
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass
+- [x] The new tests pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_identity.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_identity.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
