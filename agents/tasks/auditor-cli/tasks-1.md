@@ -233,7 +233,7 @@ longer exists.
 
 ## Task 6: Prove equivalence and close the spec
 
-**Status:** todo
+**Status:** in-progress
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation (Equivalence); Tests
@@ -264,5 +264,6 @@ spec is closed.
 
 - Depends on Tasks 1 to 5
 - Hits that this repository's own code changes produce (a moved file that is now in a different root) are differences. The task stops for them; it does not accept them
+- **Blocked 2026-11-26.** `uv run auditor check .` exits 0 as the baseline records, with no unaccepted hit before or after. After mapping each old path through the moves of Task 2 and comparing (path, rule, accepted) counts, one difference remains: `tests/test_stop_hook.py` has five accepted `build-name-has-side-effect` hits (`make_source_repo`, `make_source_repo_without_record`, `make_tools`, `make_repo`, `make_real_repo`) where the baseline has four (`make_home`, `make_repo`, `make_real_home`, `make_real_repo`). Cause: the fixture builders in that file were rewritten when Task 4 was folded into Task 2's commit. The task stops for this by its own note; the operator must choose whether to accept it as the expected effect of the Task 4 rewrite or to restore the four-hit shape. The `phaseb candidates` and `changed --all` comparisons, the version bump, the spec status and the final test log were not started
 
 ---
