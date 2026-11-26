@@ -52,7 +52,7 @@ steps are the operator's own:
 
 | # | Task list | Waits for | Stops for you | Status |
 |---|---|---|---|---|
-| 1 | `auditor-cli/tasks-1.md` | - | - | running |
+| 1 | `auditor-cli/tasks-1.md` | - | - | merged d5579cb |
 | 2 | `rules-repository/tasks-1.md` | 1 | - | todo |
 | 3 | `default-rule-catalogue/tasks-1.md` | 2 | - | todo |
 | 4 | `rules-init/tasks-1.md` | 3 | Task 1: answer the pack-membership review page, then an operator session copies the answers into `agents/reviews/rules-init-packs.md` | todo |
