@@ -18,7 +18,7 @@ as `blocked` for the operator, naming the case.
 
 ## Task 1: Propose the pack membership for review
 
-**Status:** blocked
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Packs
@@ -37,7 +37,7 @@ the proposal as a review page.
 
   Put `**Review page:** <URL>` in the document's header
 - [x] Commit the review document, then stop the list as `blocked`, waiting for review
-- [ ] Once every item has an answer, an operator session reads the page's answers and copies each into the document's Answers section, with the date. It commits that, and only then restarts the list
+- [x] Once every item has an answer, an operator session reads the page's answers and copies each into the document's Answers section, with the date. It commits that, and only then restarts the list
 
 **Acceptance Criteria:**
 
@@ -52,6 +52,7 @@ the proposal as a review page.
 
 - Depends on `agents/tasks/default-rule-catalogue/tasks-1.md` being finished
 - 2026-11-26: the review page was published by the operator session running the order (the queue's session had no tool for it): https://claude.ai/artifact/6XsrbE2Q8V3zZepiYdDpgZ. Blocked, waiting for every item to have an answer; the last subtask's hand-back then restarts the list
+- 2026-11-26: every item answered; the operator session copied the answers into the review's Answers section
 
 ---
 
