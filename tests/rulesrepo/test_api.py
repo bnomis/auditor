@@ -14,6 +14,7 @@ CORE_NAMES = [
     'all_py_files',
     'audit_roots',
     'cached_bytes',
+    'cached_first_party_dirs',
     'cached_source',
     'call_bindings',
     'corpus_definitions',

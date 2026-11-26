@@ -26,8 +26,7 @@ cycle later.
 | `test_core.py` | acceptance markers (scoped and unscoped), duplicate suppression, the emitted record schema, AGENTS.md lazy-import rows |
 | `test_registry.py` | every defined check is registered, none twice, each has tests, and no recorded check has moved within `CHECKS` |
 | `test_driver.py` | package discovery under `src/`, extra roots such as `bin/`, per-root passes, `--package`, `--extra-root`, crash isolation, and one end-to-end run of the shipped entry point |
-| `test_error_handling.py` | the exception-handling and error-reporting predicates |
-| `test_get_container_default.py` | `get-container-default-then-method-call`: each of its guards and each documented non-goal |
+| `test_error_handling.py` | the error-handling helpers that the catalogue rules and the listers share |
 | `test_dispatch.py` | the string-dispatch chain walker behind `assert-never-missing` and the A11 lister |
 | `test_project_hygiene.py` | ruff, the lockfile, and numbered spec cross-references |
 | `phaseb/` | the listed Phase B path: the A1, A4, A11, A17, A19, T1 and T2 listers and the Doc1, Doc2, Doc4 and Doc5 listers, the `docrefs` sections and name resolution, candidate hash, ledger read, merge and dismiss, batch planning and run checking, the command line, and the briefs |

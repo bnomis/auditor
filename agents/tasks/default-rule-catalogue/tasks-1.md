@@ -319,7 +319,7 @@ including the middle one.
 
 ## Task 8: Move the rest of the `error_handling` family
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** large
 **Spec Reference:** What becomes a rule directory; Implementation 2
@@ -329,22 +329,25 @@ rules, and the module is deleted.
 
 **Subtasks:**
 
-- [ ] Move each remaining check as a family task (see the header)
-- [ ] Delete the module
+- [x] Move each remaining check as a family task (see the header)
+- [x] Delete the module
 
 **Acceptance Criteria:**
 
-- [ ] As Task 7
+- [x] As Task 7
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
-- [ ] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 7
+- Done on 2026-11-26. The ten remaining checks moved to `src/auditor/catalogue/rules/`, one directory per rule id, with their tests, and `src/auditor/rules/error_handling.py` is deleted. The `get-container-default-then-method-call` tests moved out of `tests/checker/test_get_container_default.py`, which is deleted
+- The handler-level machinery that two rules share (`nested_call_sites`, `level_catches`, `tuple_constants`, `expand_level`, `function_levels`, `raised_name`, `module_tuple_constants`, `STDLIB_ERRORS`, `LOADER_CALLS`) lives in the runner module `src/auditor/errorsites.py`, and `auditor.api.errors` publishes it. The A1 and A19 listers read four site finders there (`filesystem_envelope_gap_sites`, `filesystem_op_sites`, `graceful_degradation_sites`, `translator_gap_sites`) instead of calling a check; each rule's `check.py` formats and emits what its finder returns
+- `auditor.api` also re-exports `cached_first_party_dirs`, which `raises-section-drift` reads, so `tests/rulesrepo/test_api.py` lists it among the core helpers
 
 ---
 

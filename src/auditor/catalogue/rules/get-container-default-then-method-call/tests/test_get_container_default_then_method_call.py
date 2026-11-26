@@ -9,11 +9,11 @@ the package's domain error.
 import collections.abc
 import pathlib
 
-import auditor.rules.error_handling
+import auditor.testing
 
 RULE = 'get-container-default-then-method-call'
 
-CHECK = auditor.rules.error_handling.check_get_container_default_then_method_call
+CHECK = auditor.testing.load_check(__file__)
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]

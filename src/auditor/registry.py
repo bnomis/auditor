@@ -8,7 +8,6 @@ catalogue's rules come in name order after the built-ins.
 import pathlib
 import typing
 
-import auditor.rules.error_handling
 import auditor.rules.project_hygiene
 import auditor.rulesrepo
 
@@ -31,17 +30,7 @@ def catalogue_check(rule: auditor.rulesrepo.Rule) -> collections.abc.Callable[[p
 
 BUILTIN_CHECKS = (
     auditor.rules.project_hygiene.check_ruff,
-    auditor.rules.error_handling.check_filesystem_envelope_gap,
-    auditor.rules.error_handling.check_filesystem_op_without_envelope,
-    auditor.rules.error_handling.check_logger_exception_graceful_degradation,
-    auditor.rules.error_handling.check_docstring_raises_mismatch,
-    auditor.rules.error_handling.check_missing_raises_section,
-    auditor.rules.error_handling.check_bare_except_in_module_with_narrow_errors,
-    auditor.rules.error_handling.check_failure_as_absence,
     auditor.rules.project_hygiene.check_phase_section_doc_reference,
-    auditor.rules.error_handling.check_get_container_default_then_method_call,
-    auditor.rules.error_handling.check_translator_envelope_gap,
-    auditor.rules.error_handling.check_raises_section_drift,
 )
 
 CHECKS = (

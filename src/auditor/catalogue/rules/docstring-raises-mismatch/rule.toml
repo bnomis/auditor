@@ -1,0 +1,3 @@
+kind = "check"
+title = "A docstring that names a different error from the one the body raises"
+emits = ["docstring-raises-mismatch"]

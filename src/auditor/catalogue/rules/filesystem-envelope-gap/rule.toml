@@ -1,0 +1,3 @@
+kind = "check"
+title = "A narrow except around a filesystem-touching call that omits OSError"
+emits = ["filesystem-envelope-gap"]

@@ -1,0 +1,3 @@
+kind = "check"
+title = "A `.get(key, {})` default whose result is later called as if never None"
+emits = ["get-container-default-then-method-call"]

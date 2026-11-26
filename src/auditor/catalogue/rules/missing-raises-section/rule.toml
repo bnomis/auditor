@@ -1,0 +1,3 @@
+kind = "check"
+title = "A function that raises a project error with no Raises section"
+emits = ["missing-raises-section"]

@@ -14,13 +14,9 @@ import itertools
 import pathlib
 
 import auditor.registry
-import auditor.rules.error_handling
 import auditor.rules.project_hygiene
 
-RULE_MODULES = (
-    auditor.rules.error_handling,
-    auditor.rules.project_hygiene,
-)
+RULE_MODULES = (auditor.rules.project_hygiene,)
 
 TESTS_DIR = pathlib.Path(__file__).resolve().parent
 

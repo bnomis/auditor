@@ -3,12 +3,4 @@
 # does not require touching this file; removing or moving one does.
 
 check_ruff
-check_filesystem_envelope_gap
-check_filesystem_op_without_envelope
-check_logger_exception_graceful_degradation
-check_docstring_raises_mismatch
-check_missing_raises_section
-check_bare_except_in_module_with_narrow_errors
-check_failure_as_absence
 check_phase_section_doc_reference
-check_get_container_default_then_method_call

@@ -21,7 +21,6 @@ import auditor.core
 import auditor.dispatch
 import auditor.errorsites
 import auditor.phaseb.errors
-import auditor.rules.error_handling
 import auditor.surface
 from auditor.phaseb import (
     candidates,
@@ -344,6 +343,11 @@ A19_BRIEF = candidates.DOC_BRIEFS / 'A19.md'
 A19_RULES = ('broad-except-wrong-level', 'logger-exception-graceful-degradation', 'silent-broad-except')
 
 
+def emit_site(scope: pathlib.Path, path: pathlib.Path, rule: str, lineno: int) -> None:
+    """Emit one site under the rule id, as the rule does, for `capture_hits`."""
+    auditor.core.emit(rule=rule, variant='', path=auditor.core.relpath(path, scope), line=lineno, evidence='', accepted=False, accepted_reason=None)
+
+
 def broad_except_hits(
     scope: pathlib.Path, src_root: pathlib.Path, rule: str, finder: collections.abc.Callable[[ast.AST], collections.abc.Iterable[ast.ExceptHandler]]
 ) -> None:
@@ -368,10 +372,20 @@ def wrong_level_broad_except_hits(scope: pathlib.Path, src_root: pathlib.Path) -
     broad_except_hits(scope, src_root, 'broad-except-wrong-level', auditor.errorsites.wrong_level_broad_except_sites)
 
 
+def graceful_degradation_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """The `logger-exception-graceful-degradation` sites, for `capture_hits`."""
+    for path in auditor.core.all_py_files(src_root):
+        tree = auditor.core.read_and_parse(path)
+        if tree is None:
+            continue
+        for lineno in auditor.errorsites.graceful_degradation_sites(tree):
+            emit_site(scope, path, 'logger-exception-graceful-degradation', lineno)
+
+
 A19_CHECKS = (
     silent_broad_except_hits,
     wrong_level_broad_except_hits,
-    auditor.rules.error_handling.check_logger_exception_graceful_degradation,
+    graceful_degradation_hits,
 )
 LOGGER_NAMES = frozenset({'LOGGER', '_logger', 'log', 'logger', 'logging', 'loguru.logger'})
 LOG_LEVELS = frozenset({'critical', 'debug', 'error', 'exception', 'info', 'warn', 'warning'})
@@ -476,11 +490,38 @@ def list_a19_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
 A1_BRIEF = candidates.DOC_BRIEFS / 'A1.md'
 A1_RULES = ('filesystem-envelope-gap', 'filesystem-op-without-envelope', 'translator-envelope-gap')
-A1_CHECKS = (
-    auditor.rules.error_handling.check_filesystem_envelope_gap,
-    auditor.rules.error_handling.check_filesystem_op_without_envelope,
-    auditor.rules.error_handling.check_translator_envelope_gap,
-)
+
+
+def filesystem_envelope_gap_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """The `filesystem-envelope-gap` sites, for `capture_hits`."""
+    for path in auditor.core.all_py_files(src_root):
+        tree = auditor.core.read_and_parse(path)
+        if tree is None:
+            continue
+        for lineno, _ in auditor.errorsites.filesystem_envelope_gap_sites(tree):
+            emit_site(scope, path, 'filesystem-envelope-gap', lineno)
+
+
+def filesystem_op_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """The `filesystem-op-without-envelope` sites, for `capture_hits`."""
+    for path, _, _, lineno in auditor.errorsites.filesystem_op_sites(src_root):
+        emit_site(scope, path, 'filesystem-op-without-envelope', lineno)
+
+
+def translator_gap_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """The `translator-envelope-gap` sites, for `capture_hits`."""
+    envelopes = auditor.errorsites.translator_envelopes(src_root)
+    if not envelopes:
+        return
+    for path in auditor.core.all_py_files(src_root):
+        tree = auditor.core.read_and_parse(path)
+        if tree is None:
+            continue
+        for _, lineno, _, _, _, _ in auditor.errorsites.translator_gap_sites(tree, envelopes):
+            emit_site(scope, path, 'translator-envelope-gap', lineno)
+
+
+A1_CHECKS = (filesystem_envelope_gap_hits, filesystem_op_hits, translator_gap_hits)
 A1_CLIENT_MODULES = ('boto3', 'botocore', 'httpx', 'huggingface_hub', 'mlflow', 'requests', 'sqlalchemy', 'sqlite3', 'urllib.request')
 A1_ROOTED_MODULES = ('subprocess', *A1_CLIENT_MODULES)
 A1_CLIENT_METHODS = frozenset({'commit', 'download_file', 'execute', 'executemany', 'get_object', 'put_object', 'upload_file'})
