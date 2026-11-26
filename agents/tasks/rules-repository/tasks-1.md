@@ -25,7 +25,7 @@ Three rules hold for every task:
 
 ## Task 1: Start the helper API
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** API (`auditor.api`)
@@ -36,18 +36,18 @@ import, re-exporting `emit`, `Candidate` and the readers and resolvers in
 
 **Subtasks:**
 
-- [ ] Starting-point check: `grep -rnwE 'rulesrepo|RulesRepoError|rulescli|API_VERSION' src/auditor` prints nothing, and `test ! -e src/auditor/api` succeeds. If either fails, stop as `blocked` and name what exists
-- [ ] Tests first, in `tests/rulesrepo/test_api.py`: every name the spec lists is reachable as `auditor.api.<name>` and is the same object as its source
-- [ ] Write `src/auditor/api/__init__.py`, re-exporting by full path as the package's `__init__` rules allow, with `API_VERSION = (1, 0)`
+- [x] Starting-point check: `grep -rnwE 'rulesrepo|RulesRepoError|rulescli|API_VERSION' src/auditor` prints nothing, and `test ! -e src/auditor/api` succeeds. If either fails, stop as `blocked` and name what exists
+- [x] Tests first, in `tests/rulesrepo/test_api.py`: every name the spec lists is reachable as `auditor.api.<name>` and is the same object as its source
+- [x] Write `src/auditor/api/__init__.py`, re-exporting by full path as the package's `__init__` rules allow, with `API_VERSION = (1, 0)`
 
 **Acceptance Criteria:**
 
-- [ ] The test passes, and no existing module imports `auditor.api` yet
+- [x] The test passes, and no existing module imports `auditor.api` yet
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_api.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_api.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
