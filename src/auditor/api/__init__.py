@@ -5,11 +5,20 @@ rule code.
 """
 
 from auditor.api.base import API_VERSION
-from auditor.api.calls import SINK_TOKENS
+from auditor.api.calls import (  # auditme: accept[migration-shim-consumer] the API's home for two runner helpers
+    SINK_TOKENS,
+    empty_init_sites,
+    migration_shim_sites,
+)
 from auditor.api.flow import (  # auditme: accept[migration-shim-consumer] the API's home for two core helpers
     BARE_GENERIC_NAMES,
     is_dunder_all_assignment,
     leading_underscore_names,
+)
+from auditor.api.project import (  # auditme: accept[migration-shim-consumer] the API's home for two core helpers
+    accepted_lazy_imports,
+    cached_per_run,
+    declared_root_modules,
 )
 from auditor.core import (
     accept_reason,
@@ -46,21 +55,26 @@ __all__ = [
     'Candidate',
     'SINK_TOKENS',
     'accept_reason',
+    'accepted_lazy_imports',
     'all_py_files',
     'audit_roots',
     'cached_bytes',
+    'cached_per_run',
     'cached_source',
     'call_bindings',
     'corpus_definitions',
     'corpus_index',
     'corpus_py_files',
+    'declared_root_modules',
     'describe_error',
     'emit',
+    'empty_init_sites',
     'first_party_dirs',
     'from_import_bindings',
     'is_dunder_all_assignment',
     'is_test_relpath',
     'leading_underscore_names',
+    'migration_shim_sites',
     'module_dotted',
     'path_inside',
     'py_files',

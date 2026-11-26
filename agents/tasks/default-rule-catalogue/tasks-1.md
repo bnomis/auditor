@@ -212,7 +212,7 @@ that lists every id it emits.
 
 ## Task 5: Move the `imports_and_surfaces` family
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** What becomes a rule directory; API (`auditor.api.calls`); Implementation 2
@@ -223,22 +223,26 @@ helpers, so that the lister can still reach them.
 
 **Subtasks:**
 
-- [ ] Move each check as a family task (see the header). The Phase B listers in `src/auditor/phaseb/` import any promoted helper from `auditor.api`. A lister that calls a check function directly (`check_migration_shim_consumers`, `check_empty_init_with_exporting_siblings`) has the site finder it needs promoted instead of the check
-- [ ] Delete the module once it is empty
+- [x] Move each check as a family task (see the header). The Phase B listers in `src/auditor/phaseb/` import any promoted helper from `auditor.api`. A lister that calls a check function directly (`check_migration_shim_consumers`, `check_empty_init_with_exporting_siblings`) has the site finder it needs promoted instead of the check
+- [x] Delete the module once it is empty
 
 **Acceptance Criteria:**
 
-- [ ] As Task 3, and `auditor phaseb candidates --question A17 .` gives the baseline's file
+- [x] As Task 3, and `auditor phaseb candidates --question A17 .` gives the baseline's file
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
-- [ ] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 4
+- Done on 2026-11-26. The eleven checks moved to `src/auditor/catalogue/rules/`, one directory per rule id, and `src/auditor/rules/imports_and_surfaces.py` is deleted. Their tests moved with them, the passthrough-shim cases that sat in the old empty-init section going to `passthrough-shim/tests/`
+- The two A17 site finders, `empty_init_sites` and `migration_shim_sites`, live in `src/auditor/surface.py` and are published from `auditor.api.calls`. They sit in the runner and not in `auditor.api`, because `test_no_existing_module_imports_the_api` keeps runner modules, the lister included, from importing the API. `src/auditor/phaseb/architecture.py` builds its A17 hit capture from them; the one test that called `check_migration_shim_consumers` calls `migration_shim_hits` instead, with its expectation unchanged
+- `auditor.api.project` is new: `declared_root_modules` (which reads `ROOT_MODULES` live, so a re-export would go stale), and `accepted_lazy_imports` and `cached_per_run` re-exported from `auditor.core`, none of which `auditor.api` had
+- Against the baseline, the sweep of this repository gains accepted hits only (the API re-exports and moved files) and loses the unaccepted `tests/checker/conftest.py` hits; the A17 candidates differ only where the source files changed
 
 ---
 

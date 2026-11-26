@@ -14,7 +14,6 @@ import auditor.phaseb
 import auditor.phaseb.architecture
 import auditor.phaseb.candidates
 import auditor.rules.error_handling
-import auditor.rules.imports_and_surfaces
 
 Project = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 
@@ -890,7 +889,7 @@ def test_a17_drops_an_init_on_an_empty_init_hit(project: Project) -> None:
 def test_a17_removes_a_consumer_a_shim_hit_names(project: Project) -> None:
     files = {'src/pkg/canon.py': A17_BASE, 'src/pkg/user.py': 'from pkg.sub import Probe\n'}
     root = write_a17_project(project, files, init="import pkg.canon\n\n__all__ = ['Probe']\n\nProbe = pkg.canon.Probe\n")
-    hits = auditor.phaseb.architecture.capture_hits(root, (auditor.rules.imports_and_surfaces.check_migration_shim_consumers,))
+    hits = auditor.phaseb.architecture.capture_hits(root, (auditor.phaseb.architecture.migration_shim_hits,))
     assert ('migration-shim-consumer', 'src/pkg/user.py', 1) in hits
     assert run_a17(root)[A17_KEY].payload['consumers'] == {'Probe': []}
 

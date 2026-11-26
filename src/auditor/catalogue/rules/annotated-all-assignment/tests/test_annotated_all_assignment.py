@@ -7,12 +7,18 @@ module entirely - reporting green while checking nothing.
 
 import collections.abc
 import pathlib
+import typing
 
-import auditor.rules.imports_and_surfaces
+import auditor.core
+import auditor.testing
+
+if typing.TYPE_CHECKING:
+    import pytest
 
 RULE = 'annotated-all-assignment'
 
-CHECK = auditor.rules.imports_and_surfaces.check_annotated_all_assignment
+CHECK = auditor.testing.load_check(__file__)
+MODULE = auditor.testing.load_check_module(__file__)
 
 Builder = collections.abc.Callable[[dict[str, str]], pathlib.Path]
 Runner = collections.abc.Callable[..., list[dict]]
@@ -155,3 +161,19 @@ def test_an_unparseable_file_is_skipped_rather_than_crashing(project: Builder, r
     )
     hits = run_check(CHECK, root)
     assert [hit['path'] for hit in hits] == ['src/probe/__init__.py']
+
+
+def test_the_all_guard_scan_runs_once_per_sweep_over_two_roots(project: Builder, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = project({'src/probe/a.py': 'x = 1\n', 'src/probe/b.py': "y = getattr(m, '__all__')\n"})
+    auditor.core.clear_source_cache()
+    calls: list[pathlib.Path] = []
+    real = MODULE.scan_has_all_guard
+
+    def counting(scope: pathlib.Path) -> bool:
+        calls.append(scope)
+        return real(scope)
+
+    monkeypatch.setattr(MODULE, 'scan_has_all_guard', counting)
+    answers = [MODULE.project_has_all_guard(root) for _ in range(2)]
+    assert answers == [True, True]
+    assert calls == [root]

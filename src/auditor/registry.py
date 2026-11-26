@@ -9,7 +9,6 @@ import pathlib
 import typing
 
 import auditor.rules.error_handling
-import auditor.rules.imports_and_surfaces
 import auditor.rules.project_hygiene
 import auditor.rules.state_and_effects
 import auditor.rulesrepo
@@ -33,18 +32,11 @@ def catalogue_check(rule: auditor.rulesrepo.Rule) -> collections.abc.Callable[[p
 
 BUILTIN_CHECKS = (
     auditor.rules.project_hygiene.check_ruff,
-    auditor.rules.imports_and_surfaces.check_def_class_in_init,
-    auditor.rules.imports_and_surfaces.check_in_function_imports,
     auditor.rules.error_handling.check_silent_broad_except,
     auditor.rules.error_handling.check_broad_except_wrong_level,
     auditor.rules.error_handling.check_except_interpolation,
-    auditor.rules.imports_and_surfaces.check_unused_submodule_imports,
-    auditor.rules.imports_and_surfaces.check_layering_violations,
     auditor.rules.state_and_effects.check_constructor_disk_io,
-    auditor.rules.imports_and_surfaces.check_passthrough_shim,
-    auditor.rules.imports_and_surfaces.check_empty_init_with_exporting_siblings,
     auditor.rules.error_handling.check_mixed_raise_types,
-    auditor.rules.imports_and_surfaces.check_migration_shim_consumers,
     auditor.rules.state_and_effects.check_silent_self_mutation,
     auditor.rules.error_handling.check_asymmetric_exception_translation,
     auditor.rules.error_handling.check_sibling_error_no_common_base,
@@ -64,7 +56,6 @@ BUILTIN_CHECKS = (
     auditor.rules.state_and_effects.check_callback_hotpath_io,
     auditor.rules.error_handling.check_logger_exception_graceful_degradation,
     auditor.rules.error_handling.check_docstring_raises_mismatch,
-    auditor.rules.imports_and_surfaces.check_reexport_in_non_init,
     auditor.rules.state_and_effects.check_dataclass_optional_always_set,
     auditor.rules.state_and_effects.check_dead_local_init,
     auditor.rules.error_handling.check_missing_raises_section,
@@ -73,11 +64,8 @@ BUILTIN_CHECKS = (
     auditor.rules.error_handling.check_failure_as_absence,
     auditor.rules.project_hygiene.check_phase_section_doc_reference,
     auditor.rules.error_handling.check_get_container_default_then_method_call,
-    auditor.rules.imports_and_surfaces.check_annotated_all_assignment,
     auditor.rules.error_handling.check_translator_envelope_gap,
-    auditor.rules.imports_and_surfaces.check_as_import,
     auditor.rules.state_and_effects.check_mutable_members_in_immutable_wrapper,
-    auditor.rules.imports_and_surfaces.check_from_import,
     auditor.rules.error_handling.check_raises_section_drift,
     auditor.rules.state_and_effects.check_discarded_tuple_return,
 )
@@ -107,8 +95,6 @@ PROJECT_CHECKS = (
 # keeps it equal to the source's emitted ids and the rule tables in the guide.
 BUILTIN_RULE_IDS = frozenset(
     {
-        'annotated-all-assignment',
-        'as-import',
         'assert-never-missing',
         'asymmetric-exception-translation',
         'auditme-check-crash',
@@ -120,35 +106,27 @@ BUILTIN_RULE_IDS = frozenset(
         'constructor-disk-io',
         'dataclass-optional-always-set',
         'dead-local-init',
-        'def-class-in-init',
         'discarded-tuple-return',
         'docstring-raises-mismatch',
-        'empty-init-while-siblings-export',
         'except-interpolation',
         'failure-as-absence',
         'filesystem-envelope-gap',
         'filesystem-op-without-envelope',
-        'from-import',
         'get-container-default-then-method-call',
-        'in-function-import',
         'inconsistent-error-translation',
         'layer-has-domain-error-raises-stdlib',
-        'layering-violation',
         'leading-underscore-def-class',
         'lockfile-drift',
         'logger-exception-graceful-degradation',
-        'migration-shim-consumer',
         'missing-raises-section',
         'mixed-raise-types',
         'mutable-members-in-immutable-wrapper',
         'mutable-module-level-exported',
         'mutable-store-without-copy',
         'parameter-mutation-in-pure-function',
-        'passthrough-shim',
         'phase-section-doc-reference',
         'pure-name-has-side-effect',
         'raises-section-drift',
-        'reexport-in-non-init',
         'return-shadows-instance-attr',
         'ruff',
         'ruff-version-drift',
@@ -161,7 +139,6 @@ BUILTIN_RULE_IDS = frozenset(
         'translator-envelope-gap',
         'try-wrapping-with-block-too-broad',
         'unreadable-file',
-        'unused-submodule-import',
     }
 )
 

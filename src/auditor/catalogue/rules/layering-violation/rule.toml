@@ -1,0 +1,3 @@
+kind = "check"
+title = "An upward import against the declared package layering"
+emits = ["layering-violation"]

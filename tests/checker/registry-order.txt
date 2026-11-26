@@ -3,18 +3,11 @@
 # does not require touching this file; removing or moving one does.
 
 check_ruff
-check_def_class_in_init
-check_in_function_imports
 check_silent_broad_except
 check_broad_except_wrong_level
 check_except_interpolation
-check_unused_submodule_imports
-check_layering_violations
 check_constructor_disk_io
-check_passthrough_shim
-check_empty_init_with_exporting_siblings
 check_mixed_raise_types
-check_migration_shim_consumers
 check_silent_self_mutation
 check_asymmetric_exception_translation
 check_sibling_error_no_common_base
@@ -34,7 +27,6 @@ check_mutable_module_level_exported
 check_callback_hotpath_io
 check_logger_exception_graceful_degradation
 check_docstring_raises_mismatch
-check_reexport_in_non_init
 check_dataclass_optional_always_set
 check_dead_local_init
 check_missing_raises_section
@@ -43,5 +35,4 @@ check_bare_except_in_module_with_narrow_errors
 check_failure_as_absence
 check_phase_section_doc_reference
 check_get_container_default_then_method_call
-check_annotated_all_assignment
 check_discarded_tuple_return

@@ -20,8 +20,8 @@ import tomllib
 import auditor.core
 import auditor.phaseb.errors
 import auditor.rules.error_handling
-import auditor.rules.imports_and_surfaces
 import auditor.rules.state_and_effects
+import auditor.surface
 from auditor.phaseb import (
     candidates,
 )  # auditme: accept[from-import] the package init imports this module while `auditor.phaseb` is not yet bound on `auditme`, so a qualified path fails at import
@@ -727,10 +727,31 @@ def list_a1_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
 
 A17_BRIEF = candidates.DOC_BRIEFS / 'A17.md'
 A17_SHIM_RULE = 'migration-shim-consumer'
-A17_CHECKS = (
-    auditor.rules.imports_and_surfaces.check_empty_init_with_exporting_siblings,
-    auditor.rules.imports_and_surfaces.check_migration_shim_consumers,
-)
+
+
+def empty_init_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Emit each `empty-init-while-siblings-export` site, as the rule does, for `capture_hits`."""
+    for path, _ in auditor.surface.empty_init_sites(src_root):
+        auditor.core.emit(
+            rule='empty-init-while-siblings-export',
+            variant='',
+            path=auditor.core.relpath(path, scope),
+            line=1,
+            evidence='',
+            accepted=False,
+            accepted_reason=None,
+        )
+
+
+def migration_shim_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Emit each `migration-shim-consumer` site, as the rule does, for `capture_hits`."""
+    for path, line, variant, evidence in auditor.surface.migration_shim_sites(src_root):
+        auditor.core.emit(
+            rule=A17_SHIM_RULE, variant=variant, path=auditor.core.relpath(path, scope), line=line, evidence=evidence, accepted=False, accepted_reason=None
+        )
+
+
+A17_CHECKS = (empty_init_hits, migration_shim_hits)
 
 
 def dunder_all_names(tree: ast.Module) -> list[str] | None:
