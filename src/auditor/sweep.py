@@ -84,6 +84,7 @@ required finding.
 """
 
 import argparse
+import dataclasses
 import os
 import pathlib
 import sys
@@ -91,20 +92,69 @@ import typing
 
 import auditor.core
 import auditor.registry
+import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
     import collections.abc
 
+    Check = collections.abc.Callable[[pathlib.Path, pathlib.Path], None]
+
 DEFAULT_EXTRA_ROOTS = ', '.join(f'{name}/' for name in auditor.core.EXTRA_ROOT_NAMES)
 
 
-def check_never_accepted(patterns: tuple[str, ...]) -> None:
+@dataclasses.dataclass(frozen=True)
+class Plan:
+    """The checks one sweep runs, each with the label a crash hit reports, and the ids they can emit."""
+
+    project_checks: tuple[tuple[str, Check], ...]
+    checks: tuple[tuple[str, Check], ...]
+    rule_ids: frozenset[str]
+
+
+def builtin_plan() -> Plan:
+    return Plan(
+        project_checks=tuple((check.__name__, check) for check in auditor.registry.PROJECT_CHECKS),
+        checks=tuple((check.__name__, check) for check in auditor.registry.CHECKS),
+        rule_ids=auditor.registry.RULE_IDS,
+    )
+
+
+def rule_check(rule: auditor.rulesrepo.Rule) -> Check:
+    """A check that imports the rule's `check.py` when it first runs, so an import error is the rule's crash hit."""
+
+    def run(scope: pathlib.Path, root: pathlib.Path) -> None:
+        auditor.rulesrepo.import_entry(rule, 'check.py').check(scope, root)
+
+    return run
+
+
+def repo_plan(repo: auditor.rulesrepo.RulesRepo) -> Plan:
+    """The plan a loaded rules repository gives: its rules in name order, which `load` already sorts."""
+    return Plan(
+        project_checks=tuple((f'rules/{rule.name}/check.py', rule_check(rule)) for rule in repo.rules if rule.kind == 'project-check'),
+        checks=tuple((f'rules/{rule.name}/check.py', rule_check(rule)) for rule in repo.rules if rule.kind == 'check'),
+        rule_ids=repo.rule_ids(),
+    )
+
+
+def make_plan() -> Plan:
+    """Return the repository's plan when `$AUDITOR_RULES_PATH` is set, else the built-in registry's.
+
+    Raises:
+        RulesRepoError: the variable is set but empty, or the repository is invalid.
+    """
+    if auditor.rulesrepo.RULES_PATH_VARIABLE in os.environ:
+        return repo_plan(auditor.rulesrepo.load(auditor.rulesrepo.rules_root()))
+    return builtin_plan()
+
+
+def check_never_accepted(patterns: tuple[str, ...], rule_ids: collections.abc.Set[str]) -> None:
     """Raise SettingsError for a `never-accepted` pattern that matches no rule id.
 
     A misspelt rule name would otherwise let every marker for that rule count.
     """
     for pattern in patterns:
-        if not any(auditor.core.is_never_accepted(rule, (pattern,)) for rule in auditor.registry.RULE_IDS):
+        if not any(auditor.core.is_never_accepted(rule, (pattern,)) for rule in rule_ids):
             raise auditor.core.SettingsError(f'{auditor.core.SETTINGS_WHERE}: never-accepted {pattern!r} matches no rule id')
 
 
@@ -127,15 +177,15 @@ def report_unreadable(scope: pathlib.Path) -> None:
     auditor.core.UNREADABLE.clear()
 
 
-def run_check(check: collections.abc.Callable[[pathlib.Path, pathlib.Path], None], scope: pathlib.Path, root: pathlib.Path) -> None:
-    """Run one check, reporting a crash as a hit so the sweep continues."""
+def run_check(label: str, check: Check, scope: pathlib.Path, root: pathlib.Path) -> None:
+    """Run one check, reporting a crash as a hit named `label` so the sweep continues."""
     try:
         check(scope, root)
     # auditme: accept[silent-broad-except] reporting a crashing check as a hit is the handler's job
     except Exception as exc:
         auditor.core.emit(
             rule='auditme-check-crash',
-            variant=check.__name__,
+            variant=label,
             path=None,
             line=None,
             # auditme: accept[except-interpolation] the crash text is the hit's evidence
@@ -198,8 +248,9 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
     default_roots: list[pathlib.Path] = []
     # Read first: an invalid setting must exit before anything is emitted.
     try:
+        plan = make_plan()
         patterns = auditor.core.never_accepted(scope)
-        check_never_accepted(patterns)
+        check_never_accepted(patterns, plan.rule_ids)
         auditor.core.NEVER_ACCEPTED = patterns
         if not args.package:
             default_roots = auditor.core.audit_roots(scope)
@@ -241,8 +292,8 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
         roots = default_roots
         if not roots:
             print('audit.py: no package under src/ and no extra root; running the project-level checks only', file=sys.stderr)
-            for check in auditor.registry.PROJECT_CHECKS:
-                run_check(check, scope, scope)
+            for label, check in plan.project_checks:
+                run_check(label, check, scope, scope)
             return 0
 
     for root in roots:
@@ -253,8 +304,8 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
 
     # These read only the project, so the scope stands in for the root they
     # ignore. They run once, not once per root.
-    for check in auditor.registry.PROJECT_CHECKS:
-        run_check(check, scope, scope)
+    for label, check in plan.project_checks:
+        run_check(label, check, scope, scope)
 
     # One pass per root, rather than one pass over src/ itself. src_root.name
     # is the package's dotted root: six checks build module names as
@@ -263,6 +314,6 @@ def main(argv: collections.abc.Sequence[str] | None = None) -> int:
     # public-surface checks and every AGENTS.md acceptance row, which are
     # written without the src. prefix. Running per root keeps each name right.
     for src_root in roots:
-        for check in auditor.registry.CHECKS:
-            run_check(check, scope, src_root)
+        for label, check in plan.checks:
+            run_check(label, check, scope, src_root)
     return 0

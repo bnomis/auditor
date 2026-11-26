@@ -1,0 +1,3 @@
+kind = "check"
+title = "Raises when run"
+emits = ["raises-hit"]

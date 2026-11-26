@@ -12,6 +12,11 @@ name = "auditor"
 version = "0.2.0"
 source = { editable = "." }
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
@@ -24,6 +29,8 @@ docs = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "pytest", marker = "extra == 'test'", specifier = ">=9.2.0" }]
+provides-extras = ["test"]
 
 [package.metadata.requires-dev]
 dev = [

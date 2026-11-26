@@ -1,0 +1,59 @@
+import pathlib
+
+import pytest
+
+import auditor
+import auditor.api
+import auditor.core
+import auditor.phaseb.candidates
+
+CORE_NAMES = [
+    'accept_reason',
+    'all_py_files',
+    'audit_roots',
+    'cached_bytes',
+    'cached_source',
+    'call_bindings',
+    'corpus_definitions',
+    'corpus_index',
+    'corpus_py_files',
+    'describe_error',
+    'emit',
+    'first_party_dirs',
+    'from_import_bindings',
+    'is_test_relpath',
+    'module_dotted',
+    'path_inside',
+    'py_files',
+    'read_and_parse',
+    'read_source',
+    'reexport_aliases',
+    'relpath',
+    'resolve_call',
+    'source_lines',
+    'type_checking_linenos',
+    'walk_within_scope',
+]
+
+
+@pytest.mark.parametrize('name', CORE_NAMES)
+def test_core_helper_is_the_same_object(name: str) -> None:
+    assert getattr(auditor.api, name) is getattr(auditor.core, name)
+
+
+def test_candidate_is_the_phaseb_class() -> None:
+    assert auditor.api.Candidate is auditor.phaseb.candidates.Candidate
+
+
+def test_api_version() -> None:
+    assert auditor.api.API_VERSION == (1, 0)
+
+
+def test_all_lists_exactly_the_exports() -> None:
+    assert sorted(auditor.api.__all__) == sorted([*CORE_NAMES, 'API_VERSION', 'Candidate'])
+
+
+def test_no_existing_module_imports_the_api() -> None:
+    root = pathlib.Path(auditor.__file__).parent
+    users = [p for p in root.rglob('*.py') if p.relative_to(root).parts[0] != 'api' and 'auditor.api' in p.read_text()]
+    assert users == []

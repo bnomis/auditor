@@ -27,6 +27,8 @@ import typing
 import auditor.core
 import auditor.phaseb
 import auditor.phaseb.batches
+import auditor.phaseb.candidates
+import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -95,6 +97,7 @@ def add_depth(parser: argparse.ArgumentParser) -> None:
     )
 
 
+# auditme: accept[duplicate-call-sequence] both parsers are argparse builders that add subcommands and arguments
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='Phase B driver for listed audit questions.',
@@ -283,6 +286,12 @@ COMMANDS = {
 
 
 def main(argv: collections.abc.Sequence[str] | None = None) -> int:
+    try:
+        auditor.phaseb.candidates.use_rules_repository()
+    except (auditor.rulesrepo.RulesRepoError, auditor.phaseb.PhaseBError) as error:
+        # auditme: accept[except-interpolation] the entry point prints the message and its chained cause once
+        print(f'phaseb.py: {auditor.core.describe_error(error)}', file=sys.stderr)
+        return 2
     parser = build_parser()
     args = parser.parse_args(argv)
     if getattr(args, 'depth', None) is not None and args.question not in auditor.phaseb.depth_questions():

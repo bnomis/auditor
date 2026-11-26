@@ -50,6 +50,22 @@ A project that adopted the hooks before the checker moved here still pins `bnomi
 keeps working, because the agents commits it names still hold the checker; see
 [Moving a project from agents](setup.md#moving-a-project-from-agents).
 
+## Rules repositories and trust
+
+The checks and the Phase B questions can live in a separate rules repository
+that `AUDITOR_RULES_PATH` names. The runner (`auditor check`, `auditor phaseb`)
+loads it and runs what it holds: each rule is a directory with a `rule.md` and a
+`rule.toml`, and `auditor-rules.toml` at the root names the helper API version
+the repository was written for. `auditor rules` reports on it
+([commands](reference/cli.md#auditor-rules)).
+
+**A rules repository is trusted code.** `auditor check` imports and runs Python
+from it, in the same way a project's own `conftest.py` runs under pytest. The
+runner loads a rules repository only from `AUDITOR_RULES_PATH`, never from a
+path the audited project names, so auditing a project cannot make the runner
+run that project's code as rules. Point the variable only at a repository you
+trust. See [setup](setup.md#pointing-the-runner-at-a-rules-repository).
+
 ## The Stop hook
 
 `bin/install-claude.sh` also registers `claude/hooks/auditme-stop.sh` as a Claude Code Stop hook in

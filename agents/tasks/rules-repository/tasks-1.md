@@ -25,7 +25,7 @@ Three rules hold for every task:
 
 ## Task 1: Start the helper API
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** API (`auditor.api`)
@@ -36,18 +36,18 @@ import, re-exporting `emit`, `Candidate` and the readers and resolvers in
 
 **Subtasks:**
 
-- [ ] Starting-point check: `grep -rnwE 'rulesrepo|RulesRepoError|rulescli|API_VERSION' src/auditor` prints nothing, and `test ! -e src/auditor/api` succeeds. If either fails, stop as `blocked` and name what exists
-- [ ] Tests first, in `tests/rulesrepo/test_api.py`: every name the spec lists is reachable as `auditor.api.<name>` and is the same object as its source
-- [ ] Write `src/auditor/api/__init__.py`, re-exporting by full path as the package's `__init__` rules allow, with `API_VERSION = (1, 0)`
+- [x] Starting-point check: `grep -rnwE 'rulesrepo|RulesRepoError|rulescli|API_VERSION' src/auditor` prints nothing, and `test ! -e src/auditor/api` succeeds. If either fails, stop as `blocked` and name what exists
+- [x] Tests first, in `tests/rulesrepo/test_api.py`: every name the spec lists is reachable as `auditor.api.<name>` and is the same object as its source
+- [x] Write `src/auditor/api/__init__.py`, re-exporting by full path as the package's `__init__` rules allow, with `API_VERSION = (1, 0)`
 
 **Acceptance Criteria:**
 
-- [ ] The test passes, and no existing module imports `auditor.api` yet
+- [x] The test passes, and no existing module imports `auditor.api` yet
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_api.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_api.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -57,7 +57,7 @@ import, re-exporting `emit`, `Candidate` and the readers and resolvers in
 
 ## Task 2: Load and validate a rules repository
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Repository format; API (`Rule`, `RulesRepo`, `rules_root`, `load`); Implementation (Loading, Caching); Error handling
@@ -68,7 +68,7 @@ imports no rule code.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_load.py`, with fixtures for:
+- [x] Tests first, in `tests/rulesrepo/test_load.py`, with fixtures for:
   - one valid rule of each kind;
   - an unknown key;
   - an unknown kind;
@@ -82,7 +82,7 @@ imports no rule code.
   - an unset or empty `AUDITOR_RULES_PATH`, and one naming a missing directory.
 
   Each error case asserts the spec's message, naming the file
-- [ ] Write `src/auditor/rulesrepo.py`, defining:
+- [x] Write `src/auditor/rulesrepo.py`, defining:
   - `RulesRepoError(SettingsError)`;
   - `Rule` and `RulesRepo` (with `rule_ids()`, which includes the runner's own ids);
   - `rules_root` and `load`;
@@ -90,12 +90,12 @@ imports no rule code.
 
 **Acceptance Criteria:**
 
-- [ ] Every case passes, and `load` imports nothing: a fixture `check.py` that raises at import does not fail `load`
+- [x] Every case passes, and `load` imports nothing: a fixture `check.py` that raises at import does not fail `load`
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_load.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_load.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -106,7 +106,7 @@ imports no rule code.
 
 ## Task 3: Run a rules repository's checks in the sweep
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** API (`import_entry`); Commands (`auditor check`); Implementation (Loading); Error handling (A rule's code raises)
@@ -121,23 +121,23 @@ each in rule-name order, imported through `import_entry`, with nothing put on
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_sweep.py`, checking that:
+- [x] Tests first, in `tests/rulesrepo/test_sweep.py`, checking that:
   - a fixture project swept with a fixture rules repository emits exactly the fixture's hits;
   - a rule whose `check` raises yields one `auditme-check-crash` hit naming the rule directory, and the other rules still run;
   - a rule cannot import a sibling rule;
   - `[tool.auditme] never-accepted` is validated against the loaded repository's `rule_ids()`;
   - with the variable unset, the full existing suite is unaffected
-- [ ] Write `import_entry`, using `importlib.util.spec_from_file_location` under `auditor_rules.<name>.<stem>`, with the module registered in `sys.modules`
-- [ ] In `src/auditor/sweep.py`, choose between the loaded repository and `auditor.registry` by whether `AUDITOR_RULES_PATH` is set. Report a `RulesRepoError` as `ERROR: <message>` on stderr, with exit 2 and nothing on stdout
+- [x] Write `import_entry`, using `importlib.util.spec_from_file_location` under `auditor_rules.<name>.<stem>`, with the module registered in `sys.modules`
+- [x] In `src/auditor/sweep.py`, choose between the loaded repository and `auditor.registry` by whether `AUDITOR_RULES_PATH` is set. Report a `RulesRepoError` as `ERROR: <message>` on stderr, with exit 2 and nothing on stdout
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass, and the existing suite passes unchanged
+- [x] The new tests pass, and the existing suite passes unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo tests/checker/test_driver.py tests/checker/test_settings.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo tests/checker/test_driver.py tests/checker/test_settings.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -147,7 +147,7 @@ each in rule-name order, imported through `import_entry`, with nothing put on
 
 ## Task 4: Run a rules repository's Phase B questions
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Repository format (question keys); Implementation (Phase B)
@@ -159,21 +159,21 @@ The plan, check, merge and ledger code does not change.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_phaseb.py`. A fixture question with a lister, run through `auditor phaseb candidates` and `plan`, must give:
+- [x] Tests first, in `tests/rulesrepo/test_phaseb.py`. A fixture question with a lister, run through `auditor phaseb candidates` and `plan`, must give:
   - its candidates;
   - its brief version;
   - its batch size;
   - the depth only when `takes-depth` is true
-- [ ] In `src/auditor/phaseb/candidates.py`, build the registry from the loaded repository when the variable is set, and keep today's registrations when it is unset
+- [x] In `src/auditor/phaseb/candidates.py`, build the registry from the loaded repository when the variable is set, and keep today's registrations when it is unset
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass, and `tests/checker/phaseb` passes unchanged
+- [x] The new tests pass, and `tests/checker/phaseb` passes unchanged
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_phaseb.py tests/checker/phaseb -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_phaseb.py tests/checker/phaseb -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -183,7 +183,7 @@ The plan, check, merge and ledger code does not change.
 
 ## Task 5: Add the `auditor rules` report commands
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Commands (`list`, `check`, `standards`, `questions`, `pending`); Implementation (Import boundary); Tests (`rules pending`)
@@ -194,19 +194,19 @@ where `<x>` is not `api`.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_rulescli.py`, one per command over the fixtures. Cover:
+- [x] Tests first, in `tests/rulesrepo/test_rulescli.py`, one per command over the fixtures. Cover:
   - the import-boundary failure;
   - the `pending` cases: no `TODO.md`, a `TODO.md` with no `## ` heading, a heading inside a fenced block, and two open items
-- [ ] Write `src/auditor/rulescli.py` and register `rules` in `src/auditor/cli.py`
+- [x] Write `src/auditor/rulescli.py` and register `rules` in `src/auditor/cli.py`
 
 **Acceptance Criteria:**
 
-- [ ] Every command's output and exit status match the spec. `pending` exits 1 and lists headings only when an item is open
+- [x] Every command's output and exit status match the spec. `pending` exits 1 and lists headings only when an item is open
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_rulescli.py tests/checker/test_cli.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_rulescli.py tests/checker/test_cli.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -216,7 +216,7 @@ where `<x>` is not `api`.
 
 ## Task 6: Report the rules identity
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** API (`Identity`, `identity`); Commands (`identity`); Tests
@@ -227,20 +227,20 @@ With `--expect <file>`, it exits 1 on any difference.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesrepo/test_identity.py`, over a fixture rules repository that the test makes into a git repository:
+- [x] Tests first, in `tests/rulesrepo/test_identity.py`, over a fixture rules repository that the test makes into a git repository:
   - `--expect` exits 0 on the same identity, and exits 1 after a commit;
   - `rules_dirty` is true after an uncommitted edit;
   - `rules_commit` is null outside a work tree
-- [ ] Write `identity` and the command. The digest is sha256 over the tracked files under `rules/`, in path order
+- [x] Write `identity` and the command. The digest is sha256 over the tracked files under `rules/`, in path order
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass
+- [x] The new tests pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesrepo/test_identity.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesrepo/test_identity.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -250,7 +250,7 @@ With `--expect <file>`, it exits 1 on any difference.
 
 ## Task 7: Run a rules repository's own tests
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Commands (`test`); External dependencies (pytest)
@@ -261,21 +261,21 @@ the `auditor.testing` plugin, which is the generic helpers of
 
 **Subtasks:**
 
-- [ ] Move the generic fixtures and helpers (`git`, `project`, `run_check`, `clean_emitted` and the settings-restoring fixtures) into `src/auditor/testing.py`, as a pytest plugin. `tests/checker/conftest.py` loads the plugin and keeps only what is specific to this suite
-- [ ] Add `[project.optional-dependencies] test = ["pytest>=9.2.0"]` and run `uv lock`
-- [ ] Tests first, in `tests/rulesrepo/test_rules_test.py`:
+- [x] Move the generic fixtures and helpers (`git`, `project`, `run_check`, `clean_emitted` and the settings-restoring fixtures) into `src/auditor/testing.py`, as a pytest plugin. `tests/checker/conftest.py` loads the plugin and keeps only what is specific to this suite
+- [x] Add `[project.optional-dependencies] test = ["pytest>=9.2.0"]` and run `uv lock`
+- [x] Tests first, in `tests/rulesrepo/test_rules_test.py`:
   - a fixture rule's own test passes through `auditor rules test`;
   - without pytest installed, the command exits 2 and names `auditor[test]`
-- [ ] Add `test` to `src/auditor/rulescli.py`
+- [x] Add `test` to `src/auditor/rulescli.py`
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass, and every existing test passes with the moved fixtures
+- [x] The new tests pass, and every existing test passes with the moved fixtures
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests -q -p no:cacheprovider` passes, because this task moves fixtures that every checker test uses
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests -q -p no:cacheprovider` passes, because this task moves fixtures that every checker test uses
 
 **Notes:**
 
@@ -286,7 +286,7 @@ the `auditor.testing` plugin, which is the generic helpers of
 
 ## Task 8: Add the standards SessionStart hook
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** small
 **Spec Reference:** Standards hook; Tests
@@ -298,22 +298,22 @@ SessionStart hook.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/test_standards_hook.py`, covering:
+- [x] Tests first, in `tests/test_standards_hook.py`, covering:
   - a valid fixture repository prints its standards;
   - an unset variable prints the `ERROR:` line;
   - a project that has not opted in prints nothing;
   - every case exits 0
-- [ ] Write the hook, reusing the Stop hook's opt-in test
-- [ ] Add a `hooks.SessionStart[auditme-standards.sh]` append to `bin/install-claude.sh`, and extend `tests/test_install_claude.py`
+- [x] Write the hook, reusing the Stop hook's opt-in test
+- [x] Add a `hooks.SessionStart[auditme-standards.sh]` append to `bin/install-claude.sh`, and extend `tests/test_install_claude.py`
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass
+- [x] The new tests pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/test_standards_hook.py tests/test_install_claude.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/test_standards_hook.py tests/test_install_claude.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -324,7 +324,7 @@ SessionStart hook.
 
 ## Task 9: Record identity in reviews, document it and close the spec
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Recording identity; Trust; Change requests; Settings
@@ -334,34 +334,34 @@ docs describe rules repositories, and the spec is closed.
 
 **Subtasks:**
 
-- [ ] In `claude/skills/auditme/SKILL.md`:
+- [x] In `claude/skills/auditme/SKILL.md`:
   - the review template's `**Script version:**` line becomes `**Auditor identity:**`, holding `auditor rules identity` as JSON;
   - the skill refuses to start an audit while `rules_dirty` is true;
   - when the identity differs from the previous review's, the review writes `Rules changed since review N: <fields>` and does not count as a convergence measurement
-- [ ] Add the Change requests procedure to `SKILL.md`, as a rule that applies only when `AUDITOR_RULES_PATH` is set:
+- [x] Add the Change requests procedure to `SKILL.md`, as a rule that applies only when `AUDITOR_RULES_PATH` is set:
   - filing with `todo-add` in `$AUDITOR_RULES_PATH/TODO.md`;
   - the `auditor rules pending` precondition;
   - rejection, to `DONE.md` and to `## Rejected widenings` in the rule's `rule.md`;
   - runner requests, which go to the auditor repository's `TODO.md`.
 
   The built-in path keeps `requests.md` until the catalogue list retires it
-- [ ] In the docs:
+- [x] In the docs:
   - `docs/concepts.md`: the trust paragraph and what a rules repository is;
   - `docs/reference/cli.md`: every `auditor rules` command;
   - `docs/setup.md`: setting `AUDITOR_RULES_PATH` with direnv
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-repository/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-repository/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 
-- [ ] `uv run --group docs mkdocs build --strict` passes, and the skill text names `auditor rules identity` and `auditor rules pending`
+- [x] `uv run --group docs mkdocs build --strict` passes, and the skill text names `auditor rules identity` and `auditor rules pending`
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 

@@ -3,7 +3,8 @@
     auditor check <scope-root> ...    the mechanical sweep (`auditor.sweep`)
     auditor changed ...               the changed-files runner (`auditor.changed`)
     auditor phaseb <command> ...      the Phase B driver (`auditor.phasebcli`)
-    auditor --version                 print the installed version
+    auditor rules <command> ...       report on the rules repository (`auditor.rulescli`)
+    auditor --version               print the installed version
 
 The remaining arguments go to the chosen command's `main` unchanged.
 """
@@ -14,6 +15,7 @@ import typing
 
 import auditor.changed
 import auditor.phasebcli
+import auditor.rulescli
 import auditor.sweep
 
 if typing.TYPE_CHECKING:
@@ -23,6 +25,7 @@ COMMANDS: dict[str, collections.abc.Callable[[collections.abc.Sequence[str]], in
     'changed': auditor.changed.main,
     'check': auditor.sweep.main,
     'phaseb': auditor.phasebcli.main,
+    'rules': auditor.rulescli.main,
 }
 USAGE = f'usage: auditor [--version] {{{",".join(sorted(COMMANDS))}}} ...'
 

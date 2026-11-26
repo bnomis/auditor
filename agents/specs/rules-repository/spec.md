@@ -1,7 +1,7 @@
 # Rules repository
 
 **Version:** 1.0
-**Status:** approved
+**Status:** implemented
 **Date:** 2026-11-25
 
 Lets the runner read its rules from a separate repository named by
