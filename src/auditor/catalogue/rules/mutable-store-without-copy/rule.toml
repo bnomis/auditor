@@ -1,0 +1,3 @@
+kind = "check"
+title = "A constructor that stores a dict or list parameter by reference"
+emits = ["mutable-store-without-copy"]

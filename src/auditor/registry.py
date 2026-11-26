@@ -10,7 +10,6 @@ import typing
 
 import auditor.rules.error_handling
 import auditor.rules.project_hygiene
-import auditor.rules.state_and_effects
 import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
@@ -35,39 +34,24 @@ BUILTIN_CHECKS = (
     auditor.rules.error_handling.check_silent_broad_except,
     auditor.rules.error_handling.check_broad_except_wrong_level,
     auditor.rules.error_handling.check_except_interpolation,
-    auditor.rules.state_and_effects.check_constructor_disk_io,
     auditor.rules.error_handling.check_mixed_raise_types,
-    auditor.rules.state_and_effects.check_silent_self_mutation,
     auditor.rules.error_handling.check_asymmetric_exception_translation,
     auditor.rules.error_handling.check_sibling_error_no_common_base,
     auditor.rules.error_handling.check_cli_entry_missing_error_envelope,
-    auditor.rules.state_and_effects.check_return_value_shadows_instance_attr,
     auditor.rules.error_handling.check_try_wrapping_with_too_broad,
     auditor.rules.error_handling.check_layer_has_domain_error_but_raises_stdlib,
     auditor.rules.error_handling.check_inconsistent_error_translation,
-    auditor.rules.state_and_effects.check_parameter_mutation,
-    auditor.rules.state_and_effects.check_pure_name_has_side_effect,
-    auditor.rules.state_and_effects.check_mutable_store_without_copy,
     auditor.rules.error_handling.check_filesystem_envelope_gap,
     auditor.rules.error_handling.check_filesystem_op_without_envelope,
-    auditor.rules.state_and_effects.check_assert_never_missing,
-    auditor.rules.state_and_effects.check_build_name_has_side_effect,
-    auditor.rules.state_and_effects.check_mutable_module_level_exported,
-    auditor.rules.state_and_effects.check_callback_hotpath_io,
     auditor.rules.error_handling.check_logger_exception_graceful_degradation,
     auditor.rules.error_handling.check_docstring_raises_mismatch,
-    auditor.rules.state_and_effects.check_dataclass_optional_always_set,
-    auditor.rules.state_and_effects.check_dead_local_init,
     auditor.rules.error_handling.check_missing_raises_section,
-    auditor.rules.state_and_effects.check_subprocess_without_memoisation,
     auditor.rules.error_handling.check_bare_except_in_module_with_narrow_errors,
     auditor.rules.error_handling.check_failure_as_absence,
     auditor.rules.project_hygiene.check_phase_section_doc_reference,
     auditor.rules.error_handling.check_get_container_default_then_method_call,
     auditor.rules.error_handling.check_translator_envelope_gap,
-    auditor.rules.state_and_effects.check_mutable_members_in_immutable_wrapper,
     auditor.rules.error_handling.check_raises_section_drift,
-    auditor.rules.state_and_effects.check_discarded_tuple_return,
 )
 
 CHECKS = (

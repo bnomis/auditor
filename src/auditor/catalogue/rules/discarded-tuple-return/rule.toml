@@ -1,0 +1,3 @@
+kind = "check"
+title = "A call whose tuple result is discarded"
+emits = ["discarded-tuple-return"]

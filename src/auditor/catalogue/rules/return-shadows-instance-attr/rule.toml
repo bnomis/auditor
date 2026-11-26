@@ -1,0 +1,3 @@
+kind = "check"
+title = "A method that returns a divergent copy of an instance attribute"
+emits = ["return-shadows-instance-attr"]

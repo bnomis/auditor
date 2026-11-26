@@ -248,7 +248,7 @@ helpers, so that the lister can still reach them.
 
 ## Task 6: Move the `state_and_effects` family
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** large
 **Spec Reference:** What becomes a rule directory; API (`auditor.api.flow`); Implementation 2
@@ -258,22 +258,26 @@ a catalogue rule.
 
 **Subtasks:**
 
-- [ ] Move each check as a family task (see the header). `if_chain` and the site finders that the A11 lister uses go to `auditor.api`
-- [ ] Delete the module once it is empty
+- [x] Move each check as a family task (see the header). `if_chain` and the site finders that the A11 lister uses go to `auditor.api`
+- [x] Delete the module once it is empty
 
 **Acceptance Criteria:**
 
-- [ ] As Task 3, and the A11 candidates match the baseline
+- [x] As Task 3, and the A11 candidates match the baseline
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
-- [ ] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor rules test` passes
+- [x] `uv run pytest tests/checker/test_registry.py tests/checker/phaseb tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 
 - Depends on Task 5
+- Done on 2026-11-26. The fifteen checks moved to `src/auditor/catalogue/rules/`, one directory per rule id, and `src/auditor/rules/state_and_effects.py` is deleted, with its tests moved into each rule directory
+- The string-dispatch walker (`if_chain`, `IfChain`, `extract_string_eq_var`, and `assert_never_findings`, which holds the rule's arm-count test) lives in the runner module `src/auditor/dispatch.py`, so that the A11 lister reads it without a check function; `auditor.api.flow` publishes it. The lister builds its `assert-never-missing` hit capture from `assert_never_findings`. The `if_chain` tests moved to `tests/checker/test_dispatch.py`
+- `auditor.api.flow` also gained `module_level_binding`, `mutable_value_shape`, `MUTABLE_VALUE_SHAPES` and `MUTABLE_CONSTRUCTORS`, which the two mutable-container rules share, and `auditor.api` re-exports `SIDE_EFFECT_CALL_NAMES` and `reads_by_module_and_name` from `auditor.core`
+- The A11 candidates differ from the baseline only where the source files moved
 
 ---
 

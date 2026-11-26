@@ -1,0 +1,3 @@
+kind = "check"
+title = "An optional dataclass field that every construction sets"
+emits = ["dataclass-optional-always-set"]

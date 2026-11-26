@@ -1,0 +1,3 @@
+kind = "check"
+title = "A subprocess call in a function that is not memoised"
+emits = ["subprocess-without-memoisation"]

@@ -1,0 +1,3 @@
+kind = "check"
+title = "A string dispatch that does not end in assert_never"
+emits = ["assert-never-missing"]

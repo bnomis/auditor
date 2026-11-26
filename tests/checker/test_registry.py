@@ -16,12 +16,10 @@ import pathlib
 import auditor.registry
 import auditor.rules.error_handling
 import auditor.rules.project_hygiene
-import auditor.rules.state_and_effects
 
 RULE_MODULES = (
     auditor.rules.error_handling,
     auditor.rules.project_hygiene,
-    auditor.rules.state_and_effects,
 )
 
 TESTS_DIR = pathlib.Path(__file__).resolve().parent

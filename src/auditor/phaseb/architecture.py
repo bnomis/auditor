@@ -18,9 +18,9 @@ import textwrap
 import tomllib
 
 import auditor.core
+import auditor.dispatch
 import auditor.phaseb.errors
 import auditor.rules.error_handling
-import auditor.rules.state_and_effects
 import auditor.surface
 from auditor.phaseb import (
     candidates,
@@ -254,13 +254,31 @@ def typing_aliases(files: list[ParsedSource]) -> dict[str, str]:
     return found
 
 
+def assert_never_hits(scope: pathlib.Path, src_root: pathlib.Path) -> None:
+    """Emit each `assert-never-missing` site, as the rule does, for `capture_hits`."""
+    for path in auditor.core.all_py_files(src_root):
+        tree = auditor.core.read_and_parse(path)
+        if tree is None:
+            continue
+        for node, _, _, _ in auditor.dispatch.assert_never_findings(tree):
+            auditor.core.emit(
+                rule='assert-never-missing',
+                variant='',
+                path=auditor.core.relpath(path, scope),
+                line=node.lineno,
+                evidence='',
+                accepted=False,
+                accepted_reason=None,
+            )
+
+
 def a11_site(node: ast.AST, flags: dict[str, str]) -> tuple[str, str] | None:
     """(kind, subject) when the node is an A11 site: a chain head, a two-way split or a `match`."""
     if isinstance(node, ast.Match):
         return 'match', ast.unparse(node.subject)
     if not isinstance(node, ast.If):
         return None
-    chain = auditor.rules.state_and_effects.if_chain(node, comparison_subject)
+    chain = auditor.dispatch.if_chain(node, comparison_subject)
     if chain is not None:
         if len(chain.tests) >= 2 or chain.orelse is not None:
             return 'if', chain.subject
@@ -282,7 +300,7 @@ def type_source_of(annotation: str | None, aliases: dict[str, str]) -> str | Non
 def list_a11_candidates(scope: pathlib.Path) -> list[candidates.Candidate]:
     """Every if chain, two-way split on a comparison flag and `match` the sweep does not already report."""
     files = read_audited_files(scope)
-    hits = capture_hits(scope, [auditor.rules.state_and_effects.check_assert_never_missing])
+    hits = capture_hits(scope, [assert_never_hits])
     aliases = typing_aliases(files)
     found: list[candidates.Candidate] = []
     for file in files:

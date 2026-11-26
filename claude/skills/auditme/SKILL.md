@@ -196,8 +196,7 @@ The full set of rules the script catches is documented in the checker itself -
 read the docstring of each `check_*` function for the predicate it encodes.
 `auditor check` is only the entry point; the checks live in the `auditor`
 package's `rules/` directory (`src/auditor/rules/` in the auditor repository), one module per family of defect (`error_handling.py`,
-`state_and_effects.py`,
-`project_hygiene.py`; the duplication, style and naming, and imports and surfaces checks have moved to `src/auditor/catalogue/rules/`), with the shared helpers in
+`project_hygiene.py`; the duplication, style and naming, imports and surfaces, and state and effects checks have moved to `src/auditor/catalogue/rules/`), with the shared helpers in
 `auditor/core.py` and the run order in `auditor/registry.py`.
 The checker's own tests live in [`tests/`](tests/README.md) and run with
 `uv run --no-project --with pytest pytest ~/.claude/skills/auditme/tests`.
