@@ -310,6 +310,33 @@ is trusted code: the runner imports and runs it (see
 rules of its own: while the variable is unset, every command exits 2 with
 `ERROR: AUDITOR_RULES_PATH is not set`.
 
+### Create a rules repository
+
+The runner ships a catalogue of default rules, grouped into packs. To start
+a rules repository from it:
+
+```shell
+auditor rules packs
+auditor rules init ~/src/my-rules --pack imports --pack security
+```
+
+`init` writes `~/src/my-rules/selection.txt`, a list of rule names. The rules
+of the packs you named are uncommented and the rest are commented out; with no
+`--pack`, every pack is selected. Edit the file to comment out the rules you do
+not want, then:
+
+```shell
+auditor rules apply ~/src/my-rules
+```
+
+`apply` copies the uncommented rules and their tests into
+`~/src/my-rules/rules`, writes `auditor-rules.toml`, `README.md`, `TODO.md`,
+`DONE.md` and `.gitignore`, starts a git repository there (unless the directory
+is already inside a work tree) and runs `auditor rules check` on the result.
+The copy is plain: the new repository keeps no link to the catalogue, so later
+catalogue fixes reach it only when you copy them by hand. Then add the
+`AUDITOR_RULES_PATH` line above to the project's `.envrc`.
+
 ### Upgrading a project that pins the hooks
 
 Releases before 0.3.0 ran built-in rules when the variable was unset. From

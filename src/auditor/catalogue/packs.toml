@@ -1,0 +1,43 @@
+[packs.documentation]
+description = "Documentation, specs and user guides that match the code"
+rules = ["doc1", "doc2", "doc3", "doc4", "doc5", "spec-api-signature-drift"]
+
+[packs.duplication]
+description = "Repeated code, literals, calls and side effects"
+rules = ["a15", "duplicate-call-sequence", "duplicate-side-effect-per-target", "literal-duplication", "paired-sibling-helpers", "recompile-duplication", "redundant-sink-caller-plus-callee"]
+
+[packs.error-handling]
+description = "Exception envelopes, domain errors, Raises sections, logging of failures"
+rules = ["a1", "a11", "a12", "a16", "a19", "a2", "a22", "a3", "a4", "assert-never-missing", "asymmetric-exception-translation", "bare-except-in-module-with-narrow-errors", "broad-except-wrong-level", "cli-entry-missing-error-envelope", "docstring-raises-mismatch", "except-interpolation", "failure-as-absence", "filesystem-envelope-gap", "filesystem-op-without-envelope", "inconsistent-error-translation", "layer-has-domain-error-raises-stdlib", "logger-exception-graceful-degradation", "missing-raises-section", "mixed-raise-types", "raises-section-drift", "sibling-errors-no-common-base", "silent-broad-except", "std-error-handling", "std-exception-syntax", "std-logging", "std-logging-exceptions", "translator-envelope-gap", "try-wrapping-with-block-too-broad"]
+
+[packs.imports]
+description = "Import style, declared dependencies and package layering"
+rules = ["as-import", "d1", "d2", "from-import", "in-function-import", "layering-violation", "std-imports-in-init-files", "std-no-as-imports", "unused-submodule-import"]
+
+[packs.module-surfaces]
+description = "Public surfaces, __init__ files, re-exports and shims"
+rules = ["a17", "annotated-all-assignment", "def-class-in-init", "empty-init-while-siblings-export", "migration-shim-consumer", "passthrough-shim", "reexport-in-non-init", "std-clean-init-py-files"]
+
+[packs.performance]
+description = "Cost per request, hot paths and repeated expensive work"
+rules = ["a14", "a18", "a24", "callback-hotpath-io", "p1", "p2", "p3", "subprocess-without-memoisation"]
+
+[packs.project-hygiene]
+description = "Dependencies, lockfile, tooling versions and project files"
+rules = ["d3", "lockfile-drift", "ruff-version-drift", "s4", "std-before-committing-and-pushing", "std-commands", "std-critical-rules", "std-dependencies-python-version", "std-project-structure", "std-python-version", "std-the-lockfile"]
+
+[packs.security]
+description = "Secrets, input validation, injection, path traversal and PII"
+rules = ["sec1", "sec2", "sec3", "sec4", "sec5"]
+
+[packs.state-and-effects]
+description = "Mutation, purity, side effects and shared state"
+rules = ["a13", "a20", "a21", "a23", "a25", "a5", "a6", "a7", "a8", "a9", "build-name-has-side-effect", "constructor-disk-io", "dataclass-optional-always-set", "dead-local-init", "discarded-tuple-return", "get-container-default-then-method-call", "mutable-members-in-immutable-wrapper", "mutable-module-level-exported", "mutable-store-without-copy", "parameter-mutation-in-pure-function", "pure-name-has-side-effect", "return-shadows-instance-attr", "silent-self-mutation"]
+
+[packs.style-and-naming]
+description = "Naming, ordering, annotations, comments and formatting"
+rules = ["a10", "bare-nonbuiltin-generic-annotation", "bare-parametric-annotation", "duplicated-word", "leading-underscore-binding", "legacy-formatting-percent", "non-alphabetical-dict-keys", "non-alphabetical-literal", "phase-section-doc-reference", "ruff", "s1", "s2", "s3", "std-alphabetical-ordering", "std-comments", "std-data-structures", "std-naming", "std-no-leading-underscores", "std-string-formatting", "std-type-annotations", "text-patterns", "typing-deprecated-alias", "underscore-forloop-target-read", "underscore-unpack-target-read"]
+
+[packs.testing]
+description = "Test coverage and balance"
+rules = ["t1", "t2", "t3"]

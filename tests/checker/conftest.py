@@ -5,22 +5,12 @@ These tests import it by its full path. The generic fixtures come from the
 `auditor.testing` plugin; this file keeps what is specific to this suite.
 """
 
-import typing
-
 import auditor.api.candidates
 import auditor.phaseb.candidates
 import auditor.testing
 
-if typing.TYPE_CHECKING:
-    import pytest
-
 # auditme: accept[reexport-in-non-init] the checker tests call `conftest.git`
 git = auditor.testing.git
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Load the `auditor.testing` plugin for this suite."""
-    config.pluginmanager.register(auditor.testing, 'auditor-testing')
 
 
 FUTURE_IMPORT = 'from __future__ import annotations\n'

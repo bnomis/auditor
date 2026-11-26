@@ -305,6 +305,9 @@ auditor rules standards
 auditor rules questions [--category {A,D,Doc,P,S,Sec,T}]
 auditor rules identity [--expect <json-file>]
 auditor rules pending
+auditor rules init <dest> [--pack P ...]
+auditor rules apply <dest>
+auditor rules packs
 ```
 
 | Command | What it does | Exit status |
@@ -316,6 +319,9 @@ auditor rules pending
 | `questions` | Prints the Phase B checklist: id, title and `rule.md` of each question | 0 |
 | `identity` | Prints the runner and rules identity as JSON; the audit skill records it in each review | with `--expect`, 1 when it differs from the file |
 | `pending` | Lists the open items (the `## ` headings) of the rules repository's `TODO.md` | 1 when an item is open |
+| `init <dest>` | Writes `<dest>/selection.txt`: every rule of the catalogue, grouped by pack; the rules of each `--pack` named start uncommented, and with no `--pack` every pack does. Needs no rules repository | 2 on an error, with `<dest>` unchanged |
+| `apply <dest>` | Copies the rules left uncommented in `<dest>/selection.txt`, with their tests, into `<dest>/rules`, writes the repository files, runs `git init` unless `<dest>` is already in a work tree, then runs `check` on the result. Needs no rules repository | 2 on an error, with `<dest>` unchanged |
+| `packs` | One line per pack: name, rule count, description. Needs no rules repository | 0 |
 
 `auditor check` and `auditor phaseb` load the same repository and run its
 rules in rule-name order.

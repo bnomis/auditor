@@ -18,7 +18,7 @@ as `blocked` for the operator, naming the case.
 
 ## Task 1: Propose the pack membership for review
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Packs
@@ -28,35 +28,37 @@ the proposal as a review page.
 
 **Subtasks:**
 
-- [ ] Starting-point check: `test ! -e src/auditor/catalogue/packs.toml` succeeds, and `grep -rnwE 'rulesinit|RulesInitError' src/auditor` prints nothing. Otherwise stop as `blocked`
-- [ ] For each rule directory in `src/auditor/catalogue/rules/`, recommend one of the spec's proposed packs, with a one-line reason. State the rule the recommendations follow: a rule goes to the pack of the topic its `rule.md` names first, and a standard goes with the checks that enforce it
-- [ ] Write `agents/reviews/rules-init-packs.md`, as the shared `reviews.md` rule describes: one item per rule, giving its kind, title and recommended pack, and an empty Answers section
-- [ ] Publish the interactive page:
+- [x] Starting-point check: `test ! -e src/auditor/catalogue/packs.toml` succeeds, and `grep -rnwE 'rulesinit|RulesInitError' src/auditor` prints nothing. Otherwise stop as `blocked`
+- [x] For each rule directory in `src/auditor/catalogue/rules/`, recommend one of the spec's proposed packs, with a one-line reason. State the rule the recommendations follow: a rule goes to the pack of the topic its `rule.md` names first, and a standard goes with the checks that enforce it
+- [x] Write `agents/reviews/rules-init-packs.md`, as the shared `reviews.md` rule describes: one item per rule, giving its kind, title and recommended pack, and an empty Answers section
+- [x] Publish the interactive page:
   - each item has the spec's packs as options, its recommendation preselected by the accept-all button, and a comment box;
   - answers save to the artifact's database.
 
   Put `**Review page:** <URL>` in the document's header
-- [ ] Commit the review document, then stop the list as `blocked`, waiting for review
-- [ ] Once every item has an answer, an operator session reads the page's answers and copies each into the document's Answers section, with the date. It commits that, and only then restarts the list
+- [x] Commit the review document, then stop the list as `blocked`, waiting for review
+- [x] Once every item has an answer, an operator session reads the page's answers and copies each into the document's Answers section, with the date. It commits that, and only then restarts the list
 
 **Acceptance Criteria:**
 
-- [ ] Every catalogue rule is an item with a recommendation, and the page's URL is in the document's header
+- [x] Every catalogue rule is an item with a recommendation, and the page's URL is in the document's header
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/catalogue -q -p no:cacheprovider` passes (the quick form for a task that stops for review)
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/catalogue -q -p no:cacheprovider` passes (the quick form for a task that stops for review)
 
 **Notes:**
 
 - Depends on `agents/tasks/default-rule-catalogue/tasks-1.md` being finished
+- 2026-11-26: the review page was published by the operator session running the order (the queue's session had no tool for it): https://claude.ai/artifact/6XsrbE2Q8V3zZepiYdDpgZ. Blocked, waiting for every item to have an answer; the last subtask's hand-back then restarts the list
+- 2026-11-26: every item answered; the operator session copied the answers into the review's Answers section
 
 ---
 
 ## Task 2: Write `packs.toml` from the answers
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Packs; Tests (the pack membership test moved here from the catalogue spec)
@@ -66,18 +68,18 @@ membership, and a test keeps every rule in exactly one pack.
 
 **Subtasks:**
 
-- [ ] Read the answers from the Answers section of `agents/reviews/rules-init-packs.md`. If that section is empty, or missing an item, stop as `blocked`, naming the missing items. Never read the page
-- [ ] Write `packs.toml`, giving each pack a `description` and its `rules` in name order. A pack the answers leave empty is left out
-- [ ] Add to `tests/catalogue/test_catalogue.py`: every rule directory is in exactly one pack, and every listed name is a rule directory
+- [x] Read the answers from the Answers section of `agents/reviews/rules-init-packs.md`. If that section is empty, or missing an item, stop as `blocked`, naming the missing items. Never read the page
+- [x] Write `packs.toml`, giving each pack a `description` and its `rules` in name order. A pack the answers leave empty is left out
+- [x] Add to `tests/catalogue/test_catalogue.py`: every rule directory is in exactly one pack, and every listed name is a rule directory
 
 **Acceptance Criteria:**
 
-- [ ] The new test passes, and the membership matches the Answers section exactly
+- [x] The new test passes, and the membership matches the Answers section exactly
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/catalogue -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/catalogue -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -87,7 +89,7 @@ membership, and a test keeps every rule in exactly one pack.
 
 ## Task 3: Write the selection file
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** API (`write_selection`, `auditor rules init`, `auditor rules packs`); Implementation (The selection file, `init`); Error handling
@@ -99,21 +101,21 @@ title. `auditor rules packs` lists the packs.
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesinit/test_init.py`:
+- [x] Tests first, in `tests/rulesinit/test_init.py`:
   - with one pack, only its rules are uncommented;
   - with no pack, every rule is uncommented;
   - an unknown pack fails with the spec's message;
   - a `<dest>` that holds `rules/` or `auditor-rules.toml` is refused, and nothing is written
-- [ ] Write `RulesInitError`, `write_selection` and the `init` and `packs` commands in `src/auditor/rulesinit.py` and `src/auditor/rulescli.py`
+- [x] Write `RulesInitError`, `write_selection` and the `init` and `packs` commands in `src/auditor/rulesinit.py` and `src/auditor/rulescli.py`
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass. `init` never prompts, and prints the next command to run
+- [x] The new tests pass. `init` never prompts, and prints the next command to run
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesinit/test_init.py -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesinit/test_init.py -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -123,7 +125,7 @@ title. `auditor rules packs` lists the packs.
 
 ## Task 4: Apply the selection
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** API (`apply_selection`, `auditor rules apply`); Implementation (`apply`); Error handling; Tests
@@ -141,23 +143,23 @@ It then runs `git init` when needed, makes no commit, and runs
 
 **Subtasks:**
 
-- [ ] Tests first, in `tests/rulesinit/test_apply.py`:
+- [x] Tests first, in `tests/rulesinit/test_apply.py`:
   - exactly the uncommented names are copied, tests included;
   - the result passes `auditor rules check` and `auditor rules pending` (exit 0);
   - a misspelt name names the line;
   - a selected rule whose standard is not selected is refused;
   - a `<dest>/rules` that already exists is refused;
   - after each error, `<dest>` is byte-identical
-- [ ] Write `apply_selection` and the `apply` command. The `TODO.md` and `DONE.md` headers are copied from this repository's own two files' opening paragraphs
+- [x] Write `apply_selection` and the `apply` command. The `TODO.md` and `DONE.md` headers are copied from this repository's own two files' opening paragraphs
 
 **Acceptance Criteria:**
 
-- [ ] The new tests pass
+- [x] The new tests pass
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests/rulesinit -q -p no:cacheprovider` passes
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests/rulesinit -q -p no:cacheprovider` passes
 
 **Notes:**
 
@@ -167,7 +169,7 @@ It then runs `git init` when needed, makes no commit, and runs
 
 ## Task 5: Prove a full init equals the catalogue, document it and close
 
-**Status:** todo
+**Status:** done
 **Priority:** medium
 **Complexity:** medium
 **Spec Reference:** Tests; Module location (the setup skill); Implementation (pointing a project at the repository)
@@ -178,28 +180,62 @@ show how to create a rules repository, and the spec is closed.
 
 **Subtasks:**
 
-- [ ] Write `tests/rulesinit/test_full_init.py`:
+- [x] Write `tests/rulesinit/test_full_init.py`:
   - `init` with no pack, then `apply`, into `tmp_path`;
   - a sweep of a fixture project with `AUDITOR_RULES_PATH` set to the result gives the same hits as with `src/auditor/catalogue`
-- [ ] Write `tests/rulesinit/test_wheel.py`: `uv build --wheel` into `tmp_path`, and the wheel lists `auditor/catalogue/packs.toml` and every rule directory
-- [ ] In `claude/skills/auditme-project-setup/SKILL.md`, when `AUDITOR_RULES_PATH` is unset, offer the steps of `auditor rules init <dir>`, editing `selection.txt`, `auditor rules apply <dir>`, and the `.envrc` line. The skill gives these as steps for the user and never edits `.envrc`
-- [ ] Add a "Create a rules repository" section to `docs/setup.md`, and add `init`, `apply` and `packs` to `docs/reference/cli.md`
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-init/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
+- [x] Write `tests/rulesinit/test_wheel.py`: `uv build --wheel` into `tmp_path`, and the wheel lists `auditor/catalogue/packs.toml` and every rule directory
+- [x] In `claude/skills/auditme-project-setup/SKILL.md`, when `AUDITOR_RULES_PATH` is unset, offer the steps of `auditor rules init <dir>`, editing `selection.txt`, `auditor rules apply <dir>`, and the `.envrc` line. The skill gives these as steps for the user and never edits `.envrc`
+- [x] Add a "Create a rules repository" section to `docs/setup.md`, and add `init`, `apply` and `packs` to `docs/reference/cli.md`
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/rules-init/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 
-- [ ] Both new tests pass, and the docs build
+- [x] Both new tests pass, and the docs build
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Task 4
+
+---
+
+## Task 6: Restore the `project` fixture the catalogue tests use
+
+**Status:** done
+**Priority:** high
+**Complexity:** small
+**Spec Reference:** Tests
+
+**Technical Goal:** `uv run pytest tests/catalogue -q -p no:cacheprovider`
+passes. Two tests in `tests/catalogue/test_catalogue.py`
+(`test_the_sweep_reads_each_catalogue_rule_file_once_by_its_path`,
+`test_exactly_the_cross_file_rules_emit_related`) error at setup with
+`fixture 'project' not found`. No `def project` exists under `tests/`; the
+fixture was probably removed with commit fb059b8 ("Task 12: remove the
+built-in rules"), before this list began.
+
+**Subtasks:**
+
+- [x] Find where the `project` fixture was defined before fb059b8 (`git show fb059b8 -- tests/conftest.py`), and restore or replace it
+- [x] Run `uv run pytest tests/catalogue -q -p no:cacheprovider`
+
+**Acceptance Criteria:**
+
+- [x] The catalogue tests pass with no setup errors
+
+**Definition of Done:**
+
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+
+**Notes:**
+
+- Found while running Task 1's Definition of Done on 2026-11-26; out of scope for Task 1, which only publishes a review
 
 ---
