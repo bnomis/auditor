@@ -111,11 +111,10 @@ def test_an_invalid_repository_stops_with_its_message(monkeypatch: pytest.Monkey
     assert 'auditor-rules.toml' in err
 
 
-def test_the_built_in_registrations_stay_when_the_variable_is_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unset_variable_is_an_error(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.delenv(auditor.rulesrepo.RULES_PATH_VARIABLE, raising=False)
-    before = auditor.phaseb.registered_questions()
 
-    auditor.phaseb.candidates.use_rules_repository()
+    code, _, err = phaseb(capsys, 'candidates', '--question', 'Q1', str(tmp_path))
 
-    assert auditor.phaseb.registered_questions() == before
-    assert 'A4' in before
+    assert code == 2
+    assert err.startswith(f'phaseb.py: {auditor.rulesrepo.RULES_PATH_VARIABLE} is not set')

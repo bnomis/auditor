@@ -2,14 +2,12 @@
 
 import collections.abc
 import dataclasses
-import os
 import pathlib
 import re
 import typing
 
 import auditor.api.base
 import auditor.api.candidates
-import auditor.registry
 import auditor.rulesrepo
 
 
@@ -134,16 +132,12 @@ def register_repository(repo: auditor.rulesrepo.RulesRepo) -> None:
 
 
 def use_rules_repository() -> None:
-    """When `$AUDITOR_RULES_PATH` is set, replace the registrations with the repository's questions that have a lister.
-
-    Unset, the registrations stay: the catalogue's questions, until the built-in registry is removed.
+    """Replace the registrations with the questions, that have a lister, of the repository `$AUDITOR_RULES_PATH` names.
 
     Raises:
-        RulesRepoError: the variable is set but empty, or the repository is invalid.
+        RulesRepoError: the variable is unset or empty, or the repository is invalid.
         PhaseBError: a question registers no kinds or names a kind twice.
     """
-    if auditor.rulesrepo.RULES_PATH_VARIABLE not in os.environ:
-        return
     register_repository(auditor.rulesrepo.load(auditor.rulesrepo.rules_root()))
 
 
@@ -225,6 +219,3 @@ def brief_version(brief: pathlib.Path) -> int:
     if len(found) != 1 or int(found[0]) < 1:
         raise auditor.api.base.PhaseBError(f'brief {brief} must have exactly one `**Brief version:** N` line with N a positive integer')
     return int(found[0])
-
-
-register_repository(auditor.registry.CATALOGUE)  # transitional: the questions of the catalogue, until the built-in registry is removed

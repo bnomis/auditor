@@ -22,14 +22,14 @@ repos:
     hooks:
       - id: auditme-changed
         name: no unaccepted audit hits in changed files
-        entry: uv run auditor changed
+        entry: env AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor changed
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
       - id: auditme-all
         name: no unaccepted audit hits anywhere
-        entry: uv run auditor changed --all
+        entry: env AUDITOR_RULES_PATH=src/auditor/catalogue uv run auditor changed --all
         language: system
         pass_filenames: false
         always_run: true

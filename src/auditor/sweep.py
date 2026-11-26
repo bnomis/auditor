@@ -11,7 +11,7 @@ Usage:
 <scope-root> is the project directory (agents/, docs/, and usually src/).
 src/ is optional: the sweep passes over the packages under it, if any, then
 the extra roots. A project with neither is reported on stderr and gets the
-project-level checks alone (auditor.registry.PROJECT_CHECKS), once.
+project-level checks alone (the rules repository's `project-check` rules), once.
 A .py file directly in src/ belongs to no root, so the driver reports it as a
 src-loose-module hit (accepted by a line-1 marker) rather than skip it unseen.
 <package-name> restricts the run to one package under src/. It defaults to
@@ -91,7 +91,6 @@ import sys
 import typing
 
 import auditor.core
-import auditor.registry
 import auditor.rulesrepo
 
 if typing.TYPE_CHECKING:
@@ -109,14 +108,6 @@ class Plan:
     project_checks: tuple[tuple[str, Check], ...]
     checks: tuple[tuple[str, Check], ...]
     rule_ids: frozenset[str]
-
-
-def builtin_plan() -> Plan:
-    return Plan(
-        project_checks=tuple((check.__name__, check) for check in auditor.registry.PROJECT_CHECKS),
-        checks=tuple((check.__name__, check) for check in auditor.registry.CHECKS),
-        rule_ids=auditor.registry.RULE_IDS,
-    )
 
 
 def rule_check(rule: auditor.rulesrepo.Rule) -> Check:
@@ -138,14 +129,12 @@ def repo_plan(repo: auditor.rulesrepo.RulesRepo) -> Plan:
 
 
 def make_plan() -> Plan:
-    """Return the repository's plan when `$AUDITOR_RULES_PATH` is set, else the built-in registry's.
+    """Return the plan of the rules repository `$AUDITOR_RULES_PATH` names.
 
     Raises:
-        RulesRepoError: the variable is set but empty, or the repository is invalid.
+        RulesRepoError: the variable is unset or empty, or the repository is invalid.
     """
-    if auditor.rulesrepo.RULES_PATH_VARIABLE in os.environ:
-        return repo_plan(auditor.rulesrepo.load(auditor.rulesrepo.rules_root()))
-    return builtin_plan()
+    return repo_plan(auditor.rulesrepo.load(auditor.rulesrepo.rules_root()))
 
 
 def check_never_accepted(patterns: tuple[str, ...], rule_ids: collections.abc.Set[str]) -> None:

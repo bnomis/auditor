@@ -9,6 +9,8 @@ import sys
 
 import pytest
 
+import auditor.rulesrepo
+
 HOOK = pathlib.Path(__file__).resolve().parent.parent / 'claude' / 'hooks' / 'auditme-stop.sh'
 REPORT = 'src/a.py:3  some-rule\n'
 OWN_REPORT = 'src/auditor/core.py:9  own-rule\n'
@@ -57,7 +59,11 @@ def run(tmp_path: pathlib.Path, cwd: pathlib.Path, payload: dict[str, object], p
         capture_output=True,
         text=True,
         cwd=cwd,
-        env={'HOME': str(tmp_path / 'home'), 'PATH': path or str(tmp_path / 'tools')},
+        env={
+            'HOME': str(tmp_path / 'home'),
+            'PATH': path or str(tmp_path / 'tools'),
+            auditor.rulesrepo.RULES_PATH_VARIABLE: os.environ[auditor.rulesrepo.RULES_PATH_VARIABLE],
+        },
         check=False,
     )
 

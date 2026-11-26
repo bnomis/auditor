@@ -470,7 +470,7 @@ one rejected entry moves into its rule, and nothing refers to `requests.md`.
 
 ## Task 12: Remove the built-in rules
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** medium
 **Spec Reference:** Implementation 6, 8; Error handling (Missing rules repository); Settings; Tests
@@ -480,24 +480,24 @@ required, and the tests and CI set it to the catalogue.
 
 **Subtasks:**
 
-- [ ] Delete `src/auditor/registry.py`, `src/auditor/rules/` and `tests/checker/registry-order.txt`. Remove the unset-variable fallback from the sweep and from Phase B, so that every command raises the unset-variable `RulesRepoError`
-- [ ] Replace the tests in `tests/checker/test_registry.py` that read the built-in registry with their catalogue forms in `tests/catalogue/test_catalogue.py`, then delete the old ones:
+- [x] Delete `src/auditor/registry.py`, `src/auditor/rules/` and `tests/checker/registry-order.txt`. Remove the unset-variable fallback from the sweep and from Phase B, so that every command raises the unset-variable `RulesRepoError`
+- [x] Replace the tests in `tests/checker/test_registry.py` that read the built-in registry with their catalogue forms in `tests/catalogue/test_catalogue.py`, then delete the old ones:
   - every emitted id is in `rule_ids()`;
   - `rule_ids()` equals the ids in the rule tables of `docs/guide/checker.md`;
   - `ruff` and `lockfile-drift` are always included
-- [ ] `tests/conftest.py` sets `AUDITOR_RULES_PATH` to `src/auditor/catalogue` for the suite. `.github/workflows/ci.yml` and the local audit hooks in `.pre-commit-config.yaml` pass it to their commands
-- [ ] In `docs/setup.md`, add the upgrade steps for a project that pins the hooks: create a rules repository, set the variable with direnv, and set it in CI
-- [ ] Test that every command exits 2 with the spec's message when the variable is unset
+- [x] `tests/conftest.py` sets `AUDITOR_RULES_PATH` to `src/auditor/catalogue` for the suite. `.github/workflows/ci.yml` and the local audit hooks in `.pre-commit-config.yaml` pass it to their commands
+- [x] In `docs/setup.md`, add the upgrade steps for a project that pins the hooks: create a rules repository, set the variable with direnv, and set it in CI
+- [x] Test that every command exits 2 with the spec's message when the variable is unset
 
 **Acceptance Criteria:**
 
-- [ ] `grep -rnw 'auditor.registry' src tests` prints nothing, and the suite passes
+- [x] `grep -rnw 'auditor.registry' src tests` prints nothing, and the suite passes
 
 **Definition of Done:**
 
-- [ ] The task's commit passes its pre-commit hooks (never `--no-verify`)
-- [ ] `uv run pytest tests -q -p no:cacheprovider` passes, because this task changes how every test finds its rules
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] The task's commit passes its pre-commit hooks (never `--no-verify`)
+- [x] `uv run pytest tests -q -p no:cacheprovider` passes, because this task changes how every test finds its rules
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
 
 **Notes:**
 
