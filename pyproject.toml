@@ -1,7 +1,7 @@
 [project]
 name = "auditor"
 description = "The auditme audit checker, its pre-commit hooks and the /auditme-project-setup skill"
-version = "0.2.0"
+version = "0.3.0"
 requires-python = ">=3.14.7,<3.15"
 
 [project.optional-dependencies]

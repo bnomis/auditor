@@ -1,0 +1,608 @@
+{"call": 1, "hits": [[false, "VALUES: dict = {}", 1, "src/probe/mod.py", "bare-parametric-annotation", "VALUES: uses bare `dict` without element type"]], "test": "test_a_bare_builtin_generic_annotation_is_a_hit_module-level_"}
+{"call": 1, "hits": [[false, "def f(values: dict) -> None:", 1, "src/probe/mod.py", "bare-parametric-annotation", "f(values:) uses bare `dict` without element type"]], "test": "test_a_bare_builtin_generic_annotation_is_a_hit_parameter_"}
+{"call": 1, "hits": [[false, "def f() -> list:", 1, "src/probe/mod.py", "bare-parametric-annotation", "f ->  uses bare `list` without element type"]], "test": "test_a_bare_builtin_generic_annotation_is_a_hit_return_"}
+{"call": 1, "hits": [[false, "def f(values: dict | None) -> None:", 1, "src/probe/mod.py", "bare-parametric-annotation", "f(values:) uses bare `dict` without element type"]], "test": "test_a_bare_builtin_generic_annotation_is_a_hit_union-member_"}
+{"call": 1, "hits": [[false, "def f(q: multiprocessing.Queue) -> None:", 4, "src/probe/mod.py", "bare-nonbuiltin-generic-annotation", "bare `multiprocessing.Queue` annotation without type parameter"]], "test": "test_a_bare_dotted_generic_annotation_is_a_hit"}
+{"call": 1, "hits": [[false, "def f(values: typing.Annotated[list, \"meta\"]) -> None:", 4, "src/probe/mod.py", "bare-parametric-annotation", "f(values:) uses bare `list` without element type"]], "test": "test_a_bare_generic_inside_a_subscript_is_a_hit_annotated-first-argument_"}
+{"call": 1, "hits": [[false, "def f(values: dict[str, dict]) -> None:", 1, "src/probe/mod.py", "bare-parametric-annotation", "f(values:) uses bare `dict` without element type"]], "test": "test_a_bare_generic_inside_a_subscript_is_a_hit_dict-value_"}
+{"call": 1, "hits": [[false, "def f(values: list[dict]) -> None:", 1, "src/probe/mod.py", "bare-parametric-annotation", "f(values:) uses bare `dict` without element type"]], "test": "test_a_bare_generic_inside_a_subscript_is_a_hit_list-of-dict_"}
+{"call": 1, "hits": [[false, "def f(values: list[list]) -> None:", 1, "src/probe/mod.py", "bare-parametric-annotation", "f(values:) uses bare `list` without element type"]], "test": "test_a_bare_generic_inside_a_subscript_is_a_hit_list-of-list_"}
+{"call": 1, "hits": [], "test": "test_a_bare_helper_name_defined_in_two_modules_matches_neither"}
+{"call": 1, "hits": [[false, "def run(text: str, other: str, strict: bool) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: declares ParseError, which never reaches the caller"]], "test": "test_a_bare_raise_in_a_def_inside_a_handler_does_not_make_it_re_raise"}
+{"call": 1, "hits": [], "test": "test_a_bare_reraise_is_not_a_translation"}
+{"call": 1, "hits": [], "test": "test_a_bare_underscore_target_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_broad_except_logging_at_exception_is_correct"}
+{"call": 1, "hits": [[false, "except Exception:", 8, "src/probe/mod.py", "broad-except-wrong-level", "broad except logs at warning/error/info/debug instead of exception"]], "test": "test_a_broad_except_logging_at_warning_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_broad_except_that_logs_is_not_silent"}
+{"call": 1, "hits": [[false, "except Exception:", 7, "src/probe/mod.py", "silent-broad-except", "no logger and no raise in body"]], "test": "test_a_broad_except_that_neither_logs_nor_raises_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_build_function_that_only_assembles_is_not_a_hit"}
+{"call": 1, "hits": [[false, "return prefix + datetime.datetime.now().isoformat()", 5, "src/probe/mod.py", "build-name-has-side-effect", "build_run_name calls side-effect `now` despite `build_`/`compute_`/`make_` name"]], "test": "test_a_build_function_that_reads_the_clock_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_builtin_generic_is_left_to_the_other_check"}
+{"call": 1, "hits": [], "test": "test_a_bulleted_raises_section_is_read_in_full"}
+{"call": 1, "hits": [], "test": "test_a_cached_query_that_shells_out_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_call_inside_a_lexical_try_belongs_to_the_lexical_checks"}
+{"call": 1, "hits": [], "test": "test_a_call_leaving_the_guarding_optional_argument_unset_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def run(name: str, *args: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.loader.load"]], "test": "test_a_call_supplying_the_optional_argument_is_still_a_hit_probe.loader.load_args_"}
+{"call": 1, "hits": [[false, "def run(name: str, *args: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.loader.load"]], "test": "test_a_call_supplying_the_optional_argument_is_still_a_hit_probe.loader.load_x_True_"}
+{"call": 1, "hits": [[false, "def run(name: str, *args: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.loader.load"]], "test": "test_a_call_supplying_the_optional_argument_is_still_a_hit_probe.loader.load_x_strict_True_"}
+{"call": 1, "hits": [], "test": "test_a_call_that_repeats_a_parameter_is_not_a_shim"}
+{"call": 1, "hits": [], "test": "test_a_call_to_a_same_module_helper_that_wraps_oserror_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_call_with_a_computed_argument_is_not_a_shim"}
+{"call": 1, "hits": [], "test": "test_a_call_with_no_self_attribute_argument_is_not_a_hit"}
+{"call": 1, "hits": [[false, "self.root.mkdir(parents=True, exist_ok=True)", 9, "src/probe/mod.py", "callback-hotpath-io", "Reporter.on_log performs per-event `mkdir`; move setup to __init__"]], "test": "test_a_callback_that_opens_a_file_per_event_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_called_nested_def_that_re_raises_keeps_the_declaration_reaching"}
+{"call": 1, "hits": [[false, "def load(text: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "load: Raises: omits ParseError, declared by probe.parse.parse"]], "test": "test_a_callee_error_missing_from_raises_is_a_hit"}
+{"call": 1, "hits": [[false, "def load(text: str) -> int:", 4, "src/probe/use.py", "raises-section-drift", "load: Raises: omits ParseError, declared by probe.parse.parse"]], "test": "test_a_callee_error_names_the_callee_file_as_related"}
+{"call": 1, "hits": [], "test": "test_a_callee_in_another_package_is_not_followed"}
+{"call": 1, "hits": [[false, "def run(name: str, *args: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.loader.load"]], "test": "test_a_callee_only_documenting_the_error_is_still_a_hit"}
+{"call": 1, "hits": [[false, "direct probe.writer.flush_config('config', 'run_dir') at line 6; helper probe.pipeline.tokenize at line 7 -> probe.pipeline.tokenize", 6, "src/probe/cli.py", "redundant-sink-caller-plus-callee", "run_evaluate calls probe.writer.flush_config(...) then probe.pipeline.tokenize which re-calls probe.writer.flush_config with the same args"]], "test": "test_a_caller_that_repeats_its_helper_s_sink_call_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_chain_that_ends_in_assert_never_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_check_decorated_by_a_package_function_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_check_named_in_a_dict_value_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_check_named_in_a_module_level_tuple_is_not_a_hit"}
+{"call": 1, "hits": [[false, "class Thing:", 1, "src/probe/__init__.py", "def-class-in-init", "top-level def or class in __init__.py"]], "test": "test_a_class_in_an_init_is_a_hit"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 15, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.use.Probe.load"]], "test": "test_a_class_method_call_on_a_class_in_the_same_module_is_a_hit"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 6, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.conf.Probe.load"]], "test": "test_a_class_method_call_on_an_imported_class_is_a_hit"}
+{"call": 1, "hits": [[false, "docstring: ['AlphaError'] | body: ['BetaError']", 4, "src/probe/mod.py", "docstring-raises-mismatch", "load docstring declares `Raises: ['AlphaError']` but body raises ['BetaError']"]], "test": "test_a_class_named_after_the_raises_section_does_not_count"}
+{"call": 1, "hits": [[false, "class _Tracking:", 2, "src/probe/mod.py", "leading-underscore-def-class", "class _Tracking nested inside a function body"]], "test": "test_a_class_nested_in_a_function_fires"}
+{"call": 1, "hits": [], "test": "test_a_classmethod_guarded_by_an_unset_optional_argument_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 6, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.conf.Probe.load"]], "test": "test_a_classmethod_with_the_guarding_argument_supplied_positionally_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_clean_nested_helper_does_not_fire"}
+{"call": 1, "hits": [[false, "def run_evaluate(...): (no try/except; siblings do wrap)", 4, "src/probe/cli/evaluate.py", "cli-entry-missing-error-envelope", "run_evaluate has no top-level try/except"]], "test": "test_a_cli_entry_without_an_envelope_beside_one_with_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_cli_exit_code_is_the_canonical_error_contract"}
+{"call": 1, "hits": [], "test": "test_a_combined_raises_entry_declares_each_name"}
+{"call": 1, "hits": [], "test": "test_a_commented_out_line_is_not_a_text_pattern_hit"}
+{"call": 1, "hits": [], "test": "test_a_conditionally_set_nullable_field_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_config_without_the_ruff_hook_gives_no_hit"}
+{"call": 1, "hits": [[false, "root.mkdir(parents=True, exist_ok=True)", 6, "src/probe/mod.py", "constructor-disk-io", "Store.__init__ calls disk-IO `mkdir`"]], "test": "test_a_constructor_that_touches_disk_is_a_hit"}
+{"call": 1, "hits": [[false, "return json.loads(row[0])", 10, "src/probe/query.py", "translator-envelope-gap", "load_config calls `json.loads` under with translate_store_errors, whose except tuple ['Error', 'sqlite3'] omits ['json.JSONDecodeError']"]], "test": "test_a_contextmanager_block_is_an_envelope_too"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ProbeError, declared by probe.inner.perform via probe.wrap.a, probe.wrap.b"]], "test": "test_a_cycle_of_section_less_callees_ends"}
+{"call": 1, "hits": [], "test": "test_a_declared_error_or_its_base_covers_the_wrapper_error"}
+{"call": 2, "hits": [], "test": "test_a_declared_error_or_its_base_covers_the_wrapper_error"}
+{"call": 3, "hits": [], "test": "test_a_declared_error_or_its_base_covers_the_wrapper_error"}
+{"call": 1, "hits": [], "test": "test_a_declared_error_reached_through_a_wrapper_is_not_an_extra"}
+{"call": 1, "hits": [], "test": "test_a_declared_or_caught_first_party_error_is_no_hit"}
+{"call": 2, "hits": [], "test": "test_a_declared_or_caught_first_party_error_is_no_hit"}
+{"call": 1, "hits": [], "test": "test_a_decorator_catching_bare_exception_satisfies_every_branch"}
+{"call": 1, "hits": [], "test": "test_a_decorator_envelope_covering_the_parser_error_is_not_a_hit"}
+{"call": 1, "hits": [[false, "return json.loads(row[0])", 10, "src/probe/query.py", "translator-envelope-gap", "load_config calls `json.loads` under @translate_store_errors, whose except tuple ['Error', 'sqlite3'] omits ['json.JSONDecodeError']"]], "test": "test_a_decorator_envelope_omitting_the_parser_error_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_decorator_that_translates_nothing_is_not_an_envelope"}
+{"call": 1, "hits": [[false, "def helper() -> None:", 1, "src/probe/__init__.py", "def-class-in-init", "top-level def or class in __init__.py"]], "test": "test_a_def_in_an_init_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_def_in_an_ordinary_module_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_def_named_only_in_prose_does_not_fire"}
+{"call": 1, "hits": [[false, "def _build(value):", 2, "src/probe/mod.py", "leading-underscore-def-class", "def _build nested inside a function body"]], "test": "test_a_def_nested_in_a_function_fires"}
+{"call": 1, "hits": [], "test": "test_a_def_outside_an_api_heading_does_not_fire"}
+{"call": 1, "hits": [], "test": "test_a_defensive_copy_is_not_a_hit"}
+{"call": 1, "hits": [[false, "value: typing.Deque[int]", 3, "src/probe/mod.py", "typing-deprecated-alias", "typing.Deque -> collections.deque"]], "test": "test_a_deprecated_typing_alias_is_a_hit_collections_"}
+{"call": 1, "hits": [[false, "value: typing.ContextManager[None]", 3, "src/probe/mod.py", "typing-deprecated-alias", "typing.ContextManager -> contextlib.AbstractContextManager"]], "test": "test_a_deprecated_typing_alias_is_a_hit_contextlib_"}
+{"call": 1, "hits": [[false, "def f() -> typing.Iterator[int]:", 4, "src/probe/mod.py", "typing-deprecated-alias", "typing.Iterator -> collections.abc.Iterator"]], "test": "test_a_deprecated_typing_alias_is_a_hit_iterator_"}
+{"call": 1, "hits": [[false, "value: typing.Pattern[str]", 3, "src/probe/mod.py", "typing-deprecated-alias", "typing.Pattern -> re.Pattern"]], "test": "test_a_deprecated_typing_alias_is_a_hit_re_"}
+{"call": 1, "hits": [[false, "def f(items: typing.Sequence[int]) -> None:", 5, "src/probe/mod.py", "typing-deprecated-alias", "typing.Sequence -> collections.abc.Sequence"]], "test": "test_a_deprecated_typing_alias_is_a_hit_sequence_"}
+{"call": 1, "hits": [[false, "return isinstance(x, typing.Mapping)", 5, "src/probe/mod.py", "typing-deprecated-alias", "typing.Mapping -> collections.abc.Mapping"]], "test": "test_a_deprecated_typing_alias_is_a_hit_unsubscripted_"}
+{"call": 1, "hits": [], "test": "test_a_dict_with_non_string_keys_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_differently_named_regex_constant_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_differing_type_annotation_alone_does_not_fire"}
+{"call": 1, "hits": [[false, ".venv/bin/ruff is 0.17.1; the hook pins v0.17.3", 3, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff the audit runs differs from the ruff-pre-commit rev"]], "test": "test_a_differing_venv_ruff_is_named_in_the_evidence"}
+{"call": 1, "hits": [[false, "await g()", 6, "src/probe/mod.py", "discarded-tuple-return", "probe.mod.g returns tuple[...]; the result is discarded"]], "test": "test_a_discarded_awaited_tuple_return_is_a_hit"}
+{"call": 1, "hits": [[false, "probe.callee.f(x)", 5, "src/probe/caller.py", "discarded-tuple-return", "probe.callee.f returns tuple[...]; the result is discarded"]], "test": "test_a_discarded_tuple_return_from_another_module_is_a_hit_with_related"}
+{"call": 1, "hits": [[false, "def load(...): return probe.core.load(...)", 4, "src/probe/mod.py", "passthrough-shim", "load is a pass-through wrapper for probe.core.load"]], "test": "test_a_docstring_does_not_stop_it_being_a_shim"}
+{"call": 1, "hits": [[false, "docstring: ['AlphaError'] | body: ['BetaError']", 4, "src/probe/mod.py", "docstring-raises-mismatch", "load docstring declares `Raises: ['AlphaError']` but body raises ['BetaError']"]], "test": "test_a_docstring_naming_the_wrong_exception_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_docstring_that_matches_the_body_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def inner() -> int:", 6, "src/probe/mod.py", "missing-raises-section", "inner raises a project *Error but docstring lacks a Raises: section"]], "test": "test_a_documented_nested_def_is_still_its_own_subject"}
+{"call": 1, "hits": [], "test": "test_a_documented_public_stdlib_name_is_not_attribute_access_docstring_"}
+{"call": 1, "hits": [], "test": "test_a_documented_public_stdlib_name_is_not_attribute_access_namedtuple-asdict_"}
+{"call": 1, "hits": [], "test": "test_a_documented_public_stdlib_name_is_not_attribute_access_namedtuple-fields_"}
+{"call": 1, "hits": [], "test": "test_a_documented_public_stdlib_name_is_not_attribute_access_namedtuple-make_"}
+{"call": 1, "hits": [], "test": "test_a_documented_public_stdlib_name_is_not_attribute_access_namedtuple-replace_"}
+{"call": 1, "hits": [], "test": "test_a_documented_public_stdlib_name_is_not_attribute_access_os-exit_"}
+{"call": 1, "hits": [], "test": "test_a_documented_raises_section_satisfies_the_rule"}
+{"call": 1, "hits": [], "test": "test_a_domain_error_translated_consistently_is_not_a_hit"}
+{"call": 1, "hits": [[false, "LoadError -> ['AlphaError', 'BetaError']", 1, "src/probe/helper.py", "inconsistent-error-translation", "probe.helper.load raises LoadError; callers translate to ['AlphaError', 'BetaError']"]], "test": "test_a_domain_error_translated_two_ways_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_double_star_keyword_is_not_a_shim"}
+{"call": 1, "hits": [], "test": "test_a_downward_import_is_not_a_violation"}
+{"call": 1, "hits": [[false, "['helper', 'X_Y', 'Thing']", 1, "src/probe/mod.py", "non-alphabetical-literal", "string members not alphabetically sorted"]], "test": "test_a_dunder_all_in_neither_order_is_a_hit"}
+{"call": 1, "hits": [[false, "class _Holder:", 2, "src/probe/mod.py", "leading-underscore-def-class", "class _Holder nested inside a function body"]], "test": "test_a_dunder_does_not_fire"}
+{"call": 1, "hits": [[false, "# resolve the the settings first", 1, "src/probe/mod.py", "duplicated-word", "duplicated word 'the'"]], "test": "test_a_duplicated_word_in_a_comment_is_a_hit"}
+{"call": 1, "hits": [[false, "\"\"\"Resolve the the settings.\"\"\"", 1, "src/probe/mod.py", "duplicated-word", "duplicated word 'the'"]], "test": "test_a_duplicated_word_in_a_docstring_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_file_level_marker_excuses_the_whole_module"}
+{"call": 1, "hits": [[false, "path.write_text(text)", 8, "src/probe/query.py", "translator-envelope-gap", "save calls `path.write_text` under @translate_store_errors, whose except tuple ['JSONDecodeError', 'json'] omits ['OSError']"]], "test": "test_a_filesystem_call_under_a_parser_only_envelope_is_a_hit"}
+{"call": 1, "hits": [[false, "def run() -> int:", 6, "src/probe/use.py", "raises-section-drift", "run: Raises: omits LibError, declared by lib.load.load"]], "test": "test_a_first_party_callee_declaring_an_error_the_section_omits_is_a_hit"}
+{"call": 1, "hits": [[false, "import probe.heavy", 2, "src/probe/mod.py", "in-function-import", "first-party"]], "test": "test_a_first_party_in_function_import_is_labelled_as_such"}
+{"call": 1, "hits": [], "test": "test_a_fixed_length_tuple_keeps_its_order_final-fixed-pair_"}
+{"call": 1, "hits": [], "test": "test_a_fixed_length_tuple_keeps_its_order_fixed-pair_"}
+{"call": 1, "hits": [[false, "def load(...): return probe.core.load(...)", 5, "src/probe/mod.py", "passthrough-shim", "load is a pass-through wrapper for probe.core.load"]], "test": "test_a_forward_of_two_positionals_is_still_a_shim"}
+{"call": 1, "hits": [[false, "def load(...): return probe.core.load(...)", 5, "src/probe/mod.py", "passthrough-shim", "load is a pass-through wrapper for probe.core.load"]], "test": "test_a_forward_with_a_keyword_parameter_is_still_a_shim"}
+{"call": 1, "hits": [[false, "from pathlib import Path, PurePath", 1, "src/probe/mod.py", "from-import", "from X import Y outside an __init__.py"]], "test": "test_a_from_import_in_a_module_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_from_import_in_an_init_is_the_sanctioned_re_export"}
+{"call": 1, "hits": [[false, "from probe.core import Thing", 4, "src/probe/mod.py", "from-import", "from X import Y outside an __init__.py"], [false, "from probe.core import Widget", 8, "src/probe/mod.py", "from-import", "from X import Y outside an __init__.py"]], "test": "test_a_from_import_inside_a_function_or_type_checking_block_is_a_hit"}
+{"call": 1, "hits": [[false, "from typing import Any, Iterable, Sequence", 1, "src/probe/mod.py", "typing-deprecated-alias", "typing.Iterable -> collections.abc.Iterable"], [false, "from typing import Any, Iterable, Sequence", 1, "src/probe/mod.py", "typing-deprecated-alias", "typing.Sequence -> collections.abc.Sequence"]], "test": "test_a_from_typing_import_is_reported_once_at_the_import"}
+{"call": 1, "hits": [[false, "check: raises ['ProbeError', 'ValueError']", 4, "src/probe/mod.py", "mixed-raise-types", "check mixes stdlib (['ValueError']) with project errors (['ProbeError'])"]], "test": "test_a_function_mixing_stdlib_and_project_errors_is_a_hit"}
+{"call": 1, "hits": [[false, "json.loads(left),", 11, "src/probe/query.py", "translator-envelope-gap", "load_pair calls `json.loads` under @translate_store_errors, whose except tuple ['Error', 'sqlite3'] omits ['json.JSONDecodeError']"]], "test": "test_a_function_parsing_several_columns_reports_its_earliest_call"}
+{"call": 1, "hits": [], "test": "test_a_function_raising_only_project_errors_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def load(text: str) -> int:", 4, "src/probe/use.py", "raises-section-drift", "load: Raises: omits ParseError, declared by probe.tools.parse.parse"]], "test": "test_a_function_re_exported_by_a_package_init_is_followed"}
+{"call": 1, "hits": [], "test": "test_a_function_that_advertises_mutation_is_out_of_scope"}
+{"call": 1, "hits": [], "test": "test_a_function_that_does_more_than_forward_is_not_a_shim"}
+{"call": 1, "hits": [[false, "def load(...): return probe.core.load(...)", 4, "src/probe/mod.py", "passthrough-shim", "load is a pass-through wrapper for probe.core.load"]], "test": "test_a_function_that_only_forwards_its_arguments_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_function_that_promises_nothing_may_read_the_clock"}
+{"call": 1, "hits": [], "test": "test_a_function_without_a_raises_section_is_not_this_check"}
+{"call": 1, "hits": [], "test": "test_a_get_function_that_only_normalises_a_path_is_not_a_hit"}
+{"call": 1, "hits": [[false, "return path.read_text()", 5, "src/probe/mod.py", "pure-name-has-side-effect", "get_text calls side-effect `read_text` despite name implying a pure query"]], "test": "test_a_get_function_that_reads_a_file_is_a_hit"}
+{"call": 1, "hits": [[false, "return subprocess.run(['probe', '--version'], check=True).stdout", 5, "src/probe/mod.py", "pure-name-has-side-effect", "get_version calls side-effect `run` despite name implying a pure query"]], "test": "test_a_get_function_that_runs_a_subprocess_is_a_hit"}
+{"call": 1, "hits": [[false, "return path.exists()", 5, "src/probe/mod.py", "pure-name-has-side-effect", "get_found calls side-effect `exists` despite name implying a pure query"]], "test": "test_a_get_function_that_tests_existence_is_a_hit"}
+{"call": 1, "hits": [[false, "root.mkdir(parents=True, exist_ok=True)", 5, "src/probe/mod.py", "pure-name-has-side-effect", "get_run_dir calls side-effect `mkdir` despite name implying a pure query"]], "test": "test_a_get_function_that_writes_to_disk_is_a_hit"}
+{"call": 1, "hits": [[false, "NAMES = dict(a=1)", 1, "src/probe/settings.py", "mutable-module-level-exported", "NAMES is a mutable dict constructor call read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_a_global_built_by_a_builtin_constructor_is_a_hit_dict_a_1_-dict_constructor_call-types.MappingProxyType_..._"}
+{"call": 1, "hits": [[false, "NAMES = list(('a', 'b'))", 1, "src/probe/settings.py", "mutable-module-level-exported", "NAMES is a mutable list constructor call read by 1 other file(s); wrap in tuple(...)"]], "test": "test_a_global_built_by_a_builtin_constructor_is_a_hit_list_a_b_-list_constructor_call-tuple_..._"}
+{"call": 1, "hits": [[false, "NAMES = set(('a', 'b'))", 1, "src/probe/settings.py", "mutable-module-level-exported", "NAMES is a mutable set constructor call read by 1 other file(s); wrap in frozenset(...)"]], "test": "test_a_global_built_by_a_builtin_constructor_is_a_hit_set_a_b_-set_constructor_call-frozenset_..._"}
+{"call": 1, "hits": [], "test": "test_a_global_built_by_a_call_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_grammatical_repeat_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def run(name: str, *args: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.loader.load"]], "test": "test_a_guard_on_a_module_level_name_is_still_a_hit"}
+{"call": 1, "hits": [[false, "def run(name: str, *args: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.loader.load"]], "test": "test_a_guard_on_a_parameter_without_a_default_is_still_a_hit"}
+{"call": 1, "hits": [[false, "__all__: list[str] = ['thing']", 1, "src/probe/__init__.py", "annotated-all-assignment", "__all__ is an AnnAssign; a guard matching ast.Assign skips this module"]], "test": "test_a_guard_that_reads_the_attribute_also_counts"}
+{"call": 1, "hits": [], "test": "test_a_handler_around_a_class_method_call_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_handler_around_the_wrapper_call_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_handler_inside_the_wrapper_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_handler_naming_a_tuple_constant_catches_its_members"}
+{"call": 1, "hits": [], "test": "test_a_handler_that_only_reports_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_handler_that_raises_records_the_failure"}
+{"call": 1, "hits": [], "test": "test_a_handler_that_re_raises_does_not_catch"}
+{"call": 1, "hits": [], "test": "test_a_handler_that_re_raises_is_not_degradation"}
+{"call": 1, "hits": [[false, "except probe.errors.RegistryError:", 9, "src/probe/mod.py", "try-wrapping-with-block-too-broad", "except handler re-invokes ['run_pipeline'] from the wrapped `with` body"]], "test": "test_a_handler_that_re_runs_the_wrapped_work_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_handler_that_skips_the_file_is_not_a_gap"}
+{"call": 1, "hits": [], "test": "test_a_helper_call_in_a_nested_def_is_not_the_caller_s_own"}
+{"call": 1, "hits": [[false, "called (wrapped) from: src/probe/a.py:7; src/probe/b.py:7", 4, "src/probe/helper.py", "asymmetric-exception-translation", "probe.helper.setup_experiment has no own try/except; all 2 callers wrap it"]], "test": "test_a_helper_every_caller_wraps_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_helper_is_resolved_by_its_qualified_name"}
+{"call": 1, "hits": [], "test": "test_a_helper_of_pure_string_work_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_helper_that_holds_its_own_envelope_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_helper_that_translates_through_a_same_module_function_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_keyword_only_optional_guard_left_unset_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_keyword_with_a_computed_value_is_not_a_shim"}
+{"call": 1, "hits": [], "test": "test_a_layering_violation_under_type_checking_is_not_a_hit"}
+{"call": 1, "hits": [[false, "return '%s' + '%d' + a + b", 2, "src/probe/mod.py", "legacy-formatting-percent", "%-style C-printf formatting in Python string"]], "test": "test_a_line_with_several_percent_literals_reports_once"}
+{"call": 1, "hits": [[false, "`os` imported but unused", 1, "src/probe/mod.py", "ruff", "F401"]], "test": "test_a_lint_error_is_reported_with_its_ruff_code"}
+{"call": 1, "hits": [], "test": "test_a_list_inside_a_function_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_list_of_non_strings_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_list_of_non_strings_is_not_compared"}
+{"call": 1, "hits": [], "test": "test_a_literal_inside_an_assert_or_pytest_param_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_literal_that_appears_once_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_load_function_may_do_io"}
+{"call": 1, "hits": [], "test": "test_a_local_that_is_not_derived_from_the_attribute_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_lock_that_passes_is_checked_once_with_the_user_config"}
+{"call": 1, "hits": [], "test": "test_a_loop_target_marked_unused_and_unused_is_not_a_hit"}
+{"call": 1, "hits": [[false, "for _item in items:", 3, "src/probe/mod.py", "underscore-forloop-target-read", "for-loop target `_item` read inside body"]], "test": "test_a_loop_target_marked_unused_but_read_is_a_hit"}
+{"call": 1, "hits": [[false, "return prefix + datetime.datetime.now().isoformat()", 5, "src/probe/mod.py", "build-name-has-side-effect", "make_run_name calls side-effect `now` despite `build_`/`compute_`/`make_` name"]], "test": "test_a_make_function_that_reads_the_clock_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_mapping_from_tomllib_is_skipped"}
+{"call": 1, "hits": [[true, "def run(path: str) -> int:  # auditme: accept[raises-section-drift] wrapper is internal", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ProbeError, declared by probe.inner.perform via probe.wrap.wrapper"]], "test": "test_a_marker_accepts_a_wrapper_hit"}
+{"call": 1, "hits": [[true, "no __all__ and no re-exports", 1, "src/probe/sparse/__init__.py", "empty-init-while-siblings-export", "sparse/__init__.py exports 0 symbols; siblings export up to 5"]], "test": "test_a_marker_anywhere_in_the_file_accepts_the_finding"}
+{"call": 1, "hits": [[false, "def f(_hook):  # auditme: accept[leading-underscore-self] unrelated", 1, "src/probe/mod.py", "leading-underscore-binding", "parameter `_hook`"]], "test": "test_a_marker_for_another_rule_does_not_accept_it"}
+{"call": 1, "hits": [[false, "from os import *  # auditme: accept[aliased-imports] unrelated", 1, "src/probe/mod.py", "wildcard-imports", "from X import *"]], "test": "test_a_marker_for_another_text_rule_does_not_accept_this_one"}
+{"call": 1, "hits": [[true, "from probe.core import Thing", 1, "src/probe/mod.py", "from-import", "from X import Y outside an __init__.py"]], "test": "test_a_marker_on_a_continuation_line_accepts_a_multiline_from_import"}
+{"call": 1, "hits": [[false, "ruff on PATH is 0.17.1; the hook pins v0.17.3", 3, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff the audit runs differs from the ruff-pre-commit rev"]], "test": "test_a_marker_scoped_to_another_rule_does_not_accept"}
+{"call": 1, "hits": [[false, "def _build(value):", 3, "src/probe/mod.py", "leading-underscore-def-class", "def _build nested inside a function body"]], "test": "test_a_marker_scoped_to_another_rule_does_not_accept_it"}
+{"call": 1, "hits": [[false, "def extract_directory(settings: AppSettings) -> ExtractBatch: | src/probe/mod.py:1", 5, "agents/specs/probe/spec.md", "spec-api-signature-drift", "extract_directory: spec says (settings), source says (settings, output_path=)"]], "test": "test_a_marker_scoped_to_another_rule_does_not_accept_the_drift"}
+{"call": 1, "hits": [[false, "__all__: list[str] = ['thing']", 2, "src/probe/__init__.py", "annotated-all-assignment", "__all__ is an AnnAssign; a guard matching ast.Assign skips this module"]], "test": "test_a_marker_scoped_to_another_rule_does_not_accept_the_hit"}
+{"call": 1, "hits": [[false, "return json.loads(row[0])  # auditme: accept[except-interpolation] unrelated decision", 10, "src/probe/query.py", "translator-envelope-gap", "load_config calls `json.loads` under @translate_store_errors, whose except tuple ['Error', 'sqlite3'] omits ['json.JSONDecodeError']"]], "test": "test_a_marker_scoped_to_another_rule_does_not_accept_the_hit"}
+{"call": 1, "hits": [[false, "usage = parsed.get('usage', {})  # auditme: accept[failure-as-absence] the caller reads batch.error", 6, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then usage.get()"]], "test": "test_a_marker_scoped_to_another_rule_does_not_accept_the_hit"}
+{"call": 1, "hits": [[false, "import gitutils as module", 1, "src/probe/mod.py", "as-import", "import X as Y"]], "test": "test_a_marker_scoped_to_another_rule_does_not_dismiss_it"}
+{"call": 1, "hits": [[false, "from pathlib import Path", 1, "src/probe/mod.py", "from-import", "from X import Y outside an __init__.py"]], "test": "test_a_marker_scoped_to_another_rule_does_not_dismiss_the_from_import"}
+{"call": 1, "hits": [[false, "value: typing.Sequence[int]  # auditme: accept[legacy-typing] unrelated", 3, "src/probe/mod.py", "typing-deprecated-alias", "typing.Sequence -> collections.abc.Sequence"]], "test": "test_a_marker_scoped_to_another_rule_does_not_dismiss_the_typing_alias"}
+{"call": 1, "hits": [[false, "DEFAULTS = types.MappingProxyType({'a': []})  # auditme: accept[mutable-module-level-exported] wrapped already", 3, "src/probe/settings.py", "mutable-members-in-immutable-wrapper", "DEFAULTS is wrapped in MappingProxyType, which is shallow; still mutable through it: a list literal at line 3"]], "test": "test_a_marker_scoped_to_the_container_rule_does_not_dismiss_the_member_rule"}
+{"call": 1, "hits": [[true, "return json.loads(row[0])  # auditme: accept[translator-envelope-gap] the column is written by this package", 10, "src/probe/query.py", "translator-envelope-gap", "load_config calls `json.loads` under @translate_store_errors, whose except tuple ['Error', 'sqlite3'] omits ['json.JSONDecodeError']"]], "test": "test_a_marker_scoped_to_this_rule_accepts_the_hit"}
+{"call": 1, "hits": [], "test": "test_a_match_ending_in_assert_never_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_matching_signature_does_not_fire"}
+{"call": 1, "hits": [[false, "def load(self, text: str) -> str:", 14, "src/probe/use.py", "raises-section-drift", "load: Raises: omits FetchError, declared by probe.use.Loader.check"]], "test": "test_a_method_call_on_self_follows_the_method"}
+{"call": 1, "hits": [[false, "class _Holder:", 2, "src/probe/mod.py", "leading-underscore-def-class", "class _Holder nested inside a function body"]], "test": "test_a_method_does_not_fire"}
+{"call": 1, "hits": [], "test": "test_a_method_in_a_spec_class_block_does_not_fire"}
+{"call": 1, "hits": [], "test": "test_a_method_named_for_mutation_may_mutate"}
+{"call": 1, "hits": [[false, "ruff not installed", null, null, "ruff", "ruff-check"], [false, "ruff not installed", null, null, "ruff", "ruff-format"]], "test": "test_a_missing_ruff_is_reported_rather_than_passing_silently"}
+{"call": 1, "hits": [[false, "No such file or directory", null, "uv.lock", "lockfile-drift", "uv could not run, so the lockfile was not checked"]], "test": "test_a_missing_uv_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_module_level_assignment_is_left_to_the_const_regexes__CACHE_n_"}
+{"call": 2, "hits": [[false, "_CACHE = {}", 1, "src/probe/mod.py", "leading-underscore-const-upper", "module-level _NAME = ..."]], "test": "test_a_module_level_assignment_is_left_to_the_const_regexes__CACHE_n_"}
+{"call": 1, "hits": [], "test": "test_a_module_level_assignment_is_left_to_the_const_regexes__cache_dict_n_"}
+{"call": 2, "hits": [[false, "_cache: dict = {}", 1, "src/probe/mod.py", "leading-underscore-const-lower", "module-level _name = ..."]], "test": "test_a_module_level_assignment_is_left_to_the_const_regexes__cache_dict_n_"}
+{"call": 1, "hits": [[false, "def extract_directory(settings: AppSettings) -> ExtractBatch: | src/probe/mod.py:1", 7, "agents/specs/probe/spec.md", "spec-api-signature-drift", "extract_directory: spec says (settings), source says (settings, output_path=)"]], "test": "test_a_module_level_def_after_a_spec_class_block_still_fires"}
+{"call": 1, "hits": [], "test": "test_a_module_level_def_does_not_fire_here"}
+{"call": 1, "hits": [[false, "first, _second = 1, 2", 1, "src/probe/mod.py", "leading-underscore-binding", "binding `_second`"]], "test": "test_a_module_level_unpack_is_reported_here"}
+{"call": 1, "hits": [[false, "import requests", 2, "src/probe/mod.py", "in-function-import", "third-party"]], "test": "test_a_module_outside_every_declared_root_stays_third_party"}
+{"call": 1, "hits": [], "test": "test_a_module_that_is_not_errors_py_is_out_of_scope"}
+{"call": 1, "hits": [[false, "except Exception:", 16, "src/probe/mod.py", "bare-except-in-module-with-narrow-errors", "bare except Exception in module that elsewhere uses *_ERRORS tuple"]], "test": "test_a_module_that_mixes_narrow_tuples_with_broad_catches_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_module_tuple_constant_holding_oserror_closes_the_gap_READ_ERRORS_"}
+{"call": 1, "hits": [], "test": "test_a_module_tuple_constant_holding_oserror_closes_the_gap_READ_ERRORS_KeyError_"}
+{"call": 1, "hits": [[false, "import auditme.core", 3, "src/probe/mod.py", "in-function-import", "first-party"], [false, "import gitutils", 2, "src/probe/mod.py", "in-function-import", "first-party"]], "test": "test_a_module_under_a_declared_root_is_labelled_first_party"}
+{"call": 1, "hits": [], "test": "test_a_module_with_only_broad_catches_is_not_mid_sweep"}
+{"call": 1, "hits": [[false, "MODES = {name: name.upper() for name in (\"a\", \"b\")}", 1, "src/probe/settings.py", "mutable-module-level-exported", "MODES is a mutable dict comprehension read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_a_mutable_global_built_by_a_comprehension_is_a_hit"}
+{"call": 1, "hits": [[false, "DEFAULTS = {'a': 1}", 1, "src/probe/settings.py", "mutable-module-level-exported", "DEFAULTS is a mutable dict literal read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_a_mutable_global_imported_elsewhere_is_a_hit"}
+{"call": 1, "hits": [[false, "DEFAULTS = {'a': 1}", 1, "bin/shared.py", "mutable-module-level-exported", "DEFAULTS is a mutable dict literal read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_a_mutable_global_in_a_script_root_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_mutable_global_nobody_imports_is_not_a_hit"}
+{"call": 1, "hits": [[false, "DEFAULTS = [1, 2]", 1, "src/probe/settings.py", "mutable-module-level-exported", "DEFAULTS is a mutable list literal read by 1 other file(s); wrap in tuple(...)"]], "test": "test_a_mutable_global_read_by_attribute_access_is_a_hit"}
+{"call": 1, "hits": [[false, "DEFAULTS = types.MappingProxyType({'a': ('name', {})})", 3, "src/probe/settings.py", "mutable-members-in-immutable-wrapper", "DEFAULTS is wrapped in MappingProxyType, which is shallow; still mutable through it: a dict literal at line 3"]], "test": "test_a_mutable_member_one_tuple_deep_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_name_shadowing_an_outer_binding_does_not_fire"}
+{"call": 1, "hits": [], "test": "test_a_name_that_does_not_promise_invariance_is_out_of_scope"}
+{"call": 1, "hits": [[false, "except probe.other.READ_ERRORS as exc:", 11, "src/probe/mod.py", "filesystem-envelope-gap", "try block touches filesystem (download/from_pretrained/etc.) but except tuple ['probe.other.READ_ERRORS'] omits OSError"]], "test": "test_a_name_that_does_not_resolve_to_oserror_is_still_a_hit_another-modules-name_"}
+{"call": 1, "hits": [[false, "except READ_ERRORS as exc:", 12, "src/probe/mod.py", "filesystem-envelope-gap", "try block touches filesystem (download/from_pretrained/etc.) but except tuple ['READ_ERRORS'] omits OSError"]], "test": "test_a_name_that_does_not_resolve_to_oserror_is_still_a_hit_assigned-twice_"}
+{"call": 1, "hits": [[false, "except READ_ERRORS as exc:", 11, "src/probe/mod.py", "filesystem-envelope-gap", "try block touches filesystem (download/from_pretrained/etc.) but except tuple ['READ_ERRORS'] omits OSError"]], "test": "test_a_name_that_does_not_resolve_to_oserror_is_still_a_hit_no-oserror-member_"}
+{"call": 1, "hits": [[false, "except READ_ERRORS as exc:", 11, "src/probe/mod.py", "filesystem-envelope-gap", "try block touches filesystem (download/from_pretrained/etc.) but except tuple ['READ_ERRORS'] omits OSError"]], "test": "test_a_name_that_does_not_resolve_to_oserror_is_still_a_hit_not-a-tuple-literal_"}
+{"call": 1, "hits": [[false, "except READ_ERRORS as exc:", 12, "src/probe/mod.py", "filesystem-envelope-gap", "try block touches filesystem (download/from_pretrained/etc.) but except tuple ['READ_ERRORS'] omits OSError"]], "test": "test_a_name_that_does_not_resolve_to_oserror_is_still_a_hit_two-levels-deep_"}
+{"call": 1, "hits": [], "test": "test_a_name_that_is_not_a_type_inside_a_subscript_is_not_a_hit_annotated-metadata_"}
+{"call": 1, "hits": [], "test": "test_a_name_that_is_not_a_type_inside_a_subscript_is_not_a_hit_literal_"}
+{"call": 1, "hits": [], "test": "test_a_name_that_is_not_a_type_inside_a_subscript_is_not_a_hit_string-forward-reference_"}
+{"call": 1, "hits": [], "test": "test_a_name_with_no_module_level_definition_does_not_fire"}
+{"call": 1, "hits": [[false, "except ValueError as exc:", 8, "src/probe/mod.py", "filesystem-envelope-gap", "try block touches filesystem (download/from_pretrained/etc.) but except tuple ['ValueError'] omits OSError"]], "test": "test_a_narrow_catch_around_a_filesystem_call_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_narrow_except_is_out_of_scope"}
+{"call": 1, "hits": [[false, "def run(text: str, other: str, strict: bool) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: declares ParseError, which never reaches the caller"]], "test": "test_a_nested_def_called_inside_a_catching_try_does_not_reach"}
+{"call": 1, "hits": [[false, "def run(text: str, other: str, strict: bool) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.parse.parse"]], "test": "test_a_nested_def_called_outside_any_try_reaches_the_subject"}
+{"call": 1, "hits": [], "test": "test_a_nested_def_never_called_adds_nothing"}
+{"call": 1, "hits": [], "test": "test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit_except_"}
+{"call": 1, "hits": [], "test": "test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit_except_Exception_"}
+{"call": 1, "hits": [], "test": "test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit_except_probe.errors.ParseError_"}
+{"call": 1, "hits": [], "test": "test_a_nested_raise_called_inside_a_catching_try_is_not_a_hit_except_probe.errors.ProbeError_"}
+{"call": 1, "hits": [[false, "def load(label: str) -> int:", 4, "src/probe/mod.py", "missing-raises-section", "load raises a project *Error but docstring lacks a Raises: section"]], "test": "test_a_nested_raise_called_outside_any_try_is_still_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_nested_raise_never_called_in_the_subject_is_not_the_subjects_hit"}
+{"call": 1, "hits": [], "test": "test_a_non_binding_or_sanctioned_name_does_not_fire_attribute-and-subscript-targets_"}
+{"call": 1, "hits": [], "test": "test_a_non_binding_or_sanctioned_name_does_not_fire_bare-underscore-varargs_"}
+{"call": 1, "hits": [], "test": "test_a_non_binding_or_sanctioned_name_does_not_fire_bare-underscore_"}
+{"call": 1, "hits": [], "test": "test_a_non_binding_or_sanctioned_name_does_not_fire_def-and-class-names_"}
+{"call": 1, "hits": [], "test": "test_a_non_binding_or_sanctioned_name_does_not_fire_dunder-and-mangled_"}
+{"call": 1, "hits": [], "test": "test_a_non_binding_or_sanctioned_name_does_not_fire_plain-names_"}
+{"call": 1, "hits": [], "test": "test_a_non_literal_pattern_is_out_of_scope"}
+{"call": 1, "hits": [[false, "run_dir: str | None = None", 6, "src/probe/mod.py", "dataclass-optional-always-set", "Config.run_dir typed `X | None` but __post_init__ always assigns non-None"]], "test": "test_a_nullable_field_always_set_in_post_init_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_one_member_literal_in_a_test_file_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_package_with_no_errors_module_is_not_checked"}
+{"call": 1, "hits": [[false, "def extract_directory(settings: AppSettings) -> ExtractBatch: | src/probe/mod.py:1", 4, "agents/specs/probe/spec.md", "spec-api-signature-drift", "extract_directory: spec says (settings), source says (settings, output_path=)"]], "test": "test_a_parameter_added_in_the_source_fires"}
+{"call": 1, "hits": [[false, "def write_worklist(path, records, cache=None) -> None: | src/probe/mod.py:1", 4, "agents/specs/probe/spec.md", "spec-api-signature-drift", "write_worklist: spec says (path, records, cache=), source says (path, records, *, cache=)"]], "test": "test_a_parameter_moving_across_the_keyword_only_marker_fires"}
+{"call": 1, "hits": [[false, "_tmp,", 3, "src/probe/mod.py", "leading-underscore-binding", "parameter `_tmp`"]], "test": "test_a_parameter_on_its_own_line_reports_that_line"}
+{"call": 1, "hits": [[false, "project = pyproject.get('project', {})", 10, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then project.keys()"]], "test": "test_a_parameter_that_one_caller_fills_from_json_is_still_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_parametric_annotation_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_parametric_non_builtin_annotation_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_parse_outside_the_contextmanager_block_has_no_envelope"}
+{"call": 1, "hits": [[false, "\"\"\"Runs the Phase 2 sweep.\"\"\"", 1, "src/probe/mod.py", "phase-section-doc-reference", "numeric spec cross-reference 'Phase 2'"]], "test": "test_a_phase_reference_in_a_docstring_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_phase_reference_in_running_code_is_not_a_hit"}
+{"call": 1, "hits": [[false, "import probe.core as core", 1, "src/probe/__init__.py", "as-import", "import X as Y"]], "test": "test_a_plain_aliased_import_in_an_init_is_still_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_plain_import_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_plain_import_without_a_dot_is_out_of_scope"}
+{"call": 1, "hits": [], "test": "test_a_plainly_sorted_dunder_all_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_project_that_declares_no_layering_is_not_checked"}
+{"call": 1, "hits": [], "test": "test_a_project_with_no_cli_package_is_not_checked"}
+{"call": 1, "hits": [], "test": "test_a_project_with_no_guard_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_project_without_a_lockfile_is_not_checked"}
+{"call": 1, "hits": [], "test": "test_a_proxy_over_a_frozen_dataclass_is_not_a_hit"}
+{"call": 1, "hits": [[false, "SETTINGS = types.MappingProxyType({'a': probe.model.Setting(default=[])})", 5, "src/probe/settings.py", "mutable-members-in-immutable-wrapper", "SETTINGS is wrapped in MappingProxyType, which is shallow; still mutable through it: a non-frozen dataclass `Setting` at line 5"]], "test": "test_a_proxy_over_a_non_frozen_dataclass_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_proxy_over_immutable_values_is_not_a_hit"}
+{"call": 1, "hits": [[false, "DEFAULTS = types.MappingProxyType({'a': [], 'b': 1})", 3, "src/probe/settings.py", "mutable-members-in-immutable-wrapper", "DEFAULTS is wrapped in MappingProxyType, which is shallow; still mutable through it: a list literal at line 3"]], "test": "test_a_proxy_over_mutable_values_is_a_hit"}
+{"call": 1, "hits": [[false, "path.write_text(text)", 10, "src/probe/store/writer.py", "filesystem-op-without-envelope", "save calls `write_text` with no surrounding try/except in the function body"]], "test": "test_a_public_entry_point_writing_with_no_try_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_pytest_fixture_is_not_a_shim"}
+{"call": 1, "hits": [], "test": "test_a_pytest_fixture_with_arguments_is_not_a_shim"}
+{"call": 1, "hits": [[false, "def load(label: str) -> int:", 4, "src/probe/mod.py", "missing-raises-section", "load raises a project *Error but docstring lacks a Raises: section"]], "test": "test_a_raise_a_handler_does_not_stop_is_still_a_hit_re-raises_"}
+{"call": 1, "hits": [[false, "def load(label: str) -> int:", 4, "src/probe/mod.py", "missing-raises-section", "load raises a project *Error but docstring lacks a Raises: section"]], "test": "test_a_raise_a_handler_does_not_stop_is_still_a_hit_unrelated-class_"}
+{"call": 1, "hits": [], "test": "test_a_raise_caught_by_a_handler_around_it_is_not_a_hit_except_"}
+{"call": 1, "hits": [], "test": "test_a_raise_caught_by_a_handler_around_it_is_not_a_hit_except_Exception_"}
+{"call": 1, "hits": [], "test": "test_a_raise_caught_by_a_handler_around_it_is_not_a_hit_except_probe.errors.ParseError_"}
+{"call": 1, "hits": [], "test": "test_a_raise_caught_by_a_handler_around_it_is_not_a_hit_except_probe.errors.ProbeError_"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ProbeError, raised by probe.wrap.wrapper"]], "test": "test_a_raise_in_the_wrapper_is_named_as_raised_by_it"}
+{"call": 1, "hits": [], "test": "test_a_raises_section_is_read_past_its_first_entry"}
+{"call": 1, "hits": [], "test": "test_a_re_raise_inside_a_handler_is_the_narrowing_pattern"}
+{"call": 1, "hits": [], "test": "test_a_re_raising_handler_wins_over_a_later_broader_one_Exception_"}
+{"call": 1, "hits": [], "test": "test_a_re_raising_handler_wins_over_a_later_broader_one_probe.errors.ProbeError_"}
+{"call": 1, "hits": [[false, "DEFAULTS = {'a': 1}", 1, "src/probe/settings.py", "mutable-module-level-exported", "DEFAULTS is a mutable dict literal read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_a_reader_in_a_script_root_still_counts"}
+{"call": 1, "hits": [[false, "DEFAULTS = {'a': 1}", 1, "src/probe/settings.py", "mutable-module-level-exported", "DEFAULTS is a mutable dict literal read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_a_reader_in_a_sibling_package_still_counts"}
+{"call": 1, "hits": [[false, "SOURCE_MAX_BATCH_SIZE = {\"pubmed\": 200}", 1, "src/probe/search.py", "mutable-module-level-exported", "SOURCE_MAX_BATCH_SIZE is a mutable dict literal read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_a_reader_that_goes_through_sys_modules_still_counts"}
+{"call": 1, "hits": [], "test": "test_a_reader_under_a_computed_sys_modules_key_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_real_hierarchy_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_reexport_inside_an_init_is_the_sanctioned_place"}
+{"call": 1, "hits": [[false, "Thing = probe.core.Thing", 3, "src/probe/mod.py", "reexport-in-non-init", "`Thing = probe.core.Thing` at module scope in non-__init__.py file"]], "test": "test_a_reexport_outside_an_init_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_reference_through_the_root_package_counts_as_use"}
+{"call": 1, "hits": [], "test": "test_a_referenced_submodule_import_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_regex_constant_defined_once_is_not_a_hit"}
+{"call": 1, "hits": [[false, "from . import core", 1, "src/probe/mod.py", "from-import", "from X import Y outside an __init__.py"]], "test": "test_a_relative_from_import_in_a_module_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_relative_import_in_an_init_is_the_sanctioned_re_export"}
+{"call": 1, "hits": [], "test": "test_a_renaming_reexport_in_an_init_is_the_sanctioned_place"}
+{"call": 1, "hits": [], "test": "test_a_reordered_list_is_a_different_literal"}
+{"call": 1, "hits": [], "test": "test_a_repeat_in_code_rather_than_prose_is_not_a_hit"}
+{"call": 1, "hits": [[false, "('alpha', 'beta')", 2, "src/probe/test_a.py", "literal-duplication", "identical ordered literal across 2 locations"], [false, "('alpha', 'beta')", 2, "src/probe/test_b.py", "literal-duplication", "identical ordered literal across 2 locations"]], "test": "test_a_repeated_multi_member_literal_in_test_set_up_is_still_a_hit"}
+{"call": 1, "hits": [[false, "ruff on PATH is 0.17.1; the hook pins v0.17.3", 3, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff the audit runs differs from the ruff-pre-commit rev"]], "test": "test_a_repo_url_with_a_suffix_is_still_found_"}
+{"call": 1, "hits": [[false, "ruff on PATH is 0.17.1; the hook pins v0.17.3", 3, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff the audit runs differs from the ruff-pre-commit rev"]], "test": "test_a_repo_url_with_a_suffix_is_still_found_.git_"}
+{"call": 1, "hits": [[false, "the rev is not a version and has no `# frozen: <version>` comment", 2, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff-pre-commit rev names no version"]], "test": "test_a_repo_with_no_rev_names_no_version_at_the_repo_line"}
+{"call": 1, "hits": [[false, "error: failed at <timestamp> on `uv.lock`", null, "uv.lock", "lockfile-drift", "uv lock --check could not verify the lockfile"]], "test": "test_a_resolution_timestamp_is_masked_out_of_the_evidence"}
+{"call": 1, "hits": [], "test": "test_a_result_that_is_never_a_receiver_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_rev_without_the_v_compares_the_same"}
+{"call": 1, "hits": [[false, "ruff not installed", null, null, "ruff", "ruff-check"], [false, "ruff not installed", null, null, "ruff", "ruff-format"]], "test": "test_a_ruff_that_cannot_be_executed_gets_the_same_report"}
+{"call": 1, "hits": [], "test": "test_a_run_method_that_is_not_a_subprocess_is_not_a_hit"}
+{"call": 1, "hits": [[false, "return read_text(path)", 14, "src/probe/store/reader.py", "filesystem-op-without-envelope", "load calls `read_text` with no surrounding try/except in the function body"]], "test": "test_a_same_module_helper_without_an_oserror_handler_is_still_a_hit"}
+{"call": 1, "hits": [[true, "def extract_directory(settings: AppSettings) -> ExtractBatch: | src/probe/mod.py:1", 5, "agents/specs/probe/spec.md", "spec-api-signature-drift", "extract_directory: spec says (settings), source says (settings, output_path=)"]], "test": "test_a_scoped_accept_marker_accepts_the_drift"}
+{"call": 1, "hits": [[true, "__all__: list[str] = [", 2, "src/probe/__init__.py", "annotated-all-assignment", "__all__ is an AnnAssign; a guard matching ast.Assign skips this module"]], "test": "test_a_scoped_accept_marker_accepts_the_hit"}
+{"call": 1, "hits": [[true, "usage = parsed.get('usage', {})  # auditme: accept[get-container-default-then-method-call] schema forbids null", 6, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then usage.get()"]], "test": "test_a_scoped_accept_marker_accepts_the_hit"}
+{"call": 1, "hits": [[true, "def _build(value):", 3, "src/probe/mod.py", "leading-underscore-def-class", "def _build nested inside a function body"]], "test": "test_a_scoped_accept_marker_accepts_the_nested_form"}
+{"call": 1, "hits": [[true, "import gitutils as module", 1, "src/probe/mod.py", "as-import", "import X as Y"]], "test": "test_a_scoped_accept_marker_dismisses_the_as_import"}
+{"call": 1, "hits": [[true, "from pathlib import Path", 1, "src/probe/mod.py", "from-import", "from X import Y outside an __init__.py"]], "test": "test_a_scoped_accept_marker_dismisses_the_from_import"}
+{"call": 1, "hits": [[true, "DEFAULTS = {'a': 1}  # auditme: accept[mutable-module-level-exported] callers copy", 1, "src/probe/settings.py", "mutable-module-level-exported", "DEFAULTS is a mutable dict literal read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_a_scoped_accept_marker_dismisses_the_mutable_export"}
+{"call": 1, "hits": [[true, "DEFAULTS = types.MappingProxyType({'a': []})  # auditme: accept[mutable-members-in-immutable-wrapper] values are never handed out", 3, "src/probe/settings.py", "mutable-members-in-immutable-wrapper", "DEFAULTS is wrapped in MappingProxyType, which is shallow; still mutable through it: a list literal at line 3"]], "test": "test_a_scoped_accept_marker_dismisses_the_shallow_wrapper"}
+{"call": 1, "hits": [[true, "value: typing.Sequence[int]  # auditme: accept[typing-deprecated-alias] stub mirror", 3, "src/probe/mod.py", "typing-deprecated-alias", "typing.Sequence -> collections.abc.Sequence"]], "test": "test_a_scoped_accept_marker_dismisses_the_typing_alias"}
+{"call": 1, "hits": [[true, "def load(text: str) -> int:  # auditme: accept[raises-section-drift] callers never see a bad text", 4, "src/probe/use.py", "raises-section-drift", "load: Raises: omits ParseError, declared by probe.parse.parse"]], "test": "test_a_scoped_marker_accepts_raises_drift"}
+{"call": 1, "hits": [[true, "def f(_hook):  # auditme: accept[leading-underscore-binding] name fixed by the caller", 1, "src/probe/mod.py", "leading-underscore-binding", "parameter `_hook`"]], "test": "test_a_scoped_marker_accepts_the_hit"}
+{"call": 1, "hits": [[true, "ruff on PATH is 0.17.1; the hook pins v0.17.3", 4, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff the audit runs differs from the ruff-pre-commit rev"]], "test": "test_a_scoped_marker_accepts_the_hit_line-above_"}
+{"call": 1, "hits": [[true, "ruff on PATH is 0.17.1; the hook pins v0.17.3", 3, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff the audit runs differs from the ruff-pre-commit rev"]], "test": "test_a_scoped_marker_accepts_the_hit_same-line_"}
+{"call": 1, "hits": [[false, "def run() -> int:", 6, "src/probe/use.py", "raises-section-drift", "run: Raises: omits LibError, declared by lib.load.load via lib.wrap.wrapped"]], "test": "test_a_section_less_first_party_wrapper_names_the_chain"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ProbeError, declared by probe.inner.perform via probe.wrap.wrapper"]], "test": "test_a_section_less_wrapper_passes_the_callee_error_through"}
+{"call": 1, "hits": [[false, "# see Section 3.1 of the spec", 1, "src/probe/mod.py", "phase-section-doc-reference", "numeric spec cross-reference 'Section 3.1'"]], "test": "test_a_section_reference_in_a_comment_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_self_call_leaving_the_optional_argument_unset_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def run(self, name: str) -> int:", 15, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.use.Runner.load"]], "test": "test_a_self_call_supplying_the_optional_argument_positionally_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_self_call_to_an_inherited_method_is_not_followed"}
+{"call": 1, "hits": [], "test": "test_a_sequence_that_is_mostly_connection_plumbing_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_sha_rev_uses_its_frozen_comment"}
+{"call": 2, "hits": [[false, "ruff on PATH is 0.17.1; the hook pins v0.17.3", 3, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff the audit runs differs from the ruff-pre-commit rev"]], "test": "test_a_sha_rev_uses_its_frozen_comment"}
+{"call": 1, "hits": [[false, "the rev is not a version and has no `# frozen: <version>` comment", 3, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff-pre-commit rev names no version"]], "test": "test_a_sha_rev_with_no_comment_names_no_version"}
+{"call": 1, "hits": [], "test": "test_a_shallow_wrapper_nobody_reads_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_short_body_is_below_the_threshold"}
+{"call": 1, "hits": [], "test": "test_a_short_call_sequence_is_below_the_threshold"}
+{"call": 1, "hits": [], "test": "test_a_side_effect_inside_a_returned_closure_is_not_the_function_s_own"}
+{"call": 1, "hits": [], "test": "test_a_single_member_list_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_sink_call_after_the_helper_is_not_redundant"}
+{"call": 1, "hits": [], "test": "test_a_sink_call_in_a_nested_def_is_not_the_helper_s_own"}
+{"call": 1, "hits": [], "test": "test_a_sorted_dict_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_sorted_string_list_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_spec_inside_a_hidden_directory_is_not_read"}
+{"call": 1, "hits": [[false, "self.config = patched", 6, "src/probe/mod.py", "silent-self-mutation", "Pipeline.tokenize reassigns self.config"]], "test": "test_a_stage_method_that_reassigns_owned_state_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_staticmethod_guarded_by_an_unset_optional_argument_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 6, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.conf.Probe.load"]], "test": "test_a_staticmethod_with_the_guarding_argument_supplied_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_stdlib_raise_is_the_other_check_s_business"}
+{"call": 1, "hits": [], "test": "test_a_strftime_directive_is_not_percent_formatting"}
+{"call": 1, "hits": [[false, "something else", 3, ".pre-commit-config.yaml", "ruff-version-drift", "ruff --version printed no version"]], "test": "test_a_stub_printing_no_version_is_a_hit"}
+{"call": 1, "hits": [[false, "def write_worklist(path, records) -> None: | src/probe/worklist.py:1", 4, "agents/specs/probe/spec.md", "spec-api-signature-drift", "write_worklist: spec says (path, records), source says (path, records, *, cache=)"]], "test": "test_a_test_double_method_does_not_make_a_library_name_ambiguous"}
+{"call": 1, "hits": [[true, "from os import *  # auditme: accept[wildcard-imports] re-export shim", 1, "src/probe/mod.py", "wildcard-imports", "from X import *"]], "test": "test_a_text_pattern_hit_can_be_accepted_by_its_own_rule"}
+{"call": 1, "hits": [[false, "if self.kind == 'alpha':", 3, "src/probe/mod.py", "assert-never-missing", "if/elif chain on `self.kind` with 3 string arms has no else; should end with `else: typing.assert_never(self.kind)`"]], "test": "test_a_three_arm_chain_on_a_dotted_subject_is_a_hit"}
+{"call": 1, "hits": [[false, "if kind == 'alpha':", 2, "src/probe/mod.py", "assert-never-missing", "if/elif chain on `kind` with 3 string arms has no else; should end with `else: typing.assert_never(kind)`"]], "test": "test_a_three_arm_string_dispatch_without_an_else_is_a_hit"}
+{"call": 1, "hits": [[false, "match kind:", 5, "src/probe/mod.py", "assert-never-missing", "match on `kind` with 3 string arms has fall-through else; should end with `else: typing.assert_never(kind)`"]], "test": "test_a_three_case_match_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_toml_function_and_its_parameter_are_followed_one_level"}
+{"call": 1, "hits": [], "test": "test_a_try_block_that_touches_no_filesystem_is_out_of_scope"}
+{"call": 1, "hits": [[false, "except READ_ERRORS as exc:", 9, "src/probe/mod.py", "filesystem-envelope-gap", "try block touches filesystem (download/from_pretrained/etc.) but except tuple ['READ_ERRORS'] omits OSError"]], "test": "test_a_tuple_constant_inside_a_function_is_not_resolved"}
+{"call": 1, "hits": [[false, "ROWS = tuple([[1], [2]])", 1, "src/probe/settings.py", "mutable-members-in-immutable-wrapper", "ROWS is wrapped in tuple, which is shallow; still mutable through it: a list literal at line 1"]], "test": "test_a_tuple_of_lists_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_two_arm_chain_is_legitimately_bi_valued"}
+{"call": 1, "hits": [[false, "if kind == 'a':", 6, "src/probe/mod.py", "assert-never-missing", "if/elif chain on `kind` with 2 string arms has no else; should end with `else: typing.assert_never(kind)`"]], "test": "test_a_two_arm_chain_on_a_local_literal_annotation_is_a_hit"}
+{"call": 1, "hits": [[false, "if kind == 'a':", 5, "src/probe/mod.py", "assert-never-missing", "if/elif chain on `kind` with 2 string arms has no else; should end with `else: typing.assert_never(kind)`"]], "test": "test_a_two_arm_chain_on_a_three_member_literal_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_two_arm_chain_on_a_two_member_literal_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_use_in_another_scope_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_used_or_unprovable_tuple_call_is_not_a_hit_bound_"}
+{"call": 1, "hits": [], "test": "test_a_used_or_unprovable_tuple_call_is_not_a_hit_named-discard_"}
+{"call": 1, "hits": [], "test": "test_a_used_or_unprovable_tuple_call_is_not_a_hit_unpacked_"}
+{"call": 1, "hits": [], "test": "test_a_used_or_unprovable_tuple_call_is_not_a_hit_unresolved_"}
+{"call": 1, "hits": [], "test": "test_a_used_or_unprovable_tuple_call_is_not_a_hit_variadic-tuple_"}
+{"call": 1, "hits": [[false, "config.update(extra)", 2, "src/probe/mod.py", "parameter-mutation-in-pure-function", "check_config mutates parameter `config` via `.update()`"]], "test": "test_a_validator_that_calls_a_mutating_method_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_validator_that_mutates_a_local_is_not_a_hit"}
+{"call": 1, "hits": [[false, "config['checked'] = True", 2, "src/probe/mod.py", "parameter-mutation-in-pure-function", "validate_config mutates parameter `config` via item assignment"]], "test": "test_a_validator_that_writes_into_its_argument_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_a_venv_ruff_that_is_not_executable_falls_back_to_path"}
+{"call": 1, "hits": [], "test": "test_a_wrapped_member_whose_type_is_a_call_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ProbeError, declared by probe.inner.perform via probe.wrap.wrapper"]], "test": "test_a_wrapper_that_re_raises_is_a_hit"}
+{"call": 1, "hits": [[true, "usage = parsed.get('usage', {})", 7, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then usage.get()"]], "test": "test_an_accept_marker_on_the_line_above_accepts_the_hit"}
+{"call": 1, "hits": [[false, "return None", 8, "src/probe/sources/api.py", "failure-as-absence", "caught exception returns empty (return None)"]], "test": "test_an_adapter_returning_none_from_a_handler_is_a_hit"}
+{"call": 1, "hits": [[false, "return None", 7, "src/probe/sources/api.py", "failure-as-absence", "non-200 branch returns empty (return None)"]], "test": "test_an_adapter_returning_none_on_a_non_200_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_agents_exception_row_permits_the_inversion"}
+{"call": 1, "hits": [[true, "import json", 2, "src/probe/mod.py", "in-function-import", "stdlib"]], "test": "test_an_agents_table_row_accepts_the_pair"}
+{"call": 1, "hits": [[false, "from probe.core import Thing as Widget", 1, "src/probe/mod.py", "as-import", "from M import X as Y"]], "test": "test_an_aliased_from_import_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_annotated_dunder_all_in_ruff_order_is_not_a_hit"}
+{"call": 1, "hits": [[false, "DEFAULTS: typing.Mapping[str, int] = {\"a\": 1}", 3, "src/probe/settings.py", "mutable-module-level-exported", "DEFAULTS is a mutable dict literal read by 1 other file(s); wrap in types.MappingProxyType(...)"]], "test": "test_an_annotated_mutable_global_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_annotation_on_another_name_is_not_a_hit"}
+{"call": 1, "hits": [[false, "import gitutils as module", 2, "src/probe/mod.py", "as-import", "import X as Y"]], "test": "test_an_as_import_inside_a_function_is_a_hit"}
+{"call": 1, "hits": [[false, "import numpy as np", 1, "src/probe/mod.py", "as-import", "import X as Y"]], "test": "test_an_as_import_is_a_hit_where_the_project_bans_it"}
+{"call": 1, "hits": [], "test": "test_an_as_import_is_not_a_hit_where_the_project_does_not_ban_it"}
+{"call": 1, "hits": [], "test": "test_an_as_import_is_not_a_hit_with_no_agents_file"}
+{"call": 1, "hits": [], "test": "test_an_assignment_whose_name_differs_is_not_a_reexport"}
+{"call": 1, "hits": [[false, "async def _collect():", 2, "src/probe/mod.py", "leading-underscore-def-class", "def _collect nested inside a function body"], [false, "def _inner():", 5, "src/probe/mod.py", "leading-underscore-def-class", "def _inner nested inside a function body"], [false, "def _middle():", 4, "src/probe/mod.py", "leading-underscore-def-class", "def _middle nested inside a function body"]], "test": "test_an_async_def_and_a_doubly_nested_def_both_fire"}
+{"call": 1, "hits": [], "test": "test_an_elided_signature_does_not_fire"}
+{"call": 1, "hits": [[false, "no __all__ and no re-exports", 1, "src/probe/sparse/__init__.py", "empty-init-while-siblings-export", "sparse/__init__.py exports 0 symbols; siblings export up to 5"]], "test": "test_an_empty_init_beside_an_exporting_sibling_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_end_anchored_pattern_needs_its_marker_on_the_line_above"}
+{"call": 2, "hits": [[true, "import logging", 2, "src/probe/other.py", "stdlib-logging", "stdlib logging import"]], "test": "test_an_end_anchored_pattern_needs_its_marker_on_the_line_above"}
+{"call": 1, "hits": [[false, "def load(text: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "load: Raises: declares ParseError, which never reaches the caller"]], "test": "test_an_error_a_tuple_constant_handler_always_catches_is_an_extra"}
+{"call": 1, "hits": [[false, "def run(name: str, *args: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ParseError, declared by probe.loader.load"]], "test": "test_an_error_also_raised_outside_the_guard_is_still_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_error_class_from_outside_the_package_is_not_a_domain_error"}
+{"call": 1, "hits": [[false, "def load(text: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "load: Raises: declares ParseError, which never reaches the caller"]], "test": "test_an_error_its_own_except_always_catches_is_an_extra"}
+{"call": 1, "hits": [], "test": "test_an_immutable_or_untyped_call_is_not_a_hit_frozenset_a_"}
+{"call": 1, "hits": [], "test": "test_an_immutable_or_untyped_call_is_not_a_hit_probe.factory.list_"}
+{"call": 1, "hits": [], "test": "test_an_immutable_or_untyped_call_is_not_a_hit_sorted_a_"}
+{"call": 1, "hits": [], "test": "test_an_immutable_or_untyped_call_is_not_a_hit_tuple_a_"}
+{"call": 1, "hits": [], "test": "test_an_immutable_parameter_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_immutably_wrapped_global_is_not_a_hit"}
+{"call": 1, "hits": [[false, "import json", 2, "src/probe/mod.py", "in-function-import", "stdlib"]], "test": "test_an_import_inside_a_function_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_import_under_type_checking_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def f(q: Queue) -> None:", 4, "src/probe/mod.py", "bare-nonbuiltin-generic-annotation", "bare `queue.Queue` annotation without type parameter"]], "test": "test_an_imported_alias_resolves_to_its_full_name"}
+{"call": 1, "hits": [[false, "if kind in ('alpha', 'beta'):", 2, "src/probe/mod.py", "assert-never-missing", "if/elif chain on `kind` with 3 string arms has no else; should end with `else: typing.assert_never(kind)`"]], "test": "test_an_in_arm_counts_as_an_arm"}
+{"call": 1, "hits": [], "test": "test_an_indented_def_in_an_init_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_init_file_is_out_of_scope"}
+{"call": 1, "hits": [[false, "result = {}", 2, "src/probe/mod.py", "dead-local-init", "`result = <empty>` at top of resolve is unconditionally overridden in all if/elif/else branches"]], "test": "test_an_initial_value_overridden_on_every_branch_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_initial_value_with_no_else_branch_is_not_dead"}
+{"call": 1, "hits": [], "test": "test_an_internal_helper_may_let_oserror_propagate"}
+{"call": 1, "hits": [], "test": "test_an_optional_dependency_probe_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_ordinary_class_is_out_of_scope"}
+{"call": 1, "hits": [], "test": "test_an_unaliased_import_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_unbound_handler_has_nothing_to_interpolate"}
+{"call": 1, "hits": [[false, "return subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True).stdout", 5, "src/probe/mod.py", "subprocess-without-memoisation", "get_head_sha shells out via subprocess without @functools.cache"]], "test": "test_an_uncached_query_that_shells_out_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_undecorated_function_is_out_of_scope"}
+{"call": 1, "hits": [], "test": "test_an_undocumented_function_is_out_of_scope"}
+{"call": 1, "hits": [[false, "File would be reformatted", 1, "src/probe/mod.py", "ruff", "ruff-format"]], "test": "test_an_unformatted_file_is_reported_at_its_path_and_line"}
+{"call": 1, "hits": [], "test": "test_an_unpacked_underscore_name_that_is_never_read_is_not_a_hit"}
+{"call": 1, "hits": [[false, "_first, second = pair", 2, "src/probe/mod.py", "underscore-unpack-target-read", "`_first` unpacked but read at line 3"]], "test": "test_an_unpacked_underscore_name_that_is_read_is_a_hit"}
+{"call": 1, "hits": [[false, "__all__: list[str] = ['thing']", 1, "src/probe/__init__.py", "annotated-all-assignment", "__all__ is an AnnAssign; a guard matching ast.Assign skips this module"]], "test": "test_an_unparseable_file_is_skipped_rather_than_crashing"}
+{"call": 1, "hits": [[false, "usage = parsed.get('usage', {})", 6, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then usage.get()"]], "test": "test_an_unparseable_file_is_skipped_rather_than_crashing"}
+{"call": 1, "hits": [], "test": "test_an_unreached_declared_error_with_no_handler_is_not_an_extra"}
+{"call": 1, "hits": [[false, "import os.path", 1, "src/probe/mod.py", "unused-submodule-import", "import X.Y.Z never referenced"]], "test": "test_an_unreferenced_submodule_import_is_a_hit"}
+{"call": 1, "hits": [[false, "return path.read_text()", 5, "src/probe/checks.py", "pure-name-has-side-effect", "check_x calls side-effect `read_text` despite name implying a pure query"]], "test": "test_an_unregistered_check_that_reads_a_file_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_an_unresolved_call_under_a_re_raising_handler_is_not_an_extra"}
+{"call": 1, "hits": [[true, "usage = parsed.get('usage', {})  # auditme: accept schema forbids null", 6, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then usage.get()"]], "test": "test_an_unscoped_accept_marker_accepts_the_hit"}
+{"call": 1, "hits": [[false, "keys: ['recall', 'accuracy']", 1, "src/probe/mod.py", "non-alphabetical-dict-keys", "dict with string keys not alphabetically sorted"]], "test": "test_an_unsorted_dict_is_a_hit"}
+{"call": 1, "hits": [[false, "['bird', 'aardvark']", 1, "src/probe/mod.py", "non-alphabetical-literal", "string members not alphabetically sorted"]], "test": "test_an_unsorted_frozenset_literal_is_a_hit"}
+{"call": 1, "hits": [[false, "['bird', 'aardvark']", 1, "src/probe/mod.py", "non-alphabetical-literal", "string members not alphabetically sorted"]], "test": "test_an_unsorted_string_list_is_a_hit"}
+{"call": 1, "hits": [[false, "import probe.models.thing", 1, "src/probe/data/loader.py", "layering-violation", "data imports models (upward)"]], "test": "test_an_upward_import_violates_the_layering"}
+{"call": 1, "hits": [[false, "__all__: list[str] = [", 1, "src/probe/__init__.py", "annotated-all-assignment", "__all__ is an AnnAssign; a guard matching ast.Assign skips this module"]], "test": "test_annotated_all_is_a_hit_when_the_project_guards_all"}
+{"call": 1, "hits": [], "test": "test_any_decorator_excludes_a_function_from_being_a_shim"}
+{"call": 1, "hits": [[false, "classes: AlphaError, BetaError, GammaError", 4, "src/probe/errors.py", "sibling-errors-no-common-base", "3 Error classes co-defined with no shared parent: ['AlphaError', 'BetaError', 'GammaError']"]], "test": "test_attribute_call_and_subscript_bases_are_read_without_error"}
+{"call": 1, "hits": [], "test": "test_audit_reviews_and_task_lists_are_not_read"}
+{"call": 1, "hits": [], "test": "test_boolean_operand_guard_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_catching_a_base_class_catches_its_subclasses"}
+{"call": 1, "hits": [], "test": "test_catching_oserror_closes_the_gap"}
+{"call": 1, "hits": [], "test": "test_check_ruff_runs_the_project_venv_ruff"}
+{"call": 1, "hits": [], "test": "test_clean_source_produces_no_ruff_hits"}
+{"call": 1, "hits": [], "test": "test_constructor_call_default_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_declaring_a_base_class_covers_its_subclasses"}
+{"call": 1, "hits": [[false, "usage = parsed.get('usage', {})", 6, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then usage.get()"]], "test": "test_dict_default_then_get_on_the_result_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_different_arguments_are_not_redundant"}
+{"call": 1, "hits": [], "test": "test_different_keyword_values_are_not_redundant"}
+{"call": 1, "hits": [[false, "ruff on PATH is 0.17.1; the hook pins v0.17.3", 3, ".pre-commit-config.yaml", "ruff-version-drift", "the ruff the audit runs differs from the ruff-pre-commit rev"]], "test": "test_different_versions_give_one_hit_at_the_rev_line"}
+{"call": 1, "hits": [], "test": "test_disk_io_in_an_ordinary_method_is_not_a_constructor_hit"}
+{"call": 1, "hits": [[false, "error: The lockfile at `uv.lock` needs to be updated", null, "uv.lock", "lockfile-drift", "uv lock --check reports the lockfile is out of date"]], "test": "test_drift_and_an_unanswerable_check_are_different_facts"}
+{"call": 2, "hits": [[false, "error: network unreachable", null, "uv.lock", "lockfile-drift", "uv lock --check could not verify the lockfile"]], "test": "test_drift_and_an_unanswerable_check_are_different_facts"}
+{"call": 1, "hits": [], "test": "test_drift_from_a_user_exclude_newer_alone_is_not_reported"}
+{"call": 1, "hits": [[false, "error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.", null, "uv.lock", "lockfile-drift", "uv lock --check reports the lockfile is out of date"]], "test": "test_drift_that_remains_without_the_user_config_is_reported"}
+{"call": 1, "hits": [[false, "_cache = {}", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_cache`"]], "test": "test_each_binding_shape_fires_class-attribute_"}
+{"call": 1, "hits": [[false, "return [_x for _x in rows]", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_x`"]], "test": "test_each_binding_shape_fires_comprehension_"}
+{"call": 1, "hits": [[false, "except ValueError as _error:", 4, "src/probe/mod.py", "leading-underscore-binding", "`except ... as` name `_error`"]], "test": "test_each_binding_shape_fires_except-as_"}
+{"call": 1, "hits": [[false, "def f(*, _flag):", 1, "src/probe/mod.py", "leading-underscore-binding", "parameter `_flag`"]], "test": "test_each_binding_shape_fires_keyword-only-parameter_"}
+{"call": 1, "hits": [[false, "handler = lambda _a, *_k: None", 1, "src/probe/mod.py", "leading-underscore-binding", "lambda `*` parameter `_k`"], [false, "handler = lambda _a, *_k: None", 1, "src/probe/mod.py", "leading-underscore-binding", "lambda parameter `_a`"]], "test": "test_each_binding_shape_fires_lambda_"}
+{"call": 1, "hits": [[false, "_local = 1", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_local`"]], "test": "test_each_binding_shape_fires_local-assignment_"}
+{"call": 1, "hits": [[false, "for _i in rows:", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_i`"]], "test": "test_each_binding_shape_fires_loop-short-name_"}
+{"call": 1, "hits": [[false, "for a, b, _c in rows:", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_c`"]], "test": "test_each_binding_shape_fires_loop-third-position_"}
+{"call": 1, "hits": [[false, "case {\"a\": 1, **_rest}:", 3, "src/probe/mod.py", "leading-underscore-binding", "`match` capture `_rest`"]], "test": "test_each_binding_shape_fires_match-mapping-rest_"}
+{"call": 1, "hits": [[false, "case [first, *_rest]:", 3, "src/probe/mod.py", "leading-underscore-binding", "`match` capture `_rest`"]], "test": "test_each_binding_shape_fires_match-star_"}
+{"call": 1, "hits": [[false, "_flag = 1", 4, "src/probe/mod.py", "leading-underscore-binding", "binding `_flag`"]], "test": "test_each_binding_shape_fires_module-level-under-if_"}
+{"call": 1, "hits": [[false, "(a, (b, _c)) = row", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_c`"]], "test": "test_each_binding_shape_fires_nested-tuple_"}
+{"call": 1, "hits": [[false, "def f(_settings):", 1, "src/probe/mod.py", "leading-underscore-binding", "parameter `_settings`"]], "test": "test_each_binding_shape_fires_parameter_"}
+{"call": 1, "hits": [[false, "first, _second = pair", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_second`"]], "test": "test_each_binding_shape_fires_second-position_"}
+{"call": 1, "hits": [[false, "head, *_rest = row", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_rest`"]], "test": "test_each_binding_shape_fires_starred_"}
+{"call": 1, "hits": [[false, "a, b, _c = row", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_c`"]], "test": "test_each_binding_shape_fires_third-position_"}
+{"call": 1, "hits": [[false, "def f(*_args, **_kwargs):", 1, "src/probe/mod.py", "leading-underscore-binding", "`**` parameter `_kwargs`"], [false, "def f(*_args, **_kwargs):", 1, "src/probe/mod.py", "leading-underscore-binding", "`*` parameter `_args`"]], "test": "test_each_binding_shape_fires_varargs_"}
+{"call": 1, "hits": [[false, "if (_n := read()):", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_n`"]], "test": "test_each_binding_shape_fires_walrus_"}
+{"call": 1, "hits": [[false, "with opener() as _handle:", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_handle`"]], "test": "test_each_binding_shape_fires_with-as_"}
+{"call": 1, "hits": [[false, "import tests.probe as t", 4, "src/probe/mod.py", "aliased-imports", "import X as Y"]], "test": "test_each_text_pattern_fires_aliased-imports-docstring_"}
+{"call": 1, "hits": [[false, "import numpy as np", 2, "src/probe/mod.py", "aliased-imports", "import X as Y"]], "test": "test_each_text_pattern_fires_aliased-imports-indented_"}
+{"call": 1, "hits": [[false, "import numpy as np", 1, "src/probe/mod.py", "aliased-imports", "import X as Y"]], "test": "test_each_text_pattern_fires_aliased-imports_"}
+{"call": 1, "hits": [[false, "return obj._attr", 2, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"]], "test": "test_each_text_pattern_fires_attribute-access_"}
+{"call": 1, "hits": [[false, "from __future__ import annotations", 1, "src/probe/mod.py", "future-annotations", "from __future__"]], "test": "test_each_text_pattern_fires_future-annotations_"}
+{"call": 1, "hits": [[false, "_cache = {}", 1, "src/probe/mod.py", "leading-underscore-const-lower", "module-level _name = ..."]], "test": "test_each_text_pattern_fires_leading-underscore-const-lower_"}
+{"call": 1, "hits": [[false, "_CACHE = {}", 1, "src/probe/mod.py", "leading-underscore-const-upper", "module-level _NAME = ..."]], "test": "test_each_text_pattern_fires_leading-underscore-const-upper_"}
+{"call": 1, "hits": [[false, "def _helper() -> None:", 1, "src/probe/mod.py", "leading-underscore-def-class", "module-level def/class _x"]], "test": "test_each_text_pattern_fires_leading-underscore-def-class_"}
+{"call": 1, "hits": [[false, "self._value = 1", 3, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"], [false, "self._value = 1", 3, "src/probe/mod.py", "leading-underscore-self", "self._attr"]], "test": "test_each_text_pattern_fires_leading-underscore-self_"}
+{"call": 1, "hits": [[false, "value = 'a {}'.format(1)", 1, "src/probe/mod.py", "legacy-formatting-format", ".format() call on a string literal"]], "test": "test_each_text_pattern_fires_legacy-formatting-format_"}
+{"call": 1, "hits": [[false, "value: typing.Optional[int] = None", 3, "src/probe/mod.py", "legacy-typing", "Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type"]], "test": "test_each_text_pattern_fires_legacy-typing_"}
+{"call": 1, "hits": [[false, "from .base import Thing", 1, "src/probe/mod.py", "relative-import-nonpackage", "relative import outside __init__.py"]], "test": "test_each_text_pattern_fires_relative-import-nonpackage_"}
+{"call": 1, "hits": [[false, "import logging", 1, "src/probe/mod.py", "stdlib-logging", "stdlib logging import"]], "test": "test_each_text_pattern_fires_stdlib-logging_"}
+{"call": 1, "hits": [[false, "from os import *", 1, "src/probe/mod.py", "wildcard-imports", "from X import *"]], "test": "test_each_text_pattern_fires_wildcard-imports_"}
+{"call": 1, "hits": [[false, "tags = parsed.get('tags', ())", 6, "src/probe/mod.py", "get-container-default-then-method-call", "default () does not fire for an explicit null, then tags.count()"]], "test": "test_empty_tuple_default_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_equal_versions_give_no_hit"}
+{"call": 1, "hits": [], "test": "test_falsiness_guard_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_format_on_a_runtime_template_is_not_a_hit_attribute-receiver_"}
+{"call": 1, "hits": [], "test": "test_format_on_a_runtime_template_is_not_a_hit_docstring_"}
+{"call": 1, "hits": [], "test": "test_format_on_a_runtime_template_is_not_a_hit_name-receiver_"}
+{"call": 1, "hits": [[false, ".format(1)", 3, "src/probe/mod.py", "legacy-formatting-format", ".format() call on a string literal"]], "test": "test_format_on_a_string_literal_is_a_hit_format-on-a-later-line_"}
+{"call": 1, "hits": [[false, "value = 'a ' 'b {}'.format(1)", 1, "src/probe/mod.py", "legacy-formatting-format", ".format() call on a string literal"]], "test": "test_format_on_a_string_literal_is_a_hit_implicit-concatenation_"}
+{"call": 1, "hits": [[false, "File would be reformatted", 1, "src/probe/mod.py", "ruff", "ruff-format"]], "test": "test_format_output_from_the_pinned_ruff_is_parsed"}
+{"call": 1, "hits": [[false, "Would reformat: src/probe/mod.py", null, null, "ruff", "ruff-format-parse-error"]], "test": "test_format_output_that_is_not_json_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_future_and_star_imports_are_left_to_their_own_rules"}
+{"call": 1, "hits": [[false, "from probe.shim import Thing", 1, "src/probe/user.py", "migration-shim-consumer", "imports `Thing` via shim `probe.shim`; canonical home is `probe.core`"]], "test": "test_importing_a_symbol_through_a_shim_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_importing_from_the_canonical_home_is_not_a_hit"}
+{"call": 1, "hits": [[false, "raise probe.core.ProbeError(f'could not run: {exc}') from exc", 8, "src/probe/mod.py", "except-interpolation", "f-string interpolates caught exception"]], "test": "test_interpolating_the_caught_exception_into_a_message_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_is_none_guard_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_isinstance_guard_is_not_a_hit"}
+{"call": 1, "hits": [[false, "items = parsed.get('items', [])", 6, "src/probe/mod.py", "get-container-default-then-method-call", "default [] does not fire for an explicit null, then iteration over items"]], "test": "test_list_default_then_comprehension_is_a_hit"}
+{"call": 1, "hits": [[false, "items = parsed.get('items', [])", 6, "src/probe/mod.py", "get-container-default-then-method-call", "default [] does not fire for an explicit null, then iteration over items"]], "test": "test_list_default_then_for_loop_is_a_hit"}
+{"call": 1, "hits": [[false, "return None", 10, "src/probe/mod.py", "logger-exception-graceful-degradation", "except handler calls logger.exception then returns a constant default; use logger.warning or logger.debug instead"]], "test": "test_logging_at_exception_then_returning_a_default_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_methods_named_for_mutation_are_out_of_scope"}
+{"call": 1, "hits": [], "test": "test_names_this_rule_does_not_own_are_not_hits_builtin-alias-is-legacy-typing_"}
+{"call": 1, "hits": [], "test": "test_names_this_rule_does_not_own_are_not_hits_collections-abc_"}
+{"call": 1, "hits": [], "test": "test_names_this_rule_does_not_own_are_not_hits_no-stdlib-replacement_"}
+{"call": 1, "hits": [], "test": "test_names_this_rule_does_not_own_are_not_hits_string-and-comment_"}
+{"call": 1, "hits": [], "test": "test_no_config_gives_no_hit"}
+{"call": 1, "hits": [[false, "def run() -> int:", 6, "src/probe/use.py", "raises-section-drift", "run: Raises: omits LibError, declared by lib.load.load"]], "test": "test_no_hit_is_emitted_on_a_first_party_file"}
+{"call": 1, "hits": [[false, "No such file or directory", 3, ".pre-commit-config.yaml", "ruff-version-drift", "ruff could not run, so its version was not compared"]], "test": "test_no_ruff_on_path_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_no_sibling_with_a_real_surface_means_the_rule_does_not_apply"}
+{"call": 1, "hits": [], "test": "test_no_sibling_wraps_means_the_project_has_no_such_convention"}
+{"call": 1, "hits": [], "test": "test_non_empty_container_default_is_not_a_hit"}
+{"call": 1, "hits": [[false, "def f(a: dict, b: list) -> None:", 1, "src/probe/mod.py", "bare-parametric-annotation", "f(a:) uses bare `dict` without element type"]], "test": "test_one_line_with_two_bare_annotations_reports_once"}
+{"call": 1, "hits": [], "test": "test_one_method_calling_the_sink_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_one_shim_importing_from_another_is_not_a_consumer"}
+{"call": 1, "hits": [], "test": "test_one_unwrapped_caller_makes_the_contract_symmetric_enough"}
+{"call": 1, "hits": [[false, "['b', 'a']", 1, "src/probe/mod.py", "non-alphabetical-literal", "string members not alphabetically sorted"]], "test": "test_only_a_fixed_length_tuple_is_exempt_annotated-frozenset_"}
+{"call": 1, "hits": [[false, "['b', 'a']", 1, "src/probe/mod.py", "non-alphabetical-literal", "string members not alphabetically sorted"]], "test": "test_only_a_fixed_length_tuple_is_exempt_annotated-list_"}
+{"call": 1, "hits": [[false, "['b', 'a']", 1, "src/probe/mod.py", "non-alphabetical-literal", "string members not alphabetically sorted"]], "test": "test_only_a_fixed_length_tuple_is_exempt_unannotated-tuple_"}
+{"call": 1, "hits": [[false, "['b', 'a']", 1, "src/probe/mod.py", "non-alphabetical-literal", "string members not alphabetically sorted"]], "test": "test_only_a_fixed_length_tuple_is_exempt_variable-length-tuple_"}
+{"call": 1, "hits": [[false, "error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.", null, "uv.lock", "lockfile-drift", "uv lock --check reports the lockfile is out of date"]], "test": "test_other_drift_is_reported_without_a_retry"}
+{"call": 1, "hits": [[false, "loguru.logger.error(exc)", 9, "src/probe/mod.py", "except-interpolation", "logger positional arg is caught exception"]], "test": "test_passing_the_exception_as_a_logger_positional_is_a_hit"}
+{"call": 1, "hits": [[false, "x = \"a\"; y = obj._attr", 1, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"]], "test": "test_pattern_after_a_string_on_the_same_line_still_fires"}
+{"call": 1, "hits": [[false, "import numpy as np", 2, "src/probe/mod.py", "aliased-imports", "import X as Y"]], "test": "test_pattern_as_code_after_string_literal_still_fires_aliased-imports_"}
+{"call": 1, "hits": [[false, "return obj._attr", 2, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"]], "test": "test_pattern_as_code_after_string_literal_still_fires_leading-underscore-attribute-access_"}
+{"call": 1, "hits": [[false, "_cache = {}", 2, "src/probe/mod.py", "leading-underscore-const-lower", "module-level _name = ..."]], "test": "test_pattern_as_code_after_string_literal_still_fires_leading-underscore-const-lower_"}
+{"call": 1, "hits": [[false, "_CACHE = {}", 2, "src/probe/mod.py", "leading-underscore-const-upper", "module-level _NAME = ..."]], "test": "test_pattern_as_code_after_string_literal_still_fires_leading-underscore-const-upper_"}
+{"call": 1, "hits": [[false, "def _helper(): pass", 2, "src/probe/mod.py", "leading-underscore-def-class", "module-level def/class _x"]], "test": "test_pattern_as_code_after_string_literal_still_fires_leading-underscore-def-class_"}
+{"call": 1, "hits": [[false, "self._value = 1", 2, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"], [false, "self._value = 1", 2, "src/probe/mod.py", "leading-underscore-self", "self._attr"]], "test": "test_pattern_as_code_after_string_literal_still_fires_leading-underscore-self_"}
+{"call": 1, "hits": [[false, "value: Optional[int] = None", 2, "src/probe/mod.py", "legacy-typing", "Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type"]], "test": "test_pattern_as_code_after_string_literal_still_fires_legacy-typing_"}
+{"call": 1, "hits": [[false, "from .base import Thing", 2, "src/probe/mod.py", "relative-import-nonpackage", "relative import outside __init__.py"]], "test": "test_pattern_as_code_after_string_literal_still_fires_relative-import-nonpackage_"}
+{"call": 1, "hits": [[false, "self._value = 1", 4, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"], [false, "self._value = 1", 4, "src/probe/mod.py", "leading-underscore-self", "self._attr"]], "test": "test_pattern_in_docstring_still_fires"}
+{"call": 1, "hits": [], "test": "test_pattern_in_plain_string_literal_does_not_fire_aliased-imports_"}
+{"call": 1, "hits": [], "test": "test_pattern_in_plain_string_literal_does_not_fire_leading-underscore-attribute-access_"}
+{"call": 1, "hits": [], "test": "test_pattern_in_plain_string_literal_does_not_fire_leading-underscore-const-lower_"}
+{"call": 1, "hits": [], "test": "test_pattern_in_plain_string_literal_does_not_fire_leading-underscore-const-upper_"}
+{"call": 1, "hits": [], "test": "test_pattern_in_plain_string_literal_does_not_fire_leading-underscore-def-class_"}
+{"call": 1, "hits": [], "test": "test_pattern_in_plain_string_literal_does_not_fire_leading-underscore-self_"}
+{"call": 1, "hits": [], "test": "test_pattern_in_plain_string_literal_does_not_fire_legacy-typing_"}
+{"call": 1, "hits": [], "test": "test_pattern_in_plain_string_literal_does_not_fire_relative-import-nonpackage_"}
+{"call": 1, "hits": [[false, "return 'Exception: %s' % e", 2, "src/probe/mod.py", "legacy-formatting-percent", "%-style C-printf formatting in Python string"]], "test": "test_percent_s_formatting_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_prose_mentioning_imports_is_not_a_declared_ban"}
+{"call": 1, "hits": [[false, "def load(label: str) -> int:", 4, "src/probe/mod.py", "missing-raises-section", "load raises a project *Error but docstring lacks a Raises: section"]], "test": "test_raising_a_project_error_with_no_raises_section_is_a_hit"}
+{"call": 1, "hits": [[false, "raise ValueError('negative')", 3, "src/probe/data/loader.py", "layer-has-domain-error-raises-stdlib", "data package defines *Error classes but this module raises ValueError"]], "test": "test_raising_stdlib_where_the_package_has_a_domain_error_is_a_hit"}
+{"call": 1, "hits": [[false, "raise FileNotFoundError('negative')", 3, "src/probe/data/loader.py", "layer-has-domain-error-raises-stdlib", "data package defines *Error classes but this module raises FileNotFoundError"]], "test": "test_raising_type_or_file_not_found_error_is_a_hit_FileNotFoundError_"}
+{"call": 1, "hits": [[false, "raise TypeError('negative')", 3, "src/probe/data/loader.py", "layer-has-domain-error-raises-stdlib", "data package defines *Error classes but this module raises TypeError"]], "test": "test_raising_type_or_file_not_found_error_is_a_hit_TypeError_"}
+{"call": 1, "hits": [[false, "probe.shim.Thing", 3, "src/probe/user.py", "migration-shim-consumer", "reads `Thing` from shim `probe.shim`; canonical home is `probe.core`"]], "test": "test_reading_a_symbol_off_a_shim_module_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_reassigning_an_attribute_the_caller_never_supplied_is_not_a_hit"}
+{"call": 1, "hits": [[false, "return patched_config", 8, "src/probe/mod.py", "return-shadows-instance-attr", "Pipeline.tokenize returns `patched_config` which shadows self.config; callers must reassign"]], "test": "test_returning_a_divergent_copy_of_owned_state_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_ruff_order_of_dunder_all_is_not_a_hit"}
+{"call": 1, "hits": [[false, "['X_Y', 'Thing', '_private', 'helper', 'item2', 'item10']", 1, "src/probe/mod.py", "non-alphabetical-literal", "string members not alphabetically sorted"]], "test": "test_ruff_order_under_another_name_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_scalar_default_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_self_recursion_is_not_a_helper_call"}
+{"call": 1, "hits": [[false, "('alpha', 'beta')", 1, "src/probe/a.py", "literal-duplication", "identical unordered literal across 2 locations"], [false, "('beta', 'alpha')", 1, "src/probe/b.py", "literal-duplication", "identical unordered literal across 2 locations"]], "test": "test_set_membership_is_compared_without_order"}
+{"call": 1, "hits": [[false, "classes: AlphaError, BetaError", 1, "src/probe/errors.py", "sibling-errors-no-common-base", "2 Error classes co-defined with no shared parent: ['AlphaError', 'BetaError']"], [false, "classes: AlphaError, BetaError", 1, "src/probe/sub/errors.py", "sibling-errors-no-common-base", "2 Error classes co-defined with no shared parent: ['AlphaError', 'BetaError']"]], "test": "test_sibling_error_check_walks_the_root_once_however_many_errors_files_it_holds"}
+{"call": 1, "hits": [[false, "self.options = options", 3, "src/probe/mod.py", "mutable-store-without-copy", "Store.__init__ stores dict/list parameter `options` by reference"]], "test": "test_storing_a_dict_parameter_by_reference_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_subscripting_the_result_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_test_files_are_out_of_scope"}
+{"call": 1, "hits": [[false, "from pathlib import Path", 1, "src/probe/mod.py", "from-import", "from X import Y outside an __init__.py"]], "test": "test_the_check_needs_no_declaration_in_agents"}
+{"call": 1, "hits": [], "test": "test_the_class_name_of_the_exception_is_a_categorical_hint"}
+{"call": 1, "hits": [], "test": "test_the_collections_abc_set_is_not_legacy_typing"}
+{"call": 1, "hits": [], "test": "test_the_documented_cure_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_the_dunder_class_qualname_form_is_also_categorical"}
+{"call": 1, "hits": [[false, "__all__: list[str] = ['thing']", 1, "src/probe/__init__.py", "annotated-all-assignment", "__all__ is an AnnAssign; a guard matching ast.Assign skips this module"]], "test": "test_the_guard_is_found_in_any_package_not_just_the_audited_one"}
+{"call": 1, "hits": [], "test": "test_the_plain_assignment_form_is_not_a_hit"}
+{"call": 1, "hits": [], "test": "test_the_project_venv_ruff_is_preferred_over_path"}
+{"call": 1, "hits": [[false, "def extract_directory(settings) -> ExtractBatch: | src/probe/mod.py:1", 4, "agents/specs/probe/spec.md", "spec-api-signature-drift", "extract_directory: spec says (settings), source says (settings, output_path=)"]], "test": "test_the_result_is_the_same_whichever_root_the_pass_is_over"}
+{"call": 2, "hits": [[false, "def extract_directory(settings) -> ExtractBatch: | src/probe/mod.py:1", 4, "agents/specs/probe/spec.md", "spec-api-signature-drift", "extract_directory: spec says (settings), source says (settings, output_path=)"]], "test": "test_the_result_is_the_same_whichever_root_the_pass_is_over"}
+{"call": 1, "hits": [], "test": "test_the_retired_regex_rules_no_longer_fire"}
+{"call": 2, "hits": [[false, "_a, b = pairs[0]", 2, "src/probe/mod.py", "leading-underscore-binding", "binding `_a`"], [false, "for _k, v in pairs:", 3, "src/probe/mod.py", "leading-underscore-binding", "binding `_k`"]], "test": "test_the_retired_regex_rules_no_longer_fire"}
+{"call": 1, "hits": [[false, "import json", 3, "src/probe/mod.py", "in-function-import", "stdlib"]], "test": "test_the_same_import_without_the_guard_is_a_hit"}
+{"call": 1, "hits": [[false, "direct probe.writer.flush_config('config',) at line 6; helper probe.pipeline.tokenize at line 7 -> probe.pipeline.tokenize", 6, "src/probe/cli.py", "redundant-sink-caller-plus-callee", "run_evaluate calls probe.writer.flush_config(...) then probe.pipeline.tokenize which re-calls probe.writer.flush_config with the same args"]], "test": "test_the_same_keyword_values_are_still_redundant"}
+{"call": 1, "hits": [[false, "('alpha',)", 1, "src/probe/a.py", "literal-duplication", "identical ordered literal across 2 locations"], [false, "('alpha',)", 1, "src/probe/b.py", "literal-duplication", "identical ordered literal across 2 locations"]], "test": "test_the_same_one_member_literal_in_source_is_still_a_hit"}
+{"call": 1, "hits": [[false, "TOKEN_RE = re.compile(r'^[a-z]+$')", 3, "src/probe/a.py", "recompile-duplication", "constant `TOKEN_RE = re.compile(...)` also defined in ['src/probe/b.py']; canonicalise to one home"], [false, "TOKEN_RE = re.compile(r'^[a-z]+$')", 3, "src/probe/b.py", "recompile-duplication", "constant `TOKEN_RE = re.compile(...)` also defined in ['src/probe/a.py']; canonicalise to one home"]], "test": "test_the_same_regex_constant_name_in_two_files_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_the_same_setup_in_the_constructor_is_not_a_callback_hit"}
+{"call": 1, "hits": [], "test": "test_the_same_shape_outside_an_adapter_directory_is_out_of_scope"}
+{"call": 1, "hits": [[false, "('alpha', 'beta')", 1, "src/probe/a.py", "literal-duplication", "identical ordered literal across 2 locations"], [false, "('alpha', 'beta')", 1, "src/probe/b.py", "literal-duplication", "identical ordered literal across 2 locations"]], "test": "test_the_same_string_list_in_two_files_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_the_same_write_inside_a_try_is_not_a_hit"}
+{"call": 1, "hits": [[false, "value: Set[str] = set()", 1, "src/probe/mod.py", "legacy-typing", "Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type"]], "test": "test_the_set_carve_out_is_only_for_collections_abc_bare-set_"}
+{"call": 1, "hits": [[false, "value: collections.abc.Set[typing.Optional[int]] = frozenset()", 3, "src/probe/mod.py", "legacy-typing", "Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type"]], "test": "test_the_set_carve_out_is_only_for_collections_abc_other-name-same-line_"}
+{"call": 1, "hits": [[false, "value: typing.Set[str] = set()", 3, "src/probe/mod.py", "legacy-typing", "Union/Optional/List/Dict/Tuple/Set/FrozenSet/Type"]], "test": "test_the_set_carve_out_is_only_for_collections_abc_typing-set_"}
+{"call": 1, "hits": [[false, "SECTION = PARSED.get('section', {})", 4, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then SECTION.keys()"]], "test": "test_the_shape_at_module_scope_is_a_hit"}
+{"call": 1, "hits": [[false, "usage = parsed.get('usage', {})", 3, "src/probe/mod.py", "get-container-default-then-method-call", "default {} does not fire for an explicit null, then usage.get()"]], "test": "test_the_shape_inside_a_method_is_a_hit"}
+{"call": 1, "hits": [], "test": "test_the_shim_module_itself_is_not_its_own_consumer"}
+{"call": 1, "hits": [[false, "os._exit(obj._attr)", 3, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"]], "test": "test_the_stdlib_exemption_names_only_documented_names_exempt-and-private-on-one-line_"}
+{"call": 1, "hits": [[false, "value = os._private", 3, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"]], "test": "test_the_stdlib_exemption_names_only_documented_names_other-os-name_"}
+{"call": 1, "hits": [[false, "return obj._attr", 2, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"]], "test": "test_the_stdlib_exemption_names_only_documented_names_private-attribute_"}
+{"call": 1, "hits": [[false, "frame = sys._getframe(2)", 3, "src/probe/mod.py", "leading-underscore-attribute-access", "obj._attr in code or docstring"]], "test": "test_the_stdlib_exemption_names_only_documented_names_sys-getframe_"}
+{"call": 1, "hits": [[false, "from probe.core import Thing", 1, "src/tests/conftest.py", "from-import", "from X import Y outside an __init__.py"]], "test": "test_the_test_tree_is_swept_like_any_other_root"}
+{"call": 1, "hits": [], "test": "test_the_unset_optional_guard_applies_inside_a_wrapper"}
+{"call": 2, "hits": [[false, "def run(path: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ProbeError, declared by probe.load.load via probe.wrap.wrapper"]], "test": "test_the_unset_optional_guard_applies_inside_a_wrapper"}
+{"call": 1, "hits": [], "test": "test_three_wrappers_are_past_the_depth_bound"}
+{"call": 1, "hits": [], "test": "test_truth_test_as_the_whole_condition_is_not_a_hit"}
+{"call": 1, "hits": [[false, "value: typing.Mapping[str, typing.Sequence[int]] | typing.Sequence[str]", 3, "src/probe/mod.py", "typing-deprecated-alias", "typing.Mapping -> collections.abc.Mapping"], [false, "value: typing.Mapping[str, typing.Sequence[int]] | typing.Sequence[str]", 3, "src/probe/mod.py", "typing-deprecated-alias", "typing.Sequence -> collections.abc.Sequence"]], "test": "test_two_aliases_on_one_line_are_two_hits_and_one_alias_used_twice_is_one"}
+{"call": 1, "hits": [], "test": "test_two_copies_in_one_file_are_not_a_cross_file_pair"}
+{"call": 1, "hits": [], "test": "test_two_copies_in_one_file_are_treated_as_a_family"}
+{"call": 1, "hits": [[false, "classes: AlphaError, BetaError", 1, "src/probe/errors.py", "sibling-errors-no-common-base", "2 Error classes co-defined with no shared parent: ['AlphaError', 'BetaError']"]], "test": "test_two_error_classes_with_no_shared_parent_are_a_hit"}
+{"call": 1, "hits": [[false, "def load_a(...) - matches: load_b", 1, "src/probe/a.py", "paired-sibling-helpers", "2 functions share a body across files"], [false, "def load_b(...) - matches: load_a", 1, "src/probe/b.py", "paired-sibling-helpers", "2 functions share a body across files"]], "test": "test_two_functions_with_the_same_body_in_different_files_are_hits"}
+{"call": 1, "hits": [[false, "shared sequence: alpha -> bravo -> charlie -> delta -> echo -> foxtrot -> golf (peer at src/probe/b.py:4:run_second)", 4, "src/probe/a.py", "duplicate-call-sequence", "run_first shares 7 calls in order with src/probe/b.py:run_second"]], "test": "test_two_functions_with_the_same_call_skeleton_are_a_hit"}
+{"call": 1, "hits": [[false, "Pipeline: methods ['tokenize', 'train'] share sink probe.writer.flush_config", 6, "src/probe/mod.py", "duplicate-side-effect-per-target", "Pipeline.{tokenize, train} all call probe.writer.flush_config(self.run_dir)"]], "test": "test_two_methods_flushing_the_same_attribute_are_a_hit"}
+{"call": 1, "hits": [], "test": "test_two_module_level_defs_sharing_a_name_do_not_fire"}
+{"call": 1, "hits": [[false, "def run(path: str) -> int:", 5, "src/probe/use.py", "raises-section-drift", "run: Raises: omits ProbeError, declared by probe.inner.perform via probe.wrap.outer, probe.wrap.inner"]], "test": "test_two_wrappers_are_followed_and_listed_in_call_order"}
+{"call": 1, "hits": [], "test": "test_type_or_file_not_found_error_inside_a_handler_is_not_a_hit_FileNotFoundError_"}
+{"call": 1, "hits": [], "test": "test_type_or_file_not_found_error_inside_a_handler_is_not_a_hit_TypeError_"}
+{"call": 1, "hits": [], "test": "test_without_the_key_a_first_party_callee_is_not_followed"}

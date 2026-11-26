@@ -508,7 +508,7 @@ required, and the tests and CI set it to the catalogue.
 
 ## Task 13: Prove equivalence and close the spec
 
-**Status:** todo
+**Status:** done
 **Priority:** high
 **Complexity:** small
 **Spec Reference:** Implementation 1, 7; Error handling (Equivalence failure); Tests
@@ -518,27 +518,29 @@ fixture comparison stays as a test, and the spec is closed.
 
 **Subtasks:**
 
-- [ ] Run the suite with `AUDITOR_DUMP_FIXTURES=$BASELINE/fixtures-after`. Compare each fixture file with its baseline as a set of `(rule, variant, path, line, evidence, accepted)`
-- [ ] Do the same for the sweep of this repository and for every question's candidates, ids and hashes included. Map the paths of moved files before comparing. Any other difference stops the task as `blocked`, listing it
-- [ ] Commit the fixture comparison as `tests/catalogue/test_equivalence.py`, with the baseline fixture outputs as data under `tests/catalogue/baseline/`. These are small JSON lines recording expected results, not generated data. Then remove the `AUDITOR_DUMP_FIXTURES` hook
-- [ ] Set `version = "0.3.0"` in `pyproject.toml`, marking the breaking change (the bump is made at the list's last task, against `main`)
-- [ ] Set the spec's `**Status:**` to `implemented`
-- [ ] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/default-rule-catalogue/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
+- [x] Run the suite with `AUDITOR_DUMP_FIXTURES=$BASELINE/fixtures-after`. Compare each fixture file with its baseline as a set of `(rule, variant, path, line, evidence, accepted)`
+- [x] Do the same for the sweep of this repository and for every question's candidates, ids and hashes included. Map the paths of moved files before comparing. Any other difference stops the task as `blocked`, listing it
+- [x] Commit the fixture comparison as `tests/catalogue/test_equivalence.py`, with the baseline fixture outputs as data under `tests/catalogue/baseline/`. These are small JSON lines recording expected results, not generated data. Then remove the `AUDITOR_DUMP_FIXTURES` hook
+- [x] Set `version = "0.3.0"` in `pyproject.toml`, marking the breaking change (the bump is made at the list's last task, against `main`)
+- [x] Set the spec's `**Status:**` to `implemented`
+- [x] Save the full test run for the run order's merge gate, from the repository root of this worktree: `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); LOG="$MAIN/logs/rro/default-rule-catalogue/tasks-1/final-tests.log"; mkdir -p "$(dirname "$LOG")"; uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider 2>&1 | tee "$LOG"; [ "${PIPESTATUS[0]}" -eq 0 ] && echo 'all selected test directories passed' | tee -a "$LOG"`, and the log ends with `all selected test directories passed`
 
 **Acceptance Criteria:**
 
-- [ ] Every comparison matches
+- [x] Every comparison matches
 
 **Definition of Done:**
 
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
-- [ ] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
-- [ ] `uv run --group docs mkdocs build --strict` exits 0
+- [x] `pre-commit run --all-files` exits 0
+- [x] `pre-commit run auditme-all --hook-stage manual --all-files` exits 0
+- [x] `uv run pytest tests claude/skills/auditme-project-setup/tests -q -p no:cacheprovider` passes
+- [x] `uv run --group docs mkdocs build --strict` exits 0
 
 **Notes:**
 
 - Depends on Tasks 1 to 12
 - Before committing, check `git diff --cached --stat`. If the baseline files exceed 1 MB in total, stop as `blocked`, because they would then be data rather than a record
-
----
+- Done on 2026-11-26. Fixtures: every `run_check` call of the 608 non-registry baseline calls gives the same hits after the move. The baseline's `test_registry.py` calls are not carried over, because Task 12 replaced those tests. The comparison is `tests/catalogue/test_equivalence.py`, which runs the rule tests with `tests/catalogue/recorder.py` (a pytest plugin that records each call, and registers the Phase B questions as `tests/conftest.py` does) and compares with `tests/catalogue/baseline/fixtures.jsonl`. The `AUDITOR_DUMP_FIXTURES` hook is removed from `tests/checker/conftest.py`
+- Sweep and candidates: the baseline sweep of the current tree differs, because Tasks 3 to 12 changed the source that it audits (for example a check renamed from `check_ruff` to `check` leaves `subprocess-without-memoisation`'s name-prefix signal, and deleting `phaseb/errors.py` ends `layer-has-domain-error-raises-stdlib`'s precondition in `phaseb/batches.py`). So the catalogue was run over the Task 1 commit's tree (`git archive 0a6d3c9`) instead: its sweep matches the baseline except for `tests/checker/conftest.py`, which the baseline captured before the dump hook was reformatted, and the candidates of every question are identical (ids, hashes and payloads) except one Doc4 payload line span in that same file. Nothing else differs
+- `auditor rules test` run on its own fails 88 tests that need the Phase B registry, which only `tests/conftest.py` fills; the recorder fills it for the equivalence run. Tests under `tests/catalogue/test_catalogue.py` need the `auditor.testing` plugin that `tests/checker/conftest.py` registers, so run them with `tests/checker` or the whole `tests`
+- The full test run is saved at `/Users/simonb/src/auditor/logs/rro/default-rule-catalogue/tasks-1/final-tests.log` and ends with `all selected test directories passed`
